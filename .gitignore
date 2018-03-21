@@ -1,0 +1,13 @@
+##########
+#
+##########
+out/
+*.o
+third-party/build/
+
+###############
+# GLOBAL XCODE
+###############
+*xcuserdata*
+*xcworkspacedata*
+*xcworkspace
