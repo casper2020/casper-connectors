@@ -53,6 +53,7 @@ namespace ev
             void               SetJSON_API_URL (const std::string& a_url);
             const std::string& JSON_API_URL    () const;
             const std::string  GetValue        (const std::string& a_key, const std::string& a_if_empty) const;
+            const char*        GetValueCstr    (const char* a_key, const char* a_if_empty) const;
             
         public: // Method(s) / Function(s)
             
@@ -65,7 +66,7 @@ namespace ev
         };
         
         /**
-         * @return Search for a \link std::string \link value for a key.
+         * @brief Search for a \link std::string \link value for a key.
          *
          * @param a_key
          * @param a_if_empty
@@ -79,6 +80,23 @@ namespace ev
                 return a_if_empty;
             }
             return it->second;
+        }
+        
+        /**
+         * @brief Search for a \link std::string \link value for a key.
+         *
+         * @param a_key
+         * @param a_if_empty
+         *
+         * @return The \link std::string \link for the provided key or \link a_if_empty \link if not found.
+         */
+        inline const char* Session::GetValueCstr (const char* a_key, const char* a_if_empty) const
+        {
+            const auto it = data_.payload_.find(a_key);
+            if ( data_.payload_.end() == it ) {
+                return a_if_empty;
+            }
+            return it->second.c_str();
         }
         
         /**
