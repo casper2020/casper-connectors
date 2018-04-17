@@ -225,8 +225,10 @@ void ev::scheduler::Scheduler::Stop (ev::scheduler::Scheduler::FinalizationCallb
     clients_to_objects_map_.clear();
     object_to_client_map_.clear();
     ids_to_object_map_.clear();
-    
-    a_finalization_callback();
+
+    if ( nullptr != a_finalization_callback ) {
+      a_finalization_callback();
+    }
     
     OSALITE_DEBUG_TRACE("ev_scheduler", "<~ Stop(...)");
 }
