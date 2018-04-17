@@ -81,6 +81,7 @@ POSTGRESQL_HEADERS_SERVER_DIR  := $(shell $(PG_CONFIG) --includedir-server)
 POSTGRESQL_HEADERS_OTHER_C_DIR := $(shell $(PG_CONFIG) --pkgincludedir)
 
 EV_SRC :=                           \
+									./src/ev/logger_v2.cc                                                         \
 									./src/ev/signals.cc                                                           \
 									./src/ev/device.cc                                                            \
 									./src/ev/error.cc                                                             \

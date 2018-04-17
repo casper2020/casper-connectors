@@ -221,8 +221,8 @@ namespace ev
         std::set<Client*>              clients_;
         std::map<std::string, ssize_t> counter_;
         std::map<std::string, Token*>  tokens_;
-        char*                          buffer_;
-        size_t                         buffer_capacity_;
+        static char*                   s_buffer_;
+        static size_t                  s_buffer_capacity_;
         
     public: // Initialization / Release API - Method(s) / Function(s)
         
@@ -259,8 +259,11 @@ namespace ev
     inline void LoggerV2::Startup  ()
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        buffer_          = new char[1024];
-        buffer_capacity_ = nullptr != buffer_ ? 1024 : 0;
+	if ( nullptr != s_buffer_ ) {
+            delete [] s_buffer_;
+        }
+	s_buffer_          = new char[1024];
+        s_buffer_capacity_ = nullptr != s_buffer_ ? 1024 : 0;
     }
     
     /**
@@ -273,8 +276,9 @@ namespace ev
             delete it.second;
         }
         tokens_.clear();
-        if ( nullptr != buffer_ ) {
-            delete [] buffer_;
+        if ( nullptr != s_buffer_ ) {
+            delete [] s_buffer_;
+	    s_buffer_ = nullptr;
         }
     }
     
@@ -431,15 +435,15 @@ namespace ev
         int aux = INT_MAX;
         // ... try at least 2 times to construct the output message ...
         for ( uint8_t attempt = 0 ; attempt < 2 ; ++attempt ) {
-            buffer_[0] = '\0';
+            s_buffer_[0] = '\0';
             va_list args;
             va_start(args, a_format);
-            aux = vsnprintf(buffer_, buffer_capacity_ - 1, a_format, args);
+            aux = vsnprintf(s_buffer_, s_buffer_capacity_ - 1, a_format, args);
             va_end(args);
             if ( aux < 0 ) {
                 // ... an error has occurred ...
                 break;
-            } else if ( aux > static_cast<int>(buffer_capacity_) ) {
+            } else if ( aux > static_cast<int>(s_buffer_capacity_) ) {
                 // ... realloc buffer ...
                 if ( true == EnsureBufferCapacity(static_cast<size_t>(aux + 1)) ) {
                     // ... last attempt to write to buffer ...
@@ -454,13 +458,13 @@ namespace ev
             }
         }
         // ... ready to output the message ? ...
-        if ( aux > 0 && static_cast<size_t>(aux) < buffer_capacity_ ) {
+        if ( aux > 0 && static_cast<size_t>(aux) < s_buffer_capacity_ ) {
             auto file = tokens_.find(a_token)->second->fp_;
             // ... output message ...
             fprintf(tokens_.find(a_token)->second->fp_, "%s,%s",
                     cc::UTCTime::NowISO8601WithTZ().c_str(), a_client->prefix()
             );
-            fprintf(tokens_.find(a_token)->second->fp_, "%s\n", buffer_);
+            fprintf(tokens_.find(a_token)->second->fp_, "%s\n", s_buffer_);
             // ... flush ...
             if ( stdout != file && stderr != file ) {
                 fflush(file);
@@ -507,25 +511,25 @@ namespace ev
     inline bool LoggerV2::EnsureBufferCapacity (const size_t& a_capacity)
     {
         // ... buffer is allocated and has enough capacity? ...
-        if ( buffer_capacity_ >= a_capacity ) {
+        if ( s_buffer_capacity_ >= a_capacity ) {
             // ... good to go ...
             return true;
         }
         // ... if buffer is not allocated ...
-        if ( nullptr != buffer_ ) {
-            delete [] buffer_;
+        if ( nullptr != s_buffer_ ) {
+            delete [] s_buffer_;
         }
         // ... try to allocate it now ...
-        buffer_ = new char[a_capacity];
-        if ( nullptr == buffer_ ) {
+        s_buffer_ = new char[a_capacity];
+        if ( nullptr == s_buffer_ ) {
             // ... out of memory ...
-            buffer_capacity_ = 0;
+            s_buffer_capacity_ = 0;
         } else {
             // ... we're good to go ....
-            buffer_capacity_ = a_capacity;
+            s_buffer_capacity_ = a_capacity;
         }
         // ... we're good to go if ...
-        return buffer_capacity_ == a_capacity;
+        return ( a_capacity == s_buffer_capacity_ );
     }
     
 } // end of namespace 'ev'
