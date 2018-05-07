@@ -211,6 +211,7 @@ void ev::loop::Bridge::Stop (int a_sig_no)
     }
     
     if ( nullptr != event_base_ ) {
+        event_base_loopbreak(event_base_);
         event_base_free(event_base_);
         event_base_ = nullptr;
         // ... should wait until loop breaks?
@@ -314,7 +315,7 @@ void ev::loop::Bridge::Loop ()
     
 #define EVLOOP_NO_EXIT_ON_EMPTY 0x04
     
-    while ( false == aborted_ ) {
+    while ( false == aborted_ && nullptr != event_base_ ) {
         
         int rv = event_base_loop(event_base_, EVLOOP_NO_EXIT_ON_EMPTY);
         OSALITE_DEBUG_TRACE("ev_bridge", "~> event_base_loop=%d!", rv);
@@ -520,17 +521,19 @@ void ev::loop::Bridge::SocketCallback (evutil_socket_t /* a_fd */, short a_flags
         }
         
         // ... renew read intent ...
-        const int del_rc = event_del(self->socket_event_);
-        if ( 0 != del_rc ) {
-            throw ev::Exception("Error while deleting socket event event: code %d!", del_rc);
-        }
-        const int assign_rv = event_assign(self->socket_event_, self->event_base_, self->socket_.GetFileDescriptor(), EV_READ, ev::loop::Bridge::SocketCallback, self);
-        if ( 0 != assign_rv ) {
-            throw ev::Exception("Error while assigning socket event: code %d!", assign_rv);
-        }
-        const int add_rv = event_add(self->socket_event_, nullptr);
-        if ( 0 != add_rv ) {
-            throw ev::Exception("Error while adding socket event: code %d!", add_rv);
+        if ( nullptr != self->socket_event_ ) {
+            const int del_rc = event_del(self->socket_event_);
+            if ( 0 != del_rc ) {
+                throw ev::Exception("Error while deleting socket event event: code %d!", del_rc);
+            }
+            const int assign_rv = event_assign(self->socket_event_, self->event_base_, self->socket_.GetFileDescriptor(), EV_READ, ev::loop::Bridge::SocketCallback, self);
+            if ( 0 != assign_rv ) {
+                throw ev::Exception("Error while assigning socket event: code %d!", assign_rv);
+            }
+            const int add_rv = event_add(self->socket_event_, nullptr);
+            if ( 0 != add_rv ) {
+                throw ev::Exception("Error while adding socket event: code %d!", add_rv);
+            }
         }
         
     } catch (const ev::Exception& a_ev_exception) {

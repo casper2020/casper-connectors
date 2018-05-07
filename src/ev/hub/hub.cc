@@ -494,7 +494,9 @@ void ev::hub::Hub::Loop ()
     running_  = true;
     handlers_ = { one_shot_requests_handler_, keep_alive_requests_handler_ };
     
-#define EVLOOP_NO_EXIT_ON_EMPTY 0x04
+#ifndef EVLOOP_NO_EXIT_ON_EMPTY
+    #define EVLOOP_NO_EXIT_ON_EMPTY 0x04
+#endif
     
     while ( false == aborted_ ) {
 
