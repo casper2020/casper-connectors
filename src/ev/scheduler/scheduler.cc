@@ -212,16 +212,14 @@ void ev::scheduler::Scheduler::Stop (ev::scheduler::Scheduler::FinalizationCallb
         hub_->Stop(a_sig_no);
         delete hub_;
     }
-    while ( objects_.size() > 0 ) {
-        delete objects_.front();
-        objects_.pop();
-    }
+
     for ( auto vector : { &zombies_, &detached_ } ) {
         for ( auto object : *vector ) {
             delete object;
         }
         vector->clear();
     }
+    
     clients_to_objects_map_.clear();
     object_to_client_map_.clear();
     ids_to_object_map_.clear();

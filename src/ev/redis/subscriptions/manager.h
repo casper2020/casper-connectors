@@ -109,6 +109,7 @@ namespace ev
             private: // Static Data
                 
                 static ::ev::redis::subscriptions::Request*   redis_subscription_;
+                static bool                                   redis_subscription_used_;
                 static ::ev::Bridge*                          bridge_;
                 static int64_t                                reconnect_timeout_;
                 static bool                                   recovery_mode_;

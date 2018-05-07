@@ -26,6 +26,7 @@
 #include <algorithm> // std::find_if
 
 ::ev::redis::subscriptions::Request* ev::redis::subscriptions::Manager::redis_subscription_      = nullptr;
+bool                                 ev::redis::subscriptions::Manager::redis_subscription_used_ = false;
 ::ev::Bridge*                        ev::redis::subscriptions::Manager::bridge_                  = nullptr;
 int64_t                              ev::redis::subscriptions::Manager::reconnect_timeout_       = 2000;  // 2s
 bool                                 ev::redis::subscriptions::Manager::recovery_mode_           = false;
@@ -61,6 +62,9 @@ void ev::redis::subscriptions::Manager::Startup (const ::ev::Loggable::Data& a_l
     redis_subscription_ = new ::ev::redis::subscriptions::Request(a_loggable_data,
                                                                   [this](::ev::scheduler::Subscription* a_subscription) {
                                                                       ::ev::scheduler::Scheduler::GetInstance().Push(this, a_subscription);
+                                                                      if ( redis_subscription_ == a_subscription && false == redis_subscription_used_ ) {
+                                                                          redis_subscription_used_ = true;
+                                                                      }
                                                                   },
                                                                   std::bind(&ev::redis::subscriptions::Manager::OnREDISReplyReceived, this, std::placeholders::_1),
                                                                   std::bind(&ev::redis::subscriptions::Manager::OnREDISDisconnected , this, std::placeholders::_1),
@@ -98,8 +102,11 @@ void ev::redis::subscriptions::Manager::Shutdown ()
 
     ::ev::scheduler::Scheduler::GetInstance().Unregister(this);
     if ( nullptr != redis_subscription_ ) {
-        delete redis_subscription_;
-        redis_subscription_ = nullptr;
+        if ( false == redis_subscription_used_ ) {
+            delete redis_subscription_;
+        }
+        redis_subscription_      = nullptr;
+        redis_subscription_used_ = false;
     }
     
     OSALITE_DEBUG_TRACE("ev_subscriptions", "<~ Shutdown()");

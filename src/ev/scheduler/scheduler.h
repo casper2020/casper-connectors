@@ -69,7 +69,6 @@ namespace ev
             
         protected: // Data Type(s)
             
-            typedef std::queue<scheduler::Object*>        ObjectsQueue;
             typedef std::vector<scheduler::Object*>       ObjectsVector;
             typedef std::map<Client*, ObjectsVector*>     ClientsToObjectMap;
             typedef std::map<scheduler::Object*, Client*> ObjectsToClientMap;
@@ -82,7 +81,6 @@ namespace ev
             
         protected: // Data
             
-            ObjectsQueue                       objects_;
             ClientsToObjectMap                 clients_to_objects_map_;
             ObjectsToClientMap                 object_to_client_map_;
             IdsToObjectMap                     ids_to_object_map_;
