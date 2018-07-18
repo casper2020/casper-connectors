@@ -63,7 +63,7 @@ TARGET_LC:=$(shell echo $(TARGET) | tr A-Z a-z)
 # validate target
 ifeq (release, $(TARGET_LC))
   #
-else 
+else
   ifeq (debug, $(TARGET_LC))
     #
   else
@@ -159,7 +159,7 @@ endif
 
 INCLUDE_DIRS :=                     \
 									-I src                                                                       \
-									-I ../osal/src                                                               \
+									-I ../casper-osal/src                                                               \
 									-I $(HIREDIS_HEADERS_DIR)                                                    \
 									-I $(JSONCPP_HEADERS_DIR)                                                    \
 									-I $(POSTGRESQL_HEADERS_DIR)                                                 \
@@ -201,7 +201,7 @@ endif
 
 ifneq (static, $(LIB_TYPE))
 $(error not ready to build $(LIB_TYPE) library)
-else 
+else
   CFLAGS += -static
   CXXFLAGS += -static
 endif

@@ -935,7 +935,7 @@
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SYMROOT = "$(SRCROOT)/out/xcode/$(CONFIGURATION)";
-				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/src $(SRCROOT)/../osal/src $(SRCROOT)/../jsoncpp/dist $(SRCROOT)/../cppcodec $(SRCROOT)/../zlib $(SRCROOT)/../beanstalk-client $(SRCROOT)/../ /usr/local/include /usr/local/opt/openssl/include /usr/local/opt/icu4c/include";
+				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/src $(SRCROOT)/../casper-osal/src $(SRCROOT)/../jsoncpp/dist $(SRCROOT)/../cppcodec $(SRCROOT)/../zlib $(SRCROOT)/../beanstalk-client $(SRCROOT)/../ /usr/local/include /usr/local/opt/openssl/include /usr/local/opt/icu4c/include";
 			};
 			name = Debug;
 		};
@@ -956,7 +956,7 @@
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SYMROOT = "$(SRCROOT)/out/xcode/$(CONFIGURATION)";
-				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/src $(SRCROOT)/../osal/src $(SRCROOT)/../jsoncpp/dist $(SRCROOT)/../cppcodec $(SRCROOT)/../zlib $(SRCROOT)/../beanstalk-client $(SRCROOT)/../ /usr/local/include /usr/local/opt/openssl/include /usr/local/opt/icu4c/include";
+				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/src $(SRCROOT)/../casper-osal/src $(SRCROOT)/../jsoncpp/dist $(SRCROOT)/../cppcodec $(SRCROOT)/../zlib $(SRCROOT)/../beanstalk-client $(SRCROOT)/../ /usr/local/include /usr/local/opt/openssl/include /usr/local/opt/icu4c/include";
 			};
 			name = Release;
 		};
