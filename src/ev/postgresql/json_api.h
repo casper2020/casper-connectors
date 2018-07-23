@@ -122,8 +122,8 @@ namespace ev
             
             URIs         uris_;                 //!< The required URIs.
             std::string  user_id_;              //!< Current user id.
-            std::string  company_id_;           //!< Current company id.
-            std::string  company_schema_;       //!< Current company schema.
+            std::string  entity_id_;            //!< Current entity id.
+            std::string  entity_schema_;        //!< Current entity schema.
             std::string  sharded_schema_;       //!< Current sharded schema.
             std::string  accounting_schema_;    //!< Current accounting schema.
             std::string  accounting_prefix_;    //!< Current accounting table prefix. 
@@ -163,11 +163,11 @@ namespace ev
             void               SetUserId            (const std::string& a_id);
             const std::string& GetUserId            () const;
 
-            void               SetCompanyId         (const std::string& a_id);
-            const std::string& GetCompanyId         () const;
+            void               SetEntityId          (const std::string& a_id);
+            const std::string& GetEntityId          () const;
 
-            void               SetCompanySchema     (const std::string& a_schema);
-            const std::string& GetCompanySchema     () const;
+            void               SetEntitySchema      (const std::string& a_schema);
+            const std::string& GetEntitySchema      () const;
 
             void               SetShardedSchema     (const std::string& a_schema);
             const std::string& GetShardedSchema     () const;
@@ -214,45 +214,45 @@ namespace ev
             return user_id_;
         }        
         /**
-         * @brief Set the company ID
+         * @brief Set the entity ID
          *
-         * @param a_id the company ID
+         * @param a_id
          */
-        inline void JSONAPI::SetCompanyId (const std::string& a_id)
+        inline void JSONAPI::SetEntityId (const std::string& a_id)
         {
-            company_id_ = a_id;
+            entity_id_ = a_id;
         }
 
         /**
-         * @return Company ID
+         * @return Entity ID
          */
-        inline const std::string& JSONAPI::GetCompanyId () const
+        inline const std::string& JSONAPI::GetEntityId () const
         {
-            return company_id_;
+            return entity_id_;
         }
         
         /**
-         * @brief Set DB company schema name.
+         * @brief Set entity schema name.
          *
-         * @param a_schema The company specific schema name
+         * @param a_schema.
          */
-        inline void JSONAPI::SetCompanySchema (const std::string& a_schema)
+        inline void JSONAPI::SetEntitySchema (const std::string& a_schema)
         {
-            company_schema_ = a_schema;
+            entity_schema_ = a_schema;
         }
         
         /**
-         * @return Company schema name.
+         * @return Entity schema name.
          */
-        inline const std::string& JSONAPI::GetCompanySchema () const
+        inline const std::string& JSONAPI::GetEntitySchema () const
         {
-            return company_schema_;
+            return entity_schema_;
         }
         
         /**
          * @brief Set DB sharded schema name.
          *
-         * @param a_schema The DB schema for partially sharded companies (public for unsharded, same as company_schema for sharded)
+         * @param a_schema The DB schema for partially sharded companies (public for unsharded, same as entity_schema for sharded)
          */
         inline void JSONAPI::SetShardedSchema (const std::string& a_schema)
         {

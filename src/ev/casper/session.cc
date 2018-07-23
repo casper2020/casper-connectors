@@ -70,9 +70,8 @@ void ev::casper::Session::Patch (Json::Value& a_object) const
 {
     const std::map<std::string, std::string> patchables = {
         { "user_id"          , GetValue("user_id"          , "") },
-        { "company_id"       , GetValue("company_id"       , "") },
         { "entity_id"        , GetValue("entity_id"        , "") },
-        { "company_schema"   , GetValue("company_schema"   , "") },
+        { "entity_schema"    , GetValue("entity_schema"    , "") },
         { "sharded_schema"   , GetValue("sharded_schema"   , "") },
         { "subentity_id"     , GetValue("subentity_id"     , "") },
         { "accounting_schema", GetValue("accounting_schema", "") },
