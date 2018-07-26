@@ -125,8 +125,8 @@ namespace ev
             std::string  entity_id_;            //!< Current entity id.
             std::string  entity_schema_;        //!< Current entity schema.
             std::string  sharded_schema_;       //!< Current sharded schema.
-            std::string  accounting_schema_;    //!< Current accounting schema.
-            std::string  accounting_prefix_;    //!< Current accounting table prefix. 
+            std::string  subentity_schema_;     //!< Current subentity schema.
+            std::string  subentity_prefix_;     //!< Current subentity table prefix.
             
         public: // Constructor(s) / Destructor
             
@@ -172,11 +172,11 @@ namespace ev
             void               SetShardedSchema     (const std::string& a_schema);
             const std::string& GetShardedSchema     () const;
             
-            void               SetAccountingSchema  (const std::string& a_schema);
-            const std::string& GetAccountingSchema  () const;
+            void               SetSubentitySchema   (const std::string& a_schema);
+            const std::string& GetSubentitySchema   () const;
             
-            void               SetAccountingPrefix  (const std::string& a_prefix);
-            const std::string& GetAccountingPrefix  () const;
+            void               SetSubentityPrefix   (const std::string& a_prefix);
+            const std::string& GetSubentityPrefix   () const;
 
 
         protected:
@@ -268,36 +268,36 @@ namespace ev
         }
 
         /**
-         * @brief Set the DB accounting schema 
+         * @brief Set the DB subentity schema
          *
-         * @param The sharding schema for accounting tables and functions
+         * @param The sharding schema for subentity tables and functions
          */
-        inline void  JSONAPI::SetAccountingSchema (const std::string& a_schema)
+        inline void  JSONAPI::SetSubentitySchema (const std::string& a_schema)
         {
-            accounting_schema_ = a_schema;
+            subentity_schema_ = a_schema;
         }
 
-        inline const std::string& JSONAPI::GetAccountingSchema () const
+        inline const std::string& JSONAPI::GetSubentitySchema () const
         {
-            return accounting_schema_;
+            return subentity_schema_;
         }
 
         /**
          * @brief Set DB table prefix.
          *
-         * @param a_prefix The accounting prefix for accounting functions
+         * @param a_prefix The subentity prefix for subentity functions
          */
-        inline void JSONAPI::SetAccountingPrefix (const std::string& a_prefix)
+        inline void JSONAPI::SetSubentityPrefix (const std::string& a_prefix)
         {
-            accounting_prefix_ = a_prefix;
+            subentity_prefix_ = a_prefix;
         }
         
         /**
          * @return DB schema name.
          */
-        inline const std::string& JSONAPI::GetAccountingPrefix () const
+        inline const std::string& JSONAPI::GetSubentityPrefix () const
         {
-            return accounting_prefix_;
+            return subentity_prefix_;
         }
 
     } // end of namespace postgres
