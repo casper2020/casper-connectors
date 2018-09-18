@@ -57,7 +57,8 @@ namespace ev
             
         public: // Method(s) / Function(s)
             
-            void               Patch           (Json::Value& a_source) const;
+            void               Patch           (Json::Value& a_object) const;
+            void               Patch           (std::string& a_string) const;
 
         protected: // Method(s) / Function(s)
             

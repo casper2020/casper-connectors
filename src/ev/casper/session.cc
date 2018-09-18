@@ -70,18 +70,44 @@ void ev::casper::Session::Patch (Json::Value& a_object) const
 {
     const std::map<std::string, std::string> patchables = {
         { "user_id"          , GetValue("user_id"          , "") },
-        { "company_id"       , GetValue("company_id"       , "") },
         { "entity_id"        , GetValue("entity_id"        , "") },
-        { "company_schema"   , GetValue("company_schema"   , "") },
+        { "entity_schema"    , GetValue("entity_schema"    , "") },
         { "sharded_schema"   , GetValue("sharded_schema"   , "") },
         { "subentity_id"     , GetValue("subentity_id"     , "") },
-        { "accounting_schema", GetValue("accounting_schema", "") },
-        { "accounting_prefix", GetValue("accounting_prefix", "") },
+        { "subentity_schema" , GetValue("subentity_schema" , "") },
+        { "subentity_prefix" , GetValue("subentity_prefix" , "") },
         { "refresh_token"    , GetValue("refresh_token"    , "") },
         { "access_token"     , data_.token_                      }
     };
     
     Patch("", a_object, patchables);
+}
+
+/**
+ * @brief Patch a string with session data.
+ *
+ * @param a_string
+ */
+void ev::casper::Session::Patch (std::string& a_string) const
+{
+    const std::map<std::string, std::string> patchables = {
+        { "<user_id>"          , GetValue("user_id"          , "") },
+        { "<entity_id>"        , GetValue("entity_id"        , "") },
+        { "<entity_schema>"    , GetValue("entity_schema"    , "") },
+        { "<sharded_schema>"   , GetValue("sharded_schema"   , "") },
+        { "<subentity_id>"     , GetValue("subentity_id"     , "") },
+        { "<subentity_schema>" , GetValue("subentity_schema" , "") },
+        { "<subentity_prefix>" , GetValue("subentity_prefix" , "") },
+        { "<refresh_token>"    , GetValue("refresh_token"    , "") },
+        { "<access_token>"     , data_.token_                      }
+    };
+       
+    for ( auto patcheable : patchables ) {
+        for ( std::string::size_type i = 0 ; ( i = a_string.find(patcheable.first, i) ) != std::string::npos ; ) {
+            a_string.replace(i, patcheable.first.length(), patcheable.second);
+            i += patcheable.second.length();
+        }
+    }
 }
 
 #ifdef __APPLE__
