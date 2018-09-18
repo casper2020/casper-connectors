@@ -343,6 +343,29 @@ void ev::scheduler::Scheduler::SetClientTimeout (ev::scheduler::Scheduler::Clien
     );
 }
 
+/**
+ * Execute a callback on main thread.
+ *
+ * @param a_client
+ * @param a_callback
+ * @param a_timeout
+ */
+void ev::scheduler::Scheduler::CallOnMainThread (Client* a_client, std::function<void()> a_callback, int64_t a_timeout_ms)
+{
+    bridge_ptr_->CallOnMainThread(
+                                  /* a_callback */
+                                  [this, a_client, a_callback] () {
+                                      const auto it = clients_to_objects_map_.find(a_client);
+                                      if ( clients_to_objects_map_.end() == it ) {
+                                          return;
+                                      }
+                                      a_callback();
+                                  },
+                                  /* a_timeout_ms */
+                                  a_timeout_ms
+    );
+}
+
 #ifdef __APPLE__
 #pragma mark -
 #endif

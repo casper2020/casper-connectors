@@ -1,7 +1,7 @@
 /**
  * @file consumer.cc
  *
- * Copyright (c) 2011-2018 Cloudware S.A. All rights reserved.
+ * Copyright (c) 2010-2017 Cloudware S.A. All rights reserved.
  *
  * This file is part of casper-connectors.
  *
@@ -19,30 +19,20 @@
  * along with casper.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ev/beanstalk/consumer.h"
+#include "ev/loop/beanstalkd/consumer.h"
 
-#include "ev/exception.h"
+
 
 /**
  * @brief Default constructor.
- *
- * @param a_config
  */
-ev::beanstalk::Consumer::Consumer (const ev::beanstalk::Config& a_config)
+ev::loop::beanstalkd::Consumer::Consumer ()
 {
-    client_ = new Beanstalk::Client(a_config.host_, a_config.port_, a_config.timeout_);
-    for ( auto it : a_config.tubes_ ) {
-        if ( it.length() > 0 && false == client_->watch(it) ) {
-            throw ev::Exception("Unable to assign beanstalk tube named '%s'!", it.c_str());
-        }
-    }
-    (void)client_->ignore("default");
 }
 
 /**
  * @brief Destructor.
  */
-ev::beanstalk::Consumer::~Consumer ()
+ev::loop::beanstalkd::Consumer::~Consumer ()
 {
-    delete client_;
 }

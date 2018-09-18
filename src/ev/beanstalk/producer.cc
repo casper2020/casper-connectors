@@ -31,10 +31,17 @@
 ev::beanstalk::Producer::Producer (const ev::beanstalk::Config& a_config)
 {
     client_ = new Beanstalk::Client(a_config.host_, a_config.port_, a_config.timeout_);
-    if ( a_config.tube_.length() > 0 && false == client_->use(a_config.tube_) ) {
-        throw ev::Exception("Unable to assign beanstalk tube named '%s'!", a_config.tube_.c_str());
+    if ( a_config.tubes_.size() == 0 ) {
+        throw ev::Exception("Producer does not have tubes!");
+    } else if ( a_config.tubes_.size() > 1) {
+        throw ev::Exception("Producer does not support multiple tubes!");
     }
-    (void)client_->ignore("default");
+    if ( false == client_->use(*a_config.tubes_.begin()) ) {
+        throw ev::Exception("Unable to assign beanstalk tube named '%s'!", (*a_config.tubes_.begin()).c_str());
+    }
+    if ( 0 != strcasecmp((*a_config.tubes_.begin()).c_str(), "default") ) {
+        (void)client_->ignore("default");
+    }
 }
 
 /**
@@ -46,7 +53,7 @@ ev::beanstalk::Producer::Producer (const ev::beanstalk::Config& a_config)
 ev::beanstalk::Producer::Producer (const ev::beanstalk::Config& a_config, const std::string& a_tube)
 {
     client_ = new Beanstalk::Client(a_config.host_, a_config.port_, a_config.timeout_);
-    if ( a_config.tube_.length() > 0 && false == client_->use(a_tube) ) {
+    if ( false == client_->use(a_tube) ) {
         throw ev::Exception("Unable to assign beanstalk tube named '%s'!", a_tube.c_str());
     }
     if ( 0 != strcasecmp(a_tube.c_str(), "default") ) {

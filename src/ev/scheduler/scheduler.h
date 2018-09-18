@@ -105,6 +105,8 @@ namespace ev
             
             void SetClientTimeout (Client* a_client, uint64_t a_ms, TimeoutCallback a_callback);
             
+            void CallOnMainThread (Client* a_client, std::function<void()> a_callback,int64_t a_timeout_ms = 0);
+            
         public:
             
             const bool IsInitialized () const;

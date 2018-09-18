@@ -23,7 +23,7 @@
 #ifndef NRS_EV_BEANSTALK_PRODUCER_H_
 #define NRS_EV_BEANSTALK_PRODUCER_H_
 
-#include "ev/beanstalk/types.h"
+#include "ev/beanstalk/config.h"
 
 #include "beanstalk.hpp"
 

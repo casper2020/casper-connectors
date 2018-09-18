@@ -37,7 +37,7 @@ namespace ev
             std::string           host_;             //!< host
             int                   port_;             //!< port number
             float                 timeout_;          //!< in seconds
-            std::string           tube_;             //!< tube name
+            std::set<std::string> tubes_;            //!< tubes
             std::set<std::string> sessionless_tubes_;
             
             inline void operator=(const _Config& a_config)
@@ -45,7 +45,9 @@ namespace ev
                 host_    = a_config.host_;
                 port_    = a_config.port_;
                 timeout_ = a_config.timeout_;
-                tube_    = a_config.tube_;
+                for ( auto it : a_config.tubes_ ) {
+                    tubes_.insert(it);
+                }
                 for ( auto it : sessionless_tubes_ ) {
                     sessionless_tubes_.insert(it);
                 }
