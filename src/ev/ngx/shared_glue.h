@@ -29,7 +29,7 @@
 #include "ev/object.h"
 #include "ev/ngx/includes.h"
 
-#include "ev/beanstalk/types.h"
+#include "ev/beanstalk/config.h"
 
 #include "osal/condition_variable.h"
 

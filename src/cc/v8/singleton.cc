@@ -87,6 +87,7 @@ void cc::v8::Singleton::Initialize ()
     if ( nullptr != isolate_ ) {
         throw std::runtime_error("v8 already isolated!");
     }
+    
     create_params_.array_buffer_allocator = ::v8::ArrayBuffer::Allocator::NewDefaultAllocator();
     isolate_                              = ::v8::Isolate::New(create_params_);
 }
