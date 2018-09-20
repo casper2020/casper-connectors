@@ -42,7 +42,7 @@ ev::loop::beanstalkd::Job::Job (const Config& a_config)
 {
     id_        = 0;
     validity_  = 0;
-    transient_ = true;
+    transient_ = config_.transient_;
     
     ev::scheduler::Scheduler::GetInstance().Register(this);
     
@@ -109,7 +109,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     id_       = a_id; // beanstalkd number id
     channel_   = redis_channel.asString();
     validity_  = a_payload.get("validity", 3600).asInt64();
-    transient_ = a_payload.get("transient", true).asBool();
+    transient_ = a_payload.get("transient", config_.transient_).asBool();
     response_  = Json::Value::null;
     
     //

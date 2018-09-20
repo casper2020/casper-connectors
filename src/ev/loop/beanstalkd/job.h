@@ -61,6 +61,7 @@ namespace ev
                     
                     const std::string             service_id_;
                     const std::string             tube_;
+                    const bool                    transient_;
                     const ev::Loggable::Data&     loggable_data_ref_;
                     const FatalExceptionCallback& fatal_exception_callback_;
                     
@@ -68,17 +69,17 @@ namespace ev
                     
                     Config() = delete;
                     
-                    Config (const std::string& a_service_id, const std::string& a_tube,
+                    Config (const std::string& a_service_id, const std::string& a_tube, const bool a_transient,
                             const ev::Loggable::Data& a_loggable_data_ref, const FatalExceptionCallback& a_fatal_exception_callback)
-                    : service_id_(a_service_id), tube_(a_tube),
-                    loggable_data_ref_(a_loggable_data_ref), fatal_exception_callback_(a_fatal_exception_callback)
+                        : service_id_(a_service_id), tube_(a_tube), transient_(a_transient),
+                          loggable_data_ref_(a_loggable_data_ref), fatal_exception_callback_(a_fatal_exception_callback)
                     {
                         /* empty */
                     }
                     
                     Config (const Config& a_config)
-                    : service_id_(a_config.service_id_), tube_(a_config.tube_),
-                    loggable_data_ref_(a_config.loggable_data_ref_), fatal_exception_callback_(a_config.fatal_exception_callback_)
+                        : service_id_(a_config.service_id_), tube_(a_config.tube_), transient_(a_config.transient_),
+                          loggable_data_ref_(a_config.loggable_data_ref_), fatal_exception_callback_(a_config.fatal_exception_callback_)
                     {
                         /* empty */
                     }
