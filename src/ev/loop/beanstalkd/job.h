@@ -47,7 +47,7 @@ namespace ev
             
             class Job : public ev::loop::beanstalkd::Consumer, private ev::scheduler::Scheduler::Client, private ev::redis::subscriptions::Manager::Client
             {
-             
+                
             public: // Data Type
                 
                 class Config
@@ -63,62 +63,99 @@ namespace ev
                     const std::string             tube_;
                     const ev::Loggable::Data&     loggable_data_ref_;
                     const FatalExceptionCallback& fatal_exception_callback_;
-                
+                    
                 public: // Constructor(s) / Destructor
                     
                     Config() = delete;
                     
                     Config (const std::string& a_service_id, const std::string& a_tube,
                             const ev::Loggable::Data& a_loggable_data_ref, const FatalExceptionCallback& a_fatal_exception_callback)
-                        : service_id_(a_service_id), tube_(a_tube),
-                          loggable_data_ref_(a_loggable_data_ref), fatal_exception_callback_(a_fatal_exception_callback)
+                    : service_id_(a_service_id), tube_(a_tube),
+                    loggable_data_ref_(a_loggable_data_ref), fatal_exception_callback_(a_fatal_exception_callback)
                     {
                         /* empty */
                     }
                     
                     Config (const Config& a_config)
-                        : service_id_(a_config.service_id_), tube_(a_config.tube_),
-                          loggable_data_ref_(a_config.loggable_data_ref_), fatal_exception_callback_(a_config.fatal_exception_callback_)
+                    : service_id_(a_config.service_id_), tube_(a_config.tube_),
+                    loggable_data_ref_(a_config.loggable_data_ref_), fatal_exception_callback_(a_config.fatal_exception_callback_)
                     {
                         /* empty */
                     }
                     
                 }; // end class 'Config';
+                
+            protected: // Const Data
+                
+                const Config              config_;
+                
+                const int64_t             redis_default_validity_;
+                const std::string         redis_signal_channel_;
+                const std::string         redis_key_prefix_;
+                
+            protected: // Data
+                
+                int64_t                   id_;
+                std::string               channel_;
+                int64_t                   validity_;
+                Json::Value               response_;
+                
+            protected: // Helpers
+                
+                ::ev::postgresql::JSONAPI json_api_;
+                Json::Reader              json_reader_;
+                Json::FastWriter          json_writer_;
+                
+            public: // Constructor(s) / Destructor
+                
+                Job (const Config& a_config);
+                virtual ~Job ();
+                
+            public: // Inherited Virtual Method(s) / Function(s) - from beanstalkd::Consumer
+                
+                virtual void Consume (const int64_t& a_id, const Json::Value& a_payload,
+                                      const SuccessCallback& a_success_callback, const CancelledCallback& a_cancelled_callback);
+                
+            protected: // Pure Virtual Method(s) / Function(s)
+                
+                virtual void Run (const int64_t& a_id, const Json::Value& a_payload,
+                                  const SuccessCallback& a_success_callback, const CancelledCallback& a_cancelled_callback) = 0;
+                
+            protected: // Method(s) / Function(s)
+                
+                void ConfigJSONAPI (const Json::Value& a_config);
+                
+            protected: // REDIS Helper Method(s) / Function(s)
+                
+                void PublishCancelled ();
+                void PublishFinished  (const Json::Value& a_payload);
+                void PublishProgress  (const Json::Value& a_payload);
 
-                protected: // Const Data
-                
-                    const Config config_;
-                
-                protected: // Helpers
-                
-                    ::ev::postgresql::JSONAPI json_api_;
-                    Json::FastWriter          json_writer_;            
-                
-                public: // Constructor(s) / Destructor
-                
-                    Job (const Config& a_config);
-                    virtual ~Job ();
-                
-                public: // Method(s) / Function(s)
-                
-                    void Publish (const int64_t& a_id, const std::string& a_channel, const Json::Value& a_object,
-                                  const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback,
-                                  const int64_t a_validity);
-                
-                protected:
-                
-                    virtual void ExecuteQuery            (const std::string& a_query, Json::Value& o_result);
-                    virtual void ExecuteQueryWithJSONAPI (const std::string& a_query, Json::Value& o_result);
+                void Publish (const std::string& a_channel, const Json::Value& a_object,
+                              const std::function<void()> a_success_callback = nullptr, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr);
 
-                private: //
+                void Publish (const Json::Value& a_object, const int64_t a_validity,
+                              const std::function<void()> a_success_callback = nullptr, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr);
                 
-                    ev::scheduler::Task*                             NewTask                (const EV_TASK_PARAMS& a_callback);
-                    EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK JobSignalsDataCallback (const std::string& a_name, const std::string& a_message);
+            protected: // PostgreSQL Helper Methods(s) / Function(s)
                 
-                private: // from ::ev::redis::SubscriptionsManager::Client
-                
-                    virtual void OnREDISConnectionLost ();
+                virtual void ExecuteQuery            (const std::string& a_query, Json::Value& o_result);
+                virtual void ExecuteQueryWithJSONAPI (const std::string& a_query, Json::Value& o_result);
 
+            protected: // JsonCPP Helper Methods(s) / Function(s)
+
+                Json::Value GetJSONObject (const Json::Value& a_parent, const char* const a_key,
+                                           const Json::ValueType& a_type, const Json::Value* a_default);
+                
+            private: //
+                
+                ev::scheduler::Task*                             NewTask                (const EV_TASK_PARAMS& a_callback);
+                EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK JobSignalsDataCallback (const std::string& a_name, const std::string& a_message);
+                
+            private: // from ::ev::redis::SubscriptionsManager::Client
+                
+                virtual void OnREDISConnectionLost ();
+                
                 
             }; // end of class 'Job'
             
@@ -129,3 +166,5 @@ namespace ev
 } // end of namespace 'ev'
 
 #endif // NRS_EV_LOOP_BEANSTALKD_JOB_H_
+
+

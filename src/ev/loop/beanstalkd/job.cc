@@ -34,8 +34,15 @@
  * @param a_config
  */
 ev::loop::beanstalkd::Job::Job (const Config& a_config)
-    : config_(a_config), json_api_(config_.loggable_data_ref_)
+    : config_(a_config),
+    redis_default_validity_(3600),
+    redis_signal_channel_(config_.service_id_ + ":job-signal"),
+    redis_key_prefix_(config_.service_id_ + ":jobs:" + config_.tube_ + ':'),
+    json_api_(config_.loggable_data_ref_)
 {
+    id_       = 0;
+    validity_ = redis_default_validity_;
+    
     ev::scheduler::Scheduler::GetInstance().Register(this);
     
     osal::ConditionVariable cv;
@@ -75,36 +82,209 @@ ev::loop::beanstalkd::Job::~Job ()
     ev::scheduler::Scheduler::GetInstance().Unregister(this);
 }
 
+#ifdef __APPLE__
+#pragma mark -
+#endif
+
+/**
+ * @brief Prepare a job common configuration.
+ *
+ * @param a_id                  Job ID
+ * @param a_payload             Job Payload
+ * @param a_callback            Success / Failure callback.
+ * @param a_cancelled_callback
+ */
+void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value& a_payload,
+                                         const ev::loop::beanstalkd::Job::SuccessCallback& a_success_callback,
+                                         const ev::loop::beanstalkd::Job::CancelledCallback& a_cancelled_callback)
+{
+    //
+    // JOB Configuration
+    //
+    const Json::Value redis_channel = a_payload.get("id", Json::nullValue); // id: a.k.a. redis <beanstalkd_tube_name>:<redis_job_id>
+    if ( true == redis_channel.isNull() || false == redis_channel.isString() ||  0 == redis_channel.asString().length() ) {
+        throw ev::Exception("Missing or invalid 'id' object!");
+    }
+    id_       = a_id; // beanstalkd number id
+    channel_  = redis_channel.asString();
+    validity_ = a_payload.get("validity", redis_default_validity_).asInt64();
+    response_ = Json::Value::null;
+    
+    //
+    // JSONAPI Configuration - optional
+    //
+    if ( true == a_payload.isMember("jsonapi") ) {
+        ConfigJSONAPI(a_payload["jsonapi"]);
+    }
+    
+    //
+    // Configure Log
+    //
+    // TODO config_.loggable_data_ref_.SetTag(redis_key_prefix_ + channel_);
+    
+    //
+    // Run JOB
+    //
+    Run(a_id, a_payload, a_success_callback, a_cancelled_callback);
+}
+
+#ifdef __APPLE__
+#pragma make -
+#endif
+
+/**
+ *
+ * @brief Configure JSONAPI.
+ *
+ * @param a_config
+ */
+void ev::loop::beanstalkd::Job::ConfigJSONAPI (const Json::Value& a_config)
+{
+    const Json::Value jsonapi          = GetJSONObject(a_config, "jsonapi", Json::ValueType::objectValue , &Json::Value::null);
+    const Json::Value empty_string     = "";
+    const Json::Value prefix           = GetJSONObject(jsonapi, "prefix"          , Json::ValueType::stringValue, &empty_string);
+    const Json::Value urn              = GetJSONObject(jsonapi, "urn"             , Json::ValueType::stringValue, &empty_string);
+    const Json::Value user_id          = GetJSONObject(jsonapi, "user_id"         , Json::ValueType::stringValue, &empty_string);
+    const Json::Value entity_id        = GetJSONObject(jsonapi, "entity_id"       , Json::ValueType::stringValue, &empty_string);
+    const Json::Value entity_schema    = GetJSONObject(jsonapi, "entity_schema"   , Json::ValueType::stringValue, &empty_string);
+    const Json::Value sharded_schema   = GetJSONObject(jsonapi, "sharded_schema"  , Json::ValueType::stringValue, &empty_string);
+    const Json::Value subentity_schema = GetJSONObject(jsonapi, "subentity_schema", Json::ValueType::stringValue, &empty_string);
+    const Json::Value subentity_prefix = GetJSONObject(jsonapi, "subentity_prefix", Json::ValueType::stringValue, &empty_string);
+    
+    json_api_.GetURIs().SetBase(prefix.asString());
+    json_api_.SetUserId(user_id.asString());
+    json_api_.SetEntityId(entity_id.asString());
+    json_api_.SetEntitySchema(entity_schema.asString());
+    json_api_.SetShardedSchema(sharded_schema.asString());
+    json_api_.SetSubentitySchema(subentity_schema.asString());
+    json_api_.SetSubentityPrefix(subentity_prefix.asString());
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#endif
+
+/**
+ * @brief Publish a 'job cancelled' message to 'job-signals' channel.
+ */
+void ev::loop::beanstalkd::Job::PublishCancelled ()
+{
+    response_            = Json::Value(Json::ValueType::objectValue);
+    response_["id"]      = id_;
+    response_["status"]  = "cancelled";
+    response_["channel"] = channel_;
+    
+    Publish(redis_signal_channel_, response_);
+}
+
+/**
+ * @brief Publish a 'job finished' message to 'job-signals' channel.
+ *
+ * @param a_payload
+ */
+void ev::loop::beanstalkd::Job::PublishFinished (const Json::Value& a_payload)
+{
+    PublishProgress(a_payload);
+    
+    response_            = Json::Value(Json::ValueType::objectValue);
+    response_["id"]      = id_;
+    response_["status"]  = "finished";
+    response_["channel"] = channel_;
+    
+    Publish(redis_signal_channel_, response_);
+}
+
+/**
+ * @brief Publish a 'job progress' message.
+ *
+ * @param a_payload
+ */
+void ev::loop::beanstalkd::Job::PublishProgress (const Json::Value& a_payload)
+{
+    Publish(a_payload, validity_);
+}
 
 /**
  * @brief Publish a message using a REDIS channel.
  *
- * @param a_id
  * @param a_channel
  * @param a_object
+ * @param a_success_callback
+ * @param a_failure_callback
  */
-void ev::loop::beanstalkd::Job::Publish (const int64_t& a_id, const std::string& a_channel, const Json::Value& a_object,
-                                         const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback,
-                                         const int64_t a_validity)
+void ev::loop::beanstalkd::Job::Publish (const std::string& a_channel, const Json::Value& a_object,
+                                         const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
 {
-    
-    const std::string redis_key     = config_.service_id_ + ":jobs:" + config_.tube_ + ':' + a_channel;
     const std::string redis_message = json_writer_.write(a_object);
     
-//    NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("queue",
-//                                       "Publishing to REDIS channel '%s' : %s",
-//                                       (config_.service_id_ + ':' + config_.tube_ + ':' + a_channel).c_str(),
-//                                       redis_message.c_str()
-//    );
-
     osal::ConditionVariable cv;
-
-    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &a_channel, &a_id, &a_validity, a_success_callback, a_failure_callback, &cv, &redis_key, &redis_message]() {
     
-        ev::scheduler::Task* t = NewTask([this, a_channel, redis_message] () -> ::ev::Object* {
+    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &a_channel, &a_success_callback, &a_failure_callback, &cv, &redis_message] {
+        
+        NewTask([this, &a_channel, &redis_message] () -> ::ev::Object* {
             
             return new ev::redis::Request(config_.loggable_data_ref_,
-                                          "PUBLISH", { (config_.service_id_ + ':' + config_.tube_ + ':' + a_channel), redis_message }
+                                          "PUBLISH", { a_channel, redis_message }
+            );
+            
+        })->Finally([this, &cv, a_success_callback] (::ev::Object* a_object) {
+            
+            // ... an integer reply is expected ...
+            ev::redis::Reply::EnsureIntegerReply(a_object);
+            
+            // ... notify ...
+            if ( nullptr != a_success_callback ) {
+                a_success_callback();
+            }
+            
+            cv.Wake();
+            
+        })->Catch([this, &cv, a_failure_callback] (const ::ev::Exception& a_ev_exception) {
+            
+            // ... notify ...
+            if ( nullptr != a_failure_callback ) {
+                a_failure_callback(a_ev_exception);
+            }
+            
+            cv.Wake();
+            
+        });
+        
+    });
+    
+    cv.Wait();
+}
+
+/**
+ * @brief Publish a message using a REDIS channel.
+ *
+ * @param a_object
+ * @param a_validity
+ * @param a_success_callback
+ * @param a_failure_callback
+ */
+void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object, const int64_t a_validity,
+                                         const std::function<void()> a_success_callback,
+                                         const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
+{
+    osal::ConditionVariable cv;
+    
+    const std::string redis_key     = redis_key_prefix_ + channel_;
+    const std::string redis_message = json_writer_.write(a_object);
+    
+    // TODO
+//    NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("queue",
+//                                       "Publishing to REDIS channel '%s' : %s",
+//                                       redis_key.c_str(),
+//                                       redis_message.c_str()
+//    );
+    
+    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, a_validity, a_success_callback, a_failure_callback, &cv, &redis_key, &redis_message] {
+        
+        ev::scheduler::Task* t = NewTask([this, &redis_key, redis_message] () -> ::ev::Object* {
+            
+            return new ev::redis::Request(config_.loggable_data_ref_,
+                                          "PUBLISH", { redis_key, redis_message }
             );
             
         })->Then([this, redis_key, redis_message] (::ev::Object* a_object) -> ::ev::Object* {
@@ -177,7 +357,6 @@ void ev::loop::beanstalkd::Job::Publish (const int64_t& a_id, const std::string&
             
             
         } else {
-            
             // ...just a publish ...
             t->Finally([this, &cv, a_success_callback] (::ev::Object* a_object) {
                 
@@ -192,17 +371,16 @@ void ev::loop::beanstalkd::Job::Publish (const int64_t& a_id, const std::string&
                 cv.Wake();
                 
             });
-            
         }
         
-        t->Catch([this, a_id, &cv, a_failure_callback] (const ::ev::Exception& a_ev_exception) {
+        t->Catch([this, &cv, a_failure_callback] (const ::ev::Exception& a_ev_exception) {
             
             // ... log error ...
-            //TODO...
-            //            NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("error",
-            //                                               "PUBLISH failed: %s",
-            //                                               a_ev_exception.what()
-            //                                               );
+            // TODO
+//            NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("error",
+//                                               "PUBLISH failed: %s",
+//                                               a_ev_exception.what()
+//                                               );
             
             // ... notify ...
             if ( nullptr != a_failure_callback ) {
@@ -348,6 +526,39 @@ void ev::loop::beanstalkd::Job::ExecuteQueryWithJSONAPI (const std::string& a_qu
     cv.Wait();
 }
 
+#ifdef __APPLE__
+#pragma mark -
+#endif
+
+/**
+ * @brief Retrieve a JSON object or it's to a default value.
+ *
+ * @param a_param
+ * @param a_key
+ * @param a_type
+ * @param a_default
+ *
+ * @return
+ */
+Json::Value ev::loop::beanstalkd::Job::GetJSONObject (const Json::Value& a_parent, const char* const a_key,
+                                                      const Json::ValueType& a_type, const Json::Value* a_default)
+{
+    std::stringstream tmp_ss;
+    
+    Json::Value value = a_parent.get(a_key, Json::nullValue);
+    if ( true == value.isNull() ) {
+        if ( nullptr != a_default ) {
+            return *a_default;
+        } else if ( Json::ValueType::nullValue == a_type ) {
+            return value;
+        } /* else { } */
+    } else if ( value.type() == a_type ) {
+        return value;
+    }
+    
+    tmp_ss << "Error while retrieving JSON object named '" << a_key <<"' - type mismatch: got " << value.type() << ", expected " << a_type << "!";
+    throw std::runtime_error(tmp_ss.str());
+}
 
 #ifdef __APPLE__
 #pragma mark -

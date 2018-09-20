@@ -41,6 +41,11 @@ namespace ev
             class Consumer
             {
                 
+            public: // Data Type(s)
+                
+                typedef std::function<void(const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code)> SuccessCallback;
+                typedef std::function<void()>                                                                                  CancelledCallback;
+                
             public: // Constructor(s) / Destructor
                 
                 Consumer ();
@@ -49,10 +54,8 @@ namespace ev
             public: // Pure Virtual Method(s) / Function(s)
                 
                 virtual void Consume (const int64_t& a_id, const Json::Value& a_payload,
-                                      const std::function<void(const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code)>& a_callback,
-                                      const std::function<void()>& a_cancelled_callback
-                ) = 0;
-                
+                                      const SuccessCallback& a_success_callback, const CancelledCallback& a_cancelled_callback) = 0;
+
             }; // end of class 'Consumer'
             
         } // end of namespace 'beanstalkd'

@@ -21,13 +21,12 @@
 
 #include "ev/loop/beanstalkd/consumer.h"
 
-
-
 /**
  * @brief Default constructor.
  */
 ev::loop::beanstalkd::Consumer::Consumer ()
 {
+    /* empty */
 }
 
 /**
@@ -35,4 +34,5 @@ ev::loop::beanstalkd::Consumer::Consumer ()
  */
 ev::loop::beanstalkd::Consumer::~Consumer ()
 {
+    /* empty */
 }
