@@ -37,7 +37,9 @@ std::string ev::ngx::SharedGlue::s_job_id_key_ = "";
     /* host_              */ "127.0.0.1",
     /* port_              */  11300,
     /* timeout_           */  0.0,
-    /* tube_              */ "default",
+    /* tubes_             */ {
+        "default"
+    },
     /* sessionless_tubes_ */ {}
 };
 
