@@ -52,6 +52,7 @@ namespace cc
         private: // Data
             
             ::cc::v8::Context context_;
+            bool              cancelled_;
             
         public: // Constructor(s) / Destructor
             
@@ -77,7 +78,7 @@ namespace cc
             
             virtual void TranslateFromV8Value (::v8::Isolate* a_isolate, const ::v8::Persistent<::v8::Value>& a_value, Value& o_value) const;
             virtual void TranslateToV8Value   (::v8::Isolate* a_isolate, const Value& a_value, ::v8::Local<::v8::Value>& o_value) const;
-            
+                        
         }; // end of class 'Script'
         
         /**

@@ -37,9 +37,11 @@
  * @param a_functions
  */
 cc::v8::Script::Script (const std::string& a_owner, const std::string& a_name, const std::string& a_uri,
-                            const std::string& a_out_path,
-                            const cc::v8::Script::NativeFunctions& a_functions)
-: owner_(a_owner), name_(a_name), uri_(a_uri), out_path_(a_out_path), context_(cc::v8::Singleton::GetInstance().isolate(), a_functions)
+                        const std::string& a_out_path,
+                        const cc::v8::Script::NativeFunctions& a_functions
+)
+    : owner_(a_owner), name_(a_name), uri_(a_uri), out_path_(a_out_path),
+      context_(cc::v8::Singleton::GetInstance().isolate(), a_functions)
 {
     /* empty */
 }
@@ -58,8 +60,7 @@ cc::v8::Script::~Script ()
  * @param a_script
  * @param a_functions
  */
-void cc::v8::Script::Compile (const ::v8::Local<::v8::String>& a_script,
-                                  const cc::v8::Script::FunctionsVector* a_functions)
+void cc::v8::Script::Compile (const ::v8::Local<::v8::String>& a_script, const cc::v8::Script::FunctionsVector* a_functions)
 {
     const ::v8::String::Utf8Value& script = ::v8::String::Utf8Value(a_script);
     

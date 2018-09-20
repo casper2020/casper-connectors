@@ -43,6 +43,12 @@ ev::loop::beanstalkd::Job::Job (const Config& a_config)
     id_        = 0;
     validity_  = 0;
     transient_ = config_.transient_;
+    cancelled_ = false;
+    
+    progress_             = Json::Value(Json::ValueType::objectValue);
+    progress_["status"]   = "in-progress";
+    progress_["progress"] = 0.0;
+
     
     ev::scheduler::Scheduler::GetInstance().Register(this);
     
@@ -110,6 +116,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     channel_   = redis_channel.asString();
     validity_  = a_payload.get("validity", 3600).asInt64();
     transient_ = a_payload.get("transient", config_.transient_).asBool();
+    cancelled_ = false;
     response_  = Json::Value::null;
     
     //
@@ -204,6 +211,28 @@ void ev::loop::beanstalkd::Job::PublishFinished (const Json::Value& a_payload)
 void ev::loop::beanstalkd::Job::PublishProgress (const Json::Value& a_payload)
 {
     Publish(a_payload);
+}
+
+/**
+ * @brief Publish a 'job progress' message.
+ *
+ * @param a_message
+ */
+void ev::loop::beanstalkd::Job::PublishProgress (const ev::loop::beanstalkd::Job::Progress& a_message)
+{
+    Json::Value i18n_array = Json::Value(Json::ValueType::arrayValue);
+    Json::Value i18n_args  = Json::Value(Json::ValueType::objectValue);
+    
+    for ( auto it : a_message.args_ ) {
+        i18n_args[it.first] = it.second;
+    }
+    i18n_array.append(a_message.key_);
+    i18n_array.append(i18n_args);
+    
+    progress_["message"]  = i18n_array;
+    progress_["progress"] = a_message.value_;
+
+    Publish(progress_);
 }
 
 /**

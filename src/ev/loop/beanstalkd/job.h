@@ -71,20 +71,28 @@ namespace ev
                     
                     Config (const std::string& a_service_id, const std::string& a_tube, const bool a_transient,
                             const ev::Loggable::Data& a_loggable_data_ref, const FatalExceptionCallback& a_fatal_exception_callback)
-                        : service_id_(a_service_id), tube_(a_tube), transient_(a_transient),
-                          loggable_data_ref_(a_loggable_data_ref), fatal_exception_callback_(a_fatal_exception_callback)
+                    : service_id_(a_service_id), tube_(a_tube), transient_(a_transient),
+                    loggable_data_ref_(a_loggable_data_ref), fatal_exception_callback_(a_fatal_exception_callback)
                     {
                         /* empty */
                     }
                     
                     Config (const Config& a_config)
-                        : service_id_(a_config.service_id_), tube_(a_config.tube_), transient_(a_config.transient_),
-                          loggable_data_ref_(a_config.loggable_data_ref_), fatal_exception_callback_(a_config.fatal_exception_callback_)
+                    : service_id_(a_config.service_id_), tube_(a_config.tube_), transient_(a_config.transient_),
+                    loggable_data_ref_(a_config.loggable_data_ref_), fatal_exception_callback_(a_config.fatal_exception_callback_)
                     {
                         /* empty */
                     }
                     
                 }; // end class 'Config';
+                
+            protected: // Data Type(s)
+                
+                typedef struct {
+                    const char* const                        key_;
+                    const std::map<std::string, std::string> args_;
+                    uint8_t                                  value_;
+                } Progress;
                 
             protected: // Const Data
                 
@@ -100,7 +108,9 @@ namespace ev
                 std::string               channel_;
                 int64_t                   validity_;
                 bool                      transient_;
+                bool                      cancelled_;
                 Json::Value               response_;
+                Json::Value               progress_;
                 
             protected: // Helpers
                 
@@ -112,6 +122,10 @@ namespace ev
                 
                 Job (const Config& a_config);
                 virtual ~Job ();
+                
+            public: // Inline Method(s) / Function(s)
+                
+                bool IsCancelled() const;
                 
             public: // Inherited Virtual Method(s) / Function(s) - from beanstalkd::Consumer
                 
@@ -132,10 +146,11 @@ namespace ev
                 void PublishCancelled ();
                 void PublishFinished  (const Json::Value& a_payload);
                 void PublishProgress  (const Json::Value& a_payload);
-
+                void PublishProgress  (const Progress& a_message);
+                
                 void Publish (const std::string& a_channel, const Json::Value& a_object,
                               const std::function<void()> a_success_callback = nullptr, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr);
-
+                
                 void Publish (const Json::Value& a_object,
                               const std::function<void()> a_success_callback = nullptr, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr);
                 
@@ -143,9 +158,9 @@ namespace ev
                 
                 virtual void ExecuteQuery            (const std::string& a_query, Json::Value& o_result);
                 virtual void ExecuteQueryWithJSONAPI (const std::string& a_query, Json::Value& o_result);
-
+                
             protected: // JsonCPP Helper Methods(s) / Function(s)
-
+                
                 Json::Value GetJSONObject (const Json::Value& a_parent, const char* const a_key,
                                            const Json::ValueType& a_type, const Json::Value* a_default);
                 
@@ -158,8 +173,15 @@ namespace ev
                 
                 virtual void OnREDISConnectionLost ();
                 
-                
             }; // end of class 'Job'
+            
+            /**
+             * @return True if the job was cancelled, false otherwise.
+             */
+            inline bool Job::IsCancelled() const
+            {
+                return cancelled_;
+            }
             
         } // end of namespace 'beanstalkd'
         
@@ -168,5 +190,6 @@ namespace ev
 } // end of namespace 'ev'
 
 #endif // NRS_EV_LOOP_BEANSTALKD_JOB_H_
+
 
 
