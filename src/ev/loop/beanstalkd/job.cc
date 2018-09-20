@@ -48,7 +48,6 @@ ev::loop::beanstalkd::Job::Job (const Config& a_config)
     progress_             = Json::Value(Json::ValueType::objectValue);
     progress_["status"]   = "in-progress";
     progress_["progress"] = 0.0;
-
     
     ev::scheduler::Scheduler::GetInstance().Register(this);
     
@@ -221,13 +220,11 @@ void ev::loop::beanstalkd::Job::PublishProgress (const Json::Value& a_payload)
 void ev::loop::beanstalkd::Job::PublishProgress (const ev::loop::beanstalkd::Job::Progress& a_message)
 {
     Json::Value i18n_array = Json::Value(Json::ValueType::arrayValue);
-    Json::Value i18n_args  = Json::Value(Json::ValueType::objectValue);
     
-    for ( auto it : a_message.args_ ) {
-        i18n_args[it.first] = it.second;
-    }
     i18n_array.append(a_message.key_);
-    i18n_array.append(i18n_args);
+    if ( nullptr != a_message.args_ ) {
+        i18n_array.append(*a_message.args_);
+    }
     
     progress_["message"]  = i18n_array;
     progress_["progress"] = a_message.value_;

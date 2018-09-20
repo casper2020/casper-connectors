@@ -89,9 +89,9 @@ namespace ev
             protected: // Data Type(s)
                 
                 typedef struct {
-                    const char* const                        key_;
-                    const std::map<std::string, std::string> args_;
-                    uint8_t                                  value_;
+                    const char* const  key_;
+                    const Json::Value* args_;
+                    uint8_t            value_;
                 } Progress;
                 
             protected: // Const Data
