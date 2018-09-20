@@ -89,15 +89,16 @@ namespace ev
                 
                 const Config              config_;
                 
-                const int64_t             redis_default_validity_;
                 const std::string         redis_signal_channel_;
                 const std::string         redis_key_prefix_;
+                const std::string         redis_channel_prefix_;
                 
             protected: // Data
                 
                 int64_t                   id_;
                 std::string               channel_;
                 int64_t                   validity_;
+                bool                      transient_;
                 Json::Value               response_;
                 
             protected: // Helpers
@@ -134,7 +135,7 @@ namespace ev
                 void Publish (const std::string& a_channel, const Json::Value& a_object,
                               const std::function<void()> a_success_callback = nullptr, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr);
 
-                void Publish (const Json::Value& a_object, const int64_t a_validity,
+                void Publish (const Json::Value& a_object,
                               const std::function<void()> a_success_callback = nullptr, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr);
                 
             protected: // PostgreSQL Helper Methods(s) / Function(s)

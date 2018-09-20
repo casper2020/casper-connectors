@@ -35,13 +35,14 @@
  */
 ev::loop::beanstalkd::Job::Job (const Config& a_config)
     : config_(a_config),
-    redis_default_validity_(3600),
     redis_signal_channel_(config_.service_id_ + ":job-signal"),
     redis_key_prefix_(config_.service_id_ + ":jobs:" + config_.tube_ + ':'),
+    redis_channel_prefix_(config_.service_id_ + ':' + config_.tube_ + ':'),
     json_api_(config_.loggable_data_ref_)
 {
-    id_       = 0;
-    validity_ = redis_default_validity_;
+    id_        = 0;
+    validity_  = 0;
+    transient_ = true;
     
     ev::scheduler::Scheduler::GetInstance().Register(this);
     
@@ -106,9 +107,10 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
         throw ev::Exception("Missing or invalid 'id' object!");
     }
     id_       = a_id; // beanstalkd number id
-    channel_  = redis_channel.asString();
-    validity_ = a_payload.get("validity", redis_default_validity_).asInt64();
-    response_ = Json::Value::null;
+    channel_   = redis_channel.asString();
+    validity_  = a_payload.get("validity", 3600).asInt64();
+    transient_ = a_payload.get("transient", true).asBool();
+    response_  = Json::Value::null;
     
     //
     // JSONAPI Configuration - optional
@@ -201,7 +203,7 @@ void ev::loop::beanstalkd::Job::PublishFinished (const Json::Value& a_payload)
  */
 void ev::loop::beanstalkd::Job::PublishProgress (const Json::Value& a_payload)
 {
-    Publish(a_payload, validity_);
+    Publish(a_payload);
 }
 
 /**
@@ -259,17 +261,17 @@ void ev::loop::beanstalkd::Job::Publish (const std::string& a_channel, const Jso
  * @brief Publish a message using a REDIS channel.
  *
  * @param a_object
- * @param a_validity
  * @param a_success_callback
  * @param a_failure_callback
  */
-void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object, const int64_t a_validity,
+void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
                                          const std::function<void()> a_success_callback,
                                          const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
 {
     osal::ConditionVariable cv;
     
-    const std::string redis_key     = redis_key_prefix_ + channel_;
+    const std::string redis_channel = redis_channel_prefix_ + channel_;
+    const std::string redis_key     = redis_key_prefix_     + channel_;
     const std::string redis_message = json_writer_.write(a_object);
     
     // TODO
@@ -279,70 +281,94 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object, const int6
 //                                       redis_message.c_str()
 //    );
     
-    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, a_validity, a_success_callback, a_failure_callback, &cv, &redis_key, &redis_message] {
+    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, a_success_callback, a_failure_callback, &cv, &redis_channel, &redis_key, &redis_message] {
         
-        ev::scheduler::Task* t = NewTask([this, &redis_key, redis_message] () -> ::ev::Object* {
+        ev::scheduler::Task* t = NewTask([this, &redis_channel, redis_message] () -> ::ev::Object* {
             
             return new ev::redis::Request(config_.loggable_data_ref_,
-                                          "PUBLISH", { redis_key, redis_message }
-            );
-            
-        })->Then([this, redis_key, redis_message] (::ev::Object* a_object) -> ::ev::Object* {
-            
-            // ... an integer reply is expected ...
-            ev::redis::Reply::EnsureIntegerReply(a_object);
-            
-            // ... make it permanent ...
-            return new ev::redis::Request(config_.loggable_data_ref_,
-                                          "HSET",
-                                          {
-                                              /* key   */ redis_key,
-                                              /* field */ "status", redis_message
-                                          }
+                                          "PUBLISH", { redis_channel, redis_message }
             );
             
         });
         
-        if ( -1 != a_validity ) {
+        if ( false == transient_ ) {
             
-            if ( a_validity > 0 ) {
+            t->Then([this, redis_key, redis_message] (::ev::Object* a_object) -> ::ev::Object* {
                 
-                t->Then([this, redis_key, a_validity] (::ev::Object* a_object) -> ::ev::Object* {
+                // ... an integer reply is expected ...
+                ev::redis::Reply::EnsureIntegerReply(a_object);
+                
+                // ... make it permanent ...
+                return new ev::redis::Request(config_.loggable_data_ref_,
+                                              "HSET",
+                                              {
+                                                  /* key   */ redis_key,
+                                                  /* field */ "status", redis_message
+                                              }
+                );
+                
+            });
+            
+            if ( -1 != validity_ ) {
+                
+                if ( validity_ > 0 ) {
                     
-                    // ... a string 'OK' is expected ...
-                    ev::redis::Reply::EnsureIntegerReply(a_object);
+                    t->Then([this, redis_key] (::ev::Object* a_object) -> ::ev::Object* {
+                        
+                        // ... a string 'OK' is expected ...
+                        ev::redis::Reply::EnsureIntegerReply(a_object);
+                        
+                        // ... set expiration date ...
+                        return new ::ev::redis::Request(config_.loggable_data_ref_,
+                                                        "EXPIRE", { redis_key, std::to_string(validity_) }
+                        );
+                        
+                    })->Finally([&cv, a_success_callback] (::ev::Object* a_object) {
+                        
+                        //
+                        // EXPIRE:
+                        //
+                        // Integer reply, specifically:
+                        // - 1 if the timeout was set.
+                        // - 0 if key does not exist or the timeout could not be set.
+                        //
+                        ev::redis::Reply::EnsureIntegerReply(a_object, 1);
+                        
+                        // ... notify ...
+                        if ( nullptr != a_success_callback ) {
+                            a_success_callback();
+                        }
+                        
+                        cv.Wake();
+                        
+                    });
                     
-                    // ... set expiration date ...
-                    return new ::ev::redis::Request(config_.loggable_data_ref_,
-                                                    "EXPIRE", { redis_key, std::to_string(a_validity) }
-                    );
+                } else {
                     
-                })->Finally([&cv, a_success_callback] (::ev::Object* a_object) {
+                    t->Finally([this, &cv, a_success_callback] (::ev::Object* a_object) {
+                        
+                        // ... a string 'OK' is expected ...
+                        ev::redis::Reply::EnsureIsStatusReply(a_object, "OK");
+                        
+                        // ... notify ...
+                        if ( nullptr != a_success_callback ) {
+                            a_success_callback();
+                        }
+                        
+                        cv.Wake();
+                        
+                    });
                     
-                    //
-                    // EXPIRE:
-                    //
-                    // Integer reply, specifically:
-                    // - 1 if the timeout was set.
-                    // - 0 if key does not exist or the timeout could not be set.
-                    //
-                    ev::redis::Reply::EnsureIntegerReply(a_object, 1);
-                    
-                    // ... notify ...
-                    if ( nullptr != a_success_callback ) {
-                        a_success_callback();
-                    }
-                    
-                    cv.Wake();
-                    
-                });
+                }
+                
                 
             } else {
                 
+                // ... no validity set, validate 'SET' response ...
                 t->Finally([this, &cv, a_success_callback] (::ev::Object* a_object) {
                     
-                    // ... a string 'OK' is expected ...
-                    ev::redis::Reply::EnsureIsStatusReply(a_object, "OK");
+                    // ... an integer reply is expected ...
+                    ev::redis::Reply::EnsureIntegerReply(a_object);
                     
                     // ... notify ...
                     if ( nullptr != a_success_callback ) {
@@ -354,10 +380,10 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object, const int6
                 });
                 
             }
-            
-            
+
         } else {
-            // ...just a publish ...
+            
+            // ... transient, validate 'PUBLISH' response ...
             t->Finally([this, &cv, a_success_callback] (::ev::Object* a_object) {
                 
                 // ... an integer reply is expected ...
@@ -371,6 +397,7 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object, const int6
                 cv.Wake();
                 
             });
+            
         }
         
         t->Catch([this, &cv, a_failure_callback] (const ::ev::Exception& a_ev_exception) {
