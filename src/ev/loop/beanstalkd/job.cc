@@ -653,18 +653,18 @@ EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK ev::loop::beanstalkd::Job::JobS
             if ( true == reader.parse(a_message, object, false) ) {
                 if ( true ==  object.isMember("id") && true == object.isMember("status") ) {
                     const Json::Value id = object.get("id", -1);
-                    // TODO
-                    //                    if ( 0 == job_channel_.compare(std::to_string(static_cast<int64_t>(id.asInt64()))) ) {
-                    //                        const Json::Value value = object.get("status", null_object_);
-                    //                        if ( true == value.isString() && 0 == strcasecmp(value.asCString(), "cancelled") ) {
-                    //                            NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("queue",
-                    //                                                               "Received from REDIS channel '%s': %s",
-                    //                                                               a_name.c_str(),
-                    //                                                               a_message.c_str()
-                    //                                                               );
-                    //                            job_cancelled_ = true;
-                    //                        }
-                    //                    }
+                    if ( 0 == channel_.compare(std::to_string(static_cast<int64_t>(id.asInt64()))) ) {
+                        const Json::Value value = object.get("status", Json::Value::null);
+                        if ( true == value.isString() && 0 == strcasecmp(value.asCString(), "cancelled") ) {
+//                            // TODO
+//                            NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("queue",
+//                                                               "Received from REDIS channel '%s': %s",
+//                                                               a_name.c_str(),
+//                                                               a_message.c_str()
+//                                                               );
+                            cancelled_ = true;
+                        }
+                    }
                 }
             }
         } catch (const Json::Exception& /* a_json_exception */) {
