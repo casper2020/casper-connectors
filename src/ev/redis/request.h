@@ -103,6 +103,9 @@ namespace ev
             if ( -1 != redisFormatSdsCommandArgv(&cmd, (int)args_count, args_values, nullptr) ) {
                 payload_ = cmd;
             }
+            
+            delete [] args_values;
+            
             sdsfree(cmd);
         }
         
