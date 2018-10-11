@@ -105,7 +105,7 @@ namespace cc
 
             public:
                 
-                ::v8::Eternal<::v8::Function> f_;
+                ::v8::Persistent<::v8::Function> f_;
                 
             public: // Constructor(s) / Destructor
                 
@@ -124,9 +124,9 @@ namespace cc
             
         protected: // Data
             
-            ::v8::Isolate*               isolate_ptr_;
-            ::v8::Eternal<::v8::Context> context_;
-            ::v8::Eternal<::v8::Script>  script_;           // TODO do we need this?
+            ::v8::Isolate*                  isolate_ptr_;
+            ::v8::Persistent<::v8::Context> context_;
+            ::v8::Persistent<::v8::Script>  script_;           // TODO do we need this?
             
         private: // Data
             

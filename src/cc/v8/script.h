@@ -64,7 +64,7 @@ namespace cc
             
         public: // Method(s) / Function(s)
             
-            virtual void Load (const Expressions& a_expressions) = 0;
+            virtual void Load (const Json::Value& a_external_scripts, const Expressions& a_expressions) = 0;
             
         public: // Inline Method(s) / Function(s)
             

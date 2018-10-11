@@ -196,6 +196,10 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
                                       "Waiting..."
         );
         
+        // ... since a call to asString() can allocate dynamic memory ...
+        // ... set this object to null to free memory now ...
+        job_payload_ = Json::Value::null;
+        
     }
     
     a_loggable_data.SetTag("consumer");

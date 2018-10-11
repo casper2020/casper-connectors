@@ -156,7 +156,8 @@ namespace ev
                 
             protected: // PostgreSQL Helper Methods(s) / Function(s)
                 
-                virtual void ExecuteQuery            (const std::string& a_query, Json::Value& o_result);
+                virtual void ExecuteQuery            (const std::string& a_query, Json::Value& o_result,
+                                                      const bool a_use_column_name);
                 virtual void ExecuteQueryWithJSONAPI (const std::string& a_query, Json::Value& o_result);
                 
             protected: // JsonCPP Helper Methods(s) / Function(s)

@@ -47,7 +47,7 @@ cc::v8::Context::Context (::v8::Isolate* a_isolate_ptr, const cc::v8::Context::N
         );
     }
     // ... make it eternal ...
-    context_.Set(isolate_ptr_, ::v8::Context::New(isolate_ptr_, NULL, global));
+    context_.Reset(isolate_ptr_, ::v8::Context::New(isolate_ptr_, NULL, global));
 }
 
 /**
@@ -55,7 +55,15 @@ cc::v8::Context::Context (::v8::Isolate* a_isolate_ptr, const cc::v8::Context::N
  */
 cc::v8::Context::~Context ()
 {
-    /* empty */
+    for ( auto it : functions_ ) {
+        it.second->f_.Reset();
+        delete it.second;
+    }
+    functions_.clear();
+    context_.Reset();
+    script_.Reset();
+    // TODO CHECK IF THERES AN ALTERNATIVE TO: http://peerigon.github.io/v8-docs/classv8_1_1Isolate.html#aaf446f4877e4707a93d2c406fffd9fd6
+    isolate_ptr_->LowMemoryNotification();
 }
 
 #ifdef __APPLE__
@@ -162,7 +170,7 @@ void cc::v8::Context::Compile (const std::string& a_name,
         ThrowException(&try_catch);
     }
     // make it permanent
-    script_.Set(isolate_ptr_, local_compiled_script);
+    script_.Reset(isolate_ptr_, local_compiled_script);
     
     //
     // Run the script
@@ -230,7 +238,7 @@ void cc::v8::Context::CallFunction (const cc::v8::Context::LoadedFunction::Calla
     if ( functions_.end() == it ) {
         throw cc::v8::Exception("Error while calling function '%s' - not registered!", a_callable.name_);
     }
-
+    
     // set up an error handler to catch any exceptions the script might throw.
     ::v8::TryCatch try_catch(isolate_ptr_);
 
@@ -314,7 +322,7 @@ void cc::v8::Context::LoadFunctions (::v8::Local<::v8::Context>& a_context, ::v8
         
         // store the function in a Global handle,
         // since we also want that to remain after this call returns
-        function->f_.Set(a_context->GetIsolate(), process_fun);
+        function->f_.Reset(a_context->GetIsolate(), process_fun);
         
     }
 }

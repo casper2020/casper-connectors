@@ -86,6 +86,7 @@ namespace ev
             const int         columns_count () const;
             const int         rows_count    () const;
             const char* const raw_value     (const size_t a_row, const size_t a_column) const;
+            const char* const column_name   (int a_column) const;
             
         private: // Inline  Method(s) / Function(s)
             
@@ -184,9 +185,20 @@ namespace ev
             
             if ( a_row > static_cast<size_t>(n_rows) || a_column > static_cast<size_t>(n_columns) ) {
                 throw ev::Exception("Out of bounds while accessing pg table!");
-            }
-            
+            }           
             return PQgetvalue(pg_result_, static_cast<int>(a_row), static_cast<int>(a_column));
+        }
+        
+        /**
+         * @return This object column name, string representation.
+         *
+         * @param a_column
+         */
+        inline const char* const Value::column_name (int a_column) const{
+            if ( nullptr == pg_result_ ) {
+                throw ev::Exception("No data!");
+            }
+            return PQfname(pg_result_, a_column);
         }
 
         /**

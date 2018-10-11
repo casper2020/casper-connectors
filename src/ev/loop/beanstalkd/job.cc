@@ -459,15 +459,16 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
  *
  * @param a_query
  * @param o_result
+ * @param a_use_column_name
  */
-void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::Value& o_result)
+void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::Value& o_result, const bool a_use_column_name = false)
 {
     o_result = Json::Value(Json::ValueType::objectValue);
     o_result["status_code"] = 500;
     
     osal::ConditionVariable cv;
     
-    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &a_query, &o_result, &cv] () {
+    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &a_query, &o_result, &cv, &a_use_column_name] () {
         
         NewTask([this, a_query] () -> ::ev::Object* {
             
@@ -503,7 +504,7 @@ void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::
             // ... same as reply, but it was detached ...
             return result->DetachDataObject();
             
-        })->Finally([this, a_query, &o_result, &cv] (::ev::Object* a_object) {
+        })->Finally([this, a_query, &o_result, &cv, &a_use_column_name] (::ev::Object* a_object) {
             
             const ::ev::postgresql::Reply* reply = dynamic_cast<const ::ev::postgresql::Reply*>(a_object);
             if ( nullptr == reply ) {
@@ -528,7 +529,11 @@ void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::
             for ( int row_idx = 0 ; row_idx < rows_count ; ++row_idx ) {
                 Json::Value& line = o_result["table"].append(Json::Value(Json::ValueType::objectValue));
                 for ( int column_idx = 0 ; column_idx < columns_count ; ++column_idx ) {
-                    line[std::to_string(column_idx)] = value.raw_value(row_idx, column_idx);
+                    if ( true == a_use_column_name ) {
+                        line[value.column_name(column_idx)] = value.raw_value(row_idx, column_idx);
+                    } else {
+                        line[std::to_string(column_idx)] = value.raw_value(row_idx, column_idx);
+                    }
                 }
             }
             
