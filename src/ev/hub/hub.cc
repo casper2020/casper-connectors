@@ -216,17 +216,17 @@ void ev::hub::Hub::Start (ev::hub::Hub::InitializedCallback a_initialized_callba
         throw ev::Exception("Unable to start hub loop: missing mandatory argument '%s'!",
                             "a_initialized_callback");
     }
-    
+
     if ( nullptr == a_next_step_callback ) {
         throw ev::Exception("Unable to start hub loop: missing mandatory argument '%s'!",
                             "a_next_step_callback");
     }
-    
+
     if ( nullptr == a_publish_step_callback ) {
         throw ev::Exception("Unable to start hub loop: missing mandatory argument '%s'!",
                             "a_publish_step_callback");
     }
-    
+
     if ( nullptr == a_disconnected_step_callback ) {
         throw ev::Exception("Unable to start hub loop: missing mandatory argument '%s'!",
                             "a_disconnected_step_callback");
@@ -236,7 +236,7 @@ void ev::hub::Hub::Start (ev::hub::Hub::InitializedCallback a_initialized_callba
         throw ev::Exception("Unable to start hub loop: missing mandatory argument '%s'!",
                             "a_device_factory");
     }
-    
+
     stepper_.next_         = new ev::hub::Hub::NextCallback(bridge_, a_next_step_callback);
     stepper_.publish_      = new ev::hub::Hub::PublishCallback(bridge_, a_publish_step_callback);
     stepper_.disconnected_ = new ev::hub::Hub::DisconnectedCallback(bridge_, a_disconnected_step_callback);
@@ -244,7 +244,7 @@ void ev::hub::Hub::Start (ev::hub::Hub::InitializedCallback a_initialized_callba
     stepper_.limits_       = std::move(a_device_limits_step_callback);
 
     try {
-        
+
         if ( nullptr != thread_ ) {
             throw ev::Exception("Unable to start hub loop: alread running!");
         }
@@ -255,11 +255,11 @@ void ev::hub::Hub::Start (ev::hub::Hub::InitializedCallback a_initialized_callba
                 throw ev::Exception("Unable to start hub loop: can't create 'base' event!");
             }
         }
-        
+
         timeval tv;
         tv.tv_sec  = 365 * 24 * 3600;
         tv.tv_usec = 0;
-        
+
         if ( nullptr != hack_event_ ) {
             event_free(hack_event_);
         }
@@ -272,7 +272,7 @@ void ev::hub::Hub::Start (ev::hub::Hub::InitializedCallback a_initialized_callba
             throw ev::Exception("Unable to start hub loop: can't add 'hack' event - error code %d !",
                                 rv);
         }
-        
+
         if ( nullptr != watchdog_event_ ) {
             event_free(watchdog_event_);
         }
@@ -288,7 +288,7 @@ void ev::hub::Hub::Start (ev::hub::Hub::InitializedCallback a_initialized_callba
 
         thread_ = new std::thread(&ev::hub::Hub::Loop, this);
         thread_->detach();
-        
+
     } catch (const ev::Exception& a_ev_exception) {
         OSALITE_BACKTRACE();
         bridge_.ThrowFatalException(a_ev_exception);
@@ -314,11 +314,11 @@ void ev::hub::Hub::Start (ev::hub::Hub::InitializedCallback a_initialized_callba
  */
 void ev::hub::Hub::Stop (int a_sig_no)
 {
-    
+
     OSALITE_DEBUG_TRACE("ev_hub", "~> Stop(a_sig_no=%d)...", a_sig_no);
-                        
+
     aborted_ = true;
-    
+
     if ( -1 == a_sig_no && true == running_ ) {
         //
         // SIGKILL || SIGTERM
@@ -339,12 +339,12 @@ void ev::hub::Hub::Stop (int a_sig_no)
         event_free(hack_event_);
         hack_event_ = nullptr;
     }
-    
+
     if ( nullptr != watchdog_event_ ) {
         event_free(watchdog_event_);
         watchdog_event_ = nullptr;
     }
-    
+
     if ( nullptr != event_base_ ) {
         event_base_free(event_base_);
         event_base_ = nullptr;
@@ -354,19 +354,19 @@ void ev::hub::Hub::Stop (int a_sig_no)
         delete thread_;
         thread_ = nullptr;
     }
-    
+
     socket_.Close();
-    
+
     if ( nullptr != socket_buffer_ ) {
         delete [] socket_buffer_;
         socket_buffer_ = nullptr;
     }
-    
+
     if ( nullptr != one_shot_requests_handler_ ) {
         delete one_shot_requests_handler_;
         one_shot_requests_handler_ = nullptr;
     }
-    
+
     if ( nullptr != keep_alive_requests_handler_ ) {
         delete keep_alive_requests_handler_;
         keep_alive_requests_handler_ = nullptr;
@@ -378,20 +378,20 @@ void ev::hub::Hub::Stop (int a_sig_no)
         delete stepper_.next_;
         stepper_.next_ = nullptr;
     }
-    
+
     if ( nullptr != stepper_.publish_ ) {
         delete stepper_.publish_;
         stepper_.publish_ = nullptr;
     }
-    
+
     if ( nullptr != stepper_.disconnected_ ) {
         delete stepper_.disconnected_;
         stepper_.disconnected_ = nullptr;
     }
-    
+
     stepper_.setup_   = nullptr;
     stepper_.factory_ = nullptr;
-    
+
     OSALITE_DEBUG_TRACE("ev_hub", "<~ Stop()...");
 }
 
@@ -405,7 +405,7 @@ void ev::hub::Hub::Stop (int a_sig_no)
 void ev::hub::Hub::Loop ()
 {
     fault_msg_ = "";
-    
+
     stepper_.setup_ = [this](ev::Device* a_device) {
         a_device->Setup(event_base_, [this] (const ev::Exception& a_ev_exception) {
             bridge_.ThrowFatalException(a_ev_exception);
@@ -418,7 +418,7 @@ void ev::hub::Hub::Loop ()
         event_free(socket_event_);
         socket_event_ = nullptr;
     }
-    
+
     one_shot_requests_handler_   = new ev::hub::OneShotHandler(stepper_, thread_id_);
     keep_alive_requests_handler_ = new ev::hub::KeepAliveHandler(stepper_, thread_id_);
 
@@ -444,27 +444,27 @@ void ev::hub::Hub::Loop ()
         fault_msg_ += "!";
         goto finally;
     }
-    
+
     socket_event_ = event_new(event_base_, socket_.GetFileDescriptor(), EV_READ | EV_PERSIST, DatagramEventHandlerCallback, this);
     if ( nullptr == socket_event_ ) {
         fault_msg_ = "Unable to create an event for datagram socket!";
         goto finally;
     }
-    
+
     timeval tv;
     tv.tv_sec  = 15;
     tv.tv_usec = 0;
 
-    
+
     if ( 0 != event_add(socket_event_, &tv) ) {
         fault_msg_ = "Unable to add datagram socket event!";
         goto finally;
     }
-    
+
     if ( 0 != fault_msg_.length() ) {
         goto finally;
     }
-    
+
     try {
         initialized_callback_();
     } catch (const ev::Exception& a_ev_exception) {
@@ -490,14 +490,14 @@ void ev::hub::Hub::Loop ()
         fault_msg_ = STD_CPP_GENERIC_EXCEPTION_TRACE();
         goto finally;
     }
-    
+
     running_  = true;
     handlers_ = { one_shot_requests_handler_, keep_alive_requests_handler_ };
-    
+
 #ifndef EVLOOP_NO_EXIT_ON_EMPTY
     #define EVLOOP_NO_EXIT_ON_EMPTY 0x04
 #endif
-    
+
     while ( false == aborted_ ) {
 
         int rv = event_base_loop(event_base_, EVLOOP_NO_EXIT_ON_EMPTY);
@@ -512,20 +512,20 @@ void ev::hub::Hub::Loop ()
             default:
                 break;
         }
-        
+
     }
-    
+
 finally:
 
     OSALITE_DEBUG_TRACE("ev_hub", "~> closing socket %d!", socket_.GetFileDescriptor());
 
     socket_.Close();
-    
+
     if ( nullptr !=  one_shot_requests_handler_ ) {
         delete one_shot_requests_handler_;
         one_shot_requests_handler_ = nullptr;
     }
-    
+
     if ( nullptr != keep_alive_requests_handler_ ) {
         delete keep_alive_requests_handler_;
         keep_alive_requests_handler_ = nullptr;
@@ -547,11 +547,11 @@ finally:
     if ( 0 != fault_msg_.length() ) {
         bridge_.ThrowFatalException(ev::Exception(fault_msg_));
     }
-    
+
     stop_cv_.Wake();
 
     running_ = false;
-    
+
     OSALITE_DEBUG_TRACE("ev_hub", "~> stop_cv_ unlocked from thread loop...");
 }
 
@@ -567,15 +567,15 @@ void ev::hub::Hub::SanityCheck ()
     try {
 
         OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
-        
+
         if ( nullptr != one_shot_requests_handler_ ) {
             one_shot_requests_handler_->SanityCheck();
         }
-        
+
         if ( nullptr != keep_alive_requests_handler_ ) {
             keep_alive_requests_handler_->SanityCheck();
         }
-        
+
     } catch (const ev::Exception& a_ev_exception) {
         OSALITE_BACKTRACE();
         bridge_.ThrowFatalException(a_ev_exception);
@@ -633,7 +633,7 @@ void ev::hub::Hub::EventLogCallback (int a_severity, const char* a_msg)
 }
 
 /**
- * @brief This is a hack to prevent event_base_loop from exiting; 
+ * @brief This is a hack to prevent event_base_loop from exiting;
  *         The flag EVLOOP_NO_EXIT_ON_EMPTY is somehow ignored, at least on Mac OS X.
  *
  * @param a_fd    A file descriptor or signal.
@@ -651,7 +651,7 @@ void ev::hub::Hub::LoopHackEventCallback (evutil_socket_t /* a_fd */, short /* a
 
 /**
  * @brief Handle datagram messages send by 'main' thread to ev::Hub thread.
- * 
+ *
  * @param a_df
  * @param a_flags
  * @param a_arg
@@ -659,26 +659,26 @@ void ev::hub::Hub::LoopHackEventCallback (evutil_socket_t /* a_fd */, short /* a
 void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* a_flags */, void* a_arg)
 {
     ev::hub::Hub* self = (ev::hub::Hub*)a_arg;
-    
+
     if ( self->socket_.GetFileDescriptor() != a_fd /* || a_flags != EV_READ */ ) {
         return;
     }
-    
+
     if ( nullptr == self->socket_buffer_ ) {
         self->socket_buffer_        = new uint8_t[4096];
         self->socket_buffer_length_ = 4096;
     }
-    
+
     int msg_received  = 0;
     int rx_count      = 0;
     int mgs_remaining = 0;
-    
+
     // ... while bytes available ...
     while ( true ) {
 
         size_t length = 0;
         if ( false == self->socket_.Receive(self->socket_buffer_, self->socket_buffer_length_, length) ) {
-            
+
             const int last_error = self->socket_.GetLastReceiveError();
             if ( EAGAIN == last_error ) {
                 break;
@@ -691,35 +691,35 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
                                     self->socket_.GetLastReceiveErrorString().c_str()
                 );
             }
-            
+
         }
-        
+
         mgs_remaining = ( std::atomic_fetch_add(&self->pending_callbacks_count_, -1) - 1 );
         msg_received += 1;
         rx_count     += length;
-        
+
         OSALITE_DEBUG_TRACE("ev_hub",
                             "eh: received %d message(s) [ %d byte(s) ], pending %d message(s)",
                             msg_received, rx_count, mgs_remaining
                             );
         (void)mgs_remaining;
 
-        
+
         // <invoke_id>:<mode>:<target>:<tag>:<obj_addr>
-        
+
         // ... ensure message has the minimum length ...
         if ( length < k_msg_min_length_ ) {
             OSALITE_DEBUG_TRACE("ev_hub", "Skipping message... " SIZET_FMT " vs " SIZET_FMT,
                                 length, k_msg_min_length_);
             continue;
         }
-        
+
         const std::string message = std::string(reinterpret_cast<char*>(self->socket_buffer_), length);
-        
+
         // ... split message required components ...
-        
+
         const char* msg_ctr_ = message.c_str();
-        
+
         // ... read: invoke id ...
         const char* invoke_id_ptr = msg_ctr_;
         if ( nullptr == invoke_id_ptr ) {
@@ -734,7 +734,7 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
             return;
         }
         invoke_id = static_cast<uint64_t>(tmp_number);
-	
+
         // ... read: mode, one of \link ev::Request::Mode \link  ...
         const char* mode_ptr = strchr(invoke_id_ptr, ':');
         if ( nullptr == mode_ptr ) {
@@ -742,14 +742,14 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
             return;
         }
         mode_ptr = mode_ptr + sizeof(char);
-        
+
         uint8_t mode;
         if ( 1 != sscanf(mode_ptr, "%d:", &tmp_number) ) {
             self->bridge_.ThrowFatalException(ev::Exception("Unable to read '%s' value!", "mode"));
             return;
         }
         mode = static_cast<uint8_t>(tmp_number);
-        
+
         // ... read: target, one of ev::Object::Target ...
         const char* target_ptr = strchr(mode_ptr, ':');
         if ( nullptr == target_ptr ) {
@@ -757,7 +757,7 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
             return;
         }
         target_ptr = target_ptr + sizeof(char);
-        
+
         uint8_t target;
         if ( 1 != sscanf(target_ptr, "%d:", &tmp_number) ) {
             self->bridge_.ThrowFatalException(ev::Exception("Unable to read '%s' value!", "target"));
@@ -771,14 +771,14 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
             return;
         }
         tag_ptr = tag_ptr + sizeof(char);
-        
+
         uint8_t tag;
         if ( 1 != sscanf(tag_ptr, "%d:", &tmp_number) ) {
             self->bridge_.ThrowFatalException(ev::Exception("Unable to read '%s' value!", "tag"));
             return;
         }
         tag = static_cast<uint8_t>(tmp_number);
-        
+
         //
         // ... read object addr ...
         //
@@ -795,9 +795,9 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
         } else {
             request = nullptr;
         }
-        
+
         switch (static_cast<ev::Object::Target>(target)) {
-                
+
             case ev::Object::Target::Redis:
             case ev::Object::Target::PostgreSQL:
             case ev::Object::Target::CURL:
@@ -855,7 +855,7 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
                 }
                 break;
             }
-                
+
             case ev::Object::Target::NotSet:
             {
                 try {
@@ -865,11 +865,11 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
                         uint8_t mode_;
                         uint8_t target_;
                         uint8_t tag_;
-                        
+
                     } NextStepPayload;
 
                     NextStepPayload* p = new NextStepPayload ({invoke_id, mode, target, tag});
-                    
+
                     self->stepper_.next_->Call(
                                                [self, p] () -> void* {
                                                    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(self->thread_id_);
@@ -880,7 +880,7 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
                                                    NextStepPayload* pp = static_cast<NextStepPayload*>(a_payload);
                                                    // ... return is ignore, because we did not transfer the 'result' object ( ownership ) ...
                                                    (void)a_callback(pp->invoke_id_, static_cast<ev::Object::Target>(pp->target_), pp->tag_, nullptr);
-                                                   
+
                                                    delete pp;
                                                }
                     );
@@ -903,7 +903,7 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
                 }
                 break;
             }
-                
+
             default:
             {
                 OSALITE_BACKTRACE();
@@ -913,7 +913,7 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
         }
 
     }
-    
+
     OSALITE_DEBUG_TRACE("ev_hub", "~> Idle...");
     self->one_shot_requests_handler_->Idle();
     self->keep_alive_requests_handler_->Idle();
@@ -931,7 +931,7 @@ void ev::hub::Hub::WatchdogCallback (evutil_socket_t /* a_fd */, short /* a_flag
     ev::hub::Hub* self = (ev::hub::Hub*)a_arg;
 
     OSALITE_DEBUG_TRACE("ev_hub", "~> Watchdog reporting for duty...");
-    
+
     if ( true == self->aborted_ ) {
         OSALITE_DEBUG_TRACE("ev_hub", "~> Watchdog decision is... break it!");
         event_base_loopbreak(self->event_base_);

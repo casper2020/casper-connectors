@@ -65,14 +65,14 @@ void ev::Signals::Startup (const ev::Loggable::Data& a_loggable_data_ref)
 void ev::Signals::Register (const std::set<int>& a_signals, std::function<bool(int)> a_callback)
 {
     struct sigaction act;
-    
+
     memset(&act, 0, sizeof(act));
-    
+
     act.sa_handler = ev_sa_handler;
     for ( auto signal : a_signals ) {
         sigaction(signal, &act, 0);
     }
-    
+
     s_unhandled_signal_callback_ = a_callback;
 }
 
@@ -118,7 +118,7 @@ bool ev::Signals::OnSignal (const int a_sig_no)
     );
     // ... handle signal ...
     switch(a_sig_no) {
-            
+
         case SIGUSR1:
         {
             ev::Logger::GetInstance().Log("signals", *s_loggable_data_ptr_,
@@ -129,7 +129,7 @@ bool ev::Signals::OnSignal (const int a_sig_no)
             ::ev::LoggerV2::GetInstance().Recycle();
         }
             return true;
-            
+
         case SIGTTIN:
         {
             ev::Logger::GetInstance().Log("signals", *s_loggable_data_ptr_,
@@ -146,18 +146,18 @@ bool ev::Signals::OnSignal (const int a_sig_no)
                 }
             } else {
                 s_bridge_ptr_->CallOnMainThread([this](){
-                    NewTask([this] () -> ::ev::Object* {
+                    NewTask([] () -> ::ev::Object* {
                         ev::Logger::GetInstance().Log("signals", *s_loggable_data_ptr_,
                                                       "Signal %d - Invalidate PostgreSQL connection(s)...",
                                                       SIGHUP
                         );
                         return new:: ev::Request(*s_loggable_data_ptr_, ev::Request::Target::PostgreSQL, ev::Request::Mode::OneShot, ev::Request::Control::Invalidate);
-                    })->Finally([this] (::ev::Object* /* a_object */) {
+                    })->Finally([] (::ev::Object* /* a_object */) {
                         ev::Logger::GetInstance().Log("signals", *s_loggable_data_ptr_,
                                                       "Signal %d - PostgreSQL connection(s) invalidated.",
                                                       SIGHUP
                         );
-                    })->Catch([this] (const ::ev::Exception& a_ev_exception) {
+                    })->Catch([] (const ::ev::Exception& a_ev_exception) {
                         ev::Logger::GetInstance().Log("signals", *s_loggable_data_ptr_,
                                                       "Signal %d - Unable to invalidate PostgreSQL connections: '%s'",
                                                       SIGHUP, a_ev_exception.what()
@@ -193,4 +193,3 @@ ev::scheduler::Task* ev::Signals::NewTask (const EV_TASK_PARAMS& a_callback)
                                    }
     );
 }
-

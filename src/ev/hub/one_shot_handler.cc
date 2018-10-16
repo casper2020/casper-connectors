@@ -72,7 +72,7 @@ ev::hub::OneShotHandler::~OneShotHandler ()
         }
         (*map).clear();
     }
-    
+
     // ... just ptrs ...
     device_request_map_.clear();
     request_device_map_.clear();
@@ -114,24 +114,24 @@ void ev::hub::OneShotHandler::Push (ev::Request* a_request)
 void ev::hub::OneShotHandler::SanityCheck ()
 {
     OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
-    
+
     std::map<ev::Device*, size_t>  tmp_devices_map;
     std::map<ev::Request*, size_t> tmp_requests_map;
-        
+
     //
     // 1st check
     //
-    
+
     // ... count ...
     for ( auto map : { &cached_devices_, &in_use_devices_ } ) {
-        
+
         for ( auto type : supported_target_ ) {
-            
+
             auto it = (*map).find(type);
             if ( (*map).end() == it ) {
                 continue;
             }
-            
+
             for ( auto device : *it->second ) {
                 auto tmp_map_it = tmp_devices_map.find(device);
                 if ( tmp_devices_map.end() != tmp_map_it ) {
@@ -140,9 +140,9 @@ void ev::hub::OneShotHandler::SanityCheck ()
                     tmp_devices_map[device] = 0;
                 }
             }
-            
+
         }
-        
+
     }
     // ... check ...
     for ( auto it : tmp_devices_map ) {
@@ -153,7 +153,7 @@ void ev::hub::OneShotHandler::SanityCheck ()
                                 static_cast<void*>(it.first)
             );
         }
-        
+
     }
     tmp_devices_map.clear();
 
@@ -163,14 +163,14 @@ void ev::hub::OneShotHandler::SanityCheck ()
     //
     std::stringstream ss;
     std::string       fault_msg;
-    
+
     // ... a request can only be located in one of the lists ...
-    
+
     std::deque<ev::Request*> pending_requests;
     for ( auto request : pending_requests_ ) {
         pending_requests.push_back(request);
     }
-    
+
     const auto deques = { &pending_requests, &completed_requests_, &rejected_requests_ };
     // ... zero out ...
     for ( auto deque : deques ) {
@@ -195,7 +195,7 @@ void ev::hub::OneShotHandler::SanityCheck ()
         }
     }
     tmp_requests_map.clear();
-    
+
     // ... report fault ...
     if ( 0 != fault_msg.length() ) {
         throw ev::Exception(fault_msg);
@@ -216,28 +216,28 @@ void ev::hub::OneShotHandler::SanityCheck ()
 void ev::hub::OneShotHandler::OnConnectionStatusChanged (const ev::Device::ConnectionStatus& a_status, ev::Device* a_device)
 {
     OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
-    
+
     std::stringstream ss;
-    
+
     // ... if device is connected ...
     if ( ev::Device::ConnectionStatus::Connected == a_status ) {
         // ... ok ...
         return;
     }
-    
+
     // ... expecting disconnected or error status only ...
     if ( not ( ev::Device::ConnectionStatus::Disconnected == a_status || ev::Device::ConnectionStatus::Error == a_status ) ) {
         // ... ??? ...
         return;
     }
-    
+
     //
     // ... connection error or device disconnected ....
     //
-    
+
     // ... sanity check required ...
     SanityCheck();
-   
+
     // ... search for device ...
     bool found = false;
     for ( auto map : { &cached_devices_, &in_use_devices_ } ) {
@@ -255,7 +255,7 @@ void ev::hub::OneShotHandler::OnConnectionStatusChanged (const ev::Device::Conne
             break;
         }
     }
-    
+
     // ... finally ...
     if ( false == found ) {
         // ... device not found ...
@@ -266,23 +266,23 @@ void ev::hub::OneShotHandler::OnConnectionStatusChanged (const ev::Device::Conne
 
     // ... promote devie to a 'zombie'
     zombies_.insert(a_device);
-    
+
     // ... search for associated request ...
     const auto r_it = device_request_map_.find(a_device);
     if ( device_request_map_.end() != r_it ) {
-        
+
         typedef struct {
             const int64_t            invoke_id_;
             const ev::Object::Target target_;
             const uint8_t            tag_;
         } Payload;
-        
+
         // ... prepare callback payload ...
         Payload* payload = new Payload({r_it->second->GetInvokeID(), r_it->second->target_, r_it->second->GetTag()});
 
         // ... untrack ...
         Unlink(r_it->second);
-        
+
         // ... issue callbacks ...
         stepper_.disconnected_->Call(
                                      [this, payload]() -> void* {
@@ -329,15 +329,15 @@ bool ev::hub::OneShotHandler::OnUnhandledDataObjectReceived (const ev::Device* /
 void ev::hub::OneShotHandler::Push ()
 {
     OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
-    
+
     // ... get rid of 'zombies' objects ...
     KillZombies();
 
     size_t idx = 0;
-    
+
     // ...
     PurgeDevices();
-    
+
     // ... now process next request(s) ....
     do {
         // ... no more requests?
@@ -373,7 +373,7 @@ void ev::hub::OneShotHandler::Push ()
         ++idx;
         // ... connect device for request ...
         switch (current_request->target_) {
-                
+
             case ev::Object::Target::Redis:
             case ev::Object::Target::PostgreSQL:
             {
@@ -405,38 +405,38 @@ void ev::hub::OneShotHandler::Push ()
                     new_device = false;
                     cached_device_for_type_it->second->erase(cached_device_for_type_it->second->begin());
                 }
-                
+
                 // ... ensure deice exists ...
                 if ( nullptr == device ) {
                     // ... a device must be ready!
                     throw ev::Exception("Unexpected device 'in-use' map state: nullptr!");
                 }
-                
+
                 // ... setup device ...
                 stepper_.setup_(device);
-                
+
                 // ... listen to connection status changes ...
                 device->SetListener(this);
-                
+
                 Link(current_request, device);
-                
+
                 const ev::Device::Status connect_rv = device->Connect([this, current_request](const ev::Device::ConnectionStatus& a_status, ev::Device* a_device) {
-                    
+
                     bool success = ( ev::Device::ConnectionStatus::Connected == a_status );
                     if ( true == success ) {
                         const ev::Device::Status exec_rv = a_device->Execute(
                                                                              [this, current_request, a_device] (const ev::Device::ExecutionStatus& a_exec_status, ev::Result* a_exec_result) {
-                                                                                 
+
                                                                                  OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
-                                                                                 
+
                                                                                  (void)a_exec_status;
-                                                                                 
+
                                                                                  const auto target = current_request->target_;
-                                                                                 
+
                                                                                  Unlink(current_request);
-                                                                                 
+
                                                                                  current_request->AttachResult(a_exec_result);
-                                                                                 
+
                                                                                  // ... mark request as completed ...
                                                                                  completed_requests_.push_back(current_request);
                                                                                  // ... remove device from 'in use' map ...
@@ -449,7 +449,7 @@ void ev::hub::OneShotHandler::Push ()
                                                                                          }
                                                                                      }
                                                                                  }
-                                                                                 
+
                                                                                  // ... and add it to 'cached' map
                                                                                  if ( false == a_device->Reusable() ) {
                                                                                      // ... device already unlinked ...
@@ -459,10 +459,10 @@ void ev::hub::OneShotHandler::Push ()
                                                                                  } else {
                                                                                      cached_devices_[target]->push_back(a_device);
                                                                                  }
-                                                                                 
+
                                                                                  // ... sanity check required ...
                                                                                  SanityCheck();
-                                                                                 
+
                                                                                  // ... publish results now ...
                                                                                  Publish();
                                                                              },
@@ -470,12 +470,12 @@ void ev::hub::OneShotHandler::Push ()
                         );
                         success = ( ev::Device::Status::Async == exec_rv );
                     }
-                    
+
                     OSALITE_DEBUG_TRACE("ev_one_shot_handler",
                                         "{ %d } : [%c] | # %d / %d ",
                                         (int)current_request->target_, a_device->Reusable() ? ' ' : 'x',
                                         (int)a_device->ReuseCount(), (int)a_device->MaxReuse()
-                    );                    
+                    );
 
                     if ( false == success ) {
 
@@ -490,7 +490,7 @@ void ev::hub::OneShotHandler::Push ()
                                 }
                             }
                         }
-                        
+
                         ev::Result* result = new ev::Result(target);
                         result->AttachDataObject(a_device->DetachLastError());
                         current_request->AttachResult(result);
@@ -500,7 +500,7 @@ void ev::hub::OneShotHandler::Push ()
                         // ... keep track of this request ...
                         rejected_requests_.push_back(current_request);
                         // dont need to current_request = nullptr; we're at another context ...
-                        
+
                         // ... and add it to 'cached' map
                         if ( false == a_device->Reusable() ) {
                             // ... no longer usable ...
@@ -517,9 +517,9 @@ void ev::hub::OneShotHandler::Push ()
                         // ... publish results now ...
                         Publish();
                     }
-                    
+
                 });
-                
+
                 if ( ev::Device::Status::Async == connect_rv || ev::Device::Status::Nop == connect_rv ) {
                     // ... keep track of the device ...
                     in_use_devices_[current_request->target_]->push_back(device);
@@ -555,7 +555,7 @@ void ev::hub::OneShotHandler::Push ()
                 // ... let it exit switch, to process rejected request ....
                 break;
             }
-                
+
             default:
             {
                 // ... keep track of this request ...
@@ -568,7 +568,7 @@ void ev::hub::OneShotHandler::Push ()
                 break;
             }
         }
-        
+
         // ... untrack ...
         Unlink(current_request);
 
@@ -580,11 +580,11 @@ void ev::hub::OneShotHandler::Push ()
             // ... publish results now ...
             Publish();
         }
-        
+
         // ... next ...
-        
+
     } while ( idx < pending_requests_.size() );
-    
+
 }
 
 

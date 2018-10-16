@@ -44,23 +44,23 @@ ev::loop::beanstalkd::Job::Job (const Config& a_config)
     validity_  = 0;
     transient_ = config_.transient_;
     cancelled_ = false;
-    
+
     progress_             = Json::Value(Json::ValueType::objectValue);
     progress_["status"]   = "in-progress";
     progress_["progress"] = 0.0;
-    
+
     ev::scheduler::Scheduler::GetInstance().Register(this);
-    
+
     osal::ConditionVariable cv;
-    
+
     ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &cv] () {
-        
-        
+
+
         const std::string channel = ( config_.service_id_ + ":job-signal" );
-        
+
         ::ev::redis::subscriptions::Manager::GetInstance().SubscribeChannels({ channel },
                                                                              /* a_status_callback */
-                                                                             [this, &cv](const std::string& a_name_or_pattern,
+                                                                             [&cv](const std::string& a_name_or_pattern,
                                                                                          const ::ev::redis::subscriptions::Manager::Status& a_status) -> EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK {
                                                                                  if ( ::ev::redis::subscriptions::Manager::Status::Subscribed == a_status ) {
                                                                                      cv.Wake();
@@ -74,9 +74,9 @@ ev::loop::beanstalkd::Job::Job (const Config& a_config)
                                                                              /* a_client */
                                                                              this
         );
-        
+
     });
-    
+
     cv.Wait();
 }
 
@@ -117,19 +117,19 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     transient_ = a_payload.get("transient", config_.transient_).asBool();
     cancelled_ = false;
     response_  = Json::Value::null;
-    
+
     //
     // JSONAPI Configuration - optional
     //
     if ( true == a_payload.isMember("jsonapi") ) {
         ConfigJSONAPI(a_payload["jsonapi"]);
     }
-    
+
     //
     // Configure Log
     //
     // TODO config_.loggable_data_ref_.SetTag(redis_key_prefix_ + channel_);
-    
+
     //
     // Run JOB
     //
@@ -137,7 +137,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
 }
 
 #ifdef __APPLE__
-#pragma make -
+#pragma mark -
 #endif
 
 /**
@@ -158,7 +158,7 @@ void ev::loop::beanstalkd::Job::ConfigJSONAPI (const Json::Value& a_config)
     const Json::Value sharded_schema   = GetJSONObject(jsonapi, "sharded_schema"  , Json::ValueType::stringValue, &empty_string);
     const Json::Value subentity_schema = GetJSONObject(jsonapi, "subentity_schema", Json::ValueType::stringValue, &empty_string);
     const Json::Value subentity_prefix = GetJSONObject(jsonapi, "subentity_prefix", Json::ValueType::stringValue, &empty_string);
-    
+
     json_api_.GetURIs().SetBase(prefix.asString());
     json_api_.SetUserId(user_id.asString());
     json_api_.SetEntityId(entity_id.asString());
@@ -181,7 +181,7 @@ void ev::loop::beanstalkd::Job::PublishCancelled ()
     response_["id"]      = id_;
     response_["status"]  = "cancelled";
     response_["channel"] = channel_;
-    
+
     Publish(redis_signal_channel_, response_);
 }
 
@@ -193,12 +193,12 @@ void ev::loop::beanstalkd::Job::PublishCancelled ()
 void ev::loop::beanstalkd::Job::PublishFinished (const Json::Value& a_payload)
 {
     PublishProgress(a_payload);
-    
+
     response_            = Json::Value(Json::ValueType::objectValue);
     response_["id"]      = id_;
     response_["status"]  = "finished";
     response_["channel"] = channel_;
-    
+
     Publish(redis_signal_channel_, response_);
 }
 
@@ -220,12 +220,12 @@ void ev::loop::beanstalkd::Job::PublishProgress (const Json::Value& a_payload)
 void ev::loop::beanstalkd::Job::PublishProgress (const ev::loop::beanstalkd::Job::Progress& a_message)
 {
     Json::Value i18n_array = Json::Value(Json::ValueType::arrayValue);
-    
+
     i18n_array.append(a_message.key_);
     if ( nullptr != a_message.args_ ) {
         i18n_array.append(*a_message.args_);
     }
-    
+
     progress_["message"]  = i18n_array;
     progress_["progress"] = a_message.value_;
 
@@ -244,42 +244,42 @@ void ev::loop::beanstalkd::Job::Publish (const std::string& a_channel, const Jso
                                          const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
 {
     const std::string redis_message = json_writer_.write(a_object);
-    
+
     osal::ConditionVariable cv;
-    
+
     ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &a_channel, &a_success_callback, &a_failure_callback, &cv, &redis_message] {
-        
+
         NewTask([this, &a_channel, &redis_message] () -> ::ev::Object* {
-            
+
             return new ev::redis::Request(config_.loggable_data_ref_,
                                           "PUBLISH", { a_channel, redis_message }
             );
-            
-        })->Finally([this, &cv, a_success_callback] (::ev::Object* a_object) {
-            
+
+        })->Finally([&cv, a_success_callback] (::ev::Object* a_object) {
+
             // ... an integer reply is expected ...
             ev::redis::Reply::EnsureIntegerReply(a_object);
-            
+
             // ... notify ...
             if ( nullptr != a_success_callback ) {
                 a_success_callback();
             }
-            
+
             cv.Wake();
-            
-        })->Catch([this, &cv, a_failure_callback] (const ::ev::Exception& a_ev_exception) {
-            
+
+        })->Catch([&cv, a_failure_callback] (const ::ev::Exception& a_ev_exception) {
+
             // ... notify ...
             if ( nullptr != a_failure_callback ) {
                 a_failure_callback(a_ev_exception);
             }
-            
+
             cv.Wake();
-            
+
         });
-        
+
     });
-    
+
     cv.Wait();
 }
 
@@ -295,35 +295,35 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
                                          const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
 {
     osal::ConditionVariable cv;
-    
+
     const std::string redis_channel = redis_channel_prefix_ + channel_;
     const std::string redis_key     = redis_key_prefix_     + channel_;
     const std::string redis_message = json_writer_.write(a_object);
-    
+
     // TODO
 //    NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("queue",
 //                                       "Publishing to REDIS channel '%s' : %s",
 //                                       redis_key.c_str(),
 //                                       redis_message.c_str()
 //    );
-    
+
     ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, a_success_callback, a_failure_callback, &cv, &redis_channel, &redis_key, &redis_message] {
-        
+
         ev::scheduler::Task* t = NewTask([this, &redis_channel, redis_message] () -> ::ev::Object* {
-            
+
             return new ev::redis::Request(config_.loggable_data_ref_,
                                           "PUBLISH", { redis_channel, redis_message }
             );
-            
+
         });
-        
+
         if ( false == transient_ ) {
-            
+
             t->Then([this, redis_key, redis_message] (::ev::Object* a_object) -> ::ev::Object* {
-                
+
                 // ... an integer reply is expected ...
                 ev::redis::Reply::EnsureIntegerReply(a_object);
-                
+
                 // ... make it permanent ...
                 return new ev::redis::Request(config_.loggable_data_ref_,
                                               "HSET",
@@ -332,25 +332,25 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
                                                   /* field */ "status", redis_message
                                               }
                 );
-                
+
             });
-            
+
             if ( -1 != validity_ ) {
-                
+
                 if ( validity_ > 0 ) {
-                    
+
                     t->Then([this, redis_key] (::ev::Object* a_object) -> ::ev::Object* {
-                        
+
                         // ... a string 'OK' is expected ...
                         ev::redis::Reply::EnsureIntegerReply(a_object);
-                        
+
                         // ... set expiration date ...
                         return new ::ev::redis::Request(config_.loggable_data_ref_,
                                                         "EXPIRE", { redis_key, std::to_string(validity_) }
                         );
-                        
+
                     })->Finally([&cv, a_success_callback] (::ev::Object* a_object) {
-                        
+
                         //
                         // EXPIRE:
                         //
@@ -359,93 +359,93 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
                         // - 0 if key does not exist or the timeout could not be set.
                         //
                         ev::redis::Reply::EnsureIntegerReply(a_object, 1);
-                        
+
                         // ... notify ...
                         if ( nullptr != a_success_callback ) {
                             a_success_callback();
                         }
-                        
+
                         cv.Wake();
-                        
+
                     });
-                    
+
                 } else {
-                    
-                    t->Finally([this, &cv, a_success_callback] (::ev::Object* a_object) {
-                        
+
+                    t->Finally([&cv, a_success_callback] (::ev::Object* a_object) {
+
                         // ... a string 'OK' is expected ...
                         ev::redis::Reply::EnsureIsStatusReply(a_object, "OK");
-                        
+
                         // ... notify ...
                         if ( nullptr != a_success_callback ) {
                             a_success_callback();
                         }
-                        
+
                         cv.Wake();
-                        
+
                     });
-                    
+
                 }
-                
-                
+
+
             } else {
-                
+
                 // ... no validity set, validate 'SET' response ...
-                t->Finally([this, &cv, a_success_callback] (::ev::Object* a_object) {
-                    
+                t->Finally([&cv, a_success_callback] (::ev::Object* a_object) {
+
                     // ... an integer reply is expected ...
                     ev::redis::Reply::EnsureIntegerReply(a_object);
-                    
+
                     // ... notify ...
                     if ( nullptr != a_success_callback ) {
                         a_success_callback();
                     }
-                    
+
                     cv.Wake();
-                    
+
                 });
-                
+
             }
 
         } else {
-            
+
             // ... transient, validate 'PUBLISH' response ...
-            t->Finally([this, &cv, a_success_callback] (::ev::Object* a_object) {
-                
+            t->Finally([&cv, a_success_callback] (::ev::Object* a_object) {
+
                 // ... an integer reply is expected ...
                 ev::redis::Reply::EnsureIntegerReply(a_object);
-                
+
                 // ... notify ...
                 if ( nullptr != a_success_callback ) {
                     a_success_callback();
                 }
-                
+
                 cv.Wake();
-                
+
             });
-            
+
         }
-        
-        t->Catch([this, &cv, a_failure_callback] (const ::ev::Exception& a_ev_exception) {
-            
+
+        t->Catch([&cv, a_failure_callback] (const ::ev::Exception& a_ev_exception) {
+
             // ... log error ...
             // TODO
 //            NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("error",
 //                                               "PUBLISH failed: %s",
 //                                               a_ev_exception.what()
 //                                               );
-            
+
             // ... notify ...
             if ( nullptr != a_failure_callback ) {
                 a_failure_callback(a_ev_exception);
             }
-            
+
             cv.Wake();
-            
+
         });
-        
+
     });
-    
+
     cv.Wait();
 }
 
@@ -465,28 +465,28 @@ void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::
 {
     o_result = Json::Value(Json::ValueType::objectValue);
     o_result["status_code"] = 500;
-    
+
     osal::ConditionVariable cv;
-    
+
     ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &a_query, &o_result, &cv, &a_use_column_name] () {
-        
+
         NewTask([this, a_query] () -> ::ev::Object* {
-            
+
             return new ::ev::postgresql::Request(config_.loggable_data_ref_, a_query);
-            
+
         })->Then([] (::ev::Object* a_object) -> ::ev::Object* {
-            
+
             ::ev::Result* result = dynamic_cast<::ev::Result*>(a_object);
             if ( nullptr == result ) {
                 throw ::ev::Exception("Unexpected PostgreSQL result object: nullptr!");
             }
-            
+
             if ( 1 != result->DataObjectsCount() ) {
                 throw ::ev::Exception("Unexpected number of PostgreSQL result objects: got " SIZET_FMT", expecting " SIZET_FMT "!",
                                       result->DataObjectsCount(), static_cast<size_t>(1)
                 );
             }
-            
+
             const ::ev::postgresql::Reply* reply = dynamic_cast<const ::ev::postgresql::Reply*>(result->DataObject());
             if ( nullptr == reply ) {
                 const ::ev::postgresql::Error* error = dynamic_cast<const ::ev::postgresql::Error*>(result->DataObject());
@@ -500,31 +500,31 @@ void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::
                     throw ::ev::Exception("Unexpected PostgreSQL reply object: nullptr!");
                 }
             }
-            
+
             // ... same as reply, but it was detached ...
             return result->DetachDataObject();
-            
-        })->Finally([this, a_query, &o_result, &cv, &a_use_column_name] (::ev::Object* a_object) {
-            
+
+        })->Finally([a_query, &o_result, &cv, &a_use_column_name] (::ev::Object* a_object) {
+
             const ::ev::postgresql::Reply* reply = dynamic_cast<const ::ev::postgresql::Reply*>(a_object);
             if ( nullptr == reply ) {
                 throw ::ev::Exception("Unexpected PostgreSQL data object!");
             }
-            
+
             const ::ev::postgresql::Value& value = reply->value();
-            
+
             if ( true == value.is_error() ) {
-                
+
                 const char* const error = value.error_message();
                 throw ::ev::Exception("PostgreSQL error: '%s'!", nullptr != error ? error : "nullptr");
-                
+
             } else if ( true == value.is_null() ) {
                 throw ::ev::Exception("Unexpected PostgreSQL unexpected data object : null!");
             }
-            
+
             const int rows_count    = value.rows_count();
             const int columns_count = value.columns_count();
-            
+
             o_result["table"] = Json::Value(Json::ValueType::arrayValue);
             for ( int row_idx = 0 ; row_idx < rows_count ; ++row_idx ) {
                 Json::Value& line = o_result["table"].append(Json::Value(Json::ValueType::objectValue));
@@ -536,22 +536,22 @@ void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::
                     }
                 }
             }
-            
+
             o_result["status_code"] = 200;
-            
+
             cv.Wake();
-            
+
         })->Catch([a_query, &o_result, &cv] (const ::ev::Exception& a_ev_exception) {
-            
+
             o_result["status_code"] = 500;
             o_result["exception"]   = a_ev_exception.what();
-            
+
             cv.Wake();
-            
+
         });
-        
+
     });
-    
+
     cv.Wait();
 }
 
@@ -566,21 +566,21 @@ void ev::loop::beanstalkd::Job::ExecuteQueryWithJSONAPI (const std::string& a_qu
 {
     o_result = Json::Value(Json::ValueType::objectValue);
     o_result["status_code"] = 500;
-    
+
     osal::ConditionVariable cv;
-    
+
     json_api_.Get(/* a_uri */
                   "",
                   /* a_callback */
                   [&o_result, &cv](const char* /* a_uri */, const char* a_json, const char* /* a_error */, uint16_t a_status, uint64_t /* a_elapsed */) {
-                      
+
                       o_result["reponse"]     = a_json; // TODO PARSE;
                       o_result["status_code"] = a_status;
-                      
+
                       cv.Wake();
                   }
     );
-    
+
     cv.Wait();
 }
 
@@ -602,7 +602,7 @@ Json::Value ev::loop::beanstalkd::Job::GetJSONObject (const Json::Value& a_paren
                                                       const Json::ValueType& a_type, const Json::Value* a_default)
 {
     std::stringstream tmp_ss;
-    
+
     Json::Value value = a_parent.get(a_key, Json::nullValue);
     if ( true == value.isNull() ) {
         if ( nullptr != a_default ) {
@@ -613,7 +613,7 @@ Json::Value ev::loop::beanstalkd::Job::GetJSONObject (const Json::Value& a_paren
     } else if ( value.type() == a_type ) {
         return value;
     }
-    
+
     tmp_ss << "Error while retrieving JSON object named '" << a_key <<"' - type mismatch: got " << value.type() << ", expected " << a_type << "!";
     throw std::runtime_error(tmp_ss.str());
 }
@@ -650,8 +650,8 @@ ev::scheduler::Task* ev::loop::beanstalkd::Job::NewTask (const EV_TASK_PARAMS& a
  */
 EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK ev::loop::beanstalkd::Job::JobSignalsDataCallback (const std::string& a_name, const std::string& a_message)
 {
-    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &a_name, &a_message] () {
-        
+    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &a_message] () {
+
         Json::Value  object;
         Json::Reader reader;
         try {
@@ -675,15 +675,15 @@ EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK ev::loop::beanstalkd::Job::JobS
         } catch (const Json::Exception& /* a_json_exception */) {
             // ... eat it ...
         }
-        
+
     }
                                                              );
-    
+
     return nullptr;
 }
 
 #ifdef __APPLE__
-#pragma -
+#pragma mark -
 #endif
 
 /**
@@ -694,4 +694,3 @@ void ev::loop::beanstalkd::Job::OnREDISConnectionLost ()
     config_.fatal_exception_callback_(ev::Exception("REDIS connection lost:\n unable to reconnect to REDIS!"));
     // TODO FIX AT CASPER-PRINT-QUEUE
 }
-

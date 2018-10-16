@@ -27,60 +27,63 @@
 
 namespace cc
 {
-    
+
     namespace v8
     {
-        
+
         class Script
         {
 
         public: // Data Type(s)
-            
+
             typedef cc::v8::Context::LoadedFunction   LoadedFunction;
             typedef cc::v8::Context::FunctionsVector  FunctionsVector;
             typedef cc::v8::Context::IsolatedCallback IsolatedCallback;
             typedef cc::v8::Context::NativeFunctions  NativeFunctions;
-            typedef std::vector<std::string>              Expressions;                        
-            
+            typedef std::vector<std::string>          Expressions;
+
         public: // Const Data
-            
+
             const std::string owner_;
             const std::string name_;
             const std::string uri_;
             const std::string out_path_;
-            
+
         private: // Data
-            
+
             ::cc::v8::Context context_;
-            bool              cancelled_;
-            
+
+        protected: // Data
+
+            bool cancelled_;
+
         public: // Constructor(s) / Destructor
-            
+
             Script () = delete;
             Script (const std::string& a_owner, const std::string& a_name, const std::string& a_uri,
                     const std::string& a_out_path,
                     const NativeFunctions& a_functions);
             virtual ~Script ();
-            
+
         public: // Method(s) / Function(s)
-            
+
             virtual void Load (const Json::Value& a_external_scripts, const Expressions& a_expressions) = 0;
-            
+
         public: // Inline Method(s) / Function(s)
-            
+
             void CallFunction (const LoadedFunction::Callable& a_callable, ::v8::Persistent<::v8::Value>& o_result) const;
             void IsolatedCall (IsolatedCallback a_callback) const;
-            
+
         protected: // Method(s) / Function(s)
-            
+
             virtual void Compile             (const ::v8::Local<::v8::String>& a_script,
                                               const FunctionsVector* a_functions = nullptr);
-            
+
             virtual void TranslateFromV8Value (::v8::Isolate* a_isolate, const ::v8::Persistent<::v8::Value>& a_value, Value& o_value) const;
             virtual void TranslateToV8Value   (::v8::Isolate* a_isolate, const Value& a_value, ::v8::Local<::v8::Value>& o_value) const;
-                        
+
         }; // end of class 'Script'
-        
+
         /**
          * @brief Execute a previously load function.
          *
@@ -92,7 +95,7 @@ namespace cc
         {
             context_.CallFunction(a_callable, o_result);
         }
-        
+
         /**
          * @brief Prepare scope for a v8 context.
          *
@@ -102,9 +105,9 @@ namespace cc
         {
             context_.IsolatedCall(a_callback);
         }
-        
+
     } // end of namespace 'v8'
-    
+
 } // end of namespace 'cc'
 
 #endif // NRS_CASPER_CONNECTORS_V8_SCRIPT_H_

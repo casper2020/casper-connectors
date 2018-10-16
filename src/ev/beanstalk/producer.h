@@ -25,7 +25,7 @@
 
 #include "ev/beanstalk/config.h"
 
-#include "beanstalk.hpp"
+#include "beanstalk-client/beanstalk.hpp"
 
 #include <string>
 
