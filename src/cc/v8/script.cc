@@ -41,7 +41,8 @@ cc::v8::Script::Script (const std::string& a_owner, const std::string& a_name, c
                         const cc::v8::Script::NativeFunctions& a_functions
 )
     : owner_(a_owner), name_(a_name), uri_(a_uri), out_path_(a_out_path),
-      context_(cc::v8::Singleton::GetInstance().isolate(), a_functions)
+      context_(cc::v8::Singleton::GetInstance().isolate(), a_functions),
+      cancelled_(false)
 {
     /* empty */
 }
@@ -63,9 +64,9 @@ cc::v8::Script::~Script ()
 void cc::v8::Script::Compile (const ::v8::Local<::v8::String>& a_script, const cc::v8::Script::FunctionsVector* a_functions)
 {
     const ::v8::String::Utf8Value& script = ::v8::String::Utf8Value(a_script);
-    
+
     const std::string log_uri = out_path_ + name_ + ".js";
-    
+
     std::ofstream out(log_uri, std::ofstream::out);
     if ( ! out ) {
         throw cc::v8::Exception("Failed to write data to '%s'!", log_uri.c_str());
@@ -78,14 +79,14 @@ void cc::v8::Script::Compile (const ::v8::Local<::v8::String>& a_script, const c
     out << *script;
 
     const auto start_tp = std::chrono::high_resolution_clock::now();
-    
+
     context_.Compile(name_, a_script, a_functions);
-    
+
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_tp ).count();
-    
+
     out << "\n\n//\n// Elapsed " << elapsed << " microseconds / " << ( (float)elapsed / 1000.0f ) << " milliseconds\n";
     out << "//\n";
-    
+
     out.close();
 }
 
@@ -105,7 +106,7 @@ void cc::v8::Script::Compile (const ::v8::Local<::v8::String>& a_script, const c
 void cc::v8::Script::TranslateFromV8Value (::v8::Isolate* a_isolate, const ::v8::Persistent<::v8::Value>& a_value, Value& o_value) const
 {
     const ::v8::Local<::v8::Value> value = a_value.Get(a_isolate);
-    
+
     if ( true == value.IsEmpty() ) {
         o_value.SetNull();
     } else if ( true == value->IsString() ) {
@@ -161,4 +162,3 @@ void cc::v8::Script::TranslateToV8Value (::v8::Isolate* a_isolate, const cc::v8:
             break;
     }
 }
-
