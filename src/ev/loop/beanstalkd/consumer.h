@@ -29,6 +29,8 @@
 
 #include "json/json.h"
 
+#include <functional> // std::function
+
 namespace ev
 {
     

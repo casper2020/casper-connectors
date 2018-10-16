@@ -23,6 +23,8 @@
 
 #include "cc/v8/exception.h"
 
+#include <string.h> // strlen
+
 /**
  * @brief Default constructor.
  *
