@@ -129,11 +129,30 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     // Configure Log
     //
     // TODO config_.loggable_data_ref_.SetTag(redis_key_prefix_ + channel_);
+    
+    const auto cancelled_callback = [this, &a_cancelled_callback] () {
+        
+        Json::Value i18n_array = Json::Value(Json::ValueType::arrayValue);
+        i18n_array.append("i18n_job_cancelled");
+        i18n_array.append(Json::Value(Json::ValueType::objectValue));
+        
+        Json::Value progress_object = Json::Value(Json::ValueType::objectValue);
+        progress_object["message"] = i18n_array;
+        progress_object["status"] = "cancelled";
 
-    //
-    // Run JOB
-    //
-    Run(a_id, a_payload, a_success_callback, a_cancelled_callback);
+        PublishProgress(progress_object);
+        
+        a_cancelled_callback();
+        
+    };
+    
+    GetJobCancellationFlag();
+    if ( true == IsCancelled() ) {
+        cancelled_callback();
+    } else {
+        Run(a_id, a_payload, a_success_callback, cancelled_callback);
+    }
+
 }
 
 #ifdef __APPLE__
@@ -447,6 +466,56 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
     });
 
     cv.Wait();
+}
+
+/**
+ * @brief Get a job cancellation flag.
+ */
+void ev::loop::beanstalkd::Job::GetJobCancellationFlag ()
+{
+    // ... first check cancellation flag ...
+    const std::string redis_key = redis_key_prefix_ + channel_;
+    
+    osal::ConditionVariable cancellation_cv;
+    
+    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &cancellation_cv, redis_key] {
+        
+        NewTask([this, redis_key] () -> ::ev::Object* {
+            
+            return new ev::redis::Request(config_.loggable_data_ref_,
+                                          "HGET",
+                                          { /* key   */ redis_key, /* field */ "cancelled" }
+            );
+            
+        })->Finally([this, &cancellation_cv] (::ev::Object* a_object) {
+            
+            //
+            // HGET:
+            //
+            // - String value is expected:
+            //
+            const ::ev::redis::Value& value = ev::redis::Reply::GetCommandReplyValue(a_object);
+            if ( false == value.IsNil() && true == value.IsString() ) {
+                cancelled_ = ( 0 == strcasecmp(value.String().c_str(), "true") );
+            }
+            
+            cancellation_cv.Wake();
+            
+        })->Catch([this, &cancellation_cv] (const ::ev::Exception& a_ev_exception) {
+            
+//            // ... log error ...
+//            NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("error",
+//                                               "HGET failed: %s",
+//                                               a_ev_exception.what()
+//                                               );
+            
+            cancellation_cv.Wake();
+            
+        });
+        
+    });
+    
+    cancellation_cv.Wait();
 }
 
 #ifdef __APPLE__
