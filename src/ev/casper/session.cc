@@ -76,6 +76,7 @@ void ev::casper::Session::Patch (Json::Value& a_object) const
         { "subentity_id"     , GetValue("subentity_id"     , "") },
         { "subentity_schema" , GetValue("subentity_schema" , "") },
         { "subentity_prefix" , GetValue("subentity_prefix" , "") },
+        { "user_email"       , GetValue("user_email"       , "") },
         { "refresh_token"    , GetValue("refresh_token"    , "") },
         { "access_token"     , data_.token_                      }
     };
@@ -98,6 +99,7 @@ void ev::casper::Session::Patch (std::string& a_string) const
         { "<subentity_id>"     , GetValue("subentity_id"     , "") },
         { "<subentity_schema>" , GetValue("subentity_schema" , "") },
         { "<subentity_prefix>" , GetValue("subentity_prefix" , "") },
+        { "<user_email>"       , GetValue("user_email"       , "") },
         { "<refresh_token>"    , GetValue("refresh_token"    , "") },
         { "<access_token>"     , data_.token_                      }
     };
