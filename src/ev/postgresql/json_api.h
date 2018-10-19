@@ -186,7 +186,11 @@ namespace ev
                                                std::string* o_query = nullptr);
             ::ev::scheduler::Task* NewTask    (const EV_TASK_PARAMS& a_callback);
             
-        }; // end of class Context
+        public: // STATIC API METHOD(S) / FUNCTION(S)
+
+            static void SQLEscape (const std::string& a_value, std::string& o_value);
+
+        }; // end of class JSONAPI
         
         /**
          * @return Access to JSON API URI's.
