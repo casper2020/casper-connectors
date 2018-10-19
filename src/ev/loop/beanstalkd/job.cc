@@ -719,7 +719,7 @@ ev::scheduler::Task* ev::loop::beanstalkd::Job::NewTask (const EV_TASK_PARAMS& a
  */
 EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK ev::loop::beanstalkd::Job::JobSignalsDataCallback (const std::string& a_name, const std::string& a_message)
 {
-    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &a_message] () {
+    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, a_message] () {
 
         Json::Value  object;
         Json::Reader reader;
