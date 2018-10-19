@@ -208,6 +208,16 @@ endif
 
 VERSION :=$(shell cat version)
 
+### ###
+
+info-third-party:
+	@echo "---"
+	@echo "- casper-connectors/common.mk"
+	@echo "- ICU_INCLUDE_DIRS: $(ICU_INCLUDE_DIRS)"
+	@echo "-"
+
+### ###
+
 # out dir
 mk_out_dir:
 	@mkdir -p $(OUT_DIR_FOR_TARGET)

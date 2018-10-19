@@ -28,7 +28,11 @@ OBJECTS := \
 LIB_NAME := libconnectors.a
 A_FILE := $(OUT_DIR_FOR_TARGET)/$(LIB_NAME)
 
-all: mk_out_dir $(OBJECTS)
+all: info lib
+
+info: info-third-party
+
+lib: mk_out_dir $(OBJECTS)
 	@ar rcs $(A_FILE) $(OBJECTS)
 	@echo "* [$(TARGET)] $(A_FILE) ~> done"
 
