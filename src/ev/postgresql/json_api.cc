@@ -41,6 +41,23 @@
 }
 
 /**
+ * @brief Default constructor.
+ *
+ * @param a_loggable_data_ref
+ */
+::ev::postgresql::JSONAPI::JSONAPI (const ::ev::postgresql::JSONAPI& a_json_api)
+    : loggable_data_ref_(a_json_api.loggable_data_ref_)
+{
+    uris_.SetBase(uris_.GetBase());
+    user_id_          = a_json_api.user_id_;
+    entity_id_        = a_json_api.entity_id_;
+    entity_schema_    = a_json_api.entity_schema_;
+    sharded_schema_   = a_json_api.sharded_schema_;
+    subentity_schema_ = a_json_api.subentity_schema_;
+    subentity_prefix_ = a_json_api.subentity_prefix_;
+}
+
+/**
  * @brief Destructor
  */
 ::ev::postgresql::JSONAPI::~JSONAPI ()

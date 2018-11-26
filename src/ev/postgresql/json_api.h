@@ -131,6 +131,7 @@ namespace ev
         public: // Constructor(s) / Destructor
             
             JSONAPI (const Loggable::Data& a_loggable_data_ref);
+            JSONAPI (const JSONAPI& a_json_api);
             virtual ~JSONAPI ();
             
         public: // API Method(s) / Function(s) - declaration
