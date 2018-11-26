@@ -168,6 +168,18 @@ ev::redis::Device::Status ev::redis::Device::Execute (ev::redis::Device::Execute
     request_ptr_      = redis_request;
     
     const std::string& payload = redis_request->AsString();
+    
+    // ... for debug proposes only ...
+    ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data_,
+                                  "[%-30s] : context = %p, request_ptr_ = %p, payload = %s, device = %p, execute_callback_ = %s, handler_ptr_= %p",
+                                  __FUNCTION__,
+                                  hiredis_context_,
+                                  request_ptr_,
+                                  payload.c_str(),
+                                  this,
+                                  nullptr != execute_callback_ ? "<set>" : "<not set>",
+                                  handler_ptr_
+    );
 
     int async_rv;
     if ( REDIS_OK != ( async_rv = redisAsyncFormattedCommand(hiredis_context_, HiredisDataCallback, nullptr, payload.c_str(), payload.length()) ) ) {
@@ -632,9 +644,10 @@ void ev::redis::Device::HiredisDataCallback (struct redisAsyncContext* a_context
 
         // ... for debug proposes only ...
         ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, a_reply = %p, device = %p, execute_callback_ = %s, handler_ptr_= %p",
+                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, execute_callback_ = %s, handler_ptr_= %p",
                                       __FUNCTION__,
                                       a_context,
+                                      device->request_ptr_,
                                       a_reply,
                                       device,
                                       nullptr != device->execute_callback_ ? "<set>" : "<not set>",
@@ -651,9 +664,10 @@ void ev::redis::Device::HiredisDataCallback (struct redisAsyncContext* a_context
         
         // ... for debug proposes only ...
         ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, a_reply = %p, device = %p, disconnecting = %s",
+                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, disconnecting = %s",
                                       __FUNCTION__,
                                       a_context,
+                                      device->request_ptr_,
                                       a_reply,
                                       device,
                                       disconnecting ? "true" : "false"
@@ -679,9 +693,10 @@ void ev::redis::Device::HiredisDataCallback (struct redisAsyncContext* a_context
         
         // ... for debug proposes only ...
         ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, a_reply = %p, device = %p, result = %p, execute_callback_ = %s, last_error_msg_ = %s",
+                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, result = %p, execute_callback_ = %s, last_error_msg_ = %s",
                                       __FUNCTION__,
                                       a_context,
+                                      device->request_ptr_,
                                       a_reply,
                                       device,
                                       result,
@@ -713,9 +728,10 @@ void ev::redis::Device::HiredisDataCallback (struct redisAsyncContext* a_context
         
         // ... for debug proposes only ...
         ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, a_reply = %p, result = %p, ownership_transfered = %s",
+                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, result = %p, ownership_transfered = %s",
                                       __FUNCTION__,
                                       a_context,
+                                      device->request_ptr_,
                                       a_reply,
                                       result,
                                       ( true == ownership_transfered ? "true" : "false" )
@@ -730,9 +746,10 @@ void ev::redis::Device::HiredisDataCallback (struct redisAsyncContext* a_context
     } catch (const ev::Exception& a_ev_exception) {
         // ... for debug proposes only ...
         ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, a_reply = %p, device = %p, a_ev_exception = %s",
+                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, a_ev_exception = %s",
                                       __FUNCTION__,
                                       a_context,
+                                      device->request_ptr_,
                                       a_reply,
                                       device,
                                       a_ev_exception.what()
@@ -743,9 +760,10 @@ void ev::redis::Device::HiredisDataCallback (struct redisAsyncContext* a_context
     } catch (const std::bad_alloc& a_bad_alloc) {
         // ... for debug proposes only ...
         ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, a_reply = %p, device = %p, a_bad_alloc = %s",
+                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, a_bad_alloc = %s",
                                       __FUNCTION__,
                                       a_context,
+                                      device->request_ptr_,
                                       a_reply,
                                       device,
                                       a_bad_alloc.what()
@@ -756,9 +774,10 @@ void ev::redis::Device::HiredisDataCallback (struct redisAsyncContext* a_context
     } catch (const std::runtime_error& a_rte) {
         // ... for debug proposes only ...
         ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, a_reply = %p, device = %p, a_rte = %s",
+                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, a_rte = %s",
                                       __FUNCTION__,
                                       a_context,
+                                      device->request_ptr_,
                                       a_reply,
                                       device,
                                       a_rte.what()
@@ -769,9 +788,10 @@ void ev::redis::Device::HiredisDataCallback (struct redisAsyncContext* a_context
     } catch (const std::exception& a_std_exception) {
         // ... for debug proposes only ...
         ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, a_reply = %p, device = %p, a_std_exception = %s",
+                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, a_std_exception = %s",
                                       __FUNCTION__,
                                       a_context,
+                                      device->request_ptr_,
                                       a_reply,
                                       device,
                                       a_std_exception.what()
@@ -781,9 +801,10 @@ void ev::redis::Device::HiredisDataCallback (struct redisAsyncContext* a_context
     } catch (...) {
         // ... for debug proposes only ...
         ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, a_reply = %p, device = %p, ... = ...",
+                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, ... = ...",
                                       __FUNCTION__,
                                       a_context,
+                                      device->request_ptr_,
                                       a_reply,
                                       device
         );
