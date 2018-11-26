@@ -130,6 +130,10 @@ namespace ev
             
             const Loggable::Data& loggable_data_ref_;
             
+        private: // Const Data
+            
+            const bool enable_task_cancellation_;
+            
         private: // data
             
             URIs         uris_;                 //!< The required URIs.
@@ -142,7 +146,7 @@ namespace ev
             
         public: // Constructor(s) / Destructor
             
-            JSONAPI (const Loggable::Data& a_loggable_data_ref);
+            JSONAPI (const Loggable::Data& a_loggable_data_ref, bool a_enable_task_cancellation);
             JSONAPI (const JSONAPI& a_json_api);
             virtual ~JSONAPI ();
             

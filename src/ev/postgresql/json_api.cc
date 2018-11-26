@@ -35,11 +35,14 @@
  * @brief Default constructor.
  *
  * @param a_loggable_data_ref
+ * @param a_enable_task_cancellation
  */
-::ev::postgresql::JSONAPI::JSONAPI (const ::ev::Loggable::Data& a_loggable_data_ref)
-    : loggable_data_ref_(a_loggable_data_ref)
+::ev::postgresql::JSONAPI::JSONAPI (const ::ev::Loggable::Data& a_loggable_data_ref, bool a_enable_task_cancellation)
+    : loggable_data_ref_(a_loggable_data_ref), enable_task_cancellation_(a_enable_task_cancellation)
 {
-    uris_.invalidate_ = std::bind(&::ev::postgresql::JSONAPI::InvalidateHandler, this);
+    if ( true == enable_task_cancellation_ ) {
+        uris_.invalidate_ = std::bind(&::ev::postgresql::JSONAPI::InvalidateHandler, this);
+    }
     ::ev::scheduler::Scheduler::GetInstance().Register(this);
 }
 
@@ -49,7 +52,7 @@
  * @param a_loggable_data_ref
  */
 ::ev::postgresql::JSONAPI::JSONAPI (const ::ev::postgresql::JSONAPI& a_json_api)
-    : loggable_data_ref_(a_json_api.loggable_data_ref_)
+    : loggable_data_ref_(a_json_api.loggable_data_ref_), enable_task_cancellation_(a_json_api.enable_task_cancellation_)
 {
     uris_.SetBase(a_json_api.uris_.GetBase());
     user_id_          = a_json_api.user_id_;
@@ -58,7 +61,9 @@
     sharded_schema_   = a_json_api.sharded_schema_;
     subentity_schema_ = a_json_api.subentity_schema_;
     subentity_prefix_ = a_json_api.subentity_prefix_;
-    uris_.invalidate_ = std::bind(&::ev::postgresql::JSONAPI::InvalidateHandler, this);
+    if ( true == enable_task_cancellation_ ) {
+        uris_.invalidate_ = std::bind(&::ev::postgresql::JSONAPI::InvalidateHandler, this);
+    }
     ::ev::scheduler::Scheduler::GetInstance().Register(this);
 }
 
