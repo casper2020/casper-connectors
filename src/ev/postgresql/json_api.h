@@ -75,7 +75,9 @@ namespace ev
                  */
                 inline void SetBase (const std::string& a_uri)
                 {
-                    invalidate_();
+                    if ( nullptr != invalidate_ ) {
+                        invalidate_();
+                    }
                     base_ = a_uri;
                 }
                 
@@ -95,7 +97,9 @@ namespace ev
                  */
                 inline void SetLoad (const std::string& a_uri, const std::string& a_params)
                 {
-                    invalidate_();
+                    if ( nullptr != invalidate_ ) {
+                        invalidate_();
+                    }
                     load_   = a_uri;
                     params_ = a_params;
                 }
