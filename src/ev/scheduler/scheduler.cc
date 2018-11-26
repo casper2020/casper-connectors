@@ -315,6 +315,17 @@ void ev::scheduler::Scheduler::Unregister (ev::scheduler::Scheduler::Client* a_c
     }
     delete it->second;
     clients_to_objects_map_.erase(it);
+    // [B] AG: NOV 26, 2018
+    std::vector<scheduler::Object*> to_erase;
+    for ( auto it = object_to_client_map_.begin() ; object_to_client_map_.end() != it ; ++it ) {
+        if ( it->second == a_client ) {
+            to_erase.push_back(it->first);
+        }
+    }
+    for ( auto obj : to_erase ) {
+        object_to_client_map_.erase(object_to_client_map_.find(obj));
+    }
+    // [E] AG: NOV 26, 2018
     // ... get rid of 'zombie' objects ...
     KillZombies();
 }

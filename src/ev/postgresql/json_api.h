@@ -55,6 +55,12 @@ namespace ev
                 std::string load_;   //!< Load URI.
                 std::string params_; //!< Load URI params.
                 
+            protected:
+                
+                friend class JSONAPI;
+                
+                std::function<void()> invalidate_;
+                
             public: // Constructor(s) / Destructor
                 
                 virtual ~URIs ()
@@ -69,6 +75,7 @@ namespace ev
                  */
                 inline void SetBase (const std::string& a_uri)
                 {
+                    invalidate_();
                     base_ = a_uri;
                 }
                 
@@ -88,6 +95,7 @@ namespace ev
                  */
                 inline void SetLoad (const std::string& a_uri, const std::string& a_params)
                 {
+                    invalidate_();
                     load_   = a_uri;
                     params_ = a_params;
                 }
@@ -186,6 +194,8 @@ namespace ev
                                                const std::string a_uri, Callback a_callback,
                                                std::string* o_query = nullptr);
             ::ev::scheduler::Task* NewTask    (const EV_TASK_PARAMS& a_callback);
+            
+            void                   InvalidateHandler ();
             
         public: // STATIC API METHOD(S) / FUNCTION(S)
 

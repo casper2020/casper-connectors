@@ -29,6 +29,8 @@
 
 #include <sstream>
 
+#include <functional> // std::bind
+
 /**
  * @brief Default constructor.
  *
@@ -37,6 +39,7 @@
 ::ev::postgresql::JSONAPI::JSONAPI (const ::ev::Loggable::Data& a_loggable_data_ref)
     : loggable_data_ref_(a_loggable_data_ref)
 {
+    uris_.invalidate_ = std::bind(&::ev::postgresql::JSONAPI::InvalidateHandler, this);
     ::ev::scheduler::Scheduler::GetInstance().Register(this);
 }
 
@@ -55,6 +58,7 @@
     sharded_schema_   = a_json_api.sharded_schema_;
     subentity_schema_ = a_json_api.subentity_schema_;
     subentity_prefix_ = a_json_api.subentity_prefix_;
+    uris_.invalidate_ = std::bind(&::ev::postgresql::JSONAPI::InvalidateHandler, this);
     ::ev::scheduler::Scheduler::GetInstance().Register(this);
 }
 
@@ -347,6 +351,15 @@ void ::ev::postgresql::JSONAPI::AsyncQuery (const ::ev::Loggable::Data& a_loggab
                                          ::ev::scheduler::Scheduler::GetInstance().Push(this, a_task);
                                      }
     );
+}
+
+/**
+ * @brief Invalidate possible running tasks.
+ */
+void ::ev::postgresql::JSONAPI::InvalidateHandler ()
+{
+   ::ev::scheduler::Scheduler::GetInstance().Unregister(this);
+   ::ev::scheduler::Scheduler::GetInstance().Register(this);
 }
 
 #ifdef __APPLE__
