@@ -34,10 +34,11 @@ namespace ev
         
         typedef struct _Config {
             
-            std::string           host_;             //!< host
-            int                   port_;             //!< port number
-            float                 timeout_;          //!< in seconds
-            std::string           tube_;             //!< tube name
+            std::string           host_;          //!< host
+            int                   port_;          //!< port number
+            float                 timeout_;       //!< in seconds
+            std::string           tube_;          //!< tube name
+            float                 abort_polling_; //!< in seconds
             std::set<std::string> sessionless_tubes_;
             
             inline void operator=(const _Config& a_config)

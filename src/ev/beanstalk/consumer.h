@@ -50,6 +50,7 @@ namespace ev
         public: // Method(s) / Function(s)
             
             bool Reserve (::Beanstalk::Job& a_job);
+            bool Reserve (::Beanstalk::Job& a_job, uint32_t a_timeout_sec);
             bool Bury    (const ::Beanstalk::Job& a_job, uint32_t a_priority = 1);
             bool Del     (const ::Beanstalk::Job& a_job);
             
@@ -62,6 +63,11 @@ namespace ev
         inline bool Consumer::Reserve (::Beanstalk::Job& a_job)
         {
             return client_->reserve(a_job);
+        }
+        
+        inline bool Consumer::Reserve (::Beanstalk::Job& a_job, uint32_t a_timeout_sec)
+        {
+            return client_->reserve(a_job, a_timeout_sec);
         }
         
         inline bool Consumer::Bury (const ::Beanstalk::Job& a_job, uint32_t a_priority)

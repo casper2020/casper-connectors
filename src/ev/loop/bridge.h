@@ -174,6 +174,9 @@ namespace ev
             CallOnMainThreadCallback Start (const std::string& a_socket_fn,
                                             FatalExceptionCallback a_fatal_exception_callback);
             void Stop  (int a_sig_no);
+            void Quit  ();
+            
+            bool IsRunning () const;
             
         public: // Inherited Virtual Method(s) / Function(s) - from ::ev::Bridge
             
@@ -200,6 +203,11 @@ namespace ev
             static void DifferedScheduleCallback (evutil_socket_t /* a_fd */, short a_flags, void* a_arg);
 
         }; // end of class 'bridge'
+        
+        inline bool Bridge::IsRunning () const
+        {
+            return running_;
+        }
 
     } // end of namespace 'loop'
 
