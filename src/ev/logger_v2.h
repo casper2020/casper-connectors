@@ -259,10 +259,10 @@ namespace ev
     inline void LoggerV2::Startup  ()
     {
         std::lock_guard<std::mutex> lock(mutex_);
-	if ( nullptr != s_buffer_ ) {
+        if ( nullptr != s_buffer_ ) {
             delete [] s_buffer_;
         }
-	s_buffer_          = new char[1024];
+        s_buffer_          = new char[1024];
         s_buffer_capacity_ = nullptr != s_buffer_ ? 1024 : 0;
     }
     
@@ -360,11 +360,6 @@ namespace ev
         }
         // ... set tokens ...
         a_client->SetLoggerPrefix(a_tokens);
-        // ... no tokens?
-        if ( 0 == a_tokens.size() ) {
-            // ... we're done ...
-            return;
-        }
     }
     
     /**
