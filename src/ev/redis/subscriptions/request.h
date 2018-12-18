@@ -168,7 +168,7 @@ namespace ev
                 
                 void   Subscribe                (ContextMap& a_map, POCStatusMap& a_status_map, const std::set<std::string>& a_names);
                 void   Unsubscribe              (ContextMap& a_map, POCStatusMap& a_status_map, const std::set<std::string>& a_names);
-                Status GetStatus                (const POCStatusMap& a_map, const std::string& a_name);
+                Status GetStatus                (const std::string& a_name, const ContextMap& a_context_map, const POCStatusMap& a_status_map);
                 bool   IsSubscribed             (const std::string& a_name, const ContextMap& a_context_map, const POCStatusMap& a_status_map);
                 bool   IsSubscribedOrPending    (const std::string& a_name, const ContextMap& a_context_map, const POCStatusMap& a_status_map);
                 bool   IsUnsubscribedOrPending  (const std::string& a_name, const ContextMap& a_context_map, const POCStatusMap& a_status_map);
@@ -198,7 +198,7 @@ namespace ev
              */
             inline Request::Status Request::GetStatus (const std::string& a_channel)
             {
-                return GetStatus(channels_status_map_, a_channel);
+                return GetStatus(a_channel, channels_, channels_status_map_);
             }
             
             /**
@@ -208,7 +208,7 @@ namespace ev
              */
             inline Request::Status Request::GetPStatus (const std::string& a_pattern)
             {
-                return GetStatus(patterns_status_map_, a_pattern);
+                return GetStatus(a_pattern, patterns_, patterns_status_map_);
             }
             
             /**

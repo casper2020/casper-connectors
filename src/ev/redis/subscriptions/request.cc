@@ -712,14 +712,24 @@ void ev::redis::subscriptions::Request::Unsubscribe (ev::redis::subscriptions::R
  * @brief Check a channel or pattern subscription status
  *
  * @param a_map
- * @param a_name
+ * @param a_context_map
+ * @param a_status_map
  */
-ev::redis::subscriptions::Request::Status ev::redis::subscriptions::Request::GetStatus (const POCStatusMap& a_map, const std::string& a_name)
+ev::redis::subscriptions::Request::Status ev::redis::subscriptions::Request::GetStatus (const std::string& a_name,
+                                                                                        const ev::redis::subscriptions::Request::ContextMap& a_context_map,
+                                                                                        const ev::redis::subscriptions::Request::POCStatusMap& a_status_map)
 {
     OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
-    const auto it = a_map.find(a_name);
-    if ( a_map.end() == it ) {
+    const auto ctx_it = a_context_map.find(a_name);
+    if ( a_context_map.end() != ctx_it && ctx_it->second->size() > 0 ) {
+        // ... request/s related to this channel or pattern is/are pending, so check last queued action ...
+        return (*ctx_it->second)[ctx_it->second->size() - 1]->status_;
+    }
+    
+    // ... no actions pending, check status map ...
+    const auto it = a_status_map.find(a_name);
+    if ( a_status_map.end() == it ) {
         return ev::redis::subscriptions::Request::Status::NotSet;
     }
     return it->second;
