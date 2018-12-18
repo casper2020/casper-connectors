@@ -551,7 +551,7 @@ void ev::redis::subscriptions::Request::Unsubscribe (const std::set<std::string>
  */
 bool ev::redis::subscriptions::Request::IsSubscribed (const std::string& a_channel)
 {
-    return IsSubscribed(channels_status_map_, a_channel);
+    return IsSubscribed(a_channel, channels_, channels_status_map_);
 }
 
 /**
@@ -561,7 +561,7 @@ bool ev::redis::subscriptions::Request::IsSubscribed (const std::string& a_chann
  */
 bool ev::redis::subscriptions::Request::IsSubscribedOrPending (const std::string& a_channel)
 {
-    return IsSubscribedOrPending(channels_status_map_, a_channel);
+    return IsSubscribedOrPending(a_channel, channels_, channels_status_map_);
 }
 
 /**
@@ -571,7 +571,7 @@ bool ev::redis::subscriptions::Request::IsSubscribedOrPending (const std::string
  */
 bool ev::redis::subscriptions::Request::IsUnsubscribedOrPending (const std::string& a_channel)
 {
-    return IsUnsubscribedOrPending(channels_status_map_, a_channel);
+    return IsUnsubscribedOrPending(a_channel, channels_, channels_status_map_);
 }
 
 /**
@@ -616,7 +616,7 @@ void ev::redis::subscriptions::Request::PUnsubscribe (const std::set<std::string
  */
 bool ev::redis::subscriptions::Request::IsPSubscribedOrPending (const std::string& a_pattern)
 {
-    return IsSubscribedOrPending(patterns_status_map_, a_pattern);
+    return IsSubscribedOrPending(a_pattern, patterns_, patterns_status_map_);
 }
 
 
@@ -627,7 +627,7 @@ bool ev::redis::subscriptions::Request::IsPSubscribedOrPending (const std::strin
  */
 bool ev::redis::subscriptions::Request::IsPSubscribed (const std::string& a_pattern)
 {
-    return IsSubscribed(patterns_status_map_, a_pattern);
+    return IsSubscribed(a_pattern, patterns_, patterns_status_map_);
 }
 
 /**
@@ -637,7 +637,7 @@ bool ev::redis::subscriptions::Request::IsPSubscribed (const std::string& a_patt
  */
 bool ev::redis::subscriptions::Request::IsPUnsubscribedOrPending (const std::string& a_pattern)
 {
-    return IsUnsubscribedOrPending(patterns_status_map_, a_pattern);
+    return IsUnsubscribedOrPending(a_pattern, patterns_, patterns_status_map_);
 }
 
 /**
@@ -728,62 +728,104 @@ ev::redis::subscriptions::Request::Status ev::redis::subscriptions::Request::Get
 /**
  * @brief Check if a channel or pattern subscription is done or is pending.
  *
- * @param a_map
  * @param a_name
+ * @param a_context_map
+ * @param a_status_map
  */
-bool ev::redis::subscriptions::Request::IsSubscribedOrPending (const POCStatusMap& a_map, const std::string& a_name)
+bool ev::redis::subscriptions::Request::IsSubscribedOrPending (const std::string& a_name,
+                                                               const ev::redis::subscriptions::Request::ContextMap& a_context_map,
+                                                               const ev::redis::subscriptions::Request::POCStatusMap& a_status_map)
 {
     OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
-    const auto it = a_map.find(a_name);
-    if ( a_map.end() == it ) {
-        return false;
-    }
-    return (
+    const auto ctx_it = a_context_map.find(a_name);
+    if ( a_context_map.end() != ctx_it && ctx_it->second->size() > 0 ) {
+        // ... request/s related to this channel or pattern is/are pending, so check last queued action ...
+        const auto last = (*ctx_it->second)[ctx_it->second->size() - 1];
+        return (
+            ev::redis::subscriptions::Request::Status::Subscribed == last->status_
+                ||
+            ev::redis::subscriptions::Request::Status::Subscribing == last->status_
+        );
+    } else {
+        // ... no actions pending, check status map ...
+        const auto it = a_status_map.find(a_name);
+        if ( a_status_map.end() == it ) {
+            return false;
+        }
+        return (
             ev::redis::subscriptions::Request::Status::Subscribed == it->second
                 ||
             ev::redis::subscriptions::Request::Status::Subscribing == it->second
-    );
+        );
+    }
 }
 
 /**
  * @brief Check if a channel or pattern subscription is done.
  *
- * @param a_map
  * @param a_name
+ * @param a_context_map
+ * @param a_status_map
  */
-bool ev::redis::subscriptions::Request::IsSubscribed (const POCStatusMap& a_map, const std::string& a_name)
+bool ev::redis::subscriptions::Request::IsSubscribed (const std::string& a_name,
+                                                      const ev::redis::subscriptions::Request::ContextMap& a_context_map,
+                                                      const ev::redis::subscriptions::Request::POCStatusMap& a_status_map)
 {
     OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
-    const auto it = a_map.find(a_name);
-    if ( a_map.end() == it ) {
-        return false;
+    const auto ctx_it = a_context_map.find(a_name);
+    if ( a_context_map.end() != ctx_it && ctx_it->second->size() > 0 ) {
+        // ... request/s related to this channel or pattern is/are pending, so check last queued action ...
+        return (
+            ev::redis::subscriptions::Request::Status::Subscribed == (*ctx_it->second)[ctx_it->second->size() - 1]->status_
+        );
+    } else {
+        // ... no actions pending, check status map ...
+        const auto it = a_status_map.find(a_name);
+        if ( a_status_map.end() == it ) {
+            return false;
+        }
+        return (
+                ev::redis::subscriptions::Request::Status::Subscribed == it->second
+        );
     }
-    return (
-            ev::redis::subscriptions::Request::Status::Subscribed == it->second
-    );
 }
 
 /**
  * @brief Check if a channel or pattern is unsubscribed or is pending.
  *
- * @param a_map
  * @param a_name
+ * @param a_context_map
+ * @param a_status_map
  */
-bool ev::redis::subscriptions::Request::IsUnsubscribedOrPending (const POCStatusMap& a_map, const std::string& a_name)
+bool ev::redis::subscriptions::Request::IsUnsubscribedOrPending (const std::string& a_name,
+                                                                 const ev::redis::subscriptions::Request::ContextMap& a_context_map,
+                                                                 const ev::redis::subscriptions::Request::POCStatusMap& a_status_map)
 {
     OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
-    const auto it = a_map.find(a_name);
-    if ( a_map.end() == it ) {
-        return true;
-    }
-    return (
+    const auto ctx_it = a_context_map.find(a_name);
+    if ( a_context_map.end() != ctx_it && ctx_it->second->size() > 0 ) {
+        // ... request/s related to this channel or pattern is/are pending, so check last queued action ...
+        const auto last = (*ctx_it->second)[ctx_it->second->size() - 1];
+        return (
+            ev::redis::subscriptions::Request::Status::Unsubscribed == last->status_
+                ||
+            ev::redis::subscriptions::Request::Status::Unsubscribing == last->status_
+        );
+    } else {
+        // ... no actions pending, check status map ...
+        const auto it = a_status_map.find(a_name);
+        if ( a_status_map.end() == it ) {
+            return true;
+        }
+        return (
             ev::redis::subscriptions::Request::Status::Unsubscribed == it->second
                 ||
             ev::redis::subscriptions::Request::Status::Unsubscribing == it->second
-    );
+        );
+    }
 }
 
 /**
@@ -844,7 +886,11 @@ void ev::redis::subscriptions::Request::BuildAndTrackCommand (const char* const 
         // ... add it to pending stack ...
         pending_.push_back(context);
         // ... update status map, only if it's not set yet ...
-        a_status_map[channel_or_pattern_name] = a_status;
+        const auto status_it = a_status_map.find(channel_or_pattern_name);
+        if ( a_status_map.end() == status_it ) {
+            a_status_map[channel_or_pattern_name] = a_status;
+        }
+        
     }
     
     // ... commit this command ...

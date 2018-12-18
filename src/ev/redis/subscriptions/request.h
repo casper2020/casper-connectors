@@ -169,9 +169,9 @@ namespace ev
                 void   Subscribe                (ContextMap& a_map, POCStatusMap& a_status_map, const std::set<std::string>& a_names);
                 void   Unsubscribe              (ContextMap& a_map, POCStatusMap& a_status_map, const std::set<std::string>& a_names);
                 Status GetStatus                (const POCStatusMap& a_map, const std::string& a_name);
-                bool   IsSubscribed             (const POCStatusMap& a_map, const std::string& a_name);
-                bool   IsSubscribedOrPending    (const POCStatusMap& a_map, const std::string& a_name);
-                bool   IsUnsubscribedOrPending  (const POCStatusMap& a_map, const std::string& a_name);
+                bool   IsSubscribed             (const std::string& a_name, const ContextMap& a_context_map, const POCStatusMap& a_status_map);
+                bool   IsSubscribedOrPending    (const std::string& a_name, const ContextMap& a_context_map, const POCStatusMap& a_status_map);
+                bool   IsUnsubscribedOrPending  (const std::string& a_name, const ContextMap& a_context_map, const POCStatusMap& a_status_map);
                                 
                 void   BuildAndTrackCommand     (const char* const a_name,
                                                  const subscriptions::Request::Status a_status,
@@ -224,7 +224,7 @@ namespace ev
                     }
                     return payload;
                 } else {
-                    return "";
+                    return "<null>";
                 }
             }
             
