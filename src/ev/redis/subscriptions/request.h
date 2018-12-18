@@ -30,6 +30,8 @@
 #include "ev/redis/request.h"
 #include "ev/redis/subscriptions/reply.h"
 
+#include "ev/logger_v2.h"
+
 #include <sstream>
 #include <algorithm> // std::replace
 
@@ -46,7 +48,7 @@ namespace ev
             // The commands that are allowed in the context of a subscribed client are SUBSCRIBE, PSUBSCRIBE, UNSUBSCRIBE, PUNSUBSCRIBE, PING and QUIT.
             //
             
-            class Request final : public ev::scheduler::Subscription
+            class Request final : public ev::scheduler::Subscription, ev::LoggerV2::Client
             {
                 
             public: // Data Type(s)
@@ -117,7 +119,7 @@ namespace ev
                 
             private: // Const Data
                 
-                const Loggable::Data           loggable_data_;
+                const Loggable::Data&          loggable_data_;
                 const TimeoutConfig            timeout_config_;
                 
             private: // Data
@@ -184,7 +186,8 @@ namespace ev
                                                  ev::redis::subscriptions::Request::Context** o_context,
                                                  bool& o_release_it);
                 void   CleanUpUnsubscribed      ();
-                void   LogStatus                (const char* const a_prefix, const int a_step);
+                void   LogStatus                (const char* const a_function, const char* const a_prefix,
+                                                 const int a_step, const int a_of);
                 
                 std::string ActiveRequestPayloadForLogger () const;
                 std::string SubscriptionStatusForLogger   (const Status a_status, const bool a_uppercase) const;

@@ -29,6 +29,8 @@
 
 #include "ev/redis/reply.h"
 
+#include "ev/logger_v2.h"
+
 namespace ev
 {
 
@@ -38,7 +40,7 @@ namespace ev
         namespace subscriptions
         {
 
-            class Reply final : public ev::redis::Reply
+            class Reply final : public ev::redis::Reply, ev::LoggerV2::Client
             {
                 
             public: // Data Type(s)
@@ -51,10 +53,6 @@ namespace ev
                     Message,
                     Status
                 };
-                
-            private: // Const Data
-                
-                const Loggable::Data loggable_data_;
                 
             protected: // Data
                 

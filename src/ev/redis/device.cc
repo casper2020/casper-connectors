@@ -25,8 +25,6 @@
 
 #include "ev/redis/subscriptions/reply.h"
 
-#include "ev/logger.h"
-
 #include "osal/osalite.h"
 
 /**
@@ -40,12 +38,14 @@
 ev::redis::Device::Device (const Loggable::Data& a_loggable_data,
                            const char* const a_ip_address, const int a_port_number, const int a_database_index)
     : ev::Device(a_loggable_data),
+      ev::LoggerV2::Client(loggable_data_),
       ip_address_(a_ip_address), port_number_(a_port_number), database_index_(a_database_index)
 {
     request_ptr_       = nullptr;
     hiredis_context_   = nullptr;
     database_request_  = nullptr;
     database_selected_ = false;
+    ev::LoggerV2::GetInstance().Register(this, { "redis_subscriptions_trace" });
 }
 
 /**
@@ -63,6 +63,7 @@ ev::redis::Device::~Device ()
     if ( nullptr != database_request_ ) {
         delete database_request_;
     }
+    ev::LoggerV2::GetInstance().Unregister(this);
 }
 
 #ifdef __APPLE__
@@ -170,15 +171,15 @@ ev::redis::Device::Status ev::redis::Device::Execute (ev::redis::Device::Execute
     const std::string& payload = redis_request->AsString();
     
     // ... for debug proposes only ...
-    ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data_,
-                                  "[%-30s] : context = %p, request_ptr_ = %p, payload = %s, device = %p, execute_callback_ = %s, handler_ptr_= %p",
-                                  __FUNCTION__,
-                                  hiredis_context_,
-                                  request_ptr_,
-                                  payload.c_str(),
-                                  this,
-                                  nullptr != execute_callback_ ? "<set>" : "<not set>",
-                                  handler_ptr_
+    ev::LoggerV2::GetInstance().Log(this, "redis_trace",
+                                    "[%-30s] : context = %p, request_ptr_ = %p, payload = %s, device = %p, execute_callback_ = %s, handler_ptr_= %p",
+                                    __FUNCTION__,
+                                    hiredis_context_,
+                                    request_ptr_,
+                                    payload.c_str(),
+                                    this,
+                                    nullptr != execute_callback_ ? "<set>" : "<not set>",
+                                    handler_ptr_
     );
 
     int async_rv;
@@ -224,12 +225,12 @@ void ev::redis::Device::DatabaseIndexSelectionCallback (const ev::redis::Device:
     try {
         
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data_,
-                                      "[%-30s] : r_context = %p, a_status = " UINT8_FMT ", a_result = %p",
-                                      __FUNCTION__,
-                                      hiredis_context_,
-                                      static_cast<uint8_t>(a_status),
-                                      a_result
+        ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
+                                        "[%-30s] : r_context = %p, a_status = " UINT8_FMT ", a_result = %p",
+                                        __FUNCTION__,
+                                        hiredis_context_,
+                                        static_cast<uint8_t>(a_status),
+                                        a_result
         );
         
         const ev::redis::Reply* reply = dynamic_cast<const ev::redis::Reply*>(a_result->DataObject());
@@ -268,70 +269,70 @@ void ev::redis::Device::DatabaseIndexSelectionCallback (const ev::redis::Device:
         }
 
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data_,
-                                      "[%-30s] : r_context = %p, a_status = " UINT8_FMT ", a_result = %p, database_selected_ = true",
-                                      __FUNCTION__,
-                                      hiredis_context_,
-                                      static_cast<uint8_t>(a_status),
-                                      a_result
+        ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
+                                        "[%-30s] : r_context = %p, a_status = " UINT8_FMT ", a_result = %p, database_selected_ = true",
+                                        __FUNCTION__,
+                                        hiredis_context_,
+                                        static_cast<uint8_t>(a_status),
+                                        a_result
         );
 
     } catch (const ev::Exception& a_ev_exception) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data_,
-                                      "[%-30s] : r_context = %p, a_status = " UINT8_FMT ", a_result = %p, a_ev_exception = %s",
-                                      __FUNCTION__,
-                                      hiredis_context_,
-                                      static_cast<uint8_t>(a_status),
-				      a_result,
-                                      a_ev_exception.what()
+        ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
+                                        "[%-30s] : r_context = %p, a_status = " UINT8_FMT ", a_result = %p, a_ev_exception = %s",
+                                        __FUNCTION__,
+                                        hiredis_context_,
+                                        static_cast<uint8_t>(a_status),
+                                        a_result,
+                                        a_ev_exception.what()
         );
         OSALITE_BACKTRACE();
         exception_callback_(a_ev_exception);
     } catch (const std::bad_alloc& a_bad_alloc) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data_,
-                                      "[%-30s] : r_context = %p, a_status = " UINT8_FMT ", a_result = %p, a_bad_alloc = %s",
-                                      __FUNCTION__,
-                                      hiredis_context_,
-                                      static_cast<uint8_t>(a_status),
-                                      a_result,
-                                      a_bad_alloc.what()
+        ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
+                                        "[%-30s] : r_context = %p, a_status = " UINT8_FMT ", a_result = %p, a_bad_alloc = %s",
+                                        __FUNCTION__,
+                                        hiredis_context_,
+                                        static_cast<uint8_t>(a_status),
+                                        a_result,
+                                        a_bad_alloc.what()
         );
         OSALITE_BACKTRACE();
         exception_callback_(ev::Exception("C++ Bad Alloc: %s\n", a_bad_alloc.what()));
     } catch (const std::runtime_error& a_rte) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data_,
-                                      "[%-30s] : r_context = %p, a_status = " UINT8_FMT ", a_result = %p, a_rte = %s",
-                                      __FUNCTION__,
-                                      hiredis_context_,
-                                      static_cast<uint8_t>(a_status),
-                                      a_result,
-                                      a_rte.what()
+        ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
+                                        "[%-30s] : r_context = %p, a_status = " UINT8_FMT ", a_result = %p, a_rte = %s",
+                                        __FUNCTION__,
+                                        hiredis_context_,
+                                        static_cast<uint8_t>(a_status),
+                                        a_result,
+                                        a_rte.what()
         );
         OSALITE_BACKTRACE();
         exception_callback_(ev::Exception("C++ Runtime Error: %s\n", a_rte.what()));
     } catch (const std::exception& a_std_exception) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data_,
-                                      "[%-30s] : r_context = %p, a_status = " UINT8_FMT ", a_result = %p, a_std_exception = %s",
-                                      __FUNCTION__,
-                                      hiredis_context_,
-                                      static_cast<uint8_t>(a_status),
-                                      a_result,
-                                      a_std_exception.what()
+        ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
+                                        "[%-30s] : r_context = %p, a_status = " UINT8_FMT ", a_result = %p, a_std_exception = %s",
+                                        __FUNCTION__,
+                                        hiredis_context_,
+                                        static_cast<uint8_t>(a_status),
+                                        a_result,
+                                        a_std_exception.what()
         );
         OSALITE_BACKTRACE();
         exception_callback_(ev::Exception("C++ Standard Exception: %s\n", a_std_exception.what()));
     } catch (...) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data_,
-                                      "[%-30s] : r_context = %p, a_status = " UINT8_FMT ", a_result = %p, ... = ...",
-                                      __FUNCTION__,
-                                      hiredis_context_,
-                                      static_cast<uint8_t>(a_status),
-                                      a_result
+        ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
+                                        "[%-30s] : r_context = %p, a_status = " UINT8_FMT ", a_result = %p, ... = ...",
+                                        __FUNCTION__,
+                                        hiredis_context_,
+                                        static_cast<uint8_t>(a_status),
+                                        a_result
         );
         OSALITE_BACKTRACE();
         exception_callback_(ev::Exception(STD_CPP_GENERIC_EXCEPTION_TRACE()));
@@ -366,12 +367,12 @@ void ev::redis::Device::HiredisConnectCallback (const struct redisAsyncContext* 
     try {
 
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data,
-                                      "[%-30s] : a_context = %p, a_status = %d, device = %p",
-                                      __FUNCTION__,
-                                      a_context,
-                                      a_status,
-                                      device
+        ev::LoggerV2::GetInstance().Log(device, "redis_subscriptions_trace",
+                                        "[%-30s] : a_context = %p, a_status = %d, device = %p",
+                                        __FUNCTION__,
+                                        a_context,
+                                        a_status,
+                                        device
         );
 
         // ... check for error(s) ...
@@ -388,25 +389,25 @@ void ev::redis::Device::HiredisConnectCallback (const struct redisAsyncContext* 
         }
         
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data,
-                                      "[%-30s] : a_context = %p, a_status = %d, connection_status_ = " UINT8_FMT ", last_error_msg_ = %s",
-                                      __FUNCTION__,
-                                      a_context,
-                                      a_status,
-                                      static_cast<uint8_t>(device->connection_status_),
-                                      device->last_error_msg_.c_str()
+        ev::LoggerV2::GetInstance().Log(device, "redis_subscriptions_trace",
+                                        "[%-30s] : a_context = %p, a_status = %d, connection_status_ = " UINT8_FMT ", last_error_msg_ = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        a_status,
+                                        static_cast<uint8_t>(device->connection_status_),
+                                        device->last_error_msg_.c_str()
         );
         
         // ... should select a REDIS database before allowing to run any other command(s) ?
         if ( ev::Device::ConnectionStatus::Connected == device->connection_status_ && -1 != device->database_index_ && false == device->database_selected_ ) {
             
             // ... for debug proposes only ...
-            ev::Logger::GetInstance().Log("redis_trace", loggable_data,
-                                          "[%-30s] : a_context = %p, a_status = %d, SELECT database_index_ = %d",
-                                          __FUNCTION__,
-                                          a_context,
-                                          a_status,
-                                          device->database_index_
+            ev::LoggerV2::GetInstance().Log(device, "redis_subscriptions_trace",
+                                            "[%-30s] : a_context = %p, a_status = %d, SELECT database_index_ = %d",
+                                            __FUNCTION__,
+                                            a_context,
+                                            a_status,
+                                            device->database_index_
             );
             
             // ... yes, create a 'special' request ...
@@ -431,12 +432,12 @@ void ev::redis::Device::HiredisConnectCallback (const struct redisAsyncContext* 
         } else { // ... connection error or no database to select ...
             
             // ... for debug proposes only ...
-            ev::Logger::GetInstance().Log("redis_trace", loggable_data,
-                                          "[%-30s] : a_context = %p, a_status = %d, CONNECTION ESTABLISHED connected_callback_ = %s",
-                                          __FUNCTION__,
-                                          a_context,
-                                          a_status,
-                                          device->connected_callback_ ? "<set>" : "<not set>"
+            ev::LoggerV2::GetInstance().Log(device, "redis_subscriptions_trace",
+                                            "[%-30s] : a_context = %p, a_status = %d, CONNECTION ESTABLISHED connected_callback_ = %s",
+                                            __FUNCTION__,
+                                            a_context,
+                                            a_status,
+                                            device->connected_callback_ ? "<set>" : "<not set>"
             );
             
             // ... notify specific 'connect' callback?
@@ -452,55 +453,55 @@ void ev::redis::Device::HiredisConnectCallback (const struct redisAsyncContext* 
 
     } catch (const ev::Exception& a_ev_exception) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data,
-                                      "[%-30s] : a_context = %p, a_status = %d, a_ev_exception = %s",
-                                      __FUNCTION__,
-                                      a_context,
-                                      a_status,
-                                      a_ev_exception.what()
+        ev::LoggerV2::GetInstance().Log(device, "redis_subscriptions_trace",
+                                        "[%-30s] : a_context = %p, a_status = %d, a_ev_exception = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        a_status,
+                                        a_ev_exception.what()
         );
         OSALITE_BACKTRACE();
         device->exception_callback_(a_ev_exception);
     } catch (const std::bad_alloc& a_bad_alloc) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data,
-                                      "[%-30s] : a_context = %p, a_status = %d, a_bad_alloc = %s",
-                                      __FUNCTION__,
-                                      a_context,
-                                      a_status,
-                                      a_bad_alloc.what()
+        ev::LoggerV2::GetInstance().Log(device, "redis_subscriptions_trace",
+                                        "[%-30s] : a_context = %p, a_status = %d, a_bad_alloc = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        a_status,
+                                        a_bad_alloc.what()
         );
         OSALITE_BACKTRACE();
         device->exception_callback_(ev::Exception("C++ Bad Alloc: %s\n", a_bad_alloc.what()));
     } catch (const std::runtime_error& a_rte) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data,
-                                      "[%-30s] : a_context = %p, a_status = %d, a_rte = %s",
-                                      __FUNCTION__,
-                                      a_context,
-                                      a_status,
-                                      a_rte.what()
+        ev::LoggerV2::GetInstance().Log(device, "redis_subscriptions_trace",
+                                        "[%-30s] : a_context = %p, a_status = %d, a_rte = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        a_status,
+                                        a_rte.what()
         );
         OSALITE_BACKTRACE();
         device->exception_callback_(ev::Exception("C++ Runtime Error: %s\n", a_rte.what()));
     } catch (const std::exception& a_std_exception) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data,
-                                      "[%-30s] : a_context = %p, a_status = %d, a_std_exception = %s",
-                                      __FUNCTION__,
-                                      a_context,
-                                      a_status,
-                                      a_std_exception.what()
+        ev::LoggerV2::GetInstance().Log(device, "redis_subscriptions_trace",
+                                        "[%-30s] : a_context = %p, a_status = %d, a_std_exception = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        a_status,
+                                        a_std_exception.what()
         );
         OSALITE_BACKTRACE();
         device->exception_callback_(ev::Exception("C++ Standard Exception: %s\n", a_std_exception.what()));
     } catch (...) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data,
-                                      "[%-30s] : a_context = %p, a_status = %d, ... = ...",
-                                      __FUNCTION__,
-                                      a_context,
-                                      a_status
+        ev::LoggerV2::GetInstance().Log(device, "redis_subscriptions_trace",
+                                        "[%-30s] : a_context = %p, a_status = %d, ... = ...",
+                                        __FUNCTION__,
+                                        a_context,
+                                        a_status
         );
         OSALITE_BACKTRACE();
         device->exception_callback_(ev::Exception(STD_CPP_GENERIC_EXCEPTION_TRACE()));
@@ -521,16 +522,15 @@ void ev::redis::Device::HiredisDisconnectCallback (const struct redisAsyncContex
     
     ev::redis::Device* device = static_cast<ev::redis::Device*>(a_context->data);
     
-    const ev::Loggable::Data loggable_data = ( nullptr != device->request_ptr_ ? device->request_ptr_->loggable_data_ : device->loggable_data_ );
-
     try {
 
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data,
-                                      "ev::redis::Device::HiredisDisconnectCallback(): a_context = %p, a_status = %d, device = %p",
-                                      a_context,
-                                      a_status,
-                                      device
+        ev::LoggerV2::GetInstance().Log(device, "redis_subscriptions_trace",
+                                        "[%-30s] : a_context = %p, a_status = %d, device = %p",
+                                        __FUNCTION__,
+                                        a_context,
+                                        a_status,
+                                        device
         );
 
         // ... check for error(s) ...
@@ -552,12 +552,13 @@ void ev::redis::Device::HiredisDisconnectCallback (const struct redisAsyncContex
         device->connection_status_ = device->hiredis_context_ == nullptr ? ev::Device::ConnectionStatus::Disconnected : ev::Device::ConnectionStatus::Error;
         
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data,
-                                      "ev::redis::Device::HiredisDisconnectCallback(): a_context = %p, a_status = %d, connection_status_ = " UINT8_FMT ", disconnected_callback_ = %s",
-                                      a_context,
-                                      a_status,
-                                      static_cast<uint8_t>(device->connection_status_),
-                                      nullptr != device->disconnected_callback_ ? "<set>" : "<not set>"
+        ev::LoggerV2::GetInstance().Log(device, "redis_subscriptions_trace",
+                                        "[%-30s] : a_context = %p, a_status = %d, connection_status_ = " UINT8_FMT ", disconnected_callback_ = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        a_status,
+                                        static_cast<uint8_t>(device->connection_status_),
+                                        nullptr != device->disconnected_callback_ ? "<set>" : "<not set>"
         );
         
         // ... specific callback request ...
@@ -573,50 +574,55 @@ void ev::redis::Device::HiredisDisconnectCallback (const struct redisAsyncContex
         
     } catch (const ev::Exception& a_ev_exception) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data,
-                                      "ev::redis::Device::HiredisDisconnectCallback(): a_context = %p, a_status = %d, a_ev_exception = %s",
-                                      a_context,
-                                      a_status,
-                                      a_ev_exception.what()
+        ev::LoggerV2::GetInstance().Log(device, "redis_subscriptions_trace",
+                                        "[%-30s] : a_context = %p, a_status = %d, a_ev_exception = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        a_status,
+                                        a_ev_exception.what()
         );
         OSALITE_BACKTRACE();
         device->exception_callback_(a_ev_exception);
     } catch (const std::bad_alloc& a_bad_alloc) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data,
-                                      "ev::redis::Device::HiredisDisconnectCallback(): a_context = %p, a_status = %d, a_bad_alloc = %s",
-                                      a_context,
-                                      a_status,
-                                      a_bad_alloc.what()
+        ev::LoggerV2::GetInstance().Log(device, "redis_subscriptions_trace",
+                                        "[%-30s] : a_context = %p, a_status = %d, a_bad_alloc = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        a_status,
+                                        a_bad_alloc.what()
         );
         OSALITE_BACKTRACE();
         device->exception_callback_(ev::Exception("C++ Bad Alloc: %s\n", a_bad_alloc.what()));
     } catch (const std::runtime_error& a_rte) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data,
-                                      "ev::redis::Device::HiredisDisconnectCallback(): a_context = %p, a_status = %d, a_rte = %s",
-                                      a_context,
-                                      a_status,
-                                      a_rte.what()
+        ev::LoggerV2::GetInstance().Log(device, "redis_subscriptions_trace",
+                                        "[%-30s] : a_context = %p, a_status = %d, a_rte = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        a_status,
+                                        a_rte.what()
         );
         OSALITE_BACKTRACE();
         device->exception_callback_(ev::Exception("C++ Runtime Error: %s\n", a_rte.what()));
     } catch (const std::exception& a_std_exception) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data,
-                                      "ev::redis::Device::HiredisDisconnectCallback(): a_context = %p, a_status = %d, a_std_exception = %s",
-                                      a_context,
-                                      a_status,
-                                      a_std_exception.what()
+        ev::LoggerV2::GetInstance().Log(device, "redis_subscriptions_trace",
+                                        "[%-30s] : a_context = %p, a_status = %d, a_std_exception = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        a_status,
+                                        a_std_exception.what()
         );
         OSALITE_BACKTRACE();
         device->exception_callback_(ev::Exception("C++ Standard Exception: %s\n", a_std_exception.what()));
     } catch (...) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace", loggable_data,
-                                      "ev::redis::Device::HiredisDisconnectCallback(): a_context = %p, a_status = %d, ... = ...",
-                                      a_context,
-                                      a_status
+        ev::LoggerV2::GetInstance().Log(device, "redis_subscriptions_trace",
+                                        "[%-30s] : a_context = %p, a_status = %d, ... = ...",
+                                        __FUNCTION__,
+                                        a_context,
+                                        a_status
         );
         OSALITE_BACKTRACE();
         device->exception_callback_(ev::Exception(STD_CPP_GENERIC_EXCEPTION_TRACE()));
@@ -637,21 +643,19 @@ void ev::redis::Device::HiredisDataCallback (struct redisAsyncContext* a_context
     }
 
     ev::redis::Device* device = static_cast<ev::redis::Device*>(a_context->data);
-
-    const ev::Loggable::Data loggable_data = ( nullptr != device->request_ptr_ ? device->request_ptr_->loggable_data_ : device->loggable_data_ );
     
     try {
 
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, execute_callback_ = %s, handler_ptr_= %p",
-                                      __FUNCTION__,
-                                      a_context,
-                                      device->request_ptr_,
-                                      a_reply,
-                                      device,
-                                      nullptr != device->execute_callback_ ? "<set>" : "<not set>",
-                                      device->handler_ptr_
+        ev::LoggerV2::GetInstance().Log(device, "redis_trace",
+                                        "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, execute_callback_ = %s, handler_ptr_= %p",
+                                        __FUNCTION__,
+                                        a_context,
+                                        device->request_ptr_,
+                                        a_reply,
+                                        device,
+                                        nullptr != device->execute_callback_ ? "<set>" : "<not set>",
+                                        device->handler_ptr_
         );
 
         // ... if no one is waiting for a reply ...
@@ -663,14 +667,14 @@ void ev::redis::Device::HiredisDataCallback (struct redisAsyncContext* a_context
         const bool disconnecting = ( REDIS_DISCONNECTING == ( a_context->c.flags & REDIS_DISCONNECTING ) );
         
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, disconnecting = %s",
-                                      __FUNCTION__,
-                                      a_context,
-                                      device->request_ptr_,
-                                      a_reply,
-                                      device,
-                                      disconnecting ? "true" : "false"
+        ev::LoggerV2::GetInstance().Log(device, "redis_trace",
+                                        "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, disconnecting = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        device->request_ptr_,
+                                        a_reply,
+                                        device,
+                                        disconnecting ? "true" : "false"
         );
         
         // ... reset, and parse reply ...
@@ -692,16 +696,16 @@ void ev::redis::Device::HiredisDataCallback (struct redisAsyncContext* a_context
         }
         
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, result = %p, execute_callback_ = %s, last_error_msg_ = %s",
-                                      __FUNCTION__,
-                                      a_context,
-                                      device->request_ptr_,
-                                      a_reply,
-                                      device,
-                                      result,
-                                      nullptr != device->execute_callback_ ? "<set>" : "<not set>",
-                                      device->last_error_msg_.c_str()
+        ev::LoggerV2::GetInstance().Log(device, "redis_trace",
+                                        "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, result = %p, execute_callback_ = %s, last_error_msg_ = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        device->request_ptr_,
+                                        a_reply,
+                                        device,
+                                        result,
+                                        nullptr != device->execute_callback_ ? "<set>" : "<not set>",
+                                        device->last_error_msg_.c_str()
         );
         
         // ... notify caller ...
@@ -727,14 +731,14 @@ void ev::redis::Device::HiredisDataCallback (struct redisAsyncContext* a_context
         }
         
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, result = %p, ownership_transfered = %s",
-                                      __FUNCTION__,
-                                      a_context,
-                                      device->request_ptr_,
-                                      a_reply,
-                                      result,
-                                      ( true == ownership_transfered ? "true" : "false" )
+        ev::LoggerV2::GetInstance().Log(device, "redis_trace",
+                                        "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, result = %p, ownership_transfered = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        device->request_ptr_,
+                                        a_reply,
+                                        result,
+                                        ( true == ownership_transfered ? "true" : "false" )
         );
         
         // ... if a result object is set and no one collected it ...
@@ -745,68 +749,68 @@ void ev::redis::Device::HiredisDataCallback (struct redisAsyncContext* a_context
 
     } catch (const ev::Exception& a_ev_exception) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, a_ev_exception = %s",
-                                      __FUNCTION__,
-                                      a_context,
-                                      device->request_ptr_,
-                                      a_reply,
-                                      device,
-                                      a_ev_exception.what()
+        ev::LoggerV2::GetInstance().Log(device, "redis_trace",
+                                        "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, a_ev_exception = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        device->request_ptr_,
+                                        a_reply,
+                                        device,
+                                        a_ev_exception.what()
         );
 		OSALITE_BACKTRACE();
         device->last_error_msg_ = a_ev_exception.what();
         device->exception_callback_(a_ev_exception);
     } catch (const std::bad_alloc& a_bad_alloc) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, a_bad_alloc = %s",
-                                      __FUNCTION__,
-                                      a_context,
-                                      device->request_ptr_,
-                                      a_reply,
-                                      device,
-                                      a_bad_alloc.what()
+        ev::LoggerV2::GetInstance().Log(device, "redis_trace",
+                                        "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, a_bad_alloc = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        device->request_ptr_,
+                                        a_reply,
+                                        device,
+                                        a_bad_alloc.what()
         );
 		OSALITE_BACKTRACE();
         device->last_error_msg_ = a_bad_alloc.what();
         device->exception_callback_(ev::Exception("C++ Bad Alloc: %s\n", a_bad_alloc.what()));
     } catch (const std::runtime_error& a_rte) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, a_rte = %s",
-                                      __FUNCTION__,
-                                      a_context,
-                                      device->request_ptr_,
-                                      a_reply,
-                                      device,
-                                      a_rte.what()
+        ev::LoggerV2::GetInstance().Log(device, "redis_trace",
+                                        "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, a_rte = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        device->request_ptr_,
+                                        a_reply,
+                                        device,
+                                        a_rte.what()
         );
 		OSALITE_BACKTRACE();
         device->last_error_msg_ = a_rte.what();
         device->exception_callback_(ev::Exception("C++ Runtime Error: %s\n", a_rte.what()));
     } catch (const std::exception& a_std_exception) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, a_std_exception = %s",
-                                      __FUNCTION__,
-                                      a_context,
-                                      device->request_ptr_,
-                                      a_reply,
-                                      device,
-                                      a_std_exception.what()
+        ev::LoggerV2::GetInstance().Log(device, "redis_trace",
+                                        "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, a_std_exception = %s",
+                                        __FUNCTION__,
+                                        a_context,
+                                        device->request_ptr_,
+                                        a_reply,
+                                        device,
+                                        a_std_exception.what()
         );
         OSALITE_BACKTRACE();
         device->exception_callback_(ev::Exception("C++ Standard Exception: %s\n", a_std_exception.what()));
     } catch (...) {
         // ... for debug proposes only ...
-        ev::Logger::GetInstance().Log("redis_trace_extended", loggable_data,
-                                      "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, ... = ...",
-                                      __FUNCTION__,
-                                      a_context,
-                                      device->request_ptr_,
-                                      a_reply,
-                                      device
+        ev::LoggerV2::GetInstance().Log(device, "redis_trace",
+                                        "[%-30s] : a_context = %p, request_ptr = %p, a_reply = %p, device = %p, ... = ...",
+                                        __FUNCTION__,
+                                        a_context,
+                                        device->request_ptr_,
+                                        a_reply,
+                                        device
         );
 		OSALITE_BACKTRACE();
         device->last_error_msg_ = STD_CPP_GENERIC_EXCEPTION_TRACE();

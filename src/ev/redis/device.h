@@ -34,13 +34,16 @@
 #include "ev/redis/includes.h"
 #include "ev/redis/request.h"
 
+#include "ev/logger_v2.h"
+
+
 namespace ev
 {
     
     namespace redis
     {
 
-        class Device final : public ev::Device
+        class Device final : public ev::Device, ev::LoggerV2::Client
         {
             
         protected: // Const Data
