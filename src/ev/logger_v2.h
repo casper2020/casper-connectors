@@ -561,7 +561,7 @@ namespace ev
         size_t count = 0;
         for ( auto it : tokens_ ) {
             const int chown_status = chown(it.second->fn_.c_str(), s_user_id_, s_group_id_);
-            const int chmod_status = chmod(it.second->fn_.c_str(), S_IRWXU | S_IRGRP | S_IROTH);
+            const int chmod_status = chmod(it.second->fn_.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
             if ( 0 == chown_status && 0 == chmod_status ) {
                 count++;
             }
