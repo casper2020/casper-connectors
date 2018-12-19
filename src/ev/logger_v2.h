@@ -27,7 +27,7 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <sys/types.h>
-#include <unistd.h> // getpid
+#include <unistd.h> // getpid, chown
 #include <mutex>    // std::mutext, std::lock_guard
 #include <string.h> // stderror
 #include <string>
@@ -246,7 +246,8 @@ namespace ev
     public: // Other - Method(s) / Function(s)
         
         void     Recycle();
-        
+        bool     EnsurePermissions (uid_t a_user_id, gid_t a_group_id);
+
     protected: // Method(s) / Function(s)
         
         bool EnsureBufferCapacity (const size_t& a_capacity);
@@ -382,7 +383,6 @@ namespace ev
         }
     }
     
-    
     /**
      * @brief Count number of registered clients for a specific 'name'.
      *
@@ -398,6 +398,27 @@ namespace ev
             return 0;
         }
         return c_it->second;
+    }
+    
+    /**
+     * @brief Change the logs permissions to a specific user / group.
+     *
+     * @param a_user_id
+     * @param a_group_id
+     *
+     * @return The number of registered clients for a specific 'name'.
+     */
+    inline bool LoggerV2::EnsurePermissions (uid_t a_user_id, gid_t a_group_id)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        size_t count = 0;
+        for ( auto it : tokens_ ) {
+            const int chown_status = chown(it.second->fn_.c_str(), a_user_id, a_group_id);
+            if ( 0 == chown_status ) {
+                count++;
+            }
+        }
+        return ( tokens_.size() == count );
     }
     
     /**
