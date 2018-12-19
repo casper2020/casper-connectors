@@ -33,6 +33,7 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <sys/types.h>
+#include <sys/stat.h> // chmod
 #include <unistd.h> // getpid, chown
 #include <mutex> // std::mutext, std::lock_guard
 #include <string.h> // stderror
@@ -415,7 +416,8 @@ namespace ev
         size_t count = 0;
         for ( auto it : tokens_ ) {
             const int chown_status = chown(it.second->fn_.c_str(), user_id_, group_id_);
-            if ( 0 == chown_status ) {
+            const int chmod_status = chmod(it.second->fn_.c_str(), S_IRWXU | S_IRGRP | S_IROTH);
+            if ( 0 == chown_status && 0 == chmod_status ) {
                 count++;
             }
         }
