@@ -223,6 +223,8 @@ namespace ev
         std::map<std::string, Token*>  tokens_;
         static char*                   s_buffer_;
         static size_t                  s_buffer_capacity_;
+        static uid_t                   s_user_id_;
+        static gid_t                   s_group_id_;
         
     public: // Initialization / Release API - Method(s) / Function(s)
         
@@ -245,12 +247,13 @@ namespace ev
         
     public: // Other - Method(s) / Function(s)
         
-        void     Recycle();
-        bool     EnsurePermissions (uid_t a_user_id, gid_t a_group_id);
+        void     Recycle     ();
+        bool     EnsureOwner (uid_t a_user_id, gid_t a_group_id);
 
     protected: // Method(s) / Function(s)
         
         bool EnsureBufferCapacity (const size_t& a_capacity);
+        bool EnsureOwner          ();
 
     }; // end of class Logger
     
@@ -406,19 +409,14 @@ namespace ev
      * @param a_user_id
      * @param a_group_id
      *
-     * @return The number of registered clients for a specific 'name'.
+     * @return True if all files changed to new permissions or it not needed, false otherwise.
      */
-    inline bool LoggerV2::EnsurePermissions (uid_t a_user_id, gid_t a_group_id)
+    inline bool LoggerV2::EnsureOwner (uid_t a_user_id, gid_t a_group_id)
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        size_t count = 0;
-        for ( auto it : tokens_ ) {
-            const int chown_status = chown(it.second->fn_.c_str(), a_user_id, a_group_id);
-            if ( 0 == chown_status ) {
-                count++;
-            }
-        }
-        return ( tokens_.size() == count );
+        s_user_id_  = a_user_id;
+        s_group_id_ = a_group_id;
+        return EnsureOwner();
     }
     
     /**
@@ -515,6 +513,7 @@ namespace ev
             fprintf(it.second->fp_, "---- NEW LOG '%s' ----\n", it.second->fn_.c_str());
             fflush(it.second->fp_);
         }
+        EnsureOwner();
     }
     
     /**
@@ -547,6 +546,27 @@ namespace ev
         // ... we're good to go if ...
         return ( a_capacity == s_buffer_capacity_ );
     }
+    
+    /**
+     * @brief Change the logs permissions to a specific user / group.
+     *
+     * @return True if all files changed to new permissions or it not needed, false otherwise.
+     */
+    inline bool LoggerV2::EnsureOwner ()
+    {
+        if ( UINT32_MAX == s_user_id_ || UINT32_MAX == s_group_id_ ) {
+            return true;
+        }
+        size_t count = 0;
+        for ( auto it : tokens_ ) {
+            const int chown_status = chown(it.second->fn_.c_str(), s_user_id_, s_group_id_);
+            if ( 0 == chown_status ) {
+                count++;
+            }
+        }
+        return ( tokens_.size() == count );
+    }
+    
     
 } // end of namespace 'ev'
 
