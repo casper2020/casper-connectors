@@ -27,6 +27,8 @@
 
 #include "osal/osalite.h"
 
+#include <algorithm> // std::replace
+
 /**
  * @brief Default constructor.
  *
