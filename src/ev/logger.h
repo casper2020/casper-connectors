@@ -33,7 +33,7 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <sys/types.h>
-#include <unistd.h> // getpid
+#include <unistd.h> // getpid, chown
 #include <mutex> // std::mutext, std::lock_guard
 #include <string.h> // stderror
 
@@ -147,6 +147,7 @@ namespace ev
     public: // Other - Method(s) / Function(s)
         
         void     Recycle ();
+        bool     EnsurePermissions (uid_t a_user_id, gid_t a_group_id);
         
     private: //
         
@@ -334,6 +335,27 @@ namespace ev
             fprintf(it.second->fp_, "---- NEW LOG '%s' ----\n", it.second->fn_.c_str());
             fflush(it.second->fp_);
         }
+    }
+    
+    /**
+     * @brief Change the logs permissions to a specific user / group.
+     *
+     * @param a_user_id
+     * @param a_group_id
+     *
+     * @return The number of registered clients for a specific 'name'.
+     */
+    inline bool Logger::EnsurePermissions (uid_t a_user_id, gid_t a_group_id)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        size_t count = 0;
+        for ( auto it : tokens_ ) {
+            const int chown_status = chown(it.second->fn_.c_str(), a_user_id, a_group_id);
+            if ( 0 == chown_status ) {
+                count++;
+            }
+        }
+        return ( tokens_.size() == count );
     }
     
     /**
