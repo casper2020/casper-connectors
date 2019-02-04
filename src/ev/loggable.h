@@ -107,7 +107,7 @@ namespace ev
             
         public: // Mehtod(s) / Function(s)
             
-            inline const void* const owner_ptr () const
+            inline const void* owner_ptr () const
             {
                 return owner_ptr_;
             }
@@ -117,12 +117,12 @@ namespace ev
                 ip_addr_ = a_ip_addr;
             }
             
-            inline const char* const ip_addr () const
+            inline const char* ip_addr () const
             {
                 return ip_addr_.c_str();
             }
 
-            inline const char* const module () const
+            inline const char* module () const
             {
                 return module_.c_str();
             }
@@ -132,7 +132,7 @@ namespace ev
                 tag_ = a_tag;
             }
             
-            inline const char* const tag () const
+            inline const char* tag () const
             {
                 return tag_.c_str();
             }

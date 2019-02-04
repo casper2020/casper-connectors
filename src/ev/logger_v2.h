@@ -121,7 +121,7 @@ namespace ev
             /**
              * @return Read-only access to prefix.
              */
-            inline const char* const prefix () const
+            inline const char* prefix () const
             {
                 return prefix_.c_str();
             }
