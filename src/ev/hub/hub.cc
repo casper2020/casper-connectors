@@ -360,6 +360,7 @@ void ev::hub::Hub::Stop (int a_sig_no)
     if ( nullptr != socket_buffer_ ) {
         delete [] socket_buffer_;
         socket_buffer_ = nullptr;
+        socket_buffer_length_ = 0;
     }
     
     if ( nullptr != one_shot_requests_handler_ ) {

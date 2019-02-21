@@ -122,6 +122,11 @@ namespace ev
                 return ip_addr_.c_str();
             }
 
+            inline void SetModule (const std::string& a_module)
+            {
+                module_ = a_module;
+            }
+
             inline const char* module () const
             {
                 return module_.c_str();

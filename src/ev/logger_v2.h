@@ -239,7 +239,10 @@ namespace ev
         bool     IsRegistered (Client* a_client, const std::string& a_token);
         void     Register     (Client* a_client, const std::set<std::string>& a_tokens);
         void     Unregister   (Client* a_client);
+        bool     Using        (Client* a_client, int a_fd);
+
         size_t   Count        (const char* const a_protocol);
+        
         
     public: // Log API - Method(s) / Function(s)
         
@@ -388,6 +391,41 @@ namespace ev
     }
     
     /**
+     * @brief Check if a client is using a file descriptor.
+     *
+     * @param a_client Optional, if null check if any client is using it else check for this client only.
+     * @param a_fd
+     *
+     * @return True if the token is in use by all or a specific client.
+     */
+    inline bool LoggerV2::Using (Client* a_client, int a_fd)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        
+        if ( nullptr != a_client ) {
+            const auto it = clients_.find(a_client);
+            if ( clients_.end() == it ) {
+                return false;
+            }
+            for ( auto it : tokens_ ) {
+                if ( fileno(it.second->fp_) == a_fd ) {
+                    if ( a_client->tokens().end() != a_client->tokens().find(it.first) ) {
+                        return true;
+                    }
+                }
+            }
+        } else {
+            for ( auto it : tokens_ ) {
+                if ( fileno(it.second->fp_) == a_fd ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+    
+    /**
      * @brief Count number of registered clients for a specific 'name'.
      *
      * @param a_name
@@ -403,6 +441,7 @@ namespace ev
         }
         return c_it->second;
     }
+    
     
     /**
      * @brief Change the logs permissions to a specific user / group.

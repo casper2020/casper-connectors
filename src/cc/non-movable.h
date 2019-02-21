@@ -1,7 +1,7 @@
 /**
  * @file non-copyable.h
  *
- * Copyright (c) 2011-2018 Cloudware S.A. All rights reserved.
+ * Copyright (c) 2011-2019 Cloudware S.A. All rights reserved.
  *
  * This file is part of casper-connectors
  *
@@ -19,28 +19,27 @@
  * along with casper-connectors.  If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
-#ifndef NRS_CC_NON_COPYABLE_H_
-#define NRS_CC_NON_COPYABLE_H_
+#ifndef NRS_CC_NON_MOVABLE_H_
+#define NRS_CC_NON_MOVABLE_H_
 
 namespace cc
 {
     
-    class NonCopyable
+    class NonMovable
     {
         
     public: // Constructor(s) / Destructor
         
-        NonCopyable () {}
-        NonCopyable (NonCopyable const&) = delete; // copies are not allowed
-        virtual ~NonCopyable () {}
+        NonMovable () {}
+        NonMovable(NonMovable&&) = delete; // move is not allowed
+        virtual ~NonMovable () {}
         
     public: // Overloaded Operator(s)
         
-        void operator = (NonCopyable const&)  = delete;  // assignment is not allowed
+        NonMovable& operator=(NonMovable &&) = delete; // move assign is not allowed
         
-    }; // end of class 'NonCopyable'
+    }; // end of class 'NonMovable'
     
 } // end of namespace 'cc'
 
-#endif // NRS_CC_NON_COPYABLE_H_
-
+#endif // NRS_CC_NON_MOVABLE_H_
