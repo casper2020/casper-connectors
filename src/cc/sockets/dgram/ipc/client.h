@@ -71,9 +71,20 @@ namespace cc
                 public: // Method(s) / Function(s)
                     
                     void Start (const std::string& a_name, const std::string& a_runtime_directory);
+                    void Stop  (const int a_sig_no);
                     void Send  (const Json::Value& a_value);
+                
+                public: // Inline Method(s) / Function(s)
+                    
+                    bool IsReady () const;
 
                 }; // end of class 'Client'
+                
+                
+                inline bool Client::IsReady () const
+                {
+                    return ( -1 != socket_.GetFileDescriptor() );
+                }
                 
             } // end of namespace 'ipc'
             

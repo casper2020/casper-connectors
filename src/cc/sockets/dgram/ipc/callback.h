@@ -45,6 +45,7 @@ namespace cc
                     
                 public: // Data
                     
+                    const void*                           owner_;
                     const int64_t                         timeout_ms_;
                     const bool                            recurrent_;
                     
@@ -65,12 +66,13 @@ namespace cc
                     /**
                      * @brief Default constructor.
                      *
+                     * @param a_owner
                      * @param a_function
                      * @param a_timeout_ms
                      * @param a_recurrent
                      */
-                    Callback (std::function<void()> a_function, const int64_t a_timeout_ms, const bool a_recurrent = false)
-                        : timeout_ms_(a_timeout_ms), recurrent_(a_recurrent)
+                    Callback (const void* a_owner, std::function<void()> a_function, const int64_t a_timeout_ms, const bool a_recurrent = false)
+                        : owner_(a_owner), timeout_ms_(a_timeout_ms), recurrent_(a_recurrent)
                     {
                         start_time_point_    = std::chrono::steady_clock::now();
                         event_               = nullptr;
@@ -83,13 +85,14 @@ namespace cc
                     /**
                      * @brief Constructor for callback w/payload.
                      *
+                     * @param a_owner
                      * @param a_function
                      * @param a_payload
                      * @param a_timeout_ms
                      * @param a_recurrent
                      */
-                    Callback (std::function<void(void* a_payload)> a_function, void* a_payload, int64_t a_timeout_ms, const bool a_recurrent = false)
-                        : timeout_ms_(a_timeout_ms), recurrent_(a_recurrent)
+                    Callback (const void* a_owner, std::function<void(void* a_payload)> a_function, void* a_payload, int64_t a_timeout_ms, const bool a_recurrent = false)
+                        : owner_(a_owner), timeout_ms_(a_timeout_ms), recurrent_(a_recurrent)
                     {
                         start_time_point_ = std::chrono::steady_clock::now();
                         event_            = nullptr;
@@ -107,7 +110,8 @@ namespace cc
                         payload_function_    = nullptr;
                         no_payload_function_ = nullptr;
                         if ( nullptr != event_ ) {
-                            free(event_);
+                            evtimer_del(event_);
+                            event_free(event_);
                         }
                     }
                     
