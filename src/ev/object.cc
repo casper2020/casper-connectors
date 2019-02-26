@@ -54,7 +54,7 @@ ev::Object::~Object ()
 /**
  * @return This object C string representation.
  */
-const char* const ev::Object::AsCString () const
+const char* ev::Object::AsCString () const
 {
     return nullptr;
 }

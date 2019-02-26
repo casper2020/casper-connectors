@@ -77,7 +77,7 @@ ev::postgresql::Request::~Request ()
 /**
  * @return This object C string representation.
  */
-const char* const ev::postgresql::Request::AsCString () const
+const char* ev::postgresql::Request::AsCString () const
 {
     return payload_.c_str();
 }
