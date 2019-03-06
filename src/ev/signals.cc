@@ -54,6 +54,9 @@ static void ev_sa_handler (int a_sig_no)
 void ev::Signals::Startup (const ev::Loggable::Data& a_loggable_data_ref)
 {
     s_loggable_data_ptr_ = &a_loggable_data_ref;
+    ev::Logger::GetInstance().Log("signals", *s_loggable_data_ptr_,
+                                  "--- STARTUP ---"
+    );
 }
 
 /**

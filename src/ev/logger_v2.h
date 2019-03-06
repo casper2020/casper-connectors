@@ -27,7 +27,8 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <sys/types.h>
-#include <unistd.h> // getpid
+#include <sys/stat.h> // chmod
+#include <unistd.h> // getpid, chown
 #include <mutex>    // std::mutext, std::lock_guard
 #include <string.h> // stderror
 #include <string>
@@ -120,7 +121,7 @@ namespace ev
             /**
              * @return Read-only access to prefix.
              */
-            inline const char* const prefix () const
+            inline const char* prefix () const
             {
                 return prefix_.c_str();
             }
@@ -223,6 +224,8 @@ namespace ev
         std::map<std::string, Token*>  tokens_;
         static char*                   s_buffer_;
         static size_t                  s_buffer_capacity_;
+        static uid_t                   s_user_id_;
+        static gid_t                   s_group_id_;
         
     public: // Initialization / Release API - Method(s) / Function(s)
         
@@ -236,7 +239,10 @@ namespace ev
         bool     IsRegistered (Client* a_client, const std::string& a_token);
         void     Register     (Client* a_client, const std::set<std::string>& a_tokens);
         void     Unregister   (Client* a_client);
+        bool     Using        (Client* a_client, int a_fd);
+
         size_t   Count        (const char* const a_protocol);
+        
         
     public: // Log API - Method(s) / Function(s)
         
@@ -245,11 +251,13 @@ namespace ev
         
     public: // Other - Method(s) / Function(s)
         
-        void     Recycle();
-        
+        void     Recycle     ();
+        bool     EnsureOwner (uid_t a_user_id, gid_t a_group_id);
+
     protected: // Method(s) / Function(s)
         
         bool EnsureBufferCapacity (const size_t& a_capacity);
+        bool EnsureOwner          ();
 
     }; // end of class Logger
     
@@ -259,10 +267,10 @@ namespace ev
     inline void LoggerV2::Startup  ()
     {
         std::lock_guard<std::mutex> lock(mutex_);
-	if ( nullptr != s_buffer_ ) {
+        if ( nullptr != s_buffer_ ) {
             delete [] s_buffer_;
         }
-	s_buffer_          = new char[1024];
+        s_buffer_          = new char[1024];
         s_buffer_capacity_ = nullptr != s_buffer_ ? 1024 : 0;
     }
     
@@ -360,11 +368,6 @@ namespace ev
         }
         // ... set tokens ...
         a_client->SetLoggerPrefix(a_tokens);
-        // ... no tokens?
-        if ( 0 == a_tokens.size() ) {
-            // ... we're done ...
-            return;
-        }
     }
     
     /**
@@ -387,6 +390,40 @@ namespace ev
         }
     }
     
+    /**
+     * @brief Check if a client is using a file descriptor.
+     *
+     * @param a_client Optional, if null check if any client is using it else check for this client only.
+     * @param a_fd
+     *
+     * @return True if the token is in use by all or a specific client.
+     */
+    inline bool LoggerV2::Using (Client* a_client, int a_fd)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        
+        if ( nullptr != a_client ) {
+            const auto it = clients_.find(a_client);
+            if ( clients_.end() == it ) {
+                return false;
+            }
+            for ( auto it : tokens_ ) {
+                if ( fileno(it.second->fp_) == a_fd ) {
+                    if ( a_client->tokens().end() != a_client->tokens().find(it.first) ) {
+                        return true;
+                    }
+                }
+            }
+        } else {
+            for ( auto it : tokens_ ) {
+                if ( fileno(it.second->fp_) == a_fd ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
     
     /**
      * @brief Count number of registered clients for a specific 'name'.
@@ -403,6 +440,23 @@ namespace ev
             return 0;
         }
         return c_it->second;
+    }
+    
+    
+    /**
+     * @brief Change the logs permissions to a specific user / group.
+     *
+     * @param a_user_id
+     * @param a_group_id
+     *
+     * @return True if all files changed to new permissions or it not needed, false otherwise.
+     */
+    inline bool LoggerV2::EnsureOwner (uid_t a_user_id, gid_t a_group_id)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        s_user_id_  = a_user_id;
+        s_group_id_ = a_group_id;
+        return EnsureOwner();
     }
     
     /**
@@ -499,6 +553,7 @@ namespace ev
             fprintf(it.second->fp_, "---- NEW LOG '%s' ----\n", it.second->fn_.c_str());
             fflush(it.second->fp_);
         }
+        EnsureOwner();
     }
     
     /**
@@ -531,6 +586,28 @@ namespace ev
         // ... we're good to go if ...
         return ( a_capacity == s_buffer_capacity_ );
     }
+    
+    /**
+     * @brief Change the logs permissions to a specific user / group.
+     *
+     * @return True if all files changed to new permissions or it not needed, false otherwise.
+     */
+    inline bool LoggerV2::EnsureOwner ()
+    {
+        if ( UINT32_MAX == s_user_id_ || UINT32_MAX == s_group_id_ ) {
+            return true;
+        }
+        size_t count = 0;
+        for ( auto it : tokens_ ) {
+            const int chown_status = chown(it.second->fn_.c_str(), s_user_id_, s_group_id_);
+            const int chmod_status = chmod(it.second->fn_.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+            if ( 0 == chown_status && 0 == chmod_status ) {
+                count++;
+            }
+        }
+        return ( tokens_.size() == count );
+    }
+    
     
 } // end of namespace 'ev'
 

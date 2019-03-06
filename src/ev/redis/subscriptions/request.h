@@ -30,6 +30,8 @@
 #include "ev/redis/request.h"
 #include "ev/redis/subscriptions/reply.h"
 
+#include "ev/logger_v2.h"
+
 #include <sstream>
 #include <algorithm> // std::replace
 
@@ -46,7 +48,7 @@ namespace ev
             // The commands that are allowed in the context of a subscribed client are SUBSCRIBE, PSUBSCRIBE, UNSUBSCRIBE, PUNSUBSCRIBE, PING and QUIT.
             //
             
-            class Request final : public ev::scheduler::Subscription
+            class Request final : public ev::scheduler::Subscription, ev::LoggerV2::Client
             {
                 
             public: // Data Type(s)
@@ -117,7 +119,7 @@ namespace ev
                 
             private: // Const Data
                 
-                const Loggable::Data           loggable_data_;
+                const Loggable::Data&          loggable_data_;
                 const TimeoutConfig            timeout_config_;
                 
             private: // Data
@@ -168,10 +170,10 @@ namespace ev
                 
                 void   Subscribe                (ContextMap& a_map, POCStatusMap& a_status_map, const std::set<std::string>& a_names);
                 void   Unsubscribe              (ContextMap& a_map, POCStatusMap& a_status_map, const std::set<std::string>& a_names);
-                Status GetStatus                (const POCStatusMap& a_map, const std::string& a_name);
-                bool   IsSubscribed             (const POCStatusMap& a_map, const std::string& a_name);
-                bool   IsSubscribedOrPending    (const POCStatusMap& a_map, const std::string& a_name);
-                bool   IsUnsubscribedOrPending  (const POCStatusMap& a_map, const std::string& a_name);
+                Status GetStatus                (const std::string& a_name, const ContextMap& a_context_map, const POCStatusMap& a_status_map);
+                bool   IsSubscribed             (const std::string& a_name, const ContextMap& a_context_map, const POCStatusMap& a_status_map);
+                bool   IsSubscribedOrPending    (const std::string& a_name, const ContextMap& a_context_map, const POCStatusMap& a_status_map);
+                bool   IsUnsubscribedOrPending  (const std::string& a_name, const ContextMap& a_context_map, const POCStatusMap& a_status_map);
                                 
                 void   BuildAndTrackCommand     (const char* const a_name,
                                                  const subscriptions::Request::Status a_status,
@@ -184,7 +186,8 @@ namespace ev
                                                  ev::redis::subscriptions::Request::Context** o_context,
                                                  bool& o_release_it);
                 void   CleanUpUnsubscribed      ();
-                void   LogStatus                (const char* const a_prefix, const int a_step);
+                void   LogStatus                (const char* const a_function, const char* const a_prefix,
+                                                 const int a_step, const int a_of);
                 
                 std::string ActiveRequestPayloadForLogger () const;
                 std::string SubscriptionStatusForLogger   (const Status a_status, const bool a_uppercase) const;
@@ -198,7 +201,7 @@ namespace ev
              */
             inline Request::Status Request::GetStatus (const std::string& a_channel)
             {
-                return GetStatus(channels_status_map_, a_channel);
+                return GetStatus(a_channel, channels_, channels_status_map_);
             }
             
             /**
@@ -208,7 +211,7 @@ namespace ev
              */
             inline Request::Status Request::GetPStatus (const std::string& a_pattern)
             {
-                return GetStatus(patterns_status_map_, a_pattern);
+                return GetStatus(a_pattern, patterns_, patterns_status_map_);
             }
             
             /**
@@ -224,7 +227,7 @@ namespace ev
                     }
                     return payload;
                 } else {
-                    return "";
+                    return "<null>";
                 }
             }
             

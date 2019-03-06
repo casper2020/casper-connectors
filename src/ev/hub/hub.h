@@ -210,14 +210,14 @@ namespace ev
             
         public:
             
-            const bool IsConfigured () const;
+            bool IsConfigured () const;
             
         }; // end of class 'Hub'
         
         /**
          * @brief Check if this instance is configured.
          */
-        inline const bool Hub::IsConfigured () const
+        inline bool Hub::IsConfigured () const
         {
             return ( true == configured_ );
         }

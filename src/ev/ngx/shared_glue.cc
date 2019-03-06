@@ -25,6 +25,9 @@
 
 #include "ev/exception.h"
 
+#include "ev/logger.h"
+#include "ev/logger_v2.h"
+
 #include <sstream> // std::stringstream
 
 #include <sys/stat.h> // chmod
@@ -39,7 +42,8 @@ std::string ev::ngx::SharedGlue::s_job_id_key_ = "";
     /* timeout_           */  0.0,
     /* tubes_             */ {
         "default"
-    },
+    },    
+    /* abort_polling_     */ 3,
     /* sessionless_tubes_ */ {}
 };
 
@@ -74,9 +78,13 @@ void ev::ngx::SharedGlue::PreConfigure (const ngx_core_conf_t* a_config, const b
             );
         }
     }
-    
+
     // ... ensure directory can be written to ...
     if ( UINT32_MAX != a_config->user && UINT32_MAX != a_config->group ) {
+        
+        ev::Logger::GetInstance().EnsureOwner(a_config->user, a_config->group);
+        ev::LoggerV2::GetInstance().EnsureOwner(a_config->user, a_config->group);
+        
         const int chown_status = chown(socket_files_dn_.c_str(), a_config->user, a_config->group);
         if ( 0 != chown_status ) {
 			const int last_error = errno;

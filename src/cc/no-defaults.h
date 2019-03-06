@@ -1,9 +1,9 @@
 /**
- * @file logger_v2.cc
+ * @file no-defaults.h
  *
- * Copyright (c) 2011-2018 Cloudware S.A. All rights reserved.
+ * Copyright (c) 2011-2019 Cloudware S.A. All rights reserved.
  *
- * This file is part of casper-connectors.
+ * This file is part of casper-connectors
  *
  * casper-connectors is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -16,12 +16,24 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with casper.  If not, see <http://www.gnu.org/licenses/>.
+ * along with casper-connectors.  If not, see <http://www.gnu.org/licenses/>.
  */
+#pragma once
+#ifndef NRS_CC_NO_DEFAULTS_H_
+#define NRS_CC_NO_DEFAULTS_H_
 
-#include "ev/logger_v2.h"
+namespace cc
+{
+    
+    class NoDefaults
+    {
+        
+    public: // Constructor(s) / Destructor
+        
+        NoDefaults () = delete;
+        
+    }; // end of class 'NonMovable'
+    
+} // end of namespace 'cc'
 
-char*  ev::LoggerV2::s_buffer_          = nullptr;
-size_t ev::LoggerV2::s_buffer_capacity_ = 0;
-uid_t  ev::LoggerV2::s_user_id_         = UINT32_MAX;
-gid_t  ev::LoggerV2::s_group_id_        = UINT32_MAX;
+#endif // NRS_CC_NO_DEFAULTS_H_

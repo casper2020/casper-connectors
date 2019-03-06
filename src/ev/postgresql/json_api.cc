@@ -29,15 +29,41 @@
 
 #include <sstream>
 
+#include <functional> // std::bind
+
 /**
  * @brief Default constructor.
  *
  * @param a_loggable_data_ref
- * @param a_logger_module
+ * @param a_enable_task_cancellation
  */
-::ev::postgresql::JSONAPI::JSONAPI (const ::ev::Loggable::Data& a_loggable_data_ref)
-    : loggable_data_ref_(a_loggable_data_ref)
+::ev::postgresql::JSONAPI::JSONAPI (const ::ev::Loggable::Data& a_loggable_data_ref, bool a_enable_task_cancellation)
+    : loggable_data_ref_(a_loggable_data_ref), enable_task_cancellation_(a_enable_task_cancellation)
 {
+    if ( true == enable_task_cancellation_ ) {
+        uris_.invalidate_ = std::bind(&::ev::postgresql::JSONAPI::InvalidateHandler, this);
+    }
+    ::ev::scheduler::Scheduler::GetInstance().Register(this);
+}
+
+/**
+ * @brief Default constructor.
+ *
+ * @param a_loggable_data_ref
+ */
+::ev::postgresql::JSONAPI::JSONAPI (const ::ev::postgresql::JSONAPI& a_json_api)
+    : loggable_data_ref_(a_json_api.loggable_data_ref_), enable_task_cancellation_(a_json_api.enable_task_cancellation_)
+{
+    uris_.SetBase(a_json_api.uris_.GetBase());
+    user_id_          = a_json_api.user_id_;
+    entity_id_        = a_json_api.entity_id_;
+    entity_schema_    = a_json_api.entity_schema_;
+    sharded_schema_   = a_json_api.sharded_schema_;
+    subentity_schema_ = a_json_api.subentity_schema_;
+    subentity_prefix_ = a_json_api.subentity_prefix_;
+    if ( true == enable_task_cancellation_ ) {
+        uris_.invalidate_ = std::bind(&::ev::postgresql::JSONAPI::InvalidateHandler, this);
+    }
     ::ev::scheduler::Scheduler::GetInstance().Register(this);
 }
 
@@ -125,9 +151,12 @@ void ::ev::postgresql::JSONAPI::Post (const ::ev::Loggable::Data& a_loggable_dat
     /*
      * Build Query
      */
-    std::stringstream ss;
-    ss << "SELECT response,http_status FROM jsonapi('POST','" << a_uri << "','" << a_body <<  "','" << user_id_ << "', '" << entity_id_ << "', '" << entity_schema_ << "', '" << sharded_schema_ << "', '" << subentity_schema_ << "', '" << subentity_prefix_ << "');";
+    std::string body;
+    SQLEscape(a_body, body);
 
+    std::stringstream ss;
+    ss << "SELECT response,http_status FROM jsonapi('POST','" << a_uri << "','" << body <<  "','" << user_id_ << "', '" << entity_id_ << "', '" << entity_schema_ << "', '" << sharded_schema_ << "', '" << subentity_schema_ << "', '" << subentity_prefix_ << "');";
+    
     /*
      * Run query ( asynchronously )...
      */
@@ -166,8 +195,11 @@ void ::ev::postgresql::JSONAPI::Patch (const ::ev::Loggable::Data& a_loggable_da
     /*
      * Build Query
      */
+    std::string body;
+    SQLEscape(a_body, body);
+
     std::stringstream ss;
-    ss << "SELECT response,http_status FROM jsonapi('PATCH','" << a_uri << "','" << a_body <<  "','" << user_id_ << "', '" << entity_id_ << "', '" << entity_schema_ << "', '" << sharded_schema_ << "', '" << subentity_schema_ << "', '" << subentity_prefix_ << "');";
+    ss << "SELECT response,http_status FROM jsonapi('PATCH','" << a_uri << "','" << body <<  "','" << user_id_ << "', '" << entity_id_ << "', '" << entity_schema_ << "', '" << sharded_schema_ << "', '" << subentity_schema_ << "', '" << subentity_prefix_ << "');";
 
     /*
      * Run query ( asynchronously )...
@@ -208,9 +240,12 @@ void ::ev::postgresql::JSONAPI::Delete (const ::ev::Loggable::Data& a_loggable_d
     /*
      * Build Query
      */
-    std::stringstream ss;
-    ss << "SELECT response,http_status FROM jsonapi('DELETE','" << a_uri << "','" << a_body <<  "','" << user_id_ << "', '" << entity_id_ << "', '" << entity_schema_ << "', '" << sharded_schema_ << "', '" << subentity_schema_ << "', '" << subentity_prefix_ << "');";
+    std::string body;
+    SQLEscape(a_body, body);
 
+    std::stringstream ss;
+    ss << "SELECT response,http_status FROM jsonapi('DELETE','" << a_uri << "','" << body <<  "','" << user_id_ << "', '" << entity_id_ << "', '" << entity_schema_ << "', '" << sharded_schema_ << "', '" << subentity_schema_ << "', '" << subentity_prefix_ << "');";
+    
     /*
      * Run query ( asynchronously )...
      */
@@ -321,4 +356,39 @@ void ::ev::postgresql::JSONAPI::AsyncQuery (const ::ev::Loggable::Data& a_loggab
                                          ::ev::scheduler::Scheduler::GetInstance().Push(this, a_task);
                                      }
     );
+}
+
+/**
+ * @brief Invalidate possible running tasks.
+ */
+void ::ev::postgresql::JSONAPI::InvalidateHandler ()
+{
+   ::ev::scheduler::Scheduler::GetInstance().Unregister(this);
+   ::ev::scheduler::Scheduler::GetInstance().Register(this);
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#endif
+
+/**
+ * @brief Escape an SQL term.
+ *
+ * @param a_value
+ * @param o_value
+ */
+void ::ev::postgresql::JSONAPI::SQLEscape (const std::string& a_value, std::string& o_value)
+{
+    o_value = "";
+    const size_t count = a_value.size();
+    if ( 0 == count ) {
+        return;
+    }
+    for ( size_t idx = 0 ; idx < a_value.size(); ++idx ) {
+        if ( '\'' == a_value[idx] ) {
+            o_value += "''";
+        } else {
+            o_value += a_value[idx];
+        }
+    }
 }

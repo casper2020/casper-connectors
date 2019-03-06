@@ -47,7 +47,7 @@ namespace ev
         void          AttachDataObject (Object* a_object, const size_t a_index = std::numeric_limits<size_t>::max());
         Object*       DetachDataObject (const size_t a_index = 0);
         const Object* DataObject       (const size_t a_index = 0) const;
-        const size_t  DataObjectsCount () const;
+        size_t        DataObjectsCount () const;
         
     public: // Inline Method(s) / Function(s)
         
@@ -107,7 +107,7 @@ namespace ev
     /**
      * @return The number of stored data objects.
      */
-    inline const size_t Result::DataObjectsCount () const
+    inline size_t Result::DataObjectsCount () const
     {
         return data_objects_.size();
     }

@@ -64,7 +64,7 @@ namespace ev
         
     public: // Virtual Method(s) / Function(s)
         
-        virtual const char* const AsCString () const;
+        virtual const char* AsCString () const;
         
     }; // end of class 'Object'
     

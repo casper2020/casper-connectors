@@ -64,7 +64,7 @@ ev::redis::Request::~Request ()
 /**
  * @return This object C string representation.
  */
-const char* const ev::redis::Request::AsCString () const
+const char* ev::redis::Request::AsCString () const
 {
     return payload_.c_str();
 }

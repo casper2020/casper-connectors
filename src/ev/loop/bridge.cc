@@ -248,6 +248,20 @@ void ev::loop::Bridge::Stop (int a_sig_no)
     OSALITE_DEBUG_TRACE("ev_bridge", "<~ Stop()...");
 }
 
+/**
+ * @brief Quit bridge loop.
+ */
+void ev::loop::Bridge::Quit ()
+{
+    if ( true == running_ && false == aborted_ ) {
+        aborted_ = true;
+        if ( nullptr != event_base_ ) {
+            event_base_loopbreak(event_base_);
+            abort_condition_.Wait();
+        }
+    }
+}
+
 #ifdef __APPLE__
 #pragma mark - Inherited Virtual Method(s) / Function(s) - from ::ev::SharedHandler
 #endif

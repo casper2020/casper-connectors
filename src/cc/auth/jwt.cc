@@ -246,7 +246,7 @@ std::string cc::auth::JWT::Encode (const uint64_t a_duration, const std::string&
     // ... generate signature ..
     const std::string signature_b64 = cc::crypto::RSA::SignSHA256(header_b64 + '.' + payload_b64, a_private_key_pem);
 
-    // ... finaly concat token elements ...
+    // ... finally concat token elements ...
     return header_b64 + "." + payload_b64 + "." + signature_b64;
 }
 

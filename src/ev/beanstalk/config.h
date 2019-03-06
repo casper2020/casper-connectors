@@ -38,6 +38,7 @@ namespace ev
             int                   port_;             //!< port number
             float                 timeout_;          //!< in seconds
             std::set<std::string> tubes_;            //!< tubes
+            float                 abort_polling_;    //!< in seconds
             std::set<std::string> sessionless_tubes_;
             
             inline void operator=(const _Config& a_config)

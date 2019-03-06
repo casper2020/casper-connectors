@@ -1,7 +1,7 @@
 /**
- * @file logger_v2.cc
+ * @file process.h
  *
- * Copyright (c) 2011-2018 Cloudware S.A. All rights reserved.
+ * Copyright (c) 2011-2019 Cloudware S.A. All rights reserved.
  *
  * This file is part of casper-connectors.
  *
@@ -19,9 +19,22 @@
  * along with casper.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ev/logger_v2.h"
+#ifndef NRS_SYS_DARWIN_PROCESS_H_
+#define NRS_SYS_DARWIN_PROCESS_H_
+#pragma once
 
-char*  ev::LoggerV2::s_buffer_          = nullptr;
-size_t ev::LoggerV2::s_buffer_capacity_ = 0;
-uid_t  ev::LoggerV2::s_user_id_         = UINT32_MAX;
-gid_t  ev::LoggerV2::s_group_id_        = UINT32_MAX;
+#include "sys/bsd/process.h"
+
+namespace sys
+{
+    
+    namespace darwin
+    {
+        
+        typedef ::sys::bsd::Process Process;
+        
+    } // end of namespace 'darwin'
+    
+} // end of namespace 'sys'
+
+#endif // NRS_SYS_DARWIN_PROCESS_H_

@@ -65,19 +65,29 @@ ev::casper::Session::~Session()
  * @brief Patch a JSON object with session data.
  *
  * @param o_object
+ * @param a_origin_ip_addr
  */
-void ev::casper::Session::Patch (Json::Value& a_object) const
+void ev::casper::Session::Patch (Json::Value& a_object, const std::string& a_origin_ip_addr) const
 {
     const std::map<std::string, std::string> patchables = {
-        { "user_id"          , GetValue("user_id"          , "") },
-        { "entity_id"        , GetValue("entity_id"        , "") },
-        { "entity_schema"    , GetValue("entity_schema"    , "") },
-        { "sharded_schema"   , GetValue("sharded_schema"   , "") },
-        { "subentity_id"     , GetValue("subentity_id"     , "") },
-        { "subentity_schema" , GetValue("subentity_schema" , "") },
-        { "subentity_prefix" , GetValue("subentity_prefix" , "") },
-        { "refresh_token"    , GetValue("refresh_token"    , "") },
-        { "access_token"     , data_.token_                      }
+        { "user_id"               , GetValue("user_id"                , "") },
+        { "entity_id"             , GetValue("entity_id"              , "") },
+        { "entity_schema"         , GetValue("entity_schema"          , "") },
+        { "sharded_schema"        , GetValue("sharded_schema"         , "") },
+        { "subentity_id"          , GetValue("subentity_id"           , "") },
+        { "subentity_schema"      , GetValue("subentity_schema"       , "") },
+        { "subentity_prefix"      , GetValue("subentity_prefix"       , "") },
+        { "user_email"            , GetValue("user_email"             , "") },
+        { "refresh_token"         , GetValue("refresh_token"          , "") },
+        { "role_mask"             , GetValue("role_mask"              , "") },
+        { "module_mask"           , GetValue("module_mask"            , "") },
+        { "impersonator_id"       , GetValue("impersonator_id"        , "") },
+        { "impersonator_email"    , GetValue("impersonator_email"     , "") },
+        { "impersonator_role_mask", GetValue("impersonator_role_mask" , "") },
+        { "impersonator_entity_id", GetValue("impersonator_entity_id" , "") },
+        { "impersonator_email"    , GetValue("impersonator_email"     , "") },
+        { "access_token"          , data_.token_                            },
+        { "origin_ip"             , a_origin_ip_addr                        }
     };
     
     Patch("", a_object, patchables);
@@ -87,19 +97,28 @@ void ev::casper::Session::Patch (Json::Value& a_object) const
  * @brief Patch a string with session data.
  *
  * @param a_string
+ * @param a_origin_ip_addr
  */
-void ev::casper::Session::Patch (std::string& a_string) const
+void ev::casper::Session::Patch (std::string& a_string, const std::string& a_origin_ip_addr) const
 {
     const std::map<std::string, std::string> patchables = {
-        { "<user_id>"          , GetValue("user_id"          , "") },
-        { "<entity_id>"        , GetValue("entity_id"        , "") },
-        { "<entity_schema>"    , GetValue("entity_schema"    , "") },
-        { "<sharded_schema>"   , GetValue("sharded_schema"   , "") },
-        { "<subentity_id>"     , GetValue("subentity_id"     , "") },
-        { "<subentity_schema>" , GetValue("subentity_schema" , "") },
-        { "<subentity_prefix>" , GetValue("subentity_prefix" , "") },
-        { "<refresh_token>"    , GetValue("refresh_token"    , "") },
-        { "<access_token>"     , data_.token_                      }
+        { "<user_id>"               , GetValue("user_id"                , "") },
+        { "<entity_id>"             , GetValue("entity_id"              , "") },
+        { "<entity_schema>"         , GetValue("entity_schema"          , "") },
+        { "<sharded_schema>"        , GetValue("sharded_schema"         , "") },
+        { "<subentity_id>"          , GetValue("subentity_id"           , "") },
+        { "<subentity_schema>"      , GetValue("subentity_schema"       , "") },
+        { "<subentity_prefix>"      , GetValue("subentity_prefix"       , "") },
+        { "<user_email>"            , GetValue("user_email"             , "") },
+        { "<refresh_token>"         , GetValue("refresh_token"          , "") },
+        { "<role_mask>"             , GetValue("role_mask"              , "") },
+        { "<module_mask>"           , GetValue("module_mask"            , "") },
+        { "<impersonator_id>"       , GetValue("impersonator_id"        , "") },
+        { "<impersonator_email>"    , GetValue("impersonator_email"     , "") },
+        { "<impersonator_role_mask>", GetValue("impersonator_role_mask" , "") },
+        { "<impersonator_entity_id>", GetValue("impersonator_entity_id" , "") },
+        { "<access_token>"        , data_.token_                      },
+        { "<origin_ip>"           , a_origin_ip_addr                  }
     };
        
     for ( auto patcheable : patchables ) {

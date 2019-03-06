@@ -360,6 +360,7 @@ void ev::hub::Hub::Stop (int a_sig_no)
     if ( nullptr != socket_buffer_ ) {
         delete [] socket_buffer_;
         socket_buffer_ = nullptr;
+        socket_buffer_length_ = 0;
     }
 
     if ( nullptr != one_shot_requests_handler_ ) {
@@ -405,7 +406,9 @@ void ev::hub::Hub::Stop (int a_sig_no)
 void ev::hub::Hub::Loop ()
 {
     fault_msg_ = "";
-
+    
+    pthread_setname_np("ev::hub");
+    
     stepper_.setup_ = [this](ev::Device* a_device) {
         a_device->Setup(event_base_, [this] (const ev::Exception& a_ev_exception) {
             bridge_.ThrowFatalException(a_ev_exception);

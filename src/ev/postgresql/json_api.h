@@ -55,6 +55,12 @@ namespace ev
                 std::string load_;   //!< Load URI.
                 std::string params_; //!< Load URI params.
                 
+            protected:
+                
+                friend class JSONAPI;
+                
+                std::function<void()> invalidate_;
+                
             public: // Constructor(s) / Destructor
                 
                 virtual ~URIs ()
@@ -69,6 +75,9 @@ namespace ev
                  */
                 inline void SetBase (const std::string& a_uri)
                 {
+                    if ( nullptr != invalidate_ ) {
+                        invalidate_();
+                    }
                     base_ = a_uri;
                 }
                 
@@ -88,6 +97,9 @@ namespace ev
                  */
                 inline void SetLoad (const std::string& a_uri, const std::string& a_params)
                 {
+                    if ( nullptr != invalidate_ ) {
+                        invalidate_();
+                    }
                     load_   = a_uri;
                     params_ = a_params;
                 }
@@ -118,6 +130,10 @@ namespace ev
             
             const Loggable::Data& loggable_data_ref_;
             
+        private: // Const Data
+            
+            const bool enable_task_cancellation_;
+            
         private: // data
             
             URIs         uris_;                 //!< The required URIs.
@@ -130,7 +146,8 @@ namespace ev
             
         public: // Constructor(s) / Destructor
             
-            JSONAPI (const Loggable::Data& a_loggable_data_ref);
+            JSONAPI (const Loggable::Data& a_loggable_data_ref, bool a_enable_task_cancellation);
+            JSONAPI (const JSONAPI& a_json_api);
             virtual ~JSONAPI ();
             
         public: // API Method(s) / Function(s) - declaration
@@ -186,7 +203,13 @@ namespace ev
                                                std::string* o_query = nullptr);
             ::ev::scheduler::Task* NewTask    (const EV_TASK_PARAMS& a_callback);
             
-        }; // end of class Context
+            void                   InvalidateHandler ();
+            
+        public: // STATIC API METHOD(S) / FUNCTION(S)
+
+            static void SQLEscape (const std::string& a_value, std::string& o_value);
+
+        }; // end of class JSONAPI
         
         /**
          * @return Access to JSON API URI's.
