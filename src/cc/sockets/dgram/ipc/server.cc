@@ -226,6 +226,8 @@ void cc::sockets::dgram::ipc::Server::Listen ()
     sigaddset(&sigmask, SIGCHLD);
     pthread_sigmask(SIG_BLOCK, &sigmask, &saved_sigmask);
     
+    pthread_setname_np("IPC Server");
+    
     try {
 
         if ( false == socket_.Create(socket_fn_.c_str()) ) {
