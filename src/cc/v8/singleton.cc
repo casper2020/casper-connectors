@@ -63,7 +63,7 @@ void cc::v8::Singleton::Startup (const char* const a_exec_uri, const char* const
     if ( false == ::v8::V8::InitializeICUDefaultLocation(a_exec_uri, a_icu_data_uri) ) {
         throw std::runtime_error("v8 ICU initialization failure!");
     }
-    ::v8::V8::InitializeExternalStartupData(a_natives_blob_uri, a_snapshot_blob_uri);
+    ::v8::V8::InitializeExternalStartupData(a_exec_uri);
     platform_ = ::v8::platform::NewDefaultPlatform();
     if ( nullptr == platform_ ) {
         throw std::runtime_error("v8 default platform creation failure!");
