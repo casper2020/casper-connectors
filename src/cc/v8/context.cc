@@ -117,7 +117,7 @@ bool cc::v8::Context::Parse (const char* const a_data,
     ::v8::MaybeLocal<::v8::Value> value = ::v8::JSON::Parse(context, payload);
     CASPER_V8_CHRONO_END(parse, "parse %zd byte(s) of JSON data", strlen(a_data));
     
-    const ::v8::String::Utf8Value exception(try_catch.Exception());
+    const ::v8::String::Utf8Value exception(isolate_ptr_, try_catch.Exception());
     
     if ( exception.length() == 0 ) {
         o_object.Reset(isolate_ptr_, value.ToLocalChecked()->ToObject(context).ToLocalChecked());
@@ -158,7 +158,7 @@ void cc::v8::Context::Compile (const std::string& a_name,
     ::v8::Context::Scope       context_scope(context);
     ::v8::HandleScope          handle_scope (isolate_ptr_);
     
-    ::v8::String::Utf8Value    script(a_script);
+    ::v8::String::Utf8Value    script(isolate_ptr_, a_script);
     
     //
     // Compile the script and check for errors.
@@ -342,7 +342,7 @@ void cc::v8::Context::LoadFunctions (::v8::Local<::v8::Context>& a_context, ::v8
 bool cc::v8::Context::TraceException (::v8::TryCatch* a_try_catch, std::string& o_trace) const
 {
     ::v8::HandleScope             handle_scope(isolate_ptr_);
-    const ::v8::String::Utf8Value exception(a_try_catch->Exception());
+    const ::v8::String::Utf8Value exception(isolate_ptr_, a_try_catch->Exception());
     
     //
     // Data provided?
@@ -373,7 +373,7 @@ bool cc::v8::Context::TraceException (::v8::TryCatch* a_try_catch, std::string& 
     //
     // v8 DID provide any extra information about this error - collect all available info
     //
-    const ::v8::String::Utf8Value filename(message->GetScriptOrigin().ResourceName());
+    const ::v8::String::Utf8Value filename(isolate_ptr_, message->GetScriptOrigin().ResourceName());
 
     // grab context
     ::v8::Local<::v8::Context> context = context_.Get(isolate_ptr_);
@@ -382,7 +382,7 @@ bool cc::v8::Context::TraceException (::v8::TryCatch* a_try_catch, std::string& 
     ss << *filename << ':' << message->GetLineNumber(context).FromJust() << ": " << exception_c_str << '\n';
     
     // line of source code.
-    const ::v8::String::Utf8Value source_line(message->GetSourceLine(context).ToLocalChecked());
+    const ::v8::String::Utf8Value source_line(isolate_ptr_, message->GetSourceLine(context).ToLocalChecked());
     
     ss << *source_line << '\n';
     
@@ -404,7 +404,7 @@ bool cc::v8::Context::TraceException (::v8::TryCatch* a_try_catch, std::string& 
         &&
         ::v8::Local<::v8::String>::Cast(stack_trace_v8_string)->Length() > 0
     ) {
-        ::v8::String::Utf8Value stack_trace_utf8_str(stack_trace_v8_string);
+        ::v8::String::Utf8Value stack_trace_utf8_str(isolate_ptr_, stack_trace_v8_string);
         ss << *stack_trace_utf8_str;
     }
     

@@ -38,7 +38,7 @@ ev::loop::beanstalkd::Job::Job (const Config& a_config)
     redis_signal_channel_(config_.service_id_ + ":job-signal"),
     redis_key_prefix_(config_.service_id_ + ":jobs:" + config_.tube_ + ':'),
     redis_channel_prefix_(config_.service_id_ + ':' + config_.tube_ + ':'),
-    json_api_(config_.loggable_data_ref_)
+    json_api_(config_.loggable_data_ref_, /* a_enable_task_cancellation */ false)
 {
     id_        = 0;
     validity_  = 0;

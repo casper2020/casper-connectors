@@ -63,7 +63,7 @@ cc::v8::Script::~Script ()
  */
 void cc::v8::Script::Compile (const ::v8::Local<::v8::String>& a_script, const cc::v8::Script::FunctionsVector* a_functions)
 {
-    const ::v8::String::Utf8Value& script = ::v8::String::Utf8Value(a_script);
+    const ::v8::String::Utf8Value& script = ::v8::String::Utf8Value(context_.Isolate(), a_script);
 
     const std::string log_uri = out_path_ + name_ + ".js";
 
@@ -106,7 +106,7 @@ void cc::v8::Script::Compile (const ::v8::Local<::v8::String>& a_script, const c
 void cc::v8::Script::TranslateFromV8Value (::v8::Isolate* a_isolate, const ::v8::Persistent<::v8::Value>& a_value, Value& o_value) const
 {
     const ::v8::Local<::v8::Value> value = a_value.Get(a_isolate);
-
+    
     if ( true == value.IsEmpty() ) {
         o_value.SetNull();
     } else if ( true == value->IsString() ) {
@@ -117,14 +117,14 @@ void cc::v8::Script::TranslateFromV8Value (::v8::Isolate* a_isolate, const ::v8:
             o_value.SetNull();
         }
     } else if ( true == value->IsBoolean() ) {
-        o_value = value->BooleanValue();
+        o_value = value->BooleanValue(a_isolate);
     } else if ( true == value->IsNumber() ) {
         if ( true == value->IsInt32() ) {
-            o_value = static_cast<double>(value->Int32Value());
+            o_value = value->NumberValue(a_isolate->GetCurrentContext()).FromMaybe(0.0);
         } else if ( true == value->IsUint32() ) {
-            o_value = static_cast<double>(value->Uint32Value());
+            o_value = value->NumberValue(a_isolate->GetCurrentContext()).FromMaybe(0.0);
         } else {
-            o_value = value->NumberValue();
+            o_value = value->NumberValue(a_isolate->GetCurrentContext()).FromMaybe(0.0);
         }
     } else { // true == value->IsNull() || true == value->IsUndefined() || ...
         o_value.SetNull();

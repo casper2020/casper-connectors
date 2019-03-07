@@ -47,7 +47,7 @@ namespace cc
         private: // Data
             
             bool                         initialized_;
-            ::v8::Platform*              platform_;
+            std::unique_ptr<::v8::Platform>              platform_;
             ::v8::Isolate*               isolate_;
             ::v8::Isolate::CreateParams  create_params_;
             

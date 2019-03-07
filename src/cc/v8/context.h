@@ -152,6 +152,7 @@ namespace cc
             void LoadFunctions (const LoadedFunction::Callable& a_callable, const FunctionsVector& a_functions);
             void CallFunction  (const LoadedFunction::Callable& a_callable, ::v8::Persistent<::v8::Value>& o_result) const;            
             void IsolatedCall  (const IsolatedCallback a_callback) const;
+            ::v8::Isolate* Isolate () const;
             
         private: // Method(s) / Function(s)
             
@@ -162,6 +163,11 @@ namespace cc
             void ThrowException (::v8::TryCatch* a_try_catch) const;
             
         }; // end of class 'ClientContext'
+        
+        inline ::v8::Isolate* Context::Isolate () const
+        {
+            return isolate_ptr_;
+        }
         
     } // end of namespace 'v8'
     
