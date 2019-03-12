@@ -58,7 +58,7 @@ namespace cc
             
         public: // Method(s) / Function(s) - Oneshot call only!!!
             
-            void Startup  (const char* const a_exec_uri, const char* const a_natives_blob_uri, const char* const a_snapshot_blob_uri, const char* const a_icu_data_uri);
+            void Startup  (const char* const a_exec_uri, const char* const a_icu_data_uri);
             void Shutdown ();
             void Initialize ();
             

@@ -51,7 +51,11 @@ namespace ev
                 
             private: // Const Refs
                 
-                const Factories& factories_;
+                const Factories&   factories_;
+                
+            private: // Const Data
+                
+                const std::string  default_tube_;
                 
             private: // Data
                 
@@ -63,12 +67,12 @@ namespace ev
                 
             public: // Constructor(s) / Destructor
                 
-                Looper (const Factories& a_factories);
+                Looper (const Factories& a_factories, const std::string a_default_tube = "");
                 virtual ~Looper ();
                 
             public: // Method(s) / Function(s)
                 
-                void Run (ev::Loggable::Data& a_loggable_data, const ::ev::beanstalk::Config& a_beanstakd_config);
+                void Run (ev::Loggable::Data& a_loggable_data, const ::ev::beanstalk::Config& a_beanstakd_config, volatile bool& a_aborted);
                 
             }; // end of class 'Looper'
             

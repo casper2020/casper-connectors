@@ -51,11 +51,9 @@ cc::v8::Singleton::~Singleton ()
  * @brief This method must ( and can only ) be called once to initialize V8 engine.
  *
  * @param a_exec_uri
- * @param a_natives_blog_uri
- * @param a_snapshot_blob_uri
  * @param a_icu_data_uri
  */
-void cc::v8::Singleton::Startup (const char* const a_exec_uri, const char* const a_natives_blob_uri, const char* const a_snapshot_blob_uri, const char* const a_icu_data_uri)
+void cc::v8::Singleton::Startup (const char* const a_exec_uri, const char* const a_icu_data_uri)
 {
     if ( true == initialized_ ) {
         throw std::runtime_error("v8 singleton already initialized!");

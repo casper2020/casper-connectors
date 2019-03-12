@@ -48,19 +48,26 @@ ev::loop::beanstalkd::Job::Job (const Config& a_config)
     progress_             = Json::Value(Json::ValueType::objectValue);
     progress_["status"]   = "in-progress";
     progress_["progress"] = 0.0;
-
+    
+    signal_channel_     = config_.service_id_ + ":job-signal";
+    
+    chdir_hrt_.seconds_ = static_cast<uint8_t>(0);
+    chdir_hrt_.minutes_ = static_cast<uint8_t>(0);
+    chdir_hrt_.hours_   = static_cast<uint8_t>(0);
+    chdir_hrt_.day_     = static_cast<uint8_t>(0);
+    chdir_hrt_.month_   = static_cast<uint8_t>(0);
+    chdir_hrt_.year_    = static_cast<uint16_t>(0);
+    
+    hrt_buffer_[0]      = '\0';
+    
     ev::scheduler::Scheduler::GetInstance().Register(this);
 
     osal::ConditionVariable cv;
-
-    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &cv] () {
-
-
-        const std::string channel = ( config_.service_id_ + ":job-signal" );
-
-        ::ev::redis::subscriptions::Manager::GetInstance().SubscribeChannels({ channel },
+    
+    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &cv] {
+        ::ev::redis::subscriptions::Manager::GetInstance().SubscribeChannels({ signal_channel_ },
                                                                              /* a_status_callback */
-                                                                             [&cv](const std::string& a_name_or_pattern,
+                                                                             [this, &cv](const std::string& a_name_or_pattern,
                                                                                          const ::ev::redis::subscriptions::Manager::Status& a_status) -> EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK {
                                                                                  if ( ::ev::redis::subscriptions::Manager::Status::Subscribed == a_status ) {
                                                                                      cv.Wake();
@@ -68,16 +75,43 @@ ev::loop::beanstalkd::Job::Job (const Config& a_config)
                                                                                  return nullptr;
                                                                              },
                                                                              /* a_data_callback */
-                                                                             std::bind(&ev::loop::beanstalkd::Job::JobSignalsDataCallback, this,
-                                                                                       std::placeholders::_1, std::placeholders::_2
-                                                                             ),
+                                                                             [this] (const std::string& a_name, const std::string& a_message) -> EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK {
+                                                                                 
+                                                                                 ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, a_name, a_message] {
+                                                                                     
+                                                                                     Json::Value  object;
+                                                                                     Json::Reader reader;
+                                                                                     try {
+                                                                                         if ( true == reader.parse(a_message, object, false) ) {
+                                                                                             if ( true ==  object.isMember("id") && true == object.isMember("status") ) {
+                                                                                                 const Json::Value id = object.get("id", -1);
+                                                                                                 if ( 0 == channel_.compare(std::to_string(static_cast<int64_t>(id.asInt64()))) ) {
+                                                                                                     const Json::Value value = object.get("status", Json::Value::null);
+                                                                                                     if ( true == value.isString() && 0 == strcasecmp(value.asCString(), "cancelled") ) {
+//                                                                                                         NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("queue",
+//                                                                                                                                            "Received from REDIS channel '%s': %s",
+//                                                                                                                                            a_name.c_str(),
+//                                                                                                                                            a_message.c_str()
+//                                                                                                         );
+                                                                                                         cancelled_ = true;
+                                                                                                     }
+                                                                                                 }
+                                                                                             }
+                                                                                         }
+                                                                                     } catch (const Json::Exception& /* a_json_exception */) {
+                                                                                         // ... eat it ...
+                                                                                     }
+                                                                                     
+                                                                                 });
+                                                                                 
+                                                                                 return nullptr;
+                                                                             },
                                                                              /* a_client */
                                                                              this
-        );
-
+                                                                         );
     });
-
     cv.Wait();
+    json_writer_.omitEndingLineFeed();
 }
 
 /**
@@ -85,6 +119,12 @@ ev::loop::beanstalkd::Job::Job (const Config& a_config)
  */
 ev::loop::beanstalkd::Job::~Job ()
 {
+    osal::ConditionVariable cv;
+    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &cv] {
+        ::ev::redis::subscriptions::Manager::GetInstance().Unubscribe(this);
+        cv.Wake();
+    });
+    cv.Wait();
     ev::scheduler::Scheduler::GetInstance().Unregister(this);
 }
 
@@ -128,7 +168,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     //
     // Configure Log
     //
-    // TODO config_.loggable_data_ref_.SetTag(redis_key_prefix_ + channel_);
+    config_.loggable_data_ref_.SetTag(redis_key_prefix_ + channel_);
     
     const auto cancelled_callback = [this, &a_cancelled_callback] () {
         
@@ -249,6 +289,16 @@ void ev::loop::beanstalkd::Job::PublishProgress (const ev::loop::beanstalkd::Job
     progress_["progress"] = a_message.value_;
 
     Publish(progress_);
+}
+
+/**
+ * @brief Publish signal.
+ *
+ * @param a_object
+ */
+void ev::loop::beanstalkd::Job::PublishSignal (const Json::Value& a_object)
+{
+    Publish(signal_channel_, a_object);
 }
 
 /**
@@ -658,6 +708,57 @@ void ev::loop::beanstalkd::Job::ExecuteQueryWithJSONAPI (const std::string& a_qu
 #endif
 
 /**
+ * @brief Ensure output directory is created.
+ *
+ * @a_validity
+ */
+const std::string& ev::loop::beanstalkd::Job::EnsureOutputDir (const int64_t a_validity)
+{
+    // ... get time w/offset ...
+    cc::UTCTime::HumanReadable now_hrt = cc::UTCTime::ToHumanReadable(cc::UTCTime::OffsetBy(a_validity));
+    
+    // ... check if output directory must change ...
+    if ( 0 == output_directory_.length() || now_hrt.year_ != chdir_hrt_.year_ || now_hrt.month_ != chdir_hrt_.month_ || now_hrt.day_ !=  chdir_hrt_.day_ ) {
+        
+        // ... setup new output directory ...
+        hrt_buffer_[0] = '\0';
+        const int w = snprintf(hrt_buffer_, 26, "%04d-%02d-%02d/",
+                               static_cast<int>(now_hrt.year_), static_cast<int>(now_hrt.month_), static_cast<int>(now_hrt.day_)
+                               );
+        if ( w < 0 || w > 26 ) {
+            throw ev::Exception("Unable to change output directory - buffer write error!");
+        }
+        output_directory_ = config_.output_dir_ + hrt_buffer_;
+        
+        if ( osal::Dir::EStatusOk != osal::Dir::CreateDir(output_directory_.c_str()) ) {
+            throw ev::Exception("Unable to create output directory %s!", output_directory_.c_str());
+        }
+        
+//        NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("queue",
+//                                           "Changing output dir to %s...",
+//                                           output_directory_.c_str()
+//        );
+        
+        // ... prevent unnecessary changes ...
+        chdir_hrt_ = now_hrt;
+    } else if ( output_directory_.length() > 0 && osal::Dir::EStatusOk != osal::Dir::CreateDir(output_directory_.c_str()) ) {
+        throw ev::Exception("Unable to create output directory %s!", output_directory_.c_str());
+    }
+    
+    // ... sanity check ...
+    if ( 0 == output_directory_.length() ) {
+        throw ev::Exception("Unable to change output directory - not set!");
+    }
+    
+    // ... done ...
+    return output_directory_;
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#endif
+
+/**
  * @brief Retrieve a JSON object or it's to a default value.
  *
  * @param a_param
@@ -689,7 +790,7 @@ Json::Value ev::loop::beanstalkd::Job::GetJSONObject (const Json::Value& a_paren
 
 #ifdef __APPLE__
 #pragma mark -
-#pragma mark [Private] - Scheduler
+#pragma mark [Protected] - Scheduler
 #endif
 
 /**

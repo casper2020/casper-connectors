@@ -33,9 +33,11 @@
  * @brief Default constructor.
  *
  * @param a_factories
+ * @param a_default_tube
  */
-ev::loop::beanstalkd::Looper::Looper (const ev::loop::beanstalkd::Looper::Factories& a_factories)
-    : factories_(a_factories)
+ev::loop::beanstalkd::Looper::Looper (const ev::loop::beanstalkd::Looper::Factories& a_factories, const std::string a_default_tube)
+    : factories_(a_factories),
+      default_tube_(a_default_tube)
 {
     consumer_     = nullptr;
     consumer_ptr_ = nullptr;
@@ -60,11 +62,12 @@ ev::loop::beanstalkd::Looper::~Looper ()
  *
  * @param a_loggable_data
  * @param a_beanstakd_config
+* @param a_aborted
  */
 void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
-                                        const ::ev::beanstalk::Config& a_beanstakd_config)
+                                        const ::ev::beanstalk::Config& a_beanstakd_config,
+                                        volatile bool& a_aborted)
 {   
-    bool aborted = false;
     Beanstalk::Job job;
     std::string    uri;
     bool           cancelled;
@@ -101,7 +104,12 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
     //
     // consumer loop
     //
-    while ( consumer_->Reserve(job) && false == aborted ) {
+    while ( false == a_aborted ) {
+        
+        // ... test abort flag, every n seconds ...
+        if ( false == consumer_->Reserve(job, a_beanstakd_config.abort_polling_) ) {
+            continue;
+        }
         
         a_loggable_data.SetTag("consumer");
       
@@ -117,10 +125,10 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
         
         job_payload_ = Json::Value::null;
         if ( false == json_reader_.parse(job.body(), job_payload_) ) {
-            throw ev::Exception("An error occurred while loading configuration: JSON parsing error - %s\n", json_reader_.getFormattedErrorMessages().c_str());
+            throw ev::Exception("An error occurred while loading job payload: JSON parsing error - %s\n", json_reader_.getFormattedErrorMessages().c_str());
         }
         
-        const std::string tube = job_payload_["tube"].asString();
+        const std::string tube = job_payload_.get("tube", default_tube_).asString();
 
         // check if consumer is already loaded
         const auto cached_consumer_it = consumers_.find(tube);

@@ -407,9 +407,9 @@ namespace ev
             if ( clients_.end() == it ) {
                 return false;
             }
-            for ( auto it : tokens_ ) {
-                if ( fileno(it.second->fp_) == a_fd ) {
-                    if ( a_client->tokens().end() != a_client->tokens().find(it.first) ) {
+            for ( auto it2 : tokens_ ) {
+                if ( fileno(it2.second->fp_) == a_fd ) {
+                    if ( a_client->tokens().end() != a_client->tokens().find(it2.first) ) {
                         return true;
                     }
                 }

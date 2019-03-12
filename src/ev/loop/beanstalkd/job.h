@@ -63,7 +63,8 @@ namespace ev
                     const std::string             tube_;
                     const bool                    transient_;
                     const std::string             logs_dir_;
-                    const ev::Loggable::Data&     loggable_data_ref_;
+                    const std::string             output_dir_;
+                    ev::Loggable::Data&           loggable_data_ref_;
                     const FatalExceptionCallback& fatal_exception_callback_;
                     
                 public: // Constructor(s) / Destructor
@@ -71,17 +72,20 @@ namespace ev
                     Config() = delete;
                     
                     Config (const std::string& a_service_id, const std::string& a_tube, const bool a_transient,
-                            const std::string& a_logs_dir, const ev::Loggable::Data& a_loggable_data_ref,
+                            const std::string& a_logs_dir, const std::string& a_output_dir,
+                            ev::Loggable::Data& a_loggable_data_ref,
                             const FatalExceptionCallback& a_fatal_exception_callback)
                     : service_id_(a_service_id), tube_(a_tube), transient_(a_transient),
-                      logs_dir_(a_logs_dir), loggable_data_ref_(a_loggable_data_ref), fatal_exception_callback_(a_fatal_exception_callback)
+                      logs_dir_(a_logs_dir), output_dir_(a_output_dir),
+                      loggable_data_ref_(a_loggable_data_ref), fatal_exception_callback_(a_fatal_exception_callback)
                     {
                         /* empty */
                     }
                     
                     Config (const Config& a_config)
                     : service_id_(a_config.service_id_), tube_(a_config.tube_), transient_(a_config.transient_),
-                      logs_dir_(a_config.logs_dir_), loggable_data_ref_(a_config.loggable_data_ref_),
+                      logs_dir_(a_config.logs_dir_), output_dir_(a_config.output_dir_),
+                      loggable_data_ref_(a_config.loggable_data_ref_),
                       fatal_exception_callback_(a_config.fatal_exception_callback_)
                     {
                         /* empty */
@@ -114,12 +118,20 @@ namespace ev
                 bool                      cancelled_;
                 Json::Value               response_;
                 Json::Value               progress_;
+                std::string               signal_channel_;
                 
+            private: // Data
+                
+                cc::UTCTime::HumanReadable chdir_hrt_;
+                char                       hrt_buffer_[27];
+                std::string                output_directory_;
+
             protected: // Helpers
                 
                 ::ev::postgresql::JSONAPI json_api_;
                 Json::Reader              json_reader_;
                 Json::FastWriter          json_writer_;
+                Json::StyledWriter        json_styled_writer_;
                 
             public: // Constructor(s) / Destructor
                 
@@ -151,6 +163,8 @@ namespace ev
                 void PublishProgress  (const Json::Value& a_payload);
                 void PublishProgress  (const Progress& a_message);
                 
+                void PublishSignal    (const Json::Value& a_object);
+                
                 void Publish (const std::string& a_channel, const Json::Value& a_object,
                               const std::function<void()> a_success_callback = nullptr, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr);
                 
@@ -164,13 +178,17 @@ namespace ev
                 virtual void ExecuteQuery            (const std::string& a_query, Json::Value& o_result,
                                                       const bool a_use_column_name);
                 virtual void ExecuteQueryWithJSONAPI (const std::string& a_query, Json::Value& o_result);
+
+            protected: // Output Helper Methods(s) / Function(s)
+
+                const std::string& EnsureOutputDir (const int64_t a_validity);
                 
             protected: // JsonCPP Helper Methods(s) / Function(s)
                 
                 Json::Value GetJSONObject (const Json::Value& a_parent, const char* const a_key,
                                            const Json::ValueType& a_type, const Json::Value* a_default);
                 
-            private: //
+            protected: //
                 
                 ev::scheduler::Task*                             NewTask                (const EV_TASK_PARAMS& a_callback);
                 EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK JobSignalsDataCallback (const std::string& a_name, const std::string& a_message);
