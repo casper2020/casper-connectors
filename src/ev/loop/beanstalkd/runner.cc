@@ -234,7 +234,72 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
         f_stream.close();
     }    
     
-    InnerStartup(*startup_config_, read_config, *shared_config_);
+    try {
+
+        /* postgresql */
+        const Json::Value postgres = read_config.get("postgres", Json::Value::null);
+        if ( true == postgres.isNull() || Json::ValueType::objectValue != postgres.type() ) {
+            throw ev::Exception("An error occurred while loading configuration: missing or invalid 'postgres' object!");
+        }
+        const Json::Value conn_str = postgres.get("conn_str", Json::Value::null);
+        if ( true == conn_str.isNull() ) {
+            throw ev::Exception("An error occurred while loading configuration - missing or invalid PostgreSQL connection string!");
+        }
+        
+        shared_config_->postgres_.conn_str_                     = conn_str.asString();
+        shared_config_->postgres_.statement_timeout_            = postgres.get("statement_timeout", shared_config_->postgres_.statement_timeout_).asInt();
+        shared_config_->postgres_.limits_.max_conn_per_worker_  = static_cast<size_t>(postgres.get("max_conn_per_worker"  , static_cast<int>(shared_config_->postgres_.limits_.max_conn_per_worker_ )).asInt());
+        shared_config_->postgres_.limits_.max_queries_per_conn_ = static_cast<ssize_t>(postgres.get("max_queries_per_conn", static_cast<int>(shared_config_->postgres_.limits_.max_queries_per_conn_)).asInt());
+        shared_config_->postgres_.limits_.min_queries_per_conn_ = static_cast<ssize_t>(postgres.get("min_queries_per_conn", static_cast<int>(shared_config_->postgres_.limits_.min_queries_per_conn_)).asInt());
+        
+        const Json::Value post_connect_queries = postgres.get("post_connect_queries", Json::Value::null);
+        if ( false == post_connect_queries.isNull() ) {
+            if ( false == post_connect_queries.isArray() ) {
+                throw ev::Exception("An error occurred while loading configuration - invalid PostgreSQL post connect object ( array of strings is expected )!");
+            } else {
+                for ( Json::ArrayIndex idx = 0 ; idx < post_connect_queries.size() ; ++idx ) {
+                    if ( false == post_connect_queries[idx].isString() || 0 == post_connect_queries[idx].asString().length() ) {
+                        throw ev::Exception("An error occurred while loading configuration - invalid PostgreSQL post connect object at index %d ( strings is expected )!", idx);
+                    }
+                }
+            }
+            shared_config_->postgres_.post_connect_queries_ = new Json::Value(post_connect_queries);
+        }
+        
+        /* beanstalkd */
+        const Json::Value beanstalkd = read_config.get("beanstalkd", Json::Value::null);
+        if ( false == beanstalkd.isNull() ) {
+            shared_config_->beanstalk_.host_    = beanstalkd.get("host"   , shared_config_->beanstalk_.host_   ).asString();
+            shared_config_->beanstalk_.port_    = beanstalkd.get("port"   , shared_config_->beanstalk_.port_   ).asInt();
+            shared_config_->beanstalk_.timeout_ = beanstalkd.get("timeout", shared_config_->beanstalk_.timeout_).asFloat();
+            const Json::Value& tubes = beanstalkd["tubes"];
+            if ( false == tubes.isArray() ) {
+                throw ev::Exception("An error occurred while loading configuration - invalid tubes type!");
+            }
+            if ( tubes.size() > 0 ) {
+                shared_config_->beanstalk_.tubes_.clear();
+                for ( Json::ArrayIndex idx = 0 ; idx < tubes.size() ; ++idx ) {
+                    shared_config_->beanstalk_.tubes_.insert(tubes[idx].asString());
+                }
+            }
+        }
+        
+        /* redis */
+        const Json::Value redis = read_config.get("redis", Json::Value::null);
+        if ( false == redis.isNull() ) {
+            shared_config_->redis_.host_     = redis.get("host"    , shared_config_->redis_.host_     ).asString();
+            shared_config_->redis_.port_     = redis.get("port"    , shared_config_->redis_.port_     ).asInt();
+            shared_config_->redis_.database_ = redis.get("database", shared_config_->redis_.database_ ).asInt();
+            shared_config_->redis_.limits_.max_conn_per_worker_  = static_cast<size_t>(redis.get("max_conn_per_worker"  , static_cast<int>(shared_config_->redis_.limits_.max_conn_per_worker_ )).asInt());
+            shared_config_->redis_.limits_.max_queries_per_conn_ = static_cast<ssize_t>(redis.get("max_queries_per_conn", static_cast<int>(shared_config_->redis_.limits_.max_queries_per_conn_)).asInt());
+            shared_config_->redis_.limits_.min_queries_per_conn_ = static_cast<ssize_t>(redis.get("min_queries_per_conn", static_cast<int>(shared_config_->redis_.limits_.min_queries_per_conn_)).asInt());
+        }        
+        
+        InnerStartup(*startup_config_, read_config, *shared_config_);
+
+    } catch (const Json::Exception& a_json_exception) {
+        throw ev::Exception("An error occurred while loading configuration: JSON exception %s!", a_json_exception.what());
+    }
     
     // .. set loggable data ...
     loggable_data_ = new ::ev::Loggable::Data(/* owner_ptr_ */ this,
