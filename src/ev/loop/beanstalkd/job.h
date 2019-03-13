@@ -57,24 +57,20 @@ namespace ev
                     
                     std::string       service_id_;
                     bool              transient_;
-                    const std::string logs_dir_;
-                    const std::string output_dir_;
+                    std::string       output_dir_;
                     
                 public: // Constructor(s) / Destructor
                     
                     Config() = delete;
                     
-                    Config (const std::string& a_service_id, const bool a_transient,
-                            const std::string& a_logs_dir, const std::string& a_output_dir)
-                    : service_id_(a_service_id), transient_(a_transient),
-                      logs_dir_(a_logs_dir), output_dir_(a_output_dir)
+                    Config (const std::string& a_service_id, const bool a_transient, const std::string& a_output_dir)
+                    : service_id_(a_service_id), transient_(a_transient), output_dir_(a_output_dir)
                     {
                         /* empty */
                     }
                     
                     Config (const Config& a_config)
-                    : service_id_(a_config.service_id_), transient_(a_config.transient_),
-                      logs_dir_(a_config.logs_dir_), output_dir_(a_config.output_dir_)
+                    : service_id_(a_config.service_id_), transient_(a_config.transient_), output_dir_(a_config.output_dir_)
                     {
                         /* empty */
                     }
