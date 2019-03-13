@@ -35,6 +35,8 @@
 
 #include "osal/osalite.h"
 
+#include "osal/debug/trace.h"
+
 #ifdef __APPLE__
 #pragma mark -
 #endif
@@ -90,7 +92,7 @@ ev::loop::beanstalkd::Runner::Runner ()
             /* port_          */  11300,
             /* timeout_       */  0.0,
             /* tubes_         */ {},
-            /* abort_polling_ */ 3
+            /* abort_polling_ */ 3.0
         },
         /* device_limits_ */ {},
         /* factory */ nullptr

@@ -43,9 +43,10 @@ namespace ev
             
             inline void operator=(const _Config& a_config)
             {
-                host_    = a_config.host_;
-                port_    = a_config.port_;
-                timeout_ = a_config.timeout_;
+                host_          = a_config.host_;
+                port_          = a_config.port_;
+                timeout_       = a_config.timeout_;
+                abort_polling_ = a_config.abort_polling_;
                 for ( auto it : a_config.tubes_ ) {
                     tubes_.insert(it);
                 }
