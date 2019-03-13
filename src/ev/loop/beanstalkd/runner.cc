@@ -44,15 +44,14 @@
  */
 ev::loop::beanstalkd::Runner::Runner ()
 {
-    s_initialized_              = false;
-    s_shutting_down_            = false;
-    s_quit_                     = false;
-    s_bridge_                   = nullptr;
-    s_consumer_thread_          = nullptr;
-    s_consumer_cv_              = nullptr;
-    loggable_data_              = nullptr;
-    s_fatal_exception_callback_ = nullptr;
-    shared_config_              = new ev::loop::beanstalkd::Runner::SharedConfig({
+    initialized_              = false;
+    shutting_down_            = false;
+    quit_                     = false;
+    bridge_                   = nullptr;
+    consumer_thread_          = nullptr;
+    consumer_cv_              = nullptr;
+    loggable_data_            = nullptr;
+    shared_config_            = new ev::loop::beanstalkd::Runner::SharedConfig({
         /* default_tube_ */ "",
         /* ip_addr_ */ "",
         /* directories_ */ {
@@ -94,9 +93,8 @@ ev::loop::beanstalkd::Runner::Runner ()
             /* abort_polling_ */ 3
         },
         /* device_limits_ */ {},
-        /* factories_ */ {}
-      }
-    );
+        /* factory */ nullptr
+    });
     http_ = new ::ev::curl::HTTP();
 }
 
@@ -108,7 +106,6 @@ ev::loop::beanstalkd::Runner::~Runner ()
     if ( nullptr != looper_ ) {
         delete looper_;
     }
-    s_fatal_exception_callback_ = nullptr;
     if ( nullptr != http_) {
         delete http_;
     }
@@ -155,7 +152,7 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     
     // ... mark as 'main' thread ...
     OSALITE_DEBUG_SET_MAIN_THREAD_ID();
-    
+   
     //
     // Copy Startup Config
     //
@@ -235,7 +232,7 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
         throw ev::Exception("An error occurred while loading configuration: unexpected JSON object - object as top object is expected!");
     } else {
         f_stream.close();
-    }
+    }    
     
     InnerStartup(*startup_config_, read_config, *shared_config_);
     
@@ -315,15 +312,10 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     const std::string  shared_handler_socket_fn = ss.str();
     
     //
-    // Track callbacks
-    //
-    s_fatal_exception_callback_ = a_fatal_exception_callback;
-    
-    //
     // BRIDGE
     //
-    s_bridge_ = new ev::loop::Bridge();
-    call_on_main_thread_ = s_bridge_->Start(shared_handler_socket_fn, s_fatal_exception_callback_);
+    bridge_ = new ev::loop::Bridge();
+    (void)bridge_->Start(shared_handler_socket_fn, a_fatal_exception_callback);
     
     //
     // SCHEDULER
@@ -332,7 +324,7 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     osal::ConditionVariable scheduler_cv;
     // ... then initialize scheduler ...
     ::ev::scheduler::Scheduler::GetInstance().Start(scheduler_socket_fn,
-                                                    *s_bridge_,
+                                                    *bridge_,
                                                     [this, &scheduler_cv]() {
                                                         scheduler_cv.Wake();
                                                     },
@@ -391,7 +383,7 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     ::ev::redis::subscriptions::Manager::GetInstance().Startup(/* a_loggable_data */
                                                                *loggable_data_,
                                                                /* a_bridge */
-                                                               s_bridge_,
+                                                               bridge_,
                                                                /* a_channels */
                                                                {},
                                                                /* a_patterns */
@@ -407,10 +399,34 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     );
     
     // ... register to handle signal tasks ...
-    ::ev::Signals::GetInstance().Register(s_bridge_, s_fatal_exception_callback_);
+    ::ev::Signals::GetInstance().Register(bridge_, std::bind(&ev::loop::beanstalkd::Runner::OnFatalException, this, std::placeholders::_1));
+    
+    
+    //
+    // Install Signal Handler
+    //
+    ::ev::Signals::GetInstance().Startup(*loggable_data_);
+    ::ev::Signals::GetInstance().Register(
+                                          /* a_signals */
+                                          {SIGUSR1, SIGTERM, SIGQUIT, SIGTTIN},
+                                          /* a_callback */
+                                          [this](const int a_sig_no) {
+                                              // ... is a 'shutdown' signal?
+                                              switch(a_sig_no) {
+                                                  case SIGQUIT:
+                                                  case SIGTERM:
+                                                  {
+                                                      Quit();
+                                                  }
+                                                      return true;
+                                                  default:
+                                                      return false;
+                                              }
+                                          }
+    );
     
     // ... mark as initialized ...
-    s_initialized_ = true;
+    initialized_ = true;
     
     OSALITE_DEBUG_TRACE("startup",
                         "[%s] - pid " UINT64_FMT " - started up",
@@ -419,29 +435,26 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
 }
 
 /**
- * @brief Run two loops: a consumer loop and an event loop ( 'main' ).
- *
- * @param a_factories
- * @param a_beanstalk_config
+ * @brief Run 'bridge' loop.
  */
 void ev::loop::beanstalkd::Runner::Run ()
 {
-    s_consumer_cv_     = new osal::ConditionVariable();
-    s_consumer_thread_ = new std::thread(&ev::loop::beanstalkd::Runner::ConsumerLoop, this);
-    s_consumer_thread_->detach();
+    consumer_cv_     = new osal::ConditionVariable();
+    consumer_thread_ = new std::thread(&ev::loop::beanstalkd::Runner::ConsumerLoop, this);
+    consumer_thread_->detach();
     
-    s_consumer_cv_->Wait();
+    consumer_cv_->Wait();
     
-    s_bridge_->Loop();
+    bridge_->Loop();
     
-    if ( nullptr != s_consumer_cv_ ) {
-        delete s_consumer_cv_;
-        s_consumer_cv_ = nullptr;
+    if ( nullptr != consumer_cv_ ) {
+        delete consumer_cv_;
+        consumer_cv_ = nullptr;
     }
     
-    if ( nullptr != s_consumer_thread_ ) {
-        delete s_consumer_thread_;
-        s_consumer_thread_ = nullptr;
+    if ( nullptr != consumer_thread_ ) {
+        delete consumer_thread_;
+        consumer_thread_ = nullptr;
     }
 }
 
@@ -454,13 +467,13 @@ void ev::loop::beanstalkd::Runner::Shutdown (int a_sig_no)
 {
 
     // ... shutdown already scheduled?
-    if ( true == s_shutting_down_ ) {
+    if ( true == shutting_down_ ) {
         // ... yes ...
         return;
     }
     
     // ... no, but will be now ...
-    s_shutting_down_ = true;
+    shutting_down_ = true;
     
     const pid_t process_pid = getpid();
 
@@ -480,21 +493,21 @@ void ev::loop::beanstalkd::Runner::Shutdown (int a_sig_no)
         ::ev::redis::subscriptions::Manager::GetInstance().Shutdown();
         
         // ... bridge too ...
-        if ( nullptr != s_bridge_ ) {
-            s_bridge_->Stop(a_sig_no);
-            delete s_bridge_;
-            s_bridge_ = nullptr;
+        if ( nullptr != bridge_ ) {
+            bridge_->Stop(a_sig_no);
+            delete bridge_;
+            bridge_ = nullptr;
         }
         
         // ... consumer thread can now be release ...
-        if ( nullptr != s_consumer_thread_ ) {
-            delete s_consumer_thread_;
-            s_consumer_thread_ = nullptr;
+        if ( nullptr != consumer_thread_ ) {
+            delete consumer_thread_;
+            consumer_thread_ = nullptr;
         }
         
-        if ( nullptr != s_consumer_cv_ ) {
-            delete s_consumer_cv_;
-            s_consumer_cv_ = nullptr;
+        if ( nullptr != consumer_cv_ ) {
+            delete consumer_cv_;
+            consumer_cv_ = nullptr;
         }
 
         InnerShutdown();
@@ -507,8 +520,7 @@ void ev::loop::beanstalkd::Runner::Shutdown (int a_sig_no)
         OSALITE_DEBUG_TRACE("startup",
                             "[%s] - pid " UINT64_FMT " - is down...",
                             __PRETTY_FUNCTION__, process_pid
-        );
-        
+        );        
         
         //
         // ... singletons shutdown ...
@@ -520,6 +532,8 @@ void ev::loop::beanstalkd::Runner::Shutdown (int a_sig_no)
         ev::Logger::GetInstance().Shutdown();
         // ... v8 ...
         ::cc::v8::Singleton::GetInstance().Shutdown();
+        // ... signal handler ...
+        // DOES NOT EXIST: ::ev::Signals::GetInstance().Shutdown();
 
         //
         // ... singletons destruction ...
@@ -529,28 +543,93 @@ void ev::loop::beanstalkd::Runner::Shutdown (int a_sig_no)
         ev::Logger::Destroy();
         // ... debug trace ...
         osal::debug::Trace::Destroy();
+        // ... v8 ...
+        // DOES NOT EXIST: ::cc::v8::Singleton::Destroy();
+        // ... signal handler ...
+        ::ev::Signals::Destroy();
         
         // ... v8 ...
         // TODO ::cc::v8::Singleton::Destroy();
         
         // ...
         // ... reset initialized flag ...
-        s_initialized_ = false;
-        s_quit_        = false;
+        initialized_ = false;
+        quit_        = false;
         
         // ... done ...
         cleanup_cv.Wake();
         
     });
     
-    if ( true == s_bridge_->IsRunning() ) {
-        call_on_main_thread_(cleanup);
+    if ( true == bridge_->IsRunning() ) {
+        ExecuteOnMainThread(cleanup, /* a_blocking */ false);
     } else {
         cleanup();
     }
     cleanup_cv.Wait();
     
     (void)process_pid;
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#pragma mark Threading
+#endif
+
+/**
+ * @brief Submit a 'beanstalkd' job.
+ *
+ * @param a_tube
+ * @param a_payload
+ * @param a_ttr
+ */
+void ev::loop::beanstalkd::Runner::SubmitJob (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr)
+{
+    
+    ::ev::beanstalk::Producer producer(shared_config_->beanstalk_, a_tube.c_str());
+    
+    const int64_t status = producer.Put(a_payload, /* a_priority = 0 */ 0, /* a_delay = 0 */ 0, a_ttr);
+    if ( status < 0 ) {
+        throw ::ev::Exception("Beanstalk producer returned with error code " INT64_FMT "!",
+                              status
+        );
+    }
+}
+
+/**
+ * @brief Execute a callback on main thread.
+ *
+ * @param a_callback
+ * @param a_blocking
+ */
+void ev::loop::beanstalkd::Runner::ExecuteOnMainThread (std::function<void()> a_callback, bool a_blocking)
+{
+    if ( true == a_blocking ) {
+        osal::ConditionVariable cv;
+        bridge_->CallOnMainThread([&a_callback, &cv] {
+            try {
+                a_callback();
+            } catch (...) {
+                // ...
+            }
+            cv.Wake();
+        });
+        cv.Wait();
+    } else {
+        bridge_->CallOnMainThread(a_callback);
+    }
+}
+
+/**
+ * @brief Report a faltal exception.
+ *
+ * @param a_exception
+ */
+void ev::loop::beanstalkd::Runner::OnFatalException (const ev::Exception& a_exception)
+{
+    ExecuteOnMainThread([this, a_exception]{
+        bridge_->Bridge::ThrowFatalException(a_exception);
+    }, /* a_blocking */ false);
 }
 
 #ifdef __APPLE__
@@ -570,10 +649,18 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop ()
         // ... initialize v8 ...
         ::cc::v8::Singleton::GetInstance().Initialize();
         
-        s_consumer_cv_->Wake();
+        consumer_cv_->Wake();
         
-        looper = new ev::loop::beanstalkd::Looper(shared_config_->factories_, shared_config_->default_tube_);
-        looper->Run(*loggable_data_, shared_config_->beanstalk_, s_quit_);
+        looper = new ev::loop::beanstalkd::Looper(shared_config_->factory_,
+                                                  /* a_callbacks */
+                                                  {
+                                                      /* on_fatal_exception _     */ std::bind(&ev::loop::beanstalkd::Runner::OnFatalException, this, std::placeholders::_1),
+                                                      /* dispatch_on_main_thread_ */ std::bind(&ev::loop::beanstalkd::Runner::ExecuteOnMainThread, this, std::placeholders::_1, std::placeholders::_2),
+                                                      /* on_submit_job_           */ std::bind(&ev::loop::beanstalkd::Runner::SubmitJob, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)
+                                                  },
+                                                  shared_config_->default_tube_
+        );
+        looper->Run(*loggable_data_, shared_config_->beanstalk_, quit_);
         
     } catch (const Beanstalk::ConnectException& a_beanstalk_exception) {
         exception = new ::ev::Exception("An error occurred while connecting to Beanstalkd:\n%s\n", a_beanstalk_exception.what());
@@ -596,11 +683,10 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop ()
         looper = nullptr;
     }
     
-    call_on_main_thread_([this, exception]() {
-        s_fatal_exception_callback_(*exception);
-        delete exception;
-    });
+    OnFatalException(*exception);
+    delete exception;
     
-    s_bridge_->Quit();
+    // TODO check if on fatal quit is already called
+    bridge_->Quit();
 }
 

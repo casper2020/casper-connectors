@@ -51,8 +51,9 @@ namespace ev
 
             public: // typedefs
 
-                typedef ev::loop::beanstalkd::Looper::Factories Factories;
-                
+                typedef ev::loop::beanstalkd::Job::Factory Factory;
+                typedef std::function<void(const ev::Exception& a_ev_exception)> FatalExceptionCallback;
+
                 typedef struct {
                     const std::string                  name_;
                     const int                          instance_;
@@ -70,12 +71,12 @@ namespace ev
                     ev::postgresql::Config             postgres_;
                     ev::beanstalk::Config              beanstalk_;
                     DeviceLimitsMap                    device_limits_;
-                    Factories                          factories_;
+                    Factory                            factory_;
                     
                     _SharedConfig(const std::string& a_default_tube, const std::string& a_ip_addr,
                                   const ev::Directories& a_directories, const std::map<std::string, std::string>& a_log_tokens,
                                   const ev::redis::Config& a_redis, const ev::postgresql::Config& a_postgres, const ev::beanstalk::Config& a_beanstalk, const DeviceLimitsMap& a_device_limits,
-                                  const Factories& a_factories)
+                                  const Factory& a_factory)
                     {
                         default_tube_  = a_default_tube;
                         ip_addr_       = a_ip_addr;
@@ -93,16 +94,10 @@ namespace ev
                             device_limits_[it.first] = it.second;
                         }
                         
-                        for ( auto it : a_factories ) {
-                            factories_[it.first] = it.second;
-                        }
+                        factory_ = a_factory;
+                        
                     }
-                    
-                    _SharedConfig (const _SharedConfig& a_config)
-                    {
-                        *this = a_config;
-                    }
-                    
+
                     inline void operator=(const _SharedConfig& a_config)
                     {
                         default_tube_  = a_config.default_tube_;
@@ -121,33 +116,27 @@ namespace ev
                             device_limits_[it.first] = it.second;
                         }
                         
-                        for ( auto it : a_config.factories_ ) {
-                            factories_[it.first] = it.second;
-                        }
+                        factory_ = a_config.factory_;
                     }
                     
                 } SharedConfig;
                 
-                typedef std::function<void(const ev::Exception& a_ev_exception)> FatalExceptionCallback;
-
             private: // Data
                 
-                bool                     s_initialized_;
-                bool                     s_shutting_down_;
-                volatile bool            s_quit_;
-                ev::loop::Bridge*        s_bridge_;
-                std::thread*             s_consumer_thread_;
-                osal::ConditionVariable* s_consumer_cv_;
+                bool                     initialized_;
+                bool                     shutting_down_;
+                volatile bool            quit_;
+                ev::loop::Bridge*        bridge_;
+                std::thread*             consumer_thread_;
+                osal::ConditionVariable* consumer_cv_;
                 StartupConfig*           startup_config_;
                 SharedConfig*            shared_config_;
                 
-                FatalExceptionCallback   s_fatal_exception_callback_;
                 ev::Loggable::Data*      loggable_data_;
 
             protected: // Helpers
                 
-                ev::loop::Bridge::CallOnMainThreadCallback call_on_main_thread_;
-                ev::curl::HTTP*                            http_;
+                ev::curl::HTTP*          http_;
                 
             private: //
                 
@@ -175,6 +164,12 @@ namespace ev
                 virtual void InnerStartup  (const StartupConfig& a_startup_config, const Json::Value& a_config, SharedConfig& o_config) = 0;
                 virtual void InnerShutdown () = 0;
                 
+            protected: // Threading Helper Methods(s) / Function(s)
+                
+                void SubmitJob           (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr);
+                void ExecuteOnMainThread (std::function<void()> a_callback, bool a_blocking);
+                void OnFatalException    (const ev::Exception& a_exception);
+                
             private: // Method(s) / Function(s)
                 
                 void ConsumerLoop ();
@@ -183,7 +178,7 @@ namespace ev
             
             inline void Runner::Quit ()
             {
-                s_quit_ = true;
+                quit_ = true;
             }
             
             inline const ev::Loggable::Data& Runner::loggable_data () const

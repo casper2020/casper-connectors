@@ -25,9 +25,11 @@
 
 #include "ev/loggable.h"
 
-#include "ev/beanstalk/consumer.h"
+#include "ev/exception.h"
 
-#include "ev/loop/beanstalkd/consumer.h"
+#include "ev/loop/beanstalkd/job.h"
+
+#include "ev/beanstalk/consumer.h"
 
 #include <map>
 #include <string>
@@ -44,14 +46,14 @@ namespace ev
             class Looper final
             {
                 
-            public: // typedefs
+            private: // Data Type(s)
                 
-                typedef std::map<std::string, std::function<Consumer*()>> Factories;
-                typedef std::map<std::string, Consumer*>                  Consumers;
+                typedef std::map<std::string, Job*> Cache;
                 
             private: // Const Refs
                 
-                const Factories&   factories_;
+                const Job::Factory&              factory_;
+                const Job::MessagePumpCallbacks& callbacks_;
                 
             private: // Const Data
                 
@@ -59,15 +61,15 @@ namespace ev
                 
             private: // Data
                 
-                ::ev::beanstalk::Consumer* consumer_;
-                Consumers                  consumers_;
-                Consumer*                  consumer_ptr_;
+                ::ev::beanstalk::Consumer* beanstalk_;
+                Cache                      cache_;
+                Job*                       job_ptr_;
                 Json::Reader               json_reader_;
                 Json::Value                job_payload_;
                 
             public: // Constructor(s) / Destructor
                 
-                Looper (const Factories& a_factories, const std::string a_default_tube = "");
+                Looper (const Job::Factory& a_factory, const Job::MessagePumpCallbacks& a_callbacks, const std::string a_default_tube = "");
                 virtual ~Looper ();
                 
             public: // Method(s) / Function(s)

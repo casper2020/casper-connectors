@@ -25,11 +25,11 @@
 
 #include "ev/redis/subscriptions/manager.h"
 
-#include "ev/loop/beanstalkd/consumer.h"
-
 #include "ev/scheduler/scheduler.h"
 
 #include "ev/loggable.h"
+
+#include "ev/beanstalk/producer.h"
 
 #include "ev/postgresql/json_api.h"
 
@@ -45,7 +45,7 @@ namespace ev
         namespace beanstalkd
         {
             
-            class Job : public ev::loop::beanstalkd::Consumer, private ev::scheduler::Scheduler::Client, private ev::redis::subscriptions::Manager::Client
+            class Job : private ev::scheduler::Scheduler::Client, private ev::redis::subscriptions::Manager::Client
             {
                 
             public: // Data Type
@@ -53,42 +53,48 @@ namespace ev
                 class Config
                 {
                     
-                public: // Data Type(s)
-                    
-                    typedef std::function<void(const ev::Exception& a_ev_exception)> FatalExceptionCallback;
-                    
                 public: // Const Data
                     
-                    const std::string             service_id_;
-                    const std::string             tube_;
-                    const bool                    transient_;
-                    const std::string             logs_dir_;
-                    const std::string             output_dir_;
-                    const FatalExceptionCallback& fatal_exception_callback_;
+                    std::string       service_id_;
+                    bool              transient_;
+                    const std::string logs_dir_;
+                    const std::string output_dir_;
                     
                 public: // Constructor(s) / Destructor
                     
                     Config() = delete;
                     
-                    Config (const std::string& a_service_id, const std::string& a_tube, const bool a_transient,
-                            const std::string& a_logs_dir, const std::string& a_output_dir,
-                            const FatalExceptionCallback& a_fatal_exception_callback)
-                    : service_id_(a_service_id), tube_(a_tube), transient_(a_transient),
-                      logs_dir_(a_logs_dir), output_dir_(a_output_dir),
-                      fatal_exception_callback_(a_fatal_exception_callback)
+                    Config (const std::string& a_service_id, const bool a_transient,
+                            const std::string& a_logs_dir, const std::string& a_output_dir)
+                    : service_id_(a_service_id), transient_(a_transient),
+                      logs_dir_(a_logs_dir), output_dir_(a_output_dir)
                     {
                         /* empty */
                     }
                     
                     Config (const Config& a_config)
-                    : service_id_(a_config.service_id_), tube_(a_config.tube_), transient_(a_config.transient_),
-                      logs_dir_(a_config.logs_dir_), output_dir_(a_config.output_dir_),
-                      fatal_exception_callback_(a_config.fatal_exception_callback_)
+                    : service_id_(a_config.service_id_), transient_(a_config.transient_),
+                      logs_dir_(a_config.logs_dir_), output_dir_(a_config.output_dir_)
                     {
                         /* empty */
                     }
                     
                 }; // end of class 'Config';
+                
+                typedef std::function<void(const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code)> CompletedCallback;
+                typedef std::function<void()>                                                                                  CancelledCallback;
+
+                typedef std::function<void(const ev::Exception&)>                                                              FatalExceptionCallback;
+                typedef std::function<void(std::function<void()> a_callback, bool a_blocking)>                                 DispatchOnMainThread;
+                typedef std::function<void(const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr)>    SubmitJobCallback;
+                
+                typedef struct {
+                    FatalExceptionCallback on_fatal_exception_;
+                    DispatchOnMainThread   dispatch_on_main_thread_;
+                    SubmitJobCallback      on_submit_job_;
+                } MessagePumpCallbacks;
+                
+                typedef std::function<Job*(const std::string& a_tube)> Factory;
                 
             protected: // Data Type(s)
                 
@@ -100,6 +106,7 @@ namespace ev
                 
             protected: // Const Data
                 
+                const std::string         tube_;
                 const Config              config_;
                 
                 const std::string         redis_signal_channel_;
@@ -108,7 +115,7 @@ namespace ev
                 
             protected: // Logs Data
                 
-                ev::Loggable::Data       loggable_data_;
+                ev::Loggable::Data        loggable_data_;
                 
             protected: // Data
                 
@@ -134,24 +141,29 @@ namespace ev
                 Json::FastWriter          json_writer_;
                 Json::StyledWriter        json_styled_writer_;
                 
+            private: // Ptrs
+                
+                const MessagePumpCallbacks* callbacks_ptr_;
+                
             public: // Constructor(s) / Destructor
                 
-                Job (const Config& a_config, const ev::Loggable::Data& a_loggable_data);
+                Job (const std::string& a_tube, const Config& a_config, const ev::Loggable::Data& a_loggable_data);
                 virtual ~Job ();
                 
             public: // Inline Method(s) / Function(s)
                 
-                bool IsCancelled() const;
+                bool IsCancelled  () const;
                 
-            public: // Inherited Virtual Method(s) / Function(s) - from beanstalkd::Consumer
+            public: // Method(s) / Function(s)
                 
-                virtual void Consume (const int64_t& a_id, const Json::Value& a_payload,
-                                      const SuccessCallback& a_success_callback, const CancelledCallback& a_cancelled_callback);
+                void Setup   (const MessagePumpCallbacks* a_callbacks);
+                void Consume (const int64_t& a_id, const Json::Value& a_payload,
+                              const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback);
                 
             protected: // Pure Virtual Method(s) / Function(s)
                 
                 virtual void Run (const int64_t& a_id, const Json::Value& a_payload,
-                                  const SuccessCallback& a_success_callback, const CancelledCallback& a_cancelled_callback) = 0;
+                                  const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback) = 0;
                 
             protected: // Method(s) / Function(s)
                 
@@ -174,12 +186,21 @@ namespace ev
                 
                 void GetJobCancellationFlag ();
                 
+            protected: // Beanstalk Helper Method(s) / Function(s)
+                
+                void SubmitJob (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr);
+                
+            protected: // Threading Helper Methods(s) / Function(s)
+                
+                void ExecuteOnMainThread (std::function<void()> a_callback, bool a_blocking);
+                void OnFatalException    (const ev::Exception& a_exception);
+                
             protected: // PostgreSQL Helper Methods(s) / Function(s)
                 
                 virtual void ExecuteQuery            (const std::string& a_query, Json::Value& o_result,
                                                       const bool a_use_column_name);
                 virtual void ExecuteQueryWithJSONAPI (const std::string& a_query, Json::Value& o_result);
-
+                
             protected: // Output Helper Methods(s) / Function(s)
 
                 const std::string& EnsureOutputDir (const int64_t a_validity);
@@ -206,7 +227,7 @@ namespace ev
             inline bool Job::IsCancelled() const
             {
                 return cancelled_;
-            }
+            }                        
             
         } // end of namespace 'beanstalkd'
         

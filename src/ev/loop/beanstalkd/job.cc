@@ -31,14 +31,15 @@
 /**
  * @brief Default constructor.
  *
+ * @param a_tube
  * @param a_config
  * @param a_loggable_data_ref
  */
-ev::loop::beanstalkd::Job::Job (const Config& a_config, const ev::Loggable::Data& a_loggable_data)
-    : config_(a_config),
+ev::loop::beanstalkd::Job::Job (const std::string& a_tube, const Config& a_config, const ev::Loggable::Data& a_loggable_data)
+    : tube_(a_tube), config_(a_config),
     redis_signal_channel_(config_.service_id_ + ":job-signal"),
-    redis_key_prefix_(config_.service_id_ + ":jobs:" + config_.tube_ + ':'),
-    redis_channel_prefix_(config_.service_id_ + ':' + config_.tube_ + ':'),
+    redis_key_prefix_(config_.service_id_ + ":jobs:" + tube_ + ':'),
+    redis_channel_prefix_(config_.service_id_ + ':' + tube_ + ':'),
     loggable_data_(a_loggable_data),
     json_api_(loggable_data_, /* a_enable_task_cancellation */ false)
 {
@@ -63,10 +64,39 @@ ev::loop::beanstalkd::Job::Job (const Config& a_config, const ev::Loggable::Data
     hrt_buffer_[0]      = '\0';
     
     ev::scheduler::Scheduler::GetInstance().Register(this);
+   
+    json_writer_.omitEndingLineFeed();
+    
+    callbacks_ptr_ = nullptr;
+}
 
+/**
+ * @brief Destructor.
+ */
+ev::loop::beanstalkd::Job::~Job ()
+{
+    ExecuteOnMainThread([this] {
+        ::ev::redis::subscriptions::Manager::GetInstance().Unubscribe(this);
+    }, /* a_blocking */ true);
+    ev::scheduler::Scheduler::GetInstance().Unregister(this);
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#endif
+
+/**
+ * @brief One-shot setup.
+ *
+ * @param a_callbacks
+ */
+void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callbacks)
+{
     osal::ConditionVariable cv;
     
-    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &cv] {
+    callbacks_ptr_ = a_callbacks;
+
+    ExecuteOnMainThread([this, &cv] {
         ::ev::redis::subscriptions::Manager::GetInstance().SubscribeChannels({ signal_channel_ },
                                                                              /* a_status_callback */
                                                                              [this, &cv](const std::string& a_name_or_pattern,
@@ -79,7 +109,7 @@ ev::loop::beanstalkd::Job::Job (const Config& a_config, const ev::Loggable::Data
                                                                              /* a_data_callback */
                                                                              [this] (const std::string& a_name, const std::string& a_message) -> EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK {
                                                                                  
-                                                                                 ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, a_name, a_message] {
+                                                                                 ExecuteOnMainThread([this, a_name, a_message] {
                                                                                      
                                                                                      Json::Value  object;
                                                                                      Json::Reader reader;
@@ -90,11 +120,11 @@ ev::loop::beanstalkd::Job::Job (const Config& a_config, const ev::Loggable::Data
                                                                                                  if ( 0 == channel_.compare(std::to_string(static_cast<int64_t>(id.asInt64()))) ) {
                                                                                                      const Json::Value value = object.get("status", Json::Value::null);
                                                                                                      if ( true == value.isString() && 0 == strcasecmp(value.asCString(), "cancelled") ) {
-//                                                                                                         NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("queue",
-//                                                                                                                                            "Received from REDIS channel '%s': %s",
-//                                                                                                                                            a_name.c_str(),
-//                                                                                                                                            a_message.c_str()
-//                                                                                                         );
+                                                                                                         //                                                                                                         NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("queue",
+                                                                                                         //                                                                                                                                            "Received from REDIS channel '%s': %s",
+                                                                                                         //                                                                                                                                            a_name.c_str(),
+                                                                                                         //                                                                                                                                            a_message.c_str()
+                                                                                                         //                                                                                                         );
                                                                                                          cancelled_ = true;
                                                                                                      }
                                                                                                  }
@@ -104,47 +134,27 @@ ev::loop::beanstalkd::Job::Job (const Config& a_config, const ev::Loggable::Data
                                                                                          // ... eat it ...
                                                                                      }
                                                                                      
-                                                                                 });
+                                                                                 }, /* a_blocking */ false);
                                                                                  
                                                                                  return nullptr;
                                                                              },
                                                                              /* a_client */
                                                                              this
-                                                                         );
-    });
+        );
+    }, /* a_blocking */ false);
     cv.Wait();
-    json_writer_.omitEndingLineFeed();
 }
 
 /**
- * @brief Destructor.
- */
-ev::loop::beanstalkd::Job::~Job ()
-{
-    osal::ConditionVariable cv;
-    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &cv] {
-        ::ev::redis::subscriptions::Manager::GetInstance().Unubscribe(this);
-        cv.Wake();
-    });
-    cv.Wait();
-    ev::scheduler::Scheduler::GetInstance().Unregister(this);
-}
-
-#ifdef __APPLE__
-#pragma mark -
-#endif
-
-/**
- * @brief Prepare a job common configuration.
+ * @brief Prepare a job to run.
  *
- * @param a_id                  Job ID
- * @param a_payload             Job Payload
- * @param a_callback            Success / Failure callback.
+ * @param a_id
+ * @param a_payload
+ * @param a_completed_callback
  * @param a_cancelled_callback
  */
 void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value& a_payload,
-                                         const ev::loop::beanstalkd::Job::SuccessCallback& a_success_callback,
-                                         const ev::loop::beanstalkd::Job::CancelledCallback& a_cancelled_callback)
+                                         const ev::loop::beanstalkd::Job::CompletedCallback& a_completed_callback, const ev::loop::beanstalkd::Job::CancelledCallback& a_cancelled_callback)
 {
     //
     // JOB Configuration
@@ -189,10 +199,11 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     };
     
     GetJobCancellationFlag();
+    
     if ( true == IsCancelled() ) {
         cancelled_callback();
     } else {
-        Run(a_id, a_payload, a_success_callback, cancelled_callback);
+        Run(a_id, a_payload, a_completed_callback, cancelled_callback);
     }
 
 }
@@ -318,7 +329,7 @@ void ev::loop::beanstalkd::Job::Publish (const std::string& a_channel, const Jso
 
     osal::ConditionVariable cv;
 
-    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &a_channel, &a_success_callback, &a_failure_callback, &cv, &redis_message] {
+    ExecuteOnMainThread([this, &a_channel, &a_success_callback, &a_failure_callback, &cv, &redis_message] {
 
         NewTask([this, &a_channel, &redis_message] () -> ::ev::Object* {
 
@@ -349,7 +360,7 @@ void ev::loop::beanstalkd::Job::Publish (const std::string& a_channel, const Jso
 
         });
 
-    });
+    }, /* a_blocking */ false);
 
     cv.Wait();
 }
@@ -378,7 +389,7 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
 //                                       redis_message.c_str()
 //    );
 
-    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, a_success_callback, a_failure_callback, &cv, &redis_channel, &redis_key, &redis_message] {
+    ExecuteOnMainThread([this, a_success_callback, a_failure_callback, &cv, &redis_channel, &redis_key, &redis_message] {
 
         ev::scheduler::Task* t = NewTask([this, &redis_channel, redis_message] () -> ::ev::Object* {
 
@@ -515,7 +526,7 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
 
         });
 
-    });
+    }, /* a_blocking */ false);
 
     cv.Wait();
 }
@@ -530,7 +541,7 @@ void ev::loop::beanstalkd::Job::GetJobCancellationFlag ()
     
     osal::ConditionVariable cancellation_cv;
     
-    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &cancellation_cv, redis_key] {
+    ExecuteOnMainThread([this, &cancellation_cv, redis_key] {
         
         NewTask([this, redis_key] () -> ::ev::Object* {
             
@@ -565,9 +576,55 @@ void ev::loop::beanstalkd::Job::GetJobCancellationFlag ()
             
         });
         
-    });
+    }, /* a_blocking */ false);
     
     cancellation_cv.Wait();
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#pragma mark Beanstalk.
+#endif
+
+/**
+ * @brief Submit a 'beanstalkd' job.
+ *
+ * @param a_tube
+ * @param a_payload
+ * @param a_ttr
+ */
+void ev::loop::beanstalkd::Job::SubmitJob (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr)
+{    
+    callbacks_ptr_->on_submit_job_(a_tube, a_payload, a_ttr);
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#pragma mark Threading
+#endif
+
+/**
+ * @brief Execute a callback on main thread.
+ *
+ * @param a_callback
+ * @param a_blocking
+ */
+void ev::loop::beanstalkd::Job::ExecuteOnMainThread (std::function<void()> a_callback, bool a_blocking)
+{
+    callbacks_ptr_->dispatch_on_main_thread_(a_callback, a_blocking);
+}
+
+
+/**
+ * @brief Report a faltal exception.
+ *
+ * @param a_exception
+ */
+void ev::loop::beanstalkd::Job::OnFatalException (const ev::Exception& a_exception)
+{
+    callbacks_ptr_->dispatch_on_main_thread_([this, a_exception] {
+        callbacks_ptr_->on_fatal_exception_(a_exception);
+    }, /* a_blocking */ false);
 }
 
 #ifdef __APPLE__
@@ -589,7 +646,7 @@ void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::
 
     osal::ConditionVariable cv;
 
-    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, &a_query, &o_result, &cv, &a_use_column_name] () {
+    ExecuteOnMainThread([this, &a_query, &o_result, &cv, &a_use_column_name] () {
 
         NewTask([this, a_query] () -> ::ev::Object* {
 
@@ -671,7 +728,7 @@ void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::
 
         });
 
-    });
+    }, /* a_blocking */ false);
 
     cv.Wait();
 }
@@ -806,7 +863,7 @@ ev::scheduler::Task* ev::loop::beanstalkd::Job::NewTask (const EV_TASK_PARAMS& a
                                    [this](::ev::scheduler::Task* a_task) {
                                        ev::scheduler::Scheduler::GetInstance().Push(this, a_task);
                                    }
-                                   );
+    );
 }
 
 #ifdef __APPLE__
@@ -822,7 +879,7 @@ ev::scheduler::Task* ev::loop::beanstalkd::Job::NewTask (const EV_TASK_PARAMS& a
  */
 EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK ev::loop::beanstalkd::Job::JobSignalsDataCallback (const std::string& a_name, const std::string& a_message)
 {
-    ev::scheduler::Scheduler::GetInstance().CallOnMainThread(this, [this, a_message] () {
+    ExecuteOnMainThread([this, a_message] () {
 
         Json::Value  object;
         Json::Reader reader;
@@ -848,8 +905,7 @@ EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK ev::loop::beanstalkd::Job::JobS
             // ... eat it ...
         }
 
-    }
-                                                             );
+    }, /* a_blocking */ false);
 
     return nullptr;
 }
@@ -863,6 +919,5 @@ EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK ev::loop::beanstalkd::Job::JobS
  */
 void ev::loop::beanstalkd::Job::OnREDISConnectionLost ()
 {
-    config_.fatal_exception_callback_(ev::Exception("REDIS connection lost:\n unable to reconnect to REDIS!"));
-    // TODO FIX AT CASPER-PRINT-QUEUE
+    OnFatalException(ev::Exception("REDIS connection lost:\n unable to reconnect to REDIS!"));
 }

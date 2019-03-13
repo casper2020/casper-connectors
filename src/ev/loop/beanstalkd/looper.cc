@@ -32,15 +32,16 @@
 /**
  * @brief Default constructor.
  *
- * @param a_factories
+ * @param _factory
+ * @param a_callbacks
  * @param a_default_tube
  */
-ev::loop::beanstalkd::Looper::Looper (const ev::loop::beanstalkd::Looper::Factories& a_factories, const std::string a_default_tube)
-    : factories_(a_factories),
+ev::loop::beanstalkd::Looper::Looper (const ev::loop::beanstalkd::Job::Factory& a_factory, const ev::loop::beanstalkd::Job::MessagePumpCallbacks& a_callbacks, const std::string a_default_tube)
+    : factory_(a_factory), callbacks_(a_callbacks),
       default_tube_(a_default_tube)
 {
-    consumer_     = nullptr;
-    consumer_ptr_ = nullptr;
+    beanstalk_ = nullptr;
+    job_ptr_   = nullptr;
 }
 
 /**
@@ -48,13 +49,13 @@ ev::loop::beanstalkd::Looper::Looper (const ev::loop::beanstalkd::Looper::Factor
  */
 ev::loop::beanstalkd::Looper::~Looper ()
 {
-    if ( nullptr != consumer_ ) {
-        delete consumer_;
+    if ( nullptr != beanstalk_ ) {
+        delete beanstalk_;
     }
-    for ( auto it : consumers_ ) {
+    for ( auto it : cache_ ) {
         delete it.second;
     }
-    consumer_ptr_ = nullptr;
+    job_ptr_ = nullptr;
 }
 
 /**
@@ -87,7 +88,7 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
                                   ss.str().c_str()
     );
     
-    consumer_ = new ::ev::beanstalk::Consumer(a_beanstakd_config);
+    beanstalk_ = new ::ev::beanstalk::Consumer(a_beanstakd_config);
     
     a_loggable_data.SetTag("consumer");
     
@@ -101,13 +102,18 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
                                   "Waiting..."
     );
     
+    const ev::loop::beanstalkd::Job::MessagePumpCallbacks message_pump_callbacks = {
+        /* on_fatal_exception_      */ callbacks_.on_fatal_exception_,
+        /* dispatch_on_main_thread_ */ callbacks_.dispatch_on_main_thread_
+    };
+    
     //
     // consumer loop
     //
     while ( false == a_aborted ) {
         
         // ... test abort flag, every n seconds ...
-        if ( false == consumer_->Reserve(job, a_beanstakd_config.abort_polling_) ) {
+        if ( false == beanstalk_->Reserve(job, a_beanstakd_config.abort_polling_) ) {
             continue;
         }
         
@@ -131,41 +137,46 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
         const std::string tube = job_payload_.get("tube", default_tube_).asString();
 
         // check if consumer is already loaded
-        const auto cached_consumer_it = consumers_.find(tube);
-        if ( consumers_.end() == cached_consumer_it ) {
-            const auto consumer_factory_it = factories_.find(tube);
-            if ( factories_.end() == consumer_factory_it ) {
-                throw ev::Exception("Job tube '%s' is not registered!", tube.c_str());
-            }
-            consumer_ptr_    = consumer_factory_it->second();
-            consumers_[tube] = consumer_ptr_;
+        const auto cached_it = cache_.find(tube);
+        if ( cache_.end() == cached_it ) {
+            job_ptr_ = factory_(tube);
+            cache_[tube] = job_ptr_;
+            job_ptr_->Setup(&message_pump_callbacks);
         } else {
-            consumer_ptr_ = cached_consumer_it->second;
+            job_ptr_ = cached_it->second;
         }
         
-        // ... do the actual 'print' a.k.a. render PDF ( and make a .ZIP if required )  ...
+        // ... process job ...
         osal::ConditionVariable job_cv;
+        try {
+            
+            job_ptr_->Consume(/* a_id */ job.id(), /* a_body */ job_payload_,
+                              /* on_completed_           */
+                              [&uri, &http_status_code, &success, &job_cv](const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code) {
+                                  uri              = a_uri;
+                                  http_status_code = a_http_status_code;
+                                  success          = a_success;
+                                  job_cv.Wake();
+                              },
+                              /* on_cancelled_           */
+                              [&cancelled,&job_cv] () {
+                                  cancelled = true;
+                                  job_cv.Wake();
+                              }
+            );
+            
+            job_cv.Wait();
+
+        } catch (...) {
+            
+            delete job_ptr_;
+            cache_.erase(cache_.find(tube));
+
+            job_cv.Wait();
+
+        }
         
-        // TODO wrap with try catch ...
-        
-        consumer_ptr_->Consume(/* a_id */
-                               job.id(),
-                               /* a_body */
-                               job_payload_,
-                               /* a_callback */
-                               [&uri, &http_status_code, &success, &job_cv](const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code) {
-                                   uri              = a_uri;
-                                   http_status_code = a_http_status_code;
-                                   success          = a_success;
-                                   job_cv.Wake();
-                               },
-                               /* a_cancelled_callback */
-                               [&cancelled,&job_cv] () {
-                                   cancelled = true;
-                                   job_cv.Wake();
-                               }
-        );
-        job_cv.Wait();
+        job_ptr_ = nullptr;
         
         // ... check print result ...
         if ( true == success || true == cancelled || 404 == http_status_code ) {
@@ -184,7 +195,7 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
             }
             
             // ... we're done with it ...
-            consumer_->Del(job);
+            beanstalk_->Del(job);
         } else {
             
             // ... write to permanent log ...
@@ -194,7 +205,7 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
             );
             
             // ... bury it - making it available for human inspection ....
-            consumer_->Bury(job);
+            beanstalk_->Bury(job);
         }
         
         a_loggable_data.SetTag("consumer");
@@ -221,14 +232,13 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
     // release allocated memory, so this function can be called again
     // ( if required, eg: restart by signal )
     //
-    if ( nullptr != consumer_ ) {
-        delete consumer_;
-        consumer_ = nullptr;
+    if ( nullptr != beanstalk_ ) {
+        delete beanstalk_;
+        beanstalk_ = nullptr;
     }
     
-    for ( auto it : consumers_ ) {
+    for ( auto it : cache_ ) {
         delete it.second;
     }
-    consumers_.clear();
-    
+    cache_.clear();
 }
