@@ -406,8 +406,10 @@ void ev::hub::Hub::Stop (int a_sig_no)
 void ev::hub::Hub::Loop ()
 {
     fault_msg_ = "";
-    
+
+#ifdef __APPLE__
     pthread_setname_np("ev::hub");
+#endif
     
     stepper_.setup_ = [this](ev::Device* a_device) {
         a_device->Setup(event_base_, [this] (const ev::Exception& a_ev_exception) {
