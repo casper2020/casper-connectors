@@ -176,7 +176,9 @@ bool sys::Process::Filter (const std::list<const sys::Process*>& a_interest,
         if ( interest.end() == it ) {
             continue;
         }
-        o_list.push_back(it->second);
+        if ( o_list.end() == std::find(o_list.begin(), o_list.end(), it->second) ) {
+            o_list.push_back(it->second);
+        }
     }
     free(list);
     

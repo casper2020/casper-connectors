@@ -106,6 +106,7 @@ namespace cc
                     
                     Callback*                    idle_callback_;
                     std::list<Callback*>         pending_callbacks_;
+                    std::vector<Callback*>       active_callbacks_;
                     
                 private:
                     
@@ -115,7 +116,7 @@ namespace cc
                     
                     void Start    (const std::string& a_name, const std::string& a_runtime_directory, const Callbacks& a_callbacks);
                     void Stop     (const int a_sig_no);
-                    void Schedule (Callback* a_callback);
+                    void Schedule (std::function<void()> a_function, const int64_t a_timeout_ms, const bool a_recurrent = false);
                     
                 private: // Method(s) / Function(s)
                     

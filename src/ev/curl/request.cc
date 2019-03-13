@@ -183,7 +183,7 @@ ev::curl::Request::~Request ()
 /**
  * @return This object C string representation.
  */
-const char* const ev::curl::Request::AsCString () const
+const char* ev::curl::Request::AsCString () const
 {
     if ( ev::curl::Request::Step::ReadingBody == step_ ) {
         return rx_body_.c_str();

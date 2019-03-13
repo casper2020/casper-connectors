@@ -76,21 +76,18 @@ void cc::sockets::dgram::ipc::Server::Start (const std::string& a_name, const st
             throw ::cc::Exception("Unable to start server loop: already running!");
         }
         
+        if ( nullptr != event_base_ ) {
+            event_base_free(event_base_);
+        }
+        event_base_ = event_base_new(); // can return nullptr!
         if ( nullptr == event_base_ ) {
-            event_base_ = event_base_new();
-            if ( nullptr == event_base_ ) {
-                throw ::cc::Exception("Unable to start server loop: can't create 'base' event!");
-            }
+            throw ::cc::Exception("Unable to start hub loop: can't create 'base' event!");
         }
         
         if ( nullptr != watchdog_event_ ) {
             event_free(watchdog_event_);
         }
         watchdog_event_ = evtimer_new(event_base_, cc::sockets::dgram::ipc::Server::WatchdogCallback, this);
-        if ( nullptr == watchdog_event_ ) {
-            throw ::cc::Exception("Unable to start server loop - can't create 'watchdog' event!");
-        }
-
         
         timeval tv;
         tv.tv_sec  = 0;
@@ -106,7 +103,7 @@ void cc::sockets::dgram::ipc::Server::Start (const std::string& a_name, const st
         if ( nullptr != idle_callback_ ) {
             delete idle_callback_;
         }
-        idle_callback_ = new cc::sockets::dgram::ipc::Callback([this] {
+        idle_callback_ = new cc::sockets::dgram::ipc::Callback(this, [this] {
             Schedule(__FUNCTION__);
         },
         /* a_timeout_ms */ 2000, /* a_recurrent */ true);
@@ -143,17 +140,16 @@ void cc::sockets::dgram::ipc::Server::Stop (const int a_sig_no)
 {
     aborted_ = true;
     
-    if ( -1 == a_sig_no && true == running_ ) {
-        //
-        // SIGKILL || SIGTERM
-        //
-        // - THEADS WILL STOP RUNNING
-        // - NO POINT IN WAITING FOR A THREAD THAT WONT RUN!
-        //
+    if ( true == running_ ) {
         if ( nullptr != event_base_ ) {
             event_active(watchdog_event_, EV_TIMEOUT, 0);
         }
         stop_cv_.Wait();
+    }
+    
+    while ( active_callbacks_.size() > 0 ) {
+        delete active_callbacks_.back();
+        active_callbacks_.pop_back();
     }
     
     running_ = false;
@@ -195,12 +191,14 @@ void cc::sockets::dgram::ipc::Server::Stop (const int a_sig_no)
 /**
  * @brief Schedule a one-shot callback.
  *
- * @param a_callback Callback info.
+ * @param a_function Callback function.
+ * @param a_timeout_ms Timeout in milliseconds.
+ * @param a_recurrent  When true this event will repeat every a_timeout_ms milliseconds.
  */
-void cc::sockets::dgram::ipc::Server::Schedule (cc::sockets::dgram::ipc::Callback* a_callback)
+void cc::sockets::dgram::ipc::Server::Schedule (std::function<void()> a_function, const int64_t a_timeout_ms, const bool a_recurrent)
 {
     mutex_.lock();
-    pending_callbacks_.push_back(a_callback);
+    pending_callbacks_.push_back(new cc::sockets::dgram::ipc::Callback(this, a_function, a_timeout_ms, a_recurrent));
     mutex_.unlock();
 }
 
@@ -227,6 +225,8 @@ void cc::sockets::dgram::ipc::Server::Listen ()
     sigaddset(&sigmask, SIGTERM);
     sigaddset(&sigmask, SIGCHLD);
     pthread_sigmask(SIG_BLOCK, &sigmask, &saved_sigmask);
+    
+    pthread_setname_np("IPC Server");
     
     try {
 
@@ -374,8 +374,6 @@ void cc::sockets::dgram::ipc::Server::OnDataReady ()
  */
 void cc::sockets::dgram::ipc::Server::Schedule (const char* const a_caller)
 {
-    std::string error_msg;
-    
     mutex_.lock();
     
     while ( pending_callbacks_.size() > 0 ) {
@@ -384,11 +382,9 @@ void cc::sockets::dgram::ipc::Server::Schedule (const char* const a_caller)
 
         callback->SetTimer(event_base_, cc::sockets::dgram::ipc::Server::ScheduledCallback);
         
+        active_callbacks_.push_back(callback);
+        
         pending_callbacks_.pop_front();
-    }
-    
-    if ( 0 != error_msg.length() ) {
-        callbacks_->on_fatal_exception_(::cc::Exception(error_msg));
     }
     
     mutex_.unlock();
@@ -449,13 +445,24 @@ void cc::sockets::dgram::ipc::Server::WatchdogCallback (evutil_socket_t /* a_fd 
 void cc::sockets::dgram::ipc::Server::ScheduledCallback (evutil_socket_t /* a_fd */, short /* a_flags */, void* a_arg)
 {
     cc::sockets::dgram::ipc::Callback* callback = (cc::sockets::dgram::ipc::Callback*)a_arg;
+    bool erase = false;
     try {
         callback->Call();
-        if ( false == callback->recurrent_ ) {
-            delete callback;
-        }
+        erase = ( false == callback->recurrent_);
     } catch (const ::cc::Exception& a_cc_exception) {
         // TODO CW: notify owner
-        delete callback;
+        erase = true;
+    }
+    
+    if ( true == erase ) {
+        cc::sockets::dgram::ipc::Server* server = const_cast<cc::sockets::dgram::ipc::Server*>(static_cast<const cc::sockets::dgram::ipc::Server*>(callback->owner_));
+        server->mutex_.lock();
+        for ( auto it = server->active_callbacks_.begin(); server->active_callbacks_.end() != it ; ++it ) {
+            if ( (*it) == callback ) {
+                server->active_callbacks_.erase(it);
+                break;
+            }
+        }
+        server->mutex_.unlock();
     }
 }

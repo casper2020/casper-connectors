@@ -126,7 +126,7 @@ bool sys::Process::Kill (const bool a_optional)
  */
 bool sys::Process::Terminate (const bool a_optional)
 {
-    return Signal(SIGTERM, a_optional);;
+    return Signal(SIGTERM, a_optional);
 }
 
 /**

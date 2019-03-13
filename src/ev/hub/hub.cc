@@ -407,6 +407,8 @@ void ev::hub::Hub::Loop ()
 {
     fault_msg_ = "";
     
+    pthread_setname_np("ev::hub");
+    
     stepper_.setup_ = [this](ev::Device* a_device) {
         a_device->Setup(event_base_, [this] (const ev::Exception& a_ev_exception) {
             bridge_.ThrowFatalException(a_ev_exception);

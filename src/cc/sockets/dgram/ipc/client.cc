@@ -82,6 +82,16 @@ void cc::sockets::dgram::ipc::Client::Start (const std::string& a_name, const st
 }
 
 /**
+ * @brief Reset this singleton instance.
+ *
+ * @parma a_sig_no Signal number.
+ */
+void cc::sockets::dgram::ipc::Client::Stop (const int /* a_sig_no */)
+{
+    socket_.Close();
+}
+
+/**
  * @brief Prepare this singleton instance to send messages.
  *
  * @param a_value The JSON object to be sent.

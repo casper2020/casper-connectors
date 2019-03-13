@@ -107,7 +107,7 @@ namespace ev
             
         public:
             
-            const bool IsInitialized () const;
+            bool IsInitialized () const;
             
         protected: // Method(s) / Function(s)
             
@@ -119,7 +119,7 @@ namespace ev
         /**
          * @return True if this object was properly initialized, false otherwise.
          */
-        inline const bool Scheduler::IsInitialized () const
+        inline bool Scheduler::IsInitialized () const
         {
             return nullptr != hub_;
         }
