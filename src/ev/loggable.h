@@ -71,6 +71,17 @@ namespace ev
             }
             
             /**
+             * @brief Copy constructor.
+             *
+             * @param a_data
+             */
+            Data (const Data& a_data)
+                : owner_ptr_(a_data.owner_ptr_), ip_addr_(a_data.ip_addr_), module_(a_data.module_), tag_(a_data.tag_)
+            {
+                /* empty */
+            }
+            
+            /**
              * @brief Destructor.
              */
             virtual ~Data ()

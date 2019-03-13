@@ -32,13 +32,15 @@
  * @brief Default constructor.
  *
  * @param a_config
+ * @param a_loggable_data_ref
  */
-ev::loop::beanstalkd::Job::Job (const Config& a_config)
+ev::loop::beanstalkd::Job::Job (const Config& a_config, const ev::Loggable::Data& a_loggable_data)
     : config_(a_config),
     redis_signal_channel_(config_.service_id_ + ":job-signal"),
     redis_key_prefix_(config_.service_id_ + ":jobs:" + config_.tube_ + ':'),
     redis_channel_prefix_(config_.service_id_ + ':' + config_.tube_ + ':'),
-    json_api_(config_.loggable_data_ref_, /* a_enable_task_cancellation */ false)
+    loggable_data_(a_loggable_data),
+    json_api_(loggable_data_, /* a_enable_task_cancellation */ false)
 {
     id_        = 0;
     validity_  = 0;
@@ -168,7 +170,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     //
     // Configure Log
     //
-    config_.loggable_data_ref_.SetTag(redis_key_prefix_ + channel_);
+    loggable_data_.SetTag(redis_key_prefix_ + channel_);
     
     const auto cancelled_callback = [this, &a_cancelled_callback] () {
         
@@ -320,7 +322,7 @@ void ev::loop::beanstalkd::Job::Publish (const std::string& a_channel, const Jso
 
         NewTask([this, &a_channel, &redis_message] () -> ::ev::Object* {
 
-            return new ev::redis::Request(config_.loggable_data_ref_,
+            return new ev::redis::Request(loggable_data_,
                                           "PUBLISH", { a_channel, redis_message }
             );
 
@@ -380,7 +382,7 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
 
         ev::scheduler::Task* t = NewTask([this, &redis_channel, redis_message] () -> ::ev::Object* {
 
-            return new ev::redis::Request(config_.loggable_data_ref_,
+            return new ev::redis::Request(loggable_data_,
                                           "PUBLISH", { redis_channel, redis_message }
             );
 
@@ -394,7 +396,7 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
                 ev::redis::Reply::EnsureIntegerReply(a_object);
 
                 // ... make it permanent ...
-                return new ev::redis::Request(config_.loggable_data_ref_,
+                return new ev::redis::Request(loggable_data_,
                                               "HSET",
                                               {
                                                   /* key   */ redis_key,
@@ -414,7 +416,7 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
                         ev::redis::Reply::EnsureIntegerReply(a_object);
 
                         // ... set expiration date ...
-                        return new ::ev::redis::Request(config_.loggable_data_ref_,
+                        return new ::ev::redis::Request(loggable_data_,
                                                         "EXPIRE", { redis_key, std::to_string(validity_) }
                         );
 
@@ -532,7 +534,7 @@ void ev::loop::beanstalkd::Job::GetJobCancellationFlag ()
         
         NewTask([this, redis_key] () -> ::ev::Object* {
             
-            return new ev::redis::Request(config_.loggable_data_ref_,
+            return new ev::redis::Request(loggable_data_,
                                           "HGET",
                                           { /* key   */ redis_key, /* field */ "cancelled" }
             );
@@ -591,7 +593,7 @@ void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::
 
         NewTask([this, a_query] () -> ::ev::Object* {
 
-            return new ::ev::postgresql::Request(config_.loggable_data_ref_, a_query);
+            return new ::ev::postgresql::Request(loggable_data_, a_query);
 
         })->Then([] (::ev::Object* a_object) -> ::ev::Object* {
 

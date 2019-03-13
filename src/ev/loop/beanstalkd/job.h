@@ -64,7 +64,6 @@ namespace ev
                     const bool                    transient_;
                     const std::string             logs_dir_;
                     const std::string             output_dir_;
-                    ev::Loggable::Data&           loggable_data_ref_;
                     const FatalExceptionCallback& fatal_exception_callback_;
                     
                 public: // Constructor(s) / Destructor
@@ -73,11 +72,10 @@ namespace ev
                     
                     Config (const std::string& a_service_id, const std::string& a_tube, const bool a_transient,
                             const std::string& a_logs_dir, const std::string& a_output_dir,
-                            ev::Loggable::Data& a_loggable_data_ref,
                             const FatalExceptionCallback& a_fatal_exception_callback)
                     : service_id_(a_service_id), tube_(a_tube), transient_(a_transient),
                       logs_dir_(a_logs_dir), output_dir_(a_output_dir),
-                      loggable_data_ref_(a_loggable_data_ref), fatal_exception_callback_(a_fatal_exception_callback)
+                      fatal_exception_callback_(a_fatal_exception_callback)
                     {
                         /* empty */
                     }
@@ -85,13 +83,12 @@ namespace ev
                     Config (const Config& a_config)
                     : service_id_(a_config.service_id_), tube_(a_config.tube_), transient_(a_config.transient_),
                       logs_dir_(a_config.logs_dir_), output_dir_(a_config.output_dir_),
-                      loggable_data_ref_(a_config.loggable_data_ref_),
                       fatal_exception_callback_(a_config.fatal_exception_callback_)
                     {
                         /* empty */
                     }
                     
-                }; // end class 'Config';
+                }; // end of class 'Config';
                 
             protected: // Data Type(s)
                 
@@ -108,6 +105,10 @@ namespace ev
                 const std::string         redis_signal_channel_;
                 const std::string         redis_key_prefix_;
                 const std::string         redis_channel_prefix_;
+                
+            protected: // Logs Data
+                
+                ev::Loggable::Data       loggable_data_;
                 
             protected: // Data
                 
@@ -135,7 +136,7 @@ namespace ev
                 
             public: // Constructor(s) / Destructor
                 
-                Job (const Config& a_config);
+                Job (const Config& a_config, const ev::Loggable::Data& a_loggable_data);
                 virtual ~Job ();
                 
             public: // Inline Method(s) / Function(s)
