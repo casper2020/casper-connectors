@@ -76,9 +76,29 @@ cc::UTCTime::HumanReadable cc::UTCTime::ToHumanReadable (const int64_t a_epoch)
 }
 
 /**
+* @return SO8601 Date & Time.
+*/
+std::string cc::UTCTime::NowISO8601DateTime ()
+{
+    const cc::UTCTime::HumanReadable hr = cc::UTCTime::ToHumanReadable(cc::UTCTime::Now());
+    
+    char buff[27] = {0};
+    const int w = snprintf(buff, 26, "%04d-%02d-%02d %02d:%02d:%02dZ",
+                           static_cast<int>(hr.year_ ), static_cast<int>(hr.month_  ), static_cast<int>(hr.day_    ),
+                           static_cast<int>(hr.hours_), static_cast<int>(hr.minutes_), static_cast<int>(hr.seconds_)
+    );
+    
+    if ( w <=0 || w > 20 ) {
+        throw cc::Exception("Unable to convert epoch to NowISO8601DateTime!");
+    }
+    
+    return std::string(buff, w);
+}
+
+
+/**
  * @return ISO8601WithTZ.
  */
-
 std::string cc::UTCTime::NowISO8601WithTZ ()
 {
     const cc::UTCTime::HumanReadable hr = cc::UTCTime::ToHumanReadable(cc::UTCTime::Now());

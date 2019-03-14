@@ -25,6 +25,8 @@
 
 #include "ev/object.h"
 
+#include "cc/types.h"
+
 #include <string> // std::string
 #include <set>    // std::set
 #include <map>    // std::map
@@ -64,20 +66,7 @@ namespace ev
 
     typedef std::map<ev::Object::Target, ev::DeviceLimits> DeviceLimitsMap;
 
-    typedef struct _Directories {
-        
-        std::string log_;
-        std::string run_;
-        std::string lock_;
-        
-        inline void operator=(const _Directories& a_directories)
-        {
-            log_ = a_directories.log_;
-            run_ = a_directories.run_;
-            lock_ = a_directories.lock_;
-        }
-        
-    } Directories;
+    typedef ::cc::Directories Directories;
     
 } // end of namespace 'ev'
 

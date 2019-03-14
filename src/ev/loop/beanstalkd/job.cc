@@ -28,6 +28,8 @@
 
 #include "osal/condition_variable.h"
 
+#include <fstream> // std::ifstream
+
 /**
  * @brief Default constructor.
  *
@@ -41,27 +43,28 @@ ev::loop::beanstalkd::Job::Job (const std::string& a_tube, const Config& a_confi
     redis_key_prefix_(config_.service_id_ + ":jobs:" + tube_ + ':'),
     redis_channel_prefix_(config_.service_id_ + ':' + tube_ + ':'),
     loggable_data_(a_loggable_data),
+    http_(loggable_data_),
     json_api_(loggable_data_, /* a_enable_task_cancellation */ false)
 {
-    id_        = 0;
-    validity_  = 0;
-    transient_ = config_.transient_;
-    cancelled_ = false;
+    id_                   = 0;
 
     progress_             = Json::Value(Json::ValueType::objectValue);
     progress_["status"]   = "in-progress";
     progress_["progress"] = 0.0;
+    response_             = Json::Value::null;
     
-    signal_channel_     = config_.service_id_ + ":job-signal";
+    validity_             = 0;
+    transient_            = config_.transient_;
+    cancelled_            = false;
+        
+    chdir_hrt_.seconds_   = static_cast<uint8_t>(0);
+    chdir_hrt_.minutes_   = static_cast<uint8_t>(0);
+    chdir_hrt_.hours_     = static_cast<uint8_t>(0);
+    chdir_hrt_.day_       = static_cast<uint8_t>(0);
+    chdir_hrt_.month_     = static_cast<uint8_t>(0);
+    chdir_hrt_.year_      = static_cast<uint16_t>(0);
     
-    chdir_hrt_.seconds_ = static_cast<uint8_t>(0);
-    chdir_hrt_.minutes_ = static_cast<uint8_t>(0);
-    chdir_hrt_.hours_   = static_cast<uint8_t>(0);
-    chdir_hrt_.day_     = static_cast<uint8_t>(0);
-    chdir_hrt_.month_   = static_cast<uint8_t>(0);
-    chdir_hrt_.year_    = static_cast<uint16_t>(0);
-    
-    hrt_buffer_[0]      = '\0';
+    hrt_buffer_[0]        = '\0';
     
     ev::scheduler::Scheduler::GetInstance().Register(this);
    
@@ -89,15 +92,18 @@ ev::loop::beanstalkd::Job::~Job ()
  * @brief One-shot setup.
  *
  * @param a_callbacks
+ * @param a_output_directory_prefix
  */
-void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callbacks)
+void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callbacks, const std::string& a_output_directory_prefix)
 {
     osal::ConditionVariable cv;
     
-    callbacks_ptr_ = a_callbacks;
+    callbacks_ptr_           = a_callbacks;
+    output_directory_prefix_ = a_output_directory_prefix;
+    output_directory_        = a_output_directory_prefix;
 
     ExecuteOnMainThread([this, &cv] {
-        ::ev::redis::subscriptions::Manager::GetInstance().SubscribeChannels({ signal_channel_ },
+        ::ev::redis::subscriptions::Manager::GetInstance().SubscribeChannels({ redis_signal_channel_ },
                                                                              /* a_status_callback */
                                                                              [this, &cv](const std::string& a_name_or_pattern,
                                                                                          const ::ev::redis::subscriptions::Manager::Status& a_status) -> EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK {
@@ -120,11 +126,11 @@ void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callba
                                                                                                  if ( 0 == channel_.compare(std::to_string(static_cast<int64_t>(id.asInt64()))) ) {
                                                                                                      const Json::Value value = object.get("status", Json::Value::null);
                                                                                                      if ( true == value.isString() && 0 == strcasecmp(value.asCString(), "cancelled") ) {
-                                                                                                         //                                                                                                         NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("queue",
-                                                                                                         //                                                                                                                                            "Received from REDIS channel '%s': %s",
-                                                                                                         //                                                                                                                                            a_name.c_str(),
-                                                                                                         //                                                                                                                                            a_message.c_str()
-                                                                                                         //                                                                                                         );
+                                                                                                         EV_LOOP_BEANSTALK_JOB_LOG("queue",
+                                                                                                                                   "Received from REDIS channel '%s': %s",
+                                                                                                                                   a_name.c_str(),
+                                                                                                                                   a_message.c_str()
+                                                                                                         );
                                                                                                          cancelled_ = true;
                                                                                                      }
                                                                                                  }
@@ -311,7 +317,7 @@ void ev::loop::beanstalkd::Job::PublishProgress (const ev::loop::beanstalkd::Job
  */
 void ev::loop::beanstalkd::Job::PublishSignal (const Json::Value& a_object)
 {
-    Publish(signal_channel_, a_object);
+    Publish(redis_signal_channel_, a_object);
 }
 
 /**
@@ -382,12 +388,11 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
     const std::string redis_key     = redis_key_prefix_     + channel_;
     const std::string redis_message = json_writer_.write(a_object);
 
-    // TODO
-//    NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("queue",
-//                                       "Publishing to REDIS channel '%s' : %s",
-//                                       redis_key.c_str(),
-//                                       redis_message.c_str()
-//    );
+    EV_LOOP_BEANSTALK_JOB_LOG("queue",
+                              "Publishing to REDIS channel '%s' : %s",
+                              redis_key.c_str(),
+                              redis_message.c_str()
+    );
 
     ExecuteOnMainThread([this, a_success_callback, a_failure_callback, &cv, &redis_channel, &redis_key, &redis_message] {
 
@@ -508,14 +513,13 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
 
         }
 
-        t->Catch([&cv, a_failure_callback] (const ::ev::Exception& a_ev_exception) {
+        t->Catch([this, &cv, a_failure_callback] (const ::ev::Exception& a_ev_exception) {
 
             // ... log error ...
-            // TODO
-//            NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("error",
-//                                               "PUBLISH failed: %s",
-//                                               a_ev_exception.what()
-//                                               );
+            EV_LOOP_BEANSTALK_JOB_LOG("error",
+                                      "PUBLISH failed: %s",
+                                      a_ev_exception.what()
+            );
 
             // ... notify ...
             if ( nullptr != a_failure_callback ) {
@@ -566,11 +570,11 @@ void ev::loop::beanstalkd::Job::GetJobCancellationFlag ()
             
         })->Catch([this, &cancellation_cv] (const ::ev::Exception& a_ev_exception) {
             
-//            // ... log error ...
-//            NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("error",
-//                                               "HGET failed: %s",
-//                                               a_ev_exception.what()
-//                                               );
+            // ... log error ...
+            EV_LOOP_BEANSTALK_JOB_LOG("error",
+                                      "HGET failed: %s",
+                                      a_ev_exception.what()
+            );
             
             cancellation_cv.Wake();
             
@@ -579,23 +583,6 @@ void ev::loop::beanstalkd::Job::GetJobCancellationFlag ()
     }, /* a_blocking */ false);
     
     cancellation_cv.Wait();
-}
-
-#ifdef __APPLE__
-#pragma mark -
-#pragma mark Beanstalk.
-#endif
-
-/**
- * @brief Submit a 'beanstalkd' job.
- *
- * @param a_tube
- * @param a_payload
- * @param a_ttr
- */
-void ev::loop::beanstalkd::Job::SubmitJob (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr)
-{    
-    callbacks_ptr_->on_submit_job_(a_tube, a_payload, a_ttr);
 }
 
 #ifdef __APPLE__
@@ -611,7 +598,7 @@ void ev::loop::beanstalkd::Job::SubmitJob (const std::string& a_tube, const std:
  */
 void ev::loop::beanstalkd::Job::ExecuteOnMainThread (std::function<void()> a_callback, bool a_blocking)
 {
-    callbacks_ptr_->dispatch_on_main_thread_(a_callback, a_blocking);
+    callbacks_ptr_->on_main_thread_(a_callback, a_blocking);
 }
 
 
@@ -622,9 +609,184 @@ void ev::loop::beanstalkd::Job::ExecuteOnMainThread (std::function<void()> a_cal
  */
 void ev::loop::beanstalkd::Job::OnFatalException (const ev::Exception& a_exception)
 {
-    callbacks_ptr_->dispatch_on_main_thread_([this, a_exception] {
-        callbacks_ptr_->on_fatal_exception_(a_exception);
+    callbacks_ptr_->on_fatal_exception_(a_exception);
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#pragma mark Beanstalk.
+#endif
+
+/**
+ * @brief Submit a 'beanstalkd' job.
+ *
+ * @param a_tube
+ * @param a_payload
+ * @param a_ttr
+ */
+void ev::loop::beanstalkd::Job::SubmitJob (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr)
+{
+    callbacks_ptr_->on_submit_job_(a_tube, a_payload, a_ttr);
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#pragma mark JSONAPI
+#endif
+
+/**
+ * @brief Set JSON API configuration.
+ *
+ * @param a_config
+ */
+void ev::loop::beanstalkd::Job::SetJSONAPIConfig (const Json::Value& a_config)
+{
+    const Json::Value empty_string     = "";
+    const Json::Value prefix           = GetJSONObject(a_config, "prefix"          , Json::ValueType::stringValue, &empty_string);
+    const Json::Value user_id          = GetJSONObject(a_config, "user_id"         , Json::ValueType::stringValue, &empty_string);
+    const Json::Value entity_id        = GetJSONObject(a_config, "entity_id"       , Json::ValueType::stringValue, &empty_string);
+    const Json::Value entity_schema    = GetJSONObject(a_config, "entity_schema"   , Json::ValueType::stringValue, &empty_string);
+    const Json::Value sharded_schema   = GetJSONObject(a_config, "sharded_schema"  , Json::ValueType::stringValue, &empty_string);
+    const Json::Value subentity_schema = GetJSONObject(a_config, "subentity_schema", Json::ValueType::stringValue, &empty_string);
+    const Json::Value subentity_prefix = GetJSONObject(a_config, "subentity_prefix", Json::ValueType::stringValue, &empty_string);
+    
+    json_api_.GetURIs().SetBase(prefix.asString());
+    json_api_.SetUserId(user_id.asString());
+    json_api_.SetEntityId(entity_id.asString());
+    json_api_.SetEntitySchema(entity_schema.asString());
+    json_api_.SetShardedSchema(sharded_schema.asString());
+    json_api_.SetSubentitySchema(subentity_schema.asString());
+    json_api_.SetSubentityPrefix(subentity_prefix.asString());
+}
+
+/**
+ * @brief Perform a JSON API request.
+ *
+ * @param a_urn
+ * @param o_code
+ * @param o_data
+ * @param o_elapsed
+ * @param o_query
+ */
+void ev::loop::beanstalkd::Job::JSONAPIGet (const Json::Value& a_urn,
+                                            uint16_t& o_code, std::string& o_data, uint64_t& o_elapsed, std::string& o_query)
+{
+    const std::string url = json_api_.GetURIs().GetBase() + a_urn.asString();
+    
+    osal::ConditionVariable cv;
+    
+    o_query = "";
+    o_code  = 500;
+    o_data  = "";
+    
+    ExecuteOnMainThread([this, &url, &cv, &o_code, &o_data, &o_query, &o_elapsed] {
+        
+        json_api_.Get(/* a_loggable_data */
+                      loggable_data_,
+                      /* url */
+                      url,
+                      /* a_callback */
+                      [this, &o_code, &o_data, &o_query, &o_elapsed, &cv] (const char* /* a_uri */, const char* a_json, const char* /* a_error */, uint16_t a_status, uint64_t a_elapsed) {
+                          o_code    = a_status;
+                          o_data    = ( nullptr != a_json ? a_json : "" );
+                          o_elapsed = a_elapsed;
+                          cv.Wake();
+                      },
+                      &o_query
+        );
+        
     }, /* a_blocking */ false);
+    
+    cv.Wait();
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#pragma mark HTTP
+#endif
+
+/**
+ * @brief Perform an HTTP request.
+ *
+ * @param a_url
+ * @param o_code
+ * @param o_data
+ * @param o_elapsed
+ * @param o_url
+ */
+void ev::loop::beanstalkd::Job::HTTPGet (const Json::Value& a_url,
+                                         uint16_t& o_code, std::string& o_data, uint64_t& o_elapsed, std::string& o_url)
+{
+    osal::ConditionVariable cv;
+    
+    const auto dlsp = std::chrono::steady_clock::now();
+    
+    o_url  = a_url.asString();
+    o_data = "";
+    o_code = 500;
+
+    ExecuteOnMainThread([this, &cv, &o_url, &o_code, &o_data, &o_elapsed, &dlsp] {
+        
+        http_.GET(/* a_url */
+                  o_url,
+                  /* a_headers */
+                  nullptr,
+                  /* a_success_callback */
+                  [this, &o_code, &o_data, &o_elapsed, &cv](const ::ev::curl::Value& a_value) {
+                      o_code    = a_value.code();
+                      o_data    = a_value.body();
+                      cv.Wake();
+                  },
+                  /* a_failure_callback */
+                  [this, &o_code, &o_data, &o_elapsed, &cv](const ::ev::Exception& a_exception) {
+                      o_code    = 500;
+                      o_data    = a_exception.what();
+                      cv.Wake();
+                  }
+        );
+        
+    }, /* a_blocking */ false);
+
+    o_elapsed = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - dlsp).count());
+
+    cv.Wait();
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#pragma mark FILE
+#endif
+
+/**
+ * @brief Load a file data to an \link std::string \link.
+ *
+ * @param a_uri
+ * @param o_code
+ * @param o_data
+ * @param o_elapsed
+ * @param o_uri
+ */
+void ev::loop::beanstalkd::Job::LoadFile (const Json::Value& a_uri,
+                                          uint16_t& o_code, std::string& o_data, uint64_t& o_elapsed, std::string& o_uri)
+{
+    const auto dlsp = std::chrono::steady_clock::now();
+
+    o_uri = a_uri.asString();
+    
+    if ( false == osal::File::Exists(o_uri.c_str()) ) {
+        o_data = "";
+        o_code = 404;
+    } else {
+        o_data = "";
+        o_code = 500;
+        
+        std::ifstream in_stream(o_uri, std::ifstream::in);
+        
+        o_data = std::string((std::istreambuf_iterator<char>(in_stream)), std::istreambuf_iterator<char>());
+        o_code = 200;
+    }
+    
+    o_elapsed = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - dlsp).count());
 }
 
 #ifdef __APPLE__
@@ -787,16 +949,16 @@ const std::string& ev::loop::beanstalkd::Job::EnsureOutputDir (const int64_t a_v
         if ( w < 0 || w > 26 ) {
             throw ev::Exception("Unable to change output directory - buffer write error!");
         }
-        output_directory_ = config_.output_dir_ + hrt_buffer_;
+        output_directory_ = output_directory_prefix_ + hrt_buffer_;
         
         if ( osal::Dir::EStatusOk != osal::Dir::CreateDir(output_directory_.c_str()) ) {
             throw ev::Exception("Unable to create output directory %s!", output_directory_.c_str());
         }
         
-//        NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("queue",
-//                                           "Changing output dir to %s...",
-//                                           output_directory_.c_str()
-//        );
+        EV_LOOP_BEANSTALK_JOB_LOG("queue",
+                                  "Changing output dir to %s...",
+                                  output_directory_.c_str()
+        );
         
         // ... prevent unnecessary changes ...
         chdir_hrt_ = now_hrt;
@@ -879,7 +1041,7 @@ ev::scheduler::Task* ev::loop::beanstalkd::Job::NewTask (const EV_TASK_PARAMS& a
  */
 EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK ev::loop::beanstalkd::Job::JobSignalsDataCallback (const std::string& a_name, const std::string& a_message)
 {
-    ExecuteOnMainThread([this, a_message] () {
+    ExecuteOnMainThread([this, a_name, a_message] () {
 
         Json::Value  object;
         Json::Reader reader;
@@ -890,12 +1052,11 @@ EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK ev::loop::beanstalkd::Job::JobS
                     if ( 0 == channel_.compare(std::to_string(static_cast<int64_t>(id.asInt64()))) ) {
                         const Json::Value value = object.get("status", Json::Value::null);
                         if ( true == value.isString() && 0 == strcasecmp(value.asCString(), "cancelled") ) {
-//                            // TODO
-//                            NRS_CASPER_PRINT_QUEUE_PRINTER_LOG("queue",
-//                                                               "Received from REDIS channel '%s': %s",
-//                                                               a_name.c_str(),
-//                                                               a_message.c_str()
-//                                                               );
+                            EV_LOOP_BEANSTALK_JOB_LOG("queue",
+                                                      "Received from REDIS channel '%s': %s",
+                                                      a_name.c_str(),
+                                                      a_message.c_str()
+                            );
                             cancelled_ = true;
                         }
                     }

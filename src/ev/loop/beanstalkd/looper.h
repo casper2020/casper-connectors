@@ -57,7 +57,7 @@ namespace ev
                 
             private: // Const Data
                 
-                const std::string  default_tube_;
+                const std::string                 default_tube_;
                 
             private: // Data
                 
@@ -74,7 +74,9 @@ namespace ev
                 
             public: // Method(s) / Function(s)
                 
-                void Run (ev::Loggable::Data& a_loggable_data, const ::ev::beanstalk::Config& a_beanstakd_config, volatile bool& a_aborted);
+                void Run (ev::Loggable::Data& a_loggable_data,
+                          const ::ev::beanstalk::Config& a_beanstakd_config, const std::string& a_output_directory,
+                          volatile bool& a_aborted);
                 
             }; // end of class 'Looper'
             

@@ -32,7 +32,7 @@ namespace cc
         
         NoDefaults () = delete;
         
-    }; // end of class 'NonMovable'
+    }; // end of class 'NoDefaults'
     
 } // end of namespace 'cc'
 

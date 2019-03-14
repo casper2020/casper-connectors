@@ -23,6 +23,9 @@
 #ifndef NRS_EV_LOOP_BEANSTALKD_JOB_H_
 #define NRS_EV_LOOP_BEANSTALKD_JOB_H_
 
+#include "cc/non-copyable.h"
+#include "cc/non-movable.h"
+
 #include "ev/redis/subscriptions/manager.h"
 
 #include "ev/scheduler/scheduler.h"
@@ -31,10 +34,28 @@
 
 #include "ev/beanstalk/producer.h"
 
+#include "ev/curl/http.h"
 #include "ev/postgresql/json_api.h"
 
 #include "json/json.h"
 
+#include "ev/logger.h"
+#define EV_LOOP_BEANSTALK_JOB_LOG_DEFINE_CONST(a_type, a_name, a_value) \
+    a_type a_name = a_value
+
+#if 1
+    #define EV_LOOP_BEANSTALK_JOB_LOG(a_token, a_format, ...) \
+        ev::Logger::GetInstance().Log(a_token, loggable_data_, \
+            "Job #" INT64_FMT_MAX_RA " ~= " a_format, \
+            id_, __VA_ARGS__ \
+        );
+#else
+    #define EV_LOOP_BEANSTALK_JOB_LOG(a_token, a_format, ...) \
+        ev::Logger::GetInstance().Log(a_token, loggable_data_, \
+            "Job #" INT64_FMT_MAX_RA " ~= [ %6" PRIu64 " ms ] " a_format, \
+            id_, static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_tp_).count()), __VA_ARGS__ \
+        );
+#endif
 
 namespace ev
 {
@@ -45,34 +66,40 @@ namespace ev
         namespace beanstalkd
         {
             
-            class Job : private ev::scheduler::Scheduler::Client, private ev::redis::subscriptions::Manager::Client
+            class Job : private ev::scheduler::Scheduler::Client, private ev::redis::subscriptions::Manager::Client, public ::cc::NonCopyable, public ::cc::NonMovable
             {
                 
             public: // Data Type
                 
-                class Config
+                class Config : public ::cc::NonMovable
                 {
                     
                 public: // Const Data
                     
-                    std::string       service_id_;
-                    bool              transient_;
-                    std::string       output_dir_;
+                    std::string service_id_;
+                    bool        transient_;
                     
                 public: // Constructor(s) / Destructor
                     
-                    Config() = delete;
+                    Config () = delete;
                     
-                    Config (const std::string& a_service_id, const bool a_transient, const std::string& a_output_dir)
-                    : service_id_(a_service_id), transient_(a_transient), output_dir_(a_output_dir)
+                    Config (const std::string& a_service_id, const bool a_transient)
+                        : service_id_(a_service_id), transient_(a_transient)
                     {
                         /* empty */
                     }
                     
                     Config (const Config& a_config)
-                    : service_id_(a_config.service_id_), transient_(a_config.transient_), output_dir_(a_config.output_dir_)
+                        : service_id_(a_config.service_id_), transient_(a_config.transient_)
                     {
                         /* empty */
+                    }
+                    
+                    inline Config& operator=(const Config& a_config)
+                    {
+                        service_id_ = a_config.service_id_;
+                        transient_  = a_config.transient_;
+                        return *this;
                     }
                     
                 }; // end of class 'Config';
@@ -86,7 +113,7 @@ namespace ev
                 
                 typedef struct {
                     FatalExceptionCallback on_fatal_exception_;
-                    DispatchOnMainThread   dispatch_on_main_thread_;
+                    DispatchOnMainThread   on_main_thread_;
                     SubmitJobCallback      on_submit_job_;
                 } MessagePumpCallbacks;
                 
@@ -113,29 +140,37 @@ namespace ev
                 
                 ev::Loggable::Data        loggable_data_;
                 
-            protected: // Data
+            protected: // Data // TODO CHANGE TO PRIVATE
                 
                 int64_t                   id_;
-                std::string               channel_;
+                Json::Value               response_;
+                Json::Value               progress_;
+                
+            private: // Data
+                
+                std::string               channel_;                
                 int64_t                   validity_;
                 bool                      transient_;
                 bool                      cancelled_;
-                Json::Value               response_;
-                Json::Value               progress_;
-                std::string               signal_channel_;
                 
             private: // Data
                 
                 cc::UTCTime::HumanReadable chdir_hrt_;
                 char                       hrt_buffer_[27];
+                std::string                output_directory_prefix_;
                 std::string                output_directory_;
-
-            protected: // Helpers
                 
-                ::ev::postgresql::JSONAPI json_api_;
-                Json::Reader              json_reader_;
-                Json::FastWriter          json_writer_;
-                Json::StyledWriter        json_styled_writer_;
+            private: // Helpers
+                
+                ev::curl::HTTP             http_;
+
+                ::ev::postgresql::JSONAPI  json_api_;
+
+            protected:
+                
+                Json::Reader               json_reader_;
+                Json::FastWriter           json_writer_;
+                Json::StyledWriter         json_styled_writer_;
                 
             private: // Ptrs
                 
@@ -143,6 +178,7 @@ namespace ev
                 
             public: // Constructor(s) / Destructor
                 
+                Job () = delete;
                 Job (const std::string& a_tube, const Config& a_config, const ev::Loggable::Data& a_loggable_data);
                 virtual ~Job ();
                 
@@ -152,7 +188,7 @@ namespace ev
                 
             public: // Method(s) / Function(s)
                 
-                void Setup   (const MessagePumpCallbacks* a_callbacks);
+                void Setup   (const MessagePumpCallbacks* a_callbacks, const std::string& a_output_directory_prefix);
                 void Consume (const int64_t& a_id, const Json::Value& a_payload,
                               const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback);
                 
@@ -182,15 +218,32 @@ namespace ev
                 
                 void GetJobCancellationFlag ();
                 
-            protected: // Beanstalk Helper Method(s) / Function(s)
-                
-                void SubmitJob (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr);
-                
             protected: // Threading Helper Methods(s) / Function(s)
                 
                 void ExecuteOnMainThread (std::function<void()> a_callback, bool a_blocking);
                 void OnFatalException    (const ev::Exception& a_exception);
                 
+            protected: // Beanstalk Helper Method(s) / Function(s)
+                
+                void SubmitJob (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr);
+
+            protected: // JSONAPI Method(s) / Function(s)
+                
+                void SetJSONAPIConfig (const Json::Value& a_config);
+                void JSONAPIGet       (const Json::Value& a_urn,
+                                       uint16_t& o_code, std::string& o_data, uint64_t& o_elapsed, std::string& o_query
+                );
+
+            protected: // HTTP Method(s) / Function(s)
+                
+                void HTTPGet (const Json::Value& a_url,
+                              uint16_t& o_code, std::string& o_data, uint64_t& o_elapsed, std::string& o_url);
+
+            protected: // FILE Method(s) / Function(s)
+                
+                void LoadFile (const Json::Value& a_uri,
+                               uint16_t& o_code, std::string& o_data, uint64_t& o_elapsed, std::string& o_uri);
+
             protected: // PostgreSQL Helper Methods(s) / Function(s)
                 
                 virtual void ExecuteQuery            (const std::string& a_query, Json::Value& o_result,

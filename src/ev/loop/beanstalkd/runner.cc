@@ -37,6 +37,12 @@
 
 #include "osal/debug/trace.h"
 
+#include "cc/utc_time.h"
+
+#include "unicode/locid.h"  // locale
+#include "unicode/utypes.h" // u_init
+#include "unicode/uclean.h" // u_cleanup
+
 #ifdef __APPLE__
 #pragma mark -
 #endif
@@ -97,7 +103,7 @@ ev::loop::beanstalkd::Runner::Runner ()
         /* device_limits_ */ {},
         /* factory */ nullptr
     });
-    http_ = new ::ev::curl::HTTP();
+    http_ = nullptr;
 }
 
 /**
@@ -105,17 +111,27 @@ ev::loop::beanstalkd::Runner::Runner ()
  */
 ev::loop::beanstalkd::Runner::~Runner ()
 {
-    if ( nullptr != looper_ ) {
-        delete looper_;
+    if ( nullptr != bridge_ ) {
+        delete bridge_;
     }
-    if ( nullptr != http_) {
-        delete http_;
+    if ( nullptr != consumer_thread_ ) {
+        delete consumer_thread_;
+    }
+    if ( nullptr != consumer_cv_ ) {
+        delete consumer_cv_;
+    }
+    if ( nullptr != startup_config_ ) {
+        delete startup_config_;
+    }
+    if ( nullptr != shared_config_ ) {
+        delete shared_config_;
     }
     if ( nullptr != loggable_data_ ) {
         delete loggable_data_;
-        loggable_data_ = nullptr;
     }
-    // TODO
+    if ( nullptr != http_ ) {
+        delete http_;
+    }
 }
 
 #ifdef __APPLE__
@@ -159,10 +175,11 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     // Copy Startup Config
     //
     startup_config_ = new ev::loop::beanstalkd::Runner::StartupConfig({
-        /* name_          */ a_config.name_,
-        /* instance_      */ a_config.instance_,
-        /* exec_path_     */ a_config.exec_path_,
-        /* conf_file_uri_ */ a_config.conf_file_uri_
+        /* name_           */ a_config.name_,
+        /* versioned_name_ */ a_config.versioned_name_,
+        /* instance_       */ a_config.instance_,
+        /* exec_path_      */ a_config.exec_path_,
+        /* conf_file_uri_  */ a_config.conf_file_uri_
     });
     
     //
@@ -170,53 +187,23 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     //
     shared_config_->directories_ = {
 #ifdef __APPLE__
-        /* log_  */ "/usr/local/var/log/"  + a_config.name_ + "/",
-        /* run_  */ "/usr/local/var/run/"  + a_config.name_ + "/",
-        /* lock_ */ "/usr/local/var/lock/" + a_config.name_ + "/"
+        /* log_    */ "/usr/local/var/log/"  + a_config.name_ + "/",
+        /* run_    */ "/usr/local/var/run/"  + a_config.name_ + "/",
+        /* lock_   */ "/usr/local/var/lock/" + a_config.name_ + "/",
+        /* shared_ */ "/usr/local/share/"    + a_config.name_ + "/",
 #else
-        /* log_  */ "/var/log/"  + a_config.name_ + "/",
-        /* run_  */ "/var/run/"  + a_config.name_ + "/",
-        /* lock_ */ "/var/lock/" + a_config.name_ + "/"
+        /* log_    */ "/var/log/"            + a_config.name_ + "/",
+        /* run_    */ "/var/run/"            + a_config.name_ + "/",
+        /* lock_   */ "/var/lock/"           + a_config.name_ + "/",
+        /* shared_ */ "/usr/share/"          + a_config.name_ + "/",
 #endif
+        /* output_ */ "/tmp/"
     };
-    
-    // ... at macOS and if debug mode ...
-#if defined(__APPLE__) && !defined(NDEBUG) && ( defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) )
-    // ... delete all log files ...
-    osal::File::Delete(shared_config_->directories_.log_.c_str(), "*.log", nullptr);
-    osal::File::Delete(shared_config_->directories_.run_.c_str(), "*.pid", nullptr);
-    osal::File::Delete(shared_config_->directories_.run_.c_str(), "ev-*.socket", nullptr);
-#else // linux
-    // ... log or release rotate should take care of this ...
-#endif
-    
-    for ( auto dir : { &shared_config_->directories_.log_, &shared_config_->directories_.run_, &shared_config_->directories_.lock_ } ) {
-        if ( osal::Dir::Status::EStatusOk != osal::Dir::CreateDir(dir->c_str()) ) {
-            throw ev::Exception("Unable to create directory '%s'!", dir->c_str());
-        }
-    }
-    
-    //
-    // Write pid file for SYSTEMD:
-    //
-    const std::string pid_file = shared_config_->directories_.run_ + std::to_string(a_config.instance_) + ".pid";
-    FILE* pid_fd = fopen(pid_file.c_str(), "w");
-    if ( nullptr == pid_fd ) {
-        throw ev::Exception("Unable to open file '%s' to write pid: nullptr", pid_file.c_str());
-    } else {
-        const int bytes_written = fprintf(pid_fd, "%d", process_pid);
-        if ( bytes_written <= 0 ) {
-            fclose(pid_fd);
-            throw ev::Exception("Unable to pid write to file '%s'", pid_file.c_str());
-        }
-    }
-    fflush(pid_fd);
-    fclose(pid_fd);
-    
+
     //
     // Load config:
     //
-    // ... load data ...
+
     std::ifstream f_stream(a_config.conf_file_uri_);
     if ( false == f_stream.is_open() ) {
         throw ev::Exception("Unable to open configuration file '%s'!", a_config.conf_file_uri_.c_str());
@@ -303,44 +290,111 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
         throw ev::Exception("An error occurred while loading configuration: JSON exception %s!", a_json_exception.what());
     }
     
+    
+    // ... at macOS and if debug mode ...
+#if defined(__APPLE__) && !defined(NDEBUG) && ( defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) )
+    // ... delete all log files ...
+    osal::File::Delete(shared_config_->directories_.log_.c_str(), "*.log", nullptr);
+    osal::File::Delete(shared_config_->directories_.run_.c_str(), "*.pid", nullptr);
+    osal::File::Delete(shared_config_->directories_.run_.c_str(), "ev-*.socket", nullptr);
+#else // linux
+    // ... log or release rotate should take care of this ...
+#endif
+    
+    for ( auto dir : { &shared_config_->directories_.log_, &shared_config_->directories_.run_, &shared_config_->directories_.lock_ } ) {
+        if ( osal::Dir::Status::EStatusOk != osal::Dir::CreateDir(dir->c_str()) ) {
+            throw ev::Exception("Unable to create directory '%s'!", dir->c_str());
+        }
+    }
+    
+    //
+    // Write pid file for SYSTEMD:
+    //
+    const std::string pid_file = shared_config_->directories_.run_ + std::to_string(a_config.instance_) + ".pid";
+    FILE* pid_fd = fopen(pid_file.c_str(), "w");
+    if ( nullptr == pid_fd ) {
+        throw ev::Exception("Unable to open file '%s' to write pid: nullptr", pid_file.c_str());
+    } else {
+        const int bytes_written = fprintf(pid_fd, "%d", process_pid);
+        if ( bytes_written <= 0 ) {
+            fclose(pid_fd);
+            throw ev::Exception("Unable to pid write to file '%s'", pid_file.c_str());
+        }
+    }
+    fflush(pid_fd);
+    fclose(pid_fd);
+    
     // .. set loggable data ...
     loggable_data_ = new ::ev::Loggable::Data(/* owner_ptr_ */ this,
                                               /* ip_addr_   */ shared_config_->ip_addr_,
-                                              /* module_    */ a_config.name_,
+                                              /* module_    */ a_config.versioned_name_,
                                               /* tag_       */ "instance-" + std::to_string(a_config.instance_)
     );
+    // ... set a http client ...
+    http_          = new ev::curl::HTTP(*loggable_data_);
     
-    //
-    // ... initialize shared singletons ...
-    //
-#ifdef __APPLE__
-    #if defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG)
-        const std::string share_path = "/usr/local/share/" + a_config.name_ + "/v8/debug";
-    #else
-        const std::string share_path = "/usr/local/share/" + a_config.name_ + "/v8/";
-    #endif
-#else // assuming linux
-    const std::string share_path = "/usr/share/" + a_config.name_ + "/v8/";
-#endif
+    //                                      //
+    // ... initialize shared singletons ... //
+    //                                      //
+    // ... Debug Logger(s) ...
+    osal::debug::Trace::GetInstance().Startup();
     
-    cc::v8::Singleton::GetInstance().Startup(
-                                             /* a_exec_uri          */  a_config.exec_path_.c_str(),
-                                             /* a_icu_data_uri      */ ( share_path + "/icudtl.dat" ).c_str()
-    );
-
-    
+    // ... Permanent Logger(s) ...
     ::ev::Logger::GetInstance().Startup();
     for ( auto it : shared_config_->log_tokens_ ) {
         ::ev::Logger::GetInstance().Register(it.first, it.second);
     }
+
+    // ... V8 ...
+#if defined(__APPLE__) && ( defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) )
+    const std::string icu_data_uri = shared_config_->directories_.shared_ + "/v8/debug/icudtl.dat";
+#else
+    const std::string icu_data_uri = shared_config_->directories_.shared_ + "/v8/icudtl.dat";
+#endif
+    cc::v8::Singleton::GetInstance().Startup(/* a_exec_uri     */  a_config.exec_path_.c_str(),
+                                             /* a_icu_data_uri */ icu_data_uri.c_str()
+    );
     
-    osal::debug::Trace::GetInstance().Startup();
+    //
+    // ICU
+    //
+#ifdef USE_SYSTEM_ICU
+    UErrorCode icu_error_code = UErrorCode::U_ZERO_ERROR;
+    u_init(&icu_error_code);
+    if ( UErrorCode::U_ZERO_ERROR != icu_error_code ) {
+        throw ev::Exception("Error while initializing ICU: error code %d", (int)icu_error_code);
+    }
+#endif // if not, should be already initialized by v8
     
-    // .. global status ...
+    // ... ensure required locale(s) is / are supported ...
+    const U_ICU_NAMESPACE::Locale icu_default_locale = uloc_getDefault();
+    
+    UErrorCode icu_set_locale_error = U_ZERO_ERROR;
+    
+    // ... check if locale is supported
+    for ( auto locale : { "pt_PT", "en_UK" } ) {
+        U_ICU_NAMESPACE::Locale::setDefault(U_ICU_NAMESPACE::Locale::createFromName(locale), icu_set_locale_error);
+        if ( U_FAILURE(icu_set_locale_error) ) {
+            throw ev::Exception("Error while initializing ICU: %s locale is not supported!", locale);
+        }
+        const U_ICU_NAMESPACE::Locale test_locale = uloc_getDefault();
+        if ( 0 != strcmp(locale, test_locale.getBaseName()) ) {
+            throw ev::Exception("Error while initializing ICU: %s locale is not supported!", locale);
+        }
+    }
+    // ... rollback to default locale ...
+    U_ICU_NAMESPACE::Locale::setDefault(icu_default_locale, icu_set_locale_error);
+    if ( U_FAILURE(icu_set_locale_error) ) {
+        throw ev::Exception("Error while setting ICU: unable to rollback to default locale!");
+    }
+    
+    //                                               //
+    // ... LOG IMPORTANT INITIALIZATION SETTINGS ... //
+    //                                               //
     osal::debug::Trace::GetInstance().Log("status", "\n* %s - starting up process w/pid %u...\n",
                                           a_config.name_.c_str(), process_pid
     );
-    
+
 #if defined(NDEBUG) && !( defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) )
     osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "Target", "release");
 #else
@@ -354,11 +408,17 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "UINT32_FMT", UINT32_FMT);
     osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "INT64_FMT" , INT64_FMT);
     osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "UINT64_FMT", UINT64_FMT);
+    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "DOUBLE_FMT", DOUBLE_FMT);
 #endif
-    
+
+    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "IUC D LOC" , icu_default_locale.getBaseName());
+
     osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n"     , "LC_ALL"    , lc_all);
     osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s - " DOUBLE_FMT "\n", "LC_NUMERIC", lc_numeric, (double)123.456);
-    
+
+    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: " UINT64_FMT "\n", "MTID", osal::ThreadHelper::GetInstance().CurrentThreadID());
+
+    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "UTC TIME", ::cc::UTCTime::NowISO8601DateTime().c_str());
 
     osal::debug::Trace::GetInstance().Log("status", "* %s - process w/pid %u configured...\n",
                                           a_config.name_.c_str(), process_pid
@@ -387,7 +447,6 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     //
     // SCHEDULER
     //
-    
     osal::ConditionVariable scheduler_cv;
     // ... then initialize scheduler ...
     ::ev::scheduler::Scheduler::GetInstance().Start(scheduler_socket_fn,
@@ -583,6 +642,10 @@ void ev::loop::beanstalkd::Runner::Shutdown (int a_sig_no)
             delete loggable_data_;
             loggable_data_ = nullptr;
         }
+        if ( nullptr != http_ ) {
+            delete http_;
+            http_ = nullptr;
+        }
 
         OSALITE_DEBUG_TRACE("startup",
                             "[%s] - pid " UINT64_FMT " - is down...",
@@ -601,7 +664,7 @@ void ev::loop::beanstalkd::Runner::Shutdown (int a_sig_no)
         ::cc::v8::Singleton::GetInstance().Shutdown();
         // ... signal handler ...
         // DOES NOT EXIST: ::ev::Signals::GetInstance().Shutdown();
-
+        
         //
         // ... singletons destruction ...
         //
@@ -614,9 +677,17 @@ void ev::loop::beanstalkd::Runner::Shutdown (int a_sig_no)
         // DOES NOT EXIST: ::cc::v8::Singleton::Destroy();
         // ... signal handler ...
         ::ev::Signals::Destroy();
-        
+
         // ... v8 ...
         // TODO ::cc::v8::Singleton::Destroy();
+        
+        //
+        // third party libraries cleanup
+        //
+        // ... ICU ...
+#ifdef USE_SYSTEM_ICU
+        u_cleanup();
+#endif
         
         // ...
         // ... reset initialized flag ...
@@ -695,7 +766,7 @@ void ev::loop::beanstalkd::Runner::ExecuteOnMainThread (std::function<void()> a_
 void ev::loop::beanstalkd::Runner::OnFatalException (const ev::Exception& a_exception)
 {
     ExecuteOnMainThread([this, a_exception]{
-        bridge_->Bridge::ThrowFatalException(a_exception);
+        bridge_->ThrowFatalException(a_exception);
     }, /* a_blocking */ false);
 }
 
@@ -721,13 +792,13 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop ()
         looper = new ev::loop::beanstalkd::Looper(shared_config_->factory_,
                                                   /* a_callbacks */
                                                   {
-                                                      /* on_fatal_exception _     */ std::bind(&ev::loop::beanstalkd::Runner::OnFatalException, this, std::placeholders::_1),
-                                                      /* dispatch_on_main_thread_ */ std::bind(&ev::loop::beanstalkd::Runner::ExecuteOnMainThread, this, std::placeholders::_1, std::placeholders::_2),
-                                                      /* on_submit_job_           */ std::bind(&ev::loop::beanstalkd::Runner::SubmitJob, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)
+                                                      /* on_fatal_exception_ */ std::bind(&ev::loop::beanstalkd::Runner::OnFatalException   , this, std::placeholders::_1),
+                                                      /* on_main_thread_     */ std::bind(&ev::loop::beanstalkd::Runner::ExecuteOnMainThread, this, std::placeholders::_1, std::placeholders::_2),
+                                                      /* on_submit_job_      */ std::bind(&ev::loop::beanstalkd::Runner::SubmitJob          , this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)
                                                   },
                                                   shared_config_->default_tube_
         );
-        looper->Run(*loggable_data_, shared_config_->beanstalk_, quit_);
+        looper->Run(*loggable_data_, shared_config_->beanstalk_, shared_config_->directories_.output_, quit_);
         
     } catch (const Beanstalk::ConnectException& a_beanstalk_exception) {
         exception = new ::ev::Exception("An error occurred while connecting to Beanstalkd:\n%s\n", a_beanstalk_exception.what());

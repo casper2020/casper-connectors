@@ -46,10 +46,11 @@ namespace cc
         
     public: // Static Method(s) / Function(s)
         
-        static int64_t       Now              ();
-        static int64_t       OffsetBy         (int64_t a_offset);
-        static HumanReadable ToHumanReadable  (const int64_t a_epoch);
-        static std::string   NowISO8601WithTZ ();
+        static int64_t       Now                ();
+        static int64_t       OffsetBy           (int64_t a_offset);
+        static HumanReadable ToHumanReadable    (const int64_t a_epoch);
+        static std::string   NowISO8601DateTime ();
+        static std::string   NowISO8601WithTZ   ();
         
     }; // end of class 'Time'
     

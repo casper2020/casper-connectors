@@ -56,6 +56,7 @@ namespace ev
 
                 typedef struct {
                     const std::string                  name_;
+                    const std::string                  versioned_name_;
                     const int                          instance_;
                     const std::string                  exec_path_;
                     const std::string                  conf_file_uri_;
@@ -130,17 +131,12 @@ namespace ev
                 std::thread*             consumer_thread_;
                 osal::ConditionVariable* consumer_cv_;
                 StartupConfig*           startup_config_;
-                SharedConfig*            shared_config_;
-                
+                SharedConfig*            shared_config_;                
                 ev::Loggable::Data*      loggable_data_;
 
-            protected: // Helpers
+            private: // Helpers
                 
                 ev::curl::HTTP*          http_;
-                
-            private: //
-                
-                ev::loop::beanstalkd::Looper* looper_;
                 
             public: // Constructor(s) / Destructor
                 
@@ -157,7 +153,11 @@ namespace ev
             public: // Inline Method(s) / Function(s)
                 
                 void                      Quit          ();
+                
+            protected: // Inline Method(s) / Function(s)
+                
                 const ev::Loggable::Data& loggable_data () const;
+                ev::curl::HTTP&           HTTP          ();
                 
             protected: // Pure Method(s) / Function(s)
                 
@@ -184,6 +184,11 @@ namespace ev
             inline const ev::Loggable::Data& Runner::loggable_data () const
             {
                 return *loggable_data_;
+            }
+            
+            inline ev::curl::HTTP& Runner::HTTP ()
+            {
+                return *http_;
             }
             
         } // end of namespace 'beanstalkd'

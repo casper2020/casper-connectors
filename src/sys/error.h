@@ -33,7 +33,7 @@
 namespace sys
 {
     
-    class Error final : public ::cc::NonCopyable, ::cc::NonMovable
+    class Error final : public ::cc::NonCopyable, public ::cc::NonMovable
     {
         
     public: // Static Const Data

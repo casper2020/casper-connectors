@@ -27,7 +27,8 @@
 /**
  * @brief Default constructor.
  */
-ev::curl::HTTP::HTTP ()
+ev::curl::HTTP::HTTP (const ev::Loggable::Data& a_loggable_data)
+    : loggable_data_(a_loggable_data)
 {
     ::ev::scheduler::Scheduler::GetInstance().Register(this);
 }
@@ -47,18 +48,16 @@ ev::curl::HTTP::~HTTP ()
 /**
  * @brief Perforn an HTTP GET request.
  *
- * @param a_loggable_data
  * @param a_url
  * @param a_headers
  * @param a_success_callback
  * @param a_failure_callback
  */
-void ev::curl::HTTP::GET (const ::ev::Loggable::Data& a_loggable_data,
-                          const std::string& a_url,
+void ev::curl::HTTP::GET (const std::string& a_url,
                           const EV_CURL_HTTP_HEADERS* a_headers,
                           EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
 {
-    Async(new ::ev::curl::Request(a_loggable_data,
+    Async(new ::ev::curl::Request(loggable_data_,
                                   curl::Request::HTTPRequestType::GET, a_url, a_headers, /* a_body */ nullptr
           ),
           a_success_callback, a_failure_callback
@@ -68,17 +67,15 @@ void ev::curl::HTTP::GET (const ::ev::Loggable::Data& a_loggable_data,
 /**
  * @brief Perforn an HTTP PUT request.
  *
- * @param a_loggable_data
  * @param a_url
  * @param a_success_callback
  * @param a_failure_callback
  */
-void ev::curl::HTTP::PUT (const ::ev::Loggable::Data& a_loggable_data,
-                          const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
+void ev::curl::HTTP::PUT (const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                           const std::string* a_body,
                           EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
 {
-    Async(new ::ev::curl::Request(a_loggable_data,
+    Async(new ::ev::curl::Request(loggable_data_,
                                   curl::Request::HTTPRequestType::PUT, a_url, a_headers, a_body
           ),
           a_success_callback, a_failure_callback
@@ -88,17 +85,15 @@ void ev::curl::HTTP::PUT (const ::ev::Loggable::Data& a_loggable_data,
 /**
  * @brief Perforn an HTTP POST request.
  *
- * @param a_loggable_data
- * @param a_url
+* @param a_url
  * @param a_success_callback
  * @param a_failure_callback
  */
-void ev::curl::HTTP::POST (const ::ev::Loggable::Data& a_loggable_data,
-                           const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
+void ev::curl::HTTP::POST (const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                            const std::string* a_body,
                            EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
 {
-    Async(new ::ev::curl::Request(a_loggable_data,
+    Async(new ::ev::curl::Request(loggable_data_,
                                   curl::Request::HTTPRequestType::POST, a_url, a_headers, a_body
           ),
           a_success_callback, a_failure_callback
@@ -108,17 +103,15 @@ void ev::curl::HTTP::POST (const ::ev::Loggable::Data& a_loggable_data,
 /**
  * @brief Perforn an HTTP DELETE request.
  *
- * @param a_loggable_data
  * @param a_url
  * @param a_success_callback
  * @param a_failure_callback
  */
-void ev::curl::HTTP::DELETE (const ::ev::Loggable::Data& a_loggable_data,
-                             const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
+void ev::curl::HTTP::DELETE (const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                              const std::string* a_body,
                              EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
 {
-    Async(new ::ev::curl::Request(a_loggable_data,
+    Async(new ::ev::curl::Request(loggable_data_,
                                   curl::Request::HTTPRequestType::DELETE, a_url, a_headers, a_body
           ),
           a_success_callback, a_failure_callback
