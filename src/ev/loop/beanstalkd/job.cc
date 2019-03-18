@@ -42,21 +42,20 @@ ev::loop::beanstalkd::Job::Job (const std::string& a_tube, const Config& a_confi
     redis_signal_channel_(config_.service_id_ + ":job-signal"),
     redis_key_prefix_(config_.service_id_ + ":jobs:" + tube_ + ':'),
     redis_channel_prefix_(config_.service_id_ + ':' + tube_ + ':'),
+    default_validity_(3600),
     loggable_data_(a_loggable_data),
     http_(loggable_data_),
     json_api_(loggable_data_, /* a_enable_task_cancellation */ false)
 {
     id_                   = 0;
-
-    progress_             = Json::Value(Json::ValueType::objectValue);
-    progress_["status"]   = "in-progress";
-    progress_["progress"] = 0.0;
-    response_             = Json::Value::null;
-    
-    validity_             = 0;
+    validity_             = -1;
     transient_            = config_.transient_;
     cancelled_            = false;
-        
+
+    progress_             = Json::Value::null;
+    errors_array_         = Json::Value::null;
+    follow_up_jobs_       = Json::Value::null;
+
     chdir_hrt_.seconds_   = static_cast<uint8_t>(0);
     chdir_hrt_.minutes_   = static_cast<uint8_t>(0);
     chdir_hrt_.hours_     = static_cast<uint8_t>(0);
@@ -163,19 +162,31 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
                                          const ev::loop::beanstalkd::Job::CompletedCallback& a_completed_callback, const ev::loop::beanstalkd::Job::CancelledCallback& a_cancelled_callback)
 {
     //
-    // JOB Configuration
+    // JOB Configuration - ID is mandatory
     //
     const Json::Value redis_channel = a_payload.get("id", Json::nullValue); // id: a.k.a. redis <beanstalkd_tube_name>:<redis_job_id>
     if ( true == redis_channel.isNull() || false == redis_channel.isString() ||  0 == redis_channel.asString().length() ) {
         throw ev::Exception("Missing or invalid 'id' object!");
     }
-    id_       = a_id; // beanstalkd number id
-    channel_   = redis_channel.asString();
-    validity_  = a_payload.get("validity", 3600).asInt64();
-    transient_ = a_payload.get("transient", config_.transient_).asBool();
-    cancelled_ = false;
-    response_  = Json::Value::null;
 
+    //
+    // RESET 'job' variables
+    //
+    id_                   = a_id; // beanstalkd number id
+    channel_              = redis_channel.asString();
+    validity_             = a_payload.get("validity" , default_validity_).asInt64();
+    transient_            = a_payload.get("transient", config_.transient_).asBool();
+    cancelled_            = false;
+    progress_             = Json::Value(Json::ValueType::objectValue);
+    errors_array_         = Json::Value(Json::ValueType::arrayValue);
+    follow_up_jobs_       = Json::Value::null;
+    follow_up_payload_    = Json::Value::null;
+    follow_up_id_key_     = "";
+    follow_up_key_        = "";
+    follow_up_tube_       = "";
+    follow_up_expires_in_ = -1;
+    follow_up_ttr_        = 0;
+    
     //
     // JSONAPI Configuration - optional
     //
@@ -188,30 +199,34 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     //
     loggable_data_.SetTag(redis_key_prefix_ + channel_);
     
+    //
+    // Check for job cancellation
+    //
     const auto cancelled_callback = [this, &a_cancelled_callback] () {
-        
-        Json::Value i18n_array = Json::Value(Json::ValueType::arrayValue);
-        i18n_array.append("i18n_job_cancelled");
-        i18n_array.append(Json::Value(Json::ValueType::objectValue));
-        
-        Json::Value progress_object = Json::Value(Json::ValueType::objectValue);
-        progress_object["message"] = i18n_array;
-        progress_object["status"] = "cancelled";
-
-        PublishProgress(progress_object);
+      
+        // ... publish 'job cancelled' 'progress' ...
+        Publish({
+            /* key_    */ nullptr,
+            /* args_   */ {},
+            /* status_ */ ev::loop::beanstalkd::Job::Status::Cancelled,
+            /* value_  */ -1.0
+        });
         
         a_cancelled_callback();
         
     };
     
-    GetJobCancellationFlag();
-    
-    if ( true == IsCancelled() ) {
+    // ... first check if job as cancelled ...
+    if ( true == ShouldCancel() ) {
+        // ... notify ...
         cancelled_callback();
     } else {
+        // ... execute job ...
         Run(a_id, a_payload, a_completed_callback, cancelled_callback);
     }
 
+    // ... prevent from REDIS cancellation messages to be logged ...
+    channel_  = "";
 }
 
 #ifdef __APPLE__
@@ -246,39 +261,68 @@ void ev::loop::beanstalkd::Job::ConfigJSONAPI (const Json::Value& a_config)
     json_api_.SetSubentityPrefix(subentity_prefix.asString());
 }
 
+
+/**
+ * @brief Fill a 'completed' response.
+ *
+ * @param o_response
+ */
+void ev::loop::beanstalkd::Job::SetCompletedResponse (Json::Value& o_response)
+{
+    o_response                            = Json::Value(Json::ValueType::objectValue);
+    o_response["action"]                  = "response";
+    o_response["content_type"]            = "application/json; charset=utf-8";
+    o_response["response"]                = Json::Value(Json::ValueType::objectValue);
+    o_response["response"]["success"]     = true;
+    o_response["status"]                  = "completed";
+}
+
+/**
+ * @brief Fill a 'cancelled' response.
+ *
+ * @param a_payload
+ * @param o_response
+ */
+void ev::loop::beanstalkd::Job::SetCancelledResponse (const Json::Value& a_payload, Json::Value& o_response)
+{
+    o_response                 = Json::Value(Json::ValueType::objectValue);
+    o_response["action"]       = "response";
+    o_response["content_type"] = "application/json; charset=utf-8";
+    o_response["response"]     = a_payload;
+    o_response["status"]       = "cancelled";
+}
+
+/**
+ * @brief Fill a 'failed' response.
+ *
+ * @param a_code
+ * @param o_response
+ */
+void ev::loop::beanstalkd::Job::SetFailedResponse (uint16_t a_code, Json::Value& o_response)
+{
+    SetFailedResponse(a_code, errors_array_, o_response);
+}
+
+/**
+ * @brief Fill a 'failed' response.
+ *
+ * @param a_code
+ * @param a_payload
+ * @param o_response
+ */
+void ev::loop::beanstalkd::Job::SetFailedResponse (uint16_t a_code, const Json::Value& a_payload, Json::Value& o_response)
+{
+    o_response                 = Json::Value(Json::ValueType::objectValue);
+    o_response["action"]       = "response";
+    o_response["content_type"] = "application/json; charset=utf-8";
+    o_response["response"]     = a_payload;
+    o_response["status"]       = "failed";
+    o_response["status_code"]  = a_code;
+}
+
 #ifdef __APPLE__
 #pragma mark -
 #endif
-
-/**
- * @brief Publish a 'job cancelled' message to 'job-signals' channel.
- */
-void ev::loop::beanstalkd::Job::PublishCancelled ()
-{
-    response_            = Json::Value(Json::ValueType::objectValue);
-    response_["id"]      = id_;
-    response_["status"]  = "cancelled";
-    response_["channel"] = channel_;
-
-    Publish(redis_signal_channel_, response_);
-}
-
-/**
- * @brief Publish a 'job finished' message to 'job-signals' channel.
- *
- * @param a_payload
- */
-void ev::loop::beanstalkd::Job::PublishFinished (const Json::Value& a_payload)
-{
-    PublishProgress(a_payload);
-
-    response_            = Json::Value(Json::ValueType::objectValue);
-    response_["id"]      = id_;
-    response_["status"]  = "finished";
-    response_["channel"] = channel_;
-
-    Publish(redis_signal_channel_, response_);
-}
 
 /**
  * @brief Publish a 'job progress' message.
@@ -291,33 +335,119 @@ void ev::loop::beanstalkd::Job::PublishProgress (const Json::Value& a_payload)
 }
 
 /**
- * @brief Publish a 'job progress' message.
+ * @brief Append an error.
  *
- * @param a_message
+ * @param a_error
  */
-void ev::loop::beanstalkd::Job::PublishProgress (const ev::loop::beanstalkd::Job::Progress& a_message)
+void ev::loop::beanstalkd::Job::AppendError (const Json::Value& a_error)
 {
-    Json::Value i18n_array = Json::Value(Json::ValueType::arrayValue);
-
-    i18n_array.append(a_message.key_);
-    if ( nullptr != a_message.args_ ) {
-        i18n_array.append(*a_message.args_);
-    }
-
-    progress_["message"]  = i18n_array;
-    progress_["progress"] = a_message.value_;
-
-    Publish(progress_);
+    errors_array_.append(a_error);
 }
 
 /**
- * @brief Publish signal.
+ * @brief Append an error.
  *
- * @param a_object
+ * @param a_type
+ * @param a_why
+ * @param a_where
+ * @param a_code
  */
-void ev::loop::beanstalkd::Job::PublishSignal (const Json::Value& a_object)
+void ev::loop::beanstalkd::Job::AppendError (const char* const a_type, const std::string& a_why, const char *const a_where, const int a_code)
 {
-    Publish(redis_signal_channel_, a_object);
+    Json::Value error_object = Json::Value(Json::ValueType::objectValue);
+    error_object["type"]     = a_type;
+    error_object["why"]      = a_why;
+    error_object["where"]    = a_where;
+    error_object["code"]     = a_code;
+    errors_array_.append(error_object);
+}
+
+/**
+ * @brief Publish a 'job finished' message to 'job-signals' channel.
+ *
+ * @param a_status
+ */
+void ev::loop::beanstalkd::Job::Broadcast (const ev::loop::beanstalkd::Job::Status a_status)
+{
+    progress_       = Json::Value(Json::ValueType::objectValue);
+    progress_["id"] = id_;
+    switch (a_status) {
+        case ev::loop::beanstalkd::Job::Status::Finished:
+            progress_["status"] = "finished";
+        break;
+        case ev::loop::beanstalkd::Job::Status::Cancelled:
+            progress_["status"] = "cancelled";
+        break;
+        default:
+            throw ::ev::Exception("Broadcast status " UINT8_FMT " not implemented!", a_status);
+    }
+    progress_["channel"] = channel_;
+    Publish(redis_signal_channel_, progress_);
+}
+
+/**
+ * @brief Publish a response to the job channel and a 'job finished' message to 'job-signals' channel.
+ *
+ * @param a_respomse
+ * @param a_success_callback
+ * @param a_failure_callback
+ */
+void ev::loop::beanstalkd::Job::Finished (const Json::Value& a_response,
+                                          const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
+{
+    // ... publish response ...
+    Publish(a_response, a_success_callback, a_failure_callback);
+    
+    // ... broadcast job finished ...
+    Broadcast(ev::loop::beanstalkd::Job::Status::Finished);
+}
+
+
+/**
+ * @brief Publish a 'progress' message.
+ *
+ * @param a_progress
+ */
+void ev::loop::beanstalkd::Job::Publish (const ev::loop::beanstalkd::Job::Progress& a_progress)
+{
+
+    const char* key;
+    
+    progress_ = Json::Value(Json::ValueType::objectValue);
+    switch (a_progress.status_) {
+        case ev::loop::beanstalkd::Job::Status::InProgress:
+            key = a_progress.key_;
+            progress_["status"] = "in-progress";
+            break;
+        case ev::loop::beanstalkd::Job::Status::Finished:
+            key = a_progress.key_;
+            progress_["status"] = "finished";
+            break;
+        case ev::loop::beanstalkd::Job::Status::Failed:
+            key = a_progress.key_;
+            progress_["status"] = "failed";
+            break;
+        case ev::loop::beanstalkd::Job::Status::Cancelled:
+            key = "i18n_job_cancelled";
+            progress_["status"] = "cancelled";
+            break;
+        default:
+            throw ::ev::Exception("Broadcast status " UINT8_FMT " not implemented!", a_progress.status_);
+    }
+    
+    if ( -1.0 != a_progress.value_ ) {
+        progress_["progress"] = a_progress.value_;
+    }
+    
+    Json::Value i18n_array = Json::Value(Json::ValueType::arrayValue);
+    i18n_array.append(key);
+    for ( auto arg : a_progress.args_ ) {
+        Json::Value& object = i18n_array.append(Json::Value(Json::ValueType::objectValue));
+        object[arg.first] = arg.second;
+    }
+    progress_["message"]  = i18n_array;
+
+    Publish(progress_);
 }
 
 /**
@@ -535,10 +665,11 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
     cv.Wait();
 }
 
+
 /**
  * @brief Get a job cancellation flag.
  */
-void ev::loop::beanstalkd::Job::GetJobCancellationFlag ()
+bool ev::loop::beanstalkd::Job::ShouldCancel ()
 {
     // ... first check cancellation flag ...
     const std::string redis_key = redis_key_prefix_ + channel_;
@@ -574,6 +705,169 @@ void ev::loop::beanstalkd::Job::GetJobCancellationFlag ()
             EV_LOOP_BEANSTALK_JOB_LOG("error",
                                       "HGET failed: %s",
                                       a_ev_exception.what()
+                                      );
+            
+            cancellation_cv.Wake();
+            
+        });
+        
+    }, /* a_blocking */ false);
+    
+    cancellation_cv.Wait();
+    
+    // ... done ...
+    return cancelled_;
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#pragma mark Follow up job
+#endif
+
+/**
+ * @brief Append a 'follow up' job.
+ */
+Json::Value& ev::loop::beanstalkd::Job::AppendFollowUpJob ()
+{
+    return follow_up_jobs_.append(Json::Value(Json::ValueType::objectValue));
+}
+
+/**
+ * @brief Submit previously appended follow up jobs.
+ *
+ * @return True on success, on failure errors are set.
+ */
+bool ev::loop::beanstalkd::Job::SubmitFollowUpJobs ()
+{
+    for ( Json::ArrayIndex idx = 0 ; idx < follow_up_jobs_.size() ; ++idx ) {
+        
+        const Json::Value& entry = follow_up_jobs_[idx];
+        const Json::Value& job   = entry["job"];
+        
+        EV_LOOP_BEANSTALK_JOB_LOG("queue",
+                                  "Submitting follow up job # " SIZET_FMT,
+                                  static_cast<size_t>(idx + 1)
+        );
+        
+        OSALITE_DEBUG_TRACE("job", "Job #" INT64_FMT " ~= submitting follow up job #" SIZET_FMT ":\n%s",
+                            id_, static_cast<size_t>(idx + 1), entry.toStyledString().c_str()
+        );
+        
+        SubmitFollowUpJob(static_cast<size_t>(idx + 1), job);
+        
+        if ( true == HasErrorsSet() ) {
+            break;
+        }
+        
+    }
+    return ( false == HasErrorsSet() );
+}
+
+/**
+ * @brief Submit a 'follow up' job.
+ *
+ * @param a_number
+ * @param a_job
+ */
+void ev::loop::beanstalkd::Job::SubmitFollowUpJob (const size_t a_number, const Json::Value& a_job)
+{
+    // ... first check cancellation flag ...
+    follow_up_payload_    = a_job;
+    follow_up_id_key_     = config_.service_id_ + ":jobs:sequential_id";
+    follow_up_tube_       = follow_up_payload_["tube"].asString();
+    follow_up_key_        = ( config_.service_id_ + ":jobs:" + follow_up_tube_ + ':' );
+    follow_up_expires_in_ = follow_up_payload_.get("validity", 3600).asInt64();
+    follow_up_ttr_        = follow_up_payload_.get("ttr", 300).asUInt();
+    
+    osal::ConditionVariable cancellation_cv;
+    
+    ExecuteOnMainThread([this, a_number, &cancellation_cv] {
+        
+        NewTask([this] () -> ::ev::Object* {
+            
+            // ...  get new job id ...
+            return new ::ev::redis::Request(loggable_data_, "INCR", {
+                /* key   */ follow_up_id_key_
+            });
+            
+        })->Then([this] (::ev::Object* a_object) -> ::ev::Object* {
+            
+            //
+            // INCR:
+            //
+            // - An integer reply is expected:
+            //
+            //  - the value of key after the increment
+            //
+            const ::ev::redis::Value& value = ::ev::redis::Reply::EnsureIntegerReply(a_object);
+            
+            follow_up_payload_["id"] = std::to_string(value.Integer());
+            
+            // ... set job key ...
+            follow_up_key_ += follow_up_payload_["id"].asString();
+            
+            // ... first, set queued status ...
+            return new ::ev::redis::Request(loggable_data_, "HSET", {
+                /* key   */ follow_up_key_,
+                /* field */ "status", "{\"status\":\"queued\"}"
+            });
+            
+        })->Then([this] (::ev::Object* a_object) -> ::ev::Object* {
+            
+            //
+            // HSET:
+            //
+            // - An integer reply is expected:
+            //
+            //  - 1 if field is a new field in the hash and value was set.
+            //  - 0 if field already exists in the hash and the value was updated.
+            //
+            (void)::ev::redis::Reply::EnsureIntegerReply(a_object);
+            
+            return new ::ev::redis::Request(loggable_data_, "EXPIRE", { follow_up_key_, std::to_string(follow_up_expires_in_) });
+            
+        })->Finally([this, a_number, &cancellation_cv] (::ev::Object* a_object) {
+            
+            //
+            // EXPIRE:
+            //
+            // Integer reply, specifically:
+            // - 1 if the timeout was set.
+            // - 0 if key does not exist or the timeout could not be set.
+            //
+            ::ev::redis::Reply::EnsureIntegerReply(a_object, 1);
+            
+            try {
+                
+                const std::string payload = json_writer_.write(follow_up_payload_);
+                
+                SubmitJob(/* a_tube */ follow_up_tube_.c_str(), /* a_payload */ payload, /* a_ttr */ follow_up_ttr_);
+                
+                EV_LOOP_BEANSTALK_JOB_LOG("queue",
+                                          "Submitted follow up job # " SIZET_FMT " to tube %s, ttr set to " UINT32_FMT " and validity set to " INT64_FMT " : %s",
+                                          a_number, follow_up_tube_.c_str(), follow_up_ttr_, follow_up_expires_in_, payload.c_str()
+                );
+                
+            } catch (const ::Beanstalk::ConnectException& a_btc_exception) {
+                throw ::ev::Exception("%s", a_btc_exception.what());
+            }
+            
+            cancellation_cv.Wake();
+            
+        })->Catch([this, a_number, &cancellation_cv] (const ::ev::Exception& a_ev_exception) {
+            
+            const std::string prefix = "rror while submitting follow up job # " + std::to_string(a_number) + " to tube " + follow_up_tube_;
+            
+            // ... log error ...
+            EV_LOOP_BEANSTALK_JOB_LOG("queue",
+                                      "e%s: %s",
+                                      prefix.c_str(), a_ev_exception.what()
+                                      );
+            
+            AppendError(/* a_type  */ "Beanstalk Error",
+                        /* a_why   */ ( 'E'+ prefix + ": " + a_ev_exception.what() ).c_str(),
+                        /* a_where */__FUNCTION__,
+                        /* a_code */ ev::loop::beanstalkd::Job::k_exception_rc_
             );
             
             cancellation_cv.Wake();
@@ -936,7 +1230,7 @@ void ev::loop::beanstalkd::Job::ExecuteQueryWithJSONAPI (const std::string& a_qu
 const std::string& ev::loop::beanstalkd::Job::EnsureOutputDir (const int64_t a_validity)
 {
     // ... get time w/offset ...
-    cc::UTCTime::HumanReadable now_hrt = cc::UTCTime::ToHumanReadable(cc::UTCTime::OffsetBy(a_validity));
+    cc::UTCTime::HumanReadable now_hrt = cc::UTCTime::ToHumanReadable(cc::UTCTime::OffsetBy(-1 != a_validity ? a_validity : validity_));
     
     // ... check if output directory must change ...
     if ( 0 == output_directory_.length() || now_hrt.year_ != chdir_hrt_.year_ || now_hrt.month_ != chdir_hrt_.month_ || now_hrt.day_ !=  chdir_hrt_.day_ ) {

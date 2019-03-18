@@ -23,6 +23,8 @@
 #ifndef NRS_EV_LOOP_BEANSTALKD_JOB_H_
 #define NRS_EV_LOOP_BEANSTALKD_JOB_H_
 
+#include <limits>
+
 #include "cc/non-copyable.h"
 #include "cc/non-movable.h"
 
@@ -47,13 +49,13 @@
     #define EV_LOOP_BEANSTALK_JOB_LOG(a_token, a_format, ...) \
         ev::Logger::GetInstance().Log(a_token, loggable_data_, \
             "Job #" INT64_FMT_MAX_RA " ~= " a_format, \
-            id_, __VA_ARGS__ \
+            ID(), __VA_ARGS__ \
         );
 #else
     #define EV_LOOP_BEANSTALK_JOB_LOG(a_token, a_format, ...) \
         ev::Logger::GetInstance().Log(a_token, loggable_data_, \
             "Job #" INT64_FMT_MAX_RA " ~= [ %6" PRIu64 " ms ] " a_format, \
-            id_, static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_tp_).count()), __VA_ARGS__ \
+            ID(), static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_tp_).count()), __VA_ARGS__ \
         );
 #endif
 
@@ -121,12 +123,24 @@ namespace ev
                 
             protected: // Data Type(s)
                 
+                enum class Status : uint8_t {
+                    InProgress = 0,
+                    Finished,
+                    Failed,
+                    Cancelled,
+                };
+                
                 typedef struct {
-                    const char* const  key_;
-                    const Json::Value* args_;
-                    uint8_t            value_;
+                    const char* const                         key_;
+                    const std::map<std::string, Json::Value>& args_;
+                    Status                                    status_;
+                    double                                    value_;
                 } Progress;
                 
+            protected: // Const Static Data
+                
+                constexpr static const int k_exception_rc_ = -3;
+
             protected: // Const Data
                 
                 const std::string         tube_;
@@ -136,23 +150,31 @@ namespace ev
                 const std::string         redis_key_prefix_;
                 const std::string         redis_channel_prefix_;
                 
+                const Json::Value         default_validity_;
+                
             protected: // Logs Data
                 
                 ev::Loggable::Data        loggable_data_;
                 
-            protected: // Data // TODO CHANGE TO PRIVATE
-                
-                int64_t                   id_;
-                Json::Value               response_;
-                Json::Value               progress_;
-                
             private: // Data
                 
-                std::string               channel_;                
+                int64_t                   id_;
+                std::string               channel_;
                 int64_t                   validity_;
                 bool                      transient_;
                 bool                      cancelled_;
+
+                Json::Value               progress_;
+                Json::Value               errors_array_;
                 
+                Json::Value               follow_up_jobs_;
+                Json::Value               follow_up_payload_;
+                std::string               follow_up_id_key_;
+                std::string               follow_up_key_;
+                std::string               follow_up_tube_;
+                int64_t                   follow_up_expires_in_;
+                uint32_t                  follow_up_ttr_;
+
             private: // Data
                 
                 cc::UTCTime::HumanReadable chdir_hrt_;
@@ -163,7 +185,6 @@ namespace ev
             private: // Helpers
                 
                 ev::curl::HTTP             http_;
-
                 ::ev::postgresql::JSONAPI  json_api_;
 
             protected:
@@ -182,9 +203,10 @@ namespace ev
                 Job (const std::string& a_tube, const Config& a_config, const ev::Loggable::Data& a_loggable_data);
                 virtual ~Job ();
                 
-            public: // Inline Method(s) / Function(s)
+            public:
                 
-                bool IsCancelled  () const;
+                int64_t ID       () const;
+                int64_t Validity () const;
                 
             public: // Method(s) / Function(s)
                 
@@ -199,24 +221,48 @@ namespace ev
                 
             protected: // Method(s) / Function(s)
                 
-                void ConfigJSONAPI (const Json::Value& a_config);
+                void ConfigJSONAPI         (const Json::Value& a_config);
+                
+                void SetCompletedResponse  (Json::Value& o_response);
+                void SetCancelledResponse  (const Json::Value& a_payload, Json::Value& o_response);
+                void SetFailedResponse     (uint16_t a_code, Json::Value& o_response);                
+                void SetFailedResponse     (uint16_t a_code, const Json::Value& a_payload, Json::Value& o_response);
                 
             protected: // REDIS Helper Method(s) / Function(s)
+                                
+                void PublishProgress  (const Json::Value& a_payload); // TODO CHECK USAGE and remove it ?
                 
-                void PublishCancelled ();
-                void PublishFinished  (const Json::Value& a_payload);
-                void PublishProgress  (const Json::Value& a_payload);
-                void PublishProgress  (const Progress& a_message);
+                void AppendError       (const Json::Value& a_error);
+                void AppendError       (const char* const a_type, const std::string& a_why, const char *const a_where, const int a_code);
+                bool HasErrorsSet      () const;
                 
-                void PublishSignal    (const Json::Value& a_object);
+                void Publish           (const Progress& a_progress);
+                void Broadcast         (const Status a_status);
+                void Finished          (const Json::Value& a_response,
+                                        const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback);
+
+                bool           WasCancelled      () const;
+                bool           ShouldCancel      ();
+                bool&          cancellation_flag ();
                 
+            protected: // REDIS / BEANSTALK Helper Method(s) / Function(s)
+                
+                bool         HasFollowUpJobs         () const;
+                uint64_t     FollowUpJobsCount       () const;
+                Json::Value& AppendFollowUpJob       ();
+                bool         SubmitFollowUpJobs      ();
+            
+            private: // REDIS / BEANSTALK Helper Method(s) / Function(s)
+                
+                void         SubmitFollowUpJob       (const size_t a_number, const Json::Value& a_job);
+
+            private: // REDIS Helper Method(s) / Function(s)
+
                 void Publish (const std::string& a_channel, const Json::Value& a_object,
                               const std::function<void()> a_success_callback = nullptr, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr);
                 
                 void Publish (const Json::Value& a_object,
                               const std::function<void()> a_success_callback = nullptr, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr);
-                
-                void GetJobCancellationFlag ();
                 
             protected: // Threading Helper Methods(s) / Function(s)
                 
@@ -252,7 +298,7 @@ namespace ev
                 
             protected: // Output Helper Methods(s) / Function(s)
 
-                const std::string& EnsureOutputDir (const int64_t a_validity);
+                const std::string& EnsureOutputDir (const int64_t a_validity = -1);
                 
             protected: // JsonCPP Helper Methods(s) / Function(s)
                 
@@ -271,12 +317,52 @@ namespace ev
             }; // end of class 'Job'
             
             /**
+             * @return Current job ID.
+             */
+            inline int64_t Job::ID () const
+            {
+                return id_;
+            }            
+
+            /**
+             * @return Current job validity.
+             */
+            inline int64_t Job::Validity () const
+            {
+                return validity_;
+            }
+
+            /**
              * @return True if the job was cancelled, false otherwise.
              */
-            inline bool Job::IsCancelled() const
+            inline bool Job::WasCancelled() const
             {
                 return cancelled_;
-            }                        
+            }
+            
+            /**
+             * @return A reference to the cancellation flag.
+             */
+            inline bool& Job::cancellation_flag ()
+            {
+                return cancelled_;
+            }
+            
+            inline bool Job::HasErrorsSet () const
+            {
+                return ( false == cancelled_ && 0 != errors_array_.size() );
+            }
+            
+            inline bool Job::HasFollowUpJobs () const
+            {
+                return ( FollowUpJobsCount()> 0 );
+            }
+            
+            inline uint64_t Job::FollowUpJobsCount () const
+            {
+                return ( true == follow_up_jobs_.isArray() ? static_cast<uint64_t>(follow_up_jobs_.size()) : 0 );
+            }
+            
             
         } // end of namespace 'beanstalkd'
         
