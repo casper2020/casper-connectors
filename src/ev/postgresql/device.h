@@ -62,6 +62,11 @@ namespace ev
                 bool                                  statement_timeout_set_; //!<
                 Result*                               pending_result_;        //!<
                 std::chrono::steady_clock::time_point exec_start_;
+                std::string                           last_connection_status_;
+                std::string                           last_reported_connection_status_;
+                std::chrono::steady_clock::time_point connection_scheduled_tp_;
+                std::chrono::steady_clock::time_point connection_established_tp_;
+                std::chrono::steady_clock::time_point connection_finished_tp_;
 
                 
             public: // Constructor(s) / Destructor

@@ -125,14 +125,28 @@ ev::postgresql::Device::Status ev::postgresql::Device::Connect (ev::postgresql::
         return ev::postgresql::Device::Status::Async;
     }
     
+    // ... write to permanent log ...
+    ev::Logger::GetInstance().Log("libpq-connections", loggable_data_,
+                                  EV_POSTGRESQL_DEVICE_LOG_FMT " setting up a new async connection...",
+                                  __FUNCTION__, "STATUS"
+    );
+
+    // ... write to permanent log ...
+    ev::Logger::GetInstance().Log("libpq-connections", loggable_data_,
+                                  EV_POSTGRESQL_DEVICE_LOG_FMT " setting max reuse count to %u %s...",
+                                  __FUNCTION__, "STATUS",
+                                  static_cast<unsigned>(max_reuse_count_),
+                                  ( max_reuse_count_ == 1 ? "query" : "queries" )
+    );
+
     int       opt_val = 0;
     const int opt_len = sizeof(opt_val);
     
     // ... a new connection is required ...
-    
-    connected_callback_   = a_callback;
-    context_              = new PostgreSQLContext(this);
-    context_->connection_ = PQconnectStart(connection_string_.c_str());
+    connected_callback_      = a_callback;
+    context_                 = new PostgreSQLContext(this);
+    context_->connection_    = PQconnectStart(connection_string_.c_str());
+    context_->loggable_data_ = loggable_data_;
     if ( nullptr == context_->connection_ ) {
         delete context_;
         context_ = nullptr;
@@ -254,6 +268,15 @@ ev::postgresql::Device::Status ev::postgresql::Device::Connect (ev::postgresql::
     
     last_error_msg_ = "";
     
+    context_->connection_scheduled_tp_ = std::chrono::steady_clock::now();
+
+    // ... write to permanent log ...
+    ev::Logger::GetInstance().Log("libpq-connections", loggable_data_,
+                                  EV_POSTGRESQL_DEVICE_LOG_FMT " asynchronous connection scheduled, context is %p...",
+                                  __FUNCTION__, "STATUS",
+                                  context_
+    );
+    
     return ev::postgresql::Device::Status::Async;
 }
 
@@ -366,6 +389,40 @@ void ev::postgresql::Device::Disconnect ()
         // ... nothing else to do ...
         return;
     }
+    
+    std::string reason;
+    if ( true == invalidate_reuse_ && ( reuse_count_ < max_reuse_count_ ) ) {
+        reason = " due to invalidation by signal";
+    } else if ( reuse_count_ < max_reuse_count_ ) {
+        reason = " due to invalidation by max reuse counter";
+    };
+    
+    std::stringstream ss;
+    ss << '[' << context_ << ']';
+    
+    const std::string log_msg_prefix = ss.str();
+
+    // ... write to permanent log ...
+    ev::Logger::GetInstance().Log("libpq-connections", loggable_data_,
+                                  EV_POSTGRESQL_DEVICE_LOG_FMT " %s %u %s performed...",
+                                  __FUNCTION__, "STATUS",
+                                  log_msg_prefix.c_str(),
+                                  static_cast<unsigned>(reuse_count_), ( reuse_count_ == 1 ? "query" : "queries" )
+    );
+
+    
+    // ... write to permanent log ...
+    ev::Logger::GetInstance().Log("libpq-connections", loggable_data_,
+                                  EV_POSTGRESQL_DEVICE_LOG_FMT " %s disconnecting%s...",
+                                  __FUNCTION__, "STATUS",
+                                  log_msg_prefix.c_str(),
+                                  reason.c_str()
+   );
+
+    context_->connection_finished_tp_ = std::chrono::steady_clock::now();
+
+    const int kept_alive_for_n_seconnds = static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(context_->connection_finished_tp_ - context_->connection_established_tp_).count());
+   
     // ... remove event and notify ...
     try {
         const int del_rc = event_del(context_->event_);
@@ -422,6 +479,24 @@ void ev::postgresql::Device::Disconnect ()
         OSALITE_BACKTRACE();
         exception_callback_(ev::Exception(STD_CPP_GENERIC_EXCEPTION_TRACE()));
     }
+    
+    // ... write to permanent log ...
+    if ( last_error_msg_.length() > 0 ) {
+        ev::Logger::GetInstance().Log("libpq-connections", loggable_data_,
+                                      EV_POSTGRESQL_DEVICE_LOG_FMT " %s disconnected, connection kept active for %d second(s) - %s",
+                                      __FUNCTION__, "STATUS",
+                                      log_msg_prefix.c_str(),
+                                      kept_alive_for_n_seconnds,
+                                      last_error_msg_.c_str()
+        );
+    } else {
+        ev::Logger::GetInstance().Log("libpq-connections", loggable_data_,
+                                      EV_POSTGRESQL_DEVICE_LOG_FMT " %s disconnected, connection kept active for %d second(s)",
+                                      __FUNCTION__, "STATUS",
+                                      log_msg_prefix.c_str(),
+                                      kept_alive_for_n_seconnds
+        );
+    }
 }
 
 #ifdef __APPLE__
@@ -466,36 +541,101 @@ void ev::postgresql::Device::PostgreSQLEVCallback (evutil_socket_t /* a_fd */, s
         }
     }
     
+    std::stringstream ss;
+    ss << '[' << context << ']';
+    
+    const std::string log_msg_prefix = ss.str();
+    
     bool call_connection_callback = false;
 
     const ConnStatusType connection_status = PQstatus(context->connection_);
     switch ( connection_status ) {
         case CONNECTION_NEEDED:
+            // .. track status ...
+            context->last_connection_status_ = "CONNECTION_NEEDED";
             break;
         case CONNECTION_STARTED:
+            // .. track status ...
+            context->last_connection_status_ = "CONNECTION_STARTED";
             break;
         case CONNECTION_OK:
         case CONNECTION_MADE:
+            // .. track status ...
+            context->last_connection_status_ = ( CONNECTION_MADE == connection_status ? "CONNECTION_MADE" : "CONNECTION_OK");
+            // ... notify?
             if ( nullptr != device->connected_callback_ ) {
+                context->connection_established_tp_ = std::chrono::steady_clock::now();
                 call_connection_callback = true;
             }
             break;
         case CONNECTION_AWAITING_RESPONSE:
+            // .. track status ...
+            context->last_connection_status_ = "CONNECTION_AWAITING_RESPONSE";
             break;
         case CONNECTION_AUTH_OK:
+            // .. track status ...
+            context->last_connection_status_ = "CONNECTION_AUTH_OK";
             break;
         case CONNECTION_SETENV:
+            // .. track status ...
+            context->last_connection_status_ = "CONNECTION_SETENV";
             break;
         case CONNECTION_SSL_STARTUP:
+            // .. track status ...
+            context->last_connection_status_ = "CONNECTION_SSL_STARTUP";
             break;
         case CONNECTION_BAD:
+            // ... track error ...
             device->last_error_msg_ = PQerrorMessage(context->connection_);
+            // .. track status ...
+            context->last_connection_status_ = "CONNECTION_BAD";
+            // ... write to permanent log ...
+            ev::Logger::GetInstance().Log("libpq-connections", context->loggable_data_,
+                                          EV_POSTGRESQL_DEVICE_LOG_FMT " %s %s: %s",
+                                          __FUNCTION__, "CONTEXT",
+                                          log_msg_prefix.c_str(),
+                                          context->last_connection_status_.c_str(),
+                                          device->last_error_msg_.c_str()
+            );
+            // ... disconnect now ...
             device->Disconnect();
             return;
         default:
+            // .. track status ...
+            context->last_connection_status_ = "???";
             device->last_error_msg_ = "Unexpected status: " + std::to_string((int)connection_status);
+            // ... write to permanent log ...
+            ev::Logger::GetInstance().Log("libpq-connections", context->loggable_data_,
+                                          EV_POSTGRESQL_DEVICE_LOG_FMT " %s %s: %s",
+                                          __FUNCTION__, "CONTEXT",
+                                          log_msg_prefix.c_str(),
+                                          context->last_connection_status_.c_str(),
+                                          device->last_error_msg_.c_str()
+            );
+            // ... disconnect now ...
             device->Disconnect();
             return ;
+    }
+    
+    // ... write to permanent log ...
+    if ( 0 != strcasecmp(context->last_connection_status_.c_str(), context->last_reported_connection_status_.c_str()) ) {
+        if ( 0 != device->last_error_msg_.length() ) {
+            ev::Logger::GetInstance().Log("libpq-connections", context->loggable_data_,
+                                          EV_POSTGRESQL_DEVICE_LOG_FMT " %s %s: %s",
+                                          __FUNCTION__, "CONTEXT",
+                                          log_msg_prefix.c_str(),
+                                          context->last_connection_status_.c_str(),
+                                          device->last_error_msg_.c_str()
+           );
+        } else {
+            ev::Logger::GetInstance().Log("libpq-connections", context->loggable_data_,
+                                          EV_POSTGRESQL_DEVICE_LOG_FMT " %s %s",
+                                          __FUNCTION__, "CONTEXT",
+                                          log_msg_prefix.c_str(),
+                                          context->last_connection_status_.c_str()
+          );
+        }
+        context->last_reported_connection_status_ = context->last_connection_status_;
     }
     
     // ...
@@ -529,6 +669,14 @@ void ev::postgresql::Device::PostgreSQLEVCallback (evutil_socket_t /* a_fd */, s
 
     // ... connection event?
     if ( true == call_connection_callback ) {
+        // ... write to permanent log ...
+        const int scheduled_elapsed = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(context->connection_established_tp_ - context->connection_scheduled_tp_).count());
+        ev::Logger::GetInstance().Log("libpq-connections", context->loggable_data_,
+                                      EV_POSTGRESQL_DEVICE_LOG_FMT " %s connected, took %d millisecond(s)",
+                                      __FUNCTION__, "STATUS",
+                                      log_msg_prefix.c_str(),
+                                      scheduled_elapsed
+        );
         // ... connection established ...
         if ( device->statement_timeout_ > -1 && false == device->context_->statement_timeout_set_ ) {
             ExecStatusType post_connect_query_exec_status = PGRES_FATAL_ERROR;
