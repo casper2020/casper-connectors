@@ -670,15 +670,16 @@ void ev::postgresql::Device::PostgreSQLEVCallback (evutil_socket_t /* a_fd */, s
     // ... connection event?
     if ( true == call_connection_callback ) {
         // ... write to permanent log ...
-        const int scheduled_elapsed = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(context->connection_established_tp_ - context->connection_scheduled_tp_).count());
-        ev::Logger::GetInstance().Log("libpq-connections", context->loggable_data_,
-                                      EV_POSTGRESQL_DEVICE_LOG_FMT " %s connected, took %d millisecond(s)",
-                                      __FUNCTION__, "STATUS",
-                                      log_msg_prefix.c_str(),
-                                      scheduled_elapsed
-        );
         // ... connection established ...
         if ( device->statement_timeout_ > -1 && false == device->context_->statement_timeout_set_ ) {
+            
+            // ... write to permanent log ...
+            ev::Logger::GetInstance().Log("libpq-connections", context->loggable_data_,
+                                          EV_POSTGRESQL_DEVICE_LOG_FMT " %s setting statement timeout",
+                                          __FUNCTION__, "STATUS",
+                                          log_msg_prefix.c_str()
+            );
+
             ExecStatusType post_connect_query_exec_status = PGRES_FATAL_ERROR;
             // ... set statement timeout ...
             const std::string query = "SET statement_timeout TO " + std::to_string((device->statement_timeout_ * 1000)) + ";";
@@ -704,6 +705,13 @@ void ev::postgresql::Device::PostgreSQLEVCallback (evutil_socket_t /* a_fd */, s
                     for ( Json::ArrayIndex idx = 0 ; idx < device->post_connect_queries_.size() ; ++idx ) {
                         // ... grab query ...
                         const std::string& query = device->post_connect_queries_[idx].asString();
+                        // ... write to permanent log ...
+                        ev::Logger::GetInstance().Log("libpq-connections", context->loggable_data_,
+                                                      EV_POSTGRESQL_DEVICE_LOG_FMT " %s executing post connect query %s",
+                                                      __FUNCTION__, "STATUS",
+                                                      log_msg_prefix.c_str(),
+                                                      query.c_str()
+                        );
                         // ... synchronously execute ...
                         PGresult* post_connect_query_result = PQexec(context->connection_, query.c_str());
                         if ( nullptr != post_connect_query_result ) {
