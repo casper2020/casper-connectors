@@ -67,7 +67,7 @@ namespace ev
                 std::chrono::steady_clock::time_point connection_scheduled_tp_;
                 std::chrono::steady_clock::time_point connection_established_tp_;
                 std::chrono::steady_clock::time_point connection_finished_tp_;
-
+                bool                                  connection_established_;
                 
             public: // Constructor(s) / Destructor
 
@@ -87,6 +87,7 @@ namespace ev
                     statement_timeout_set_      = false;
                     pending_result_             = nullptr;
                     exec_start_                 = std::chrono::steady_clock::now();
+                    connection_established_     = false;
                 }
                 
                 /**

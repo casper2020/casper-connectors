@@ -564,7 +564,10 @@ void ev::postgresql::Device::PostgreSQLEVCallback (evutil_socket_t /* a_fd */, s
             context->last_connection_status_ = ( CONNECTION_MADE == connection_status ? "CONNECTION_MADE" : "CONNECTION_OK");
             // ... notify?
             if ( nullptr != device->connected_callback_ ) {
-                context->connection_established_tp_ = std::chrono::steady_clock::now();
+                if ( false == context->connection_established_ ) {
+                    context->connection_established_    = true;
+                    context->connection_established_tp_ = std::chrono::steady_clock::now();
+                }
                 call_connection_callback = true;
             }
             break;
@@ -672,17 +675,17 @@ void ev::postgresql::Device::PostgreSQLEVCallback (evutil_socket_t /* a_fd */, s
         // ... write to permanent log ...
         // ... connection established ...
         if ( device->statement_timeout_ > -1 && false == device->context_->statement_timeout_set_ ) {
-            
+            const int timeout_inc_milliseconds = (device->statement_timeout_ * 1000);
             // ... write to permanent log ...
             ev::Logger::GetInstance().Log("libpq-connections", context->loggable_data_,
-                                          EV_POSTGRESQL_DEVICE_LOG_FMT " %s setting statement timeout",
+                                          EV_POSTGRESQL_DEVICE_LOG_FMT " %s setting statement timeout to %d milliseconds ",
                                           __FUNCTION__, "STATUS",
-                                          log_msg_prefix.c_str()
+                                          log_msg_prefix.c_str(),
+                                          timeout_inc_milliseconds
             );
-
             ExecStatusType post_connect_query_exec_status = PGRES_FATAL_ERROR;
             // ... set statement timeout ...
-            const std::string query = "SET statement_timeout TO " + std::to_string((device->statement_timeout_ * 1000)) + ";";
+            const std::string query = "SET statement_timeout TO " + std::to_string(timeout_inc_milliseconds) + ";";
             PGresult* postgresql_smt_result = PQexec(context->connection_, query.c_str());
             if ( nullptr != postgresql_smt_result ) {
                 post_connect_query_exec_status = PQresultStatus(postgresql_smt_result);
@@ -696,6 +699,12 @@ void ev::postgresql::Device::PostgreSQLEVCallback (evutil_socket_t /* a_fd */, s
                 device->exception_callback_(ev::Exception("Error while setting PostgreSQL statement timeout: %s!", PQresStatus(post_connect_query_exec_status)));
                 return;
             }
+            // ... write to permanent log ...
+            ev::Logger::GetInstance().Log("libpq-connections", context->loggable_data_,
+                                          EV_POSTGRESQL_DEVICE_LOG_FMT " %s statement timeout set",
+                                          __FUNCTION__, "STATUS",
+                                          log_msg_prefix.c_str()
+            );
         }
         // ... post connect queries ...
         if ( false == device->post_connect_queries_applied_  ) {
@@ -729,6 +738,12 @@ void ev::postgresql::Device::PostgreSQLEVCallback (evutil_socket_t /* a_fd */, s
                     }
                 }
                 device->post_connect_queries_applied_ = true;
+                // ... write to permanent log ...
+                ev::Logger::GetInstance().Log("libpq-connections", context->loggable_data_,
+                                              EV_POSTGRESQL_DEVICE_LOG_FMT " %s post connect queries executed",
+                                              __FUNCTION__, "STATUS",
+                                              log_msg_prefix.c_str()
+                );
             } catch (const Json::Exception& a_json_exception) {
                 device->exception_callback_(ev::Exception("%s", a_json_exception.what()));
                 return;
