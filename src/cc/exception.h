@@ -71,7 +71,7 @@ namespace cc
         /**
          * @brief A constructor that provides the reason of the fault origin.
          *
-         * @param a_message
+         * @param a_message Reason of the fault origin.
          */
         Exception (const std::string& a_message)
         {
@@ -82,7 +82,7 @@ namespace cc
          * @brief A constructor that provides the reason of the fault origin.
          *
          * @param a_format printf like format followed by a variable number of arguments.
-         * @param ...
+         * param ...
          */
         Exception (const char* const a_format, ...) __attribute__((format(printf, 2, 3)))
         {

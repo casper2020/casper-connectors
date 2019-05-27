@@ -121,14 +121,15 @@ EV_SRC :=                           \
 									./src/ev/scheduler/subscription.cc                                            \
 									./src/ev/scheduler/task.cc                                                    \
 									./src/ev/scheduler/unique_id_generator.cc                                     \
-                                    ./src/ev/beanstalk/consumer.cc                                                \
+									./src/ev/beanstalk/consumer.cc                                                \
 									./src/ev/beanstalk/producer.cc                                                \
 									./src/cc/errors/jsonapi/tracker.cc                                            \
 									./src/cc/errors/tracker.cc                                                    \
-									./src/cc/file/utils.cc                                                        \
-									./src/cc/file/writer.cc                                                       \
+									./src/cc/fs/file.cc                                                           \
+									./src/cc/fs/posix/dir.cc                                                      \
+									./src/cc/fs/posix/file.cc                                                     \
 									./src/cc/i18n/singleton.cc                                                    \
-						            ./src/ev/casper/session.cc
+									./src/ev/casper/session.cc
 
 AUTH_SRC := \
 									  ./src/cc/auth/jwt.cc    \

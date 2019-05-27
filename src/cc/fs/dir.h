@@ -1,9 +1,9 @@
 /**
- * @file utils.h
+ * @file dir.h
  *
- * Copyright (c) 2011-2018 Cloudware S.A. All rights reserved.
+ * Copyright (c) 2011-2019 Cloudware S.A. All rights reserved.
  *
- * This file is part of casper-nginx-broker.
+ * This file is part of casper-connectors.
  *
  * casper-nginx-broker is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -19,30 +19,24 @@
  * along with casper-nginx-broker.  If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
-#ifndef NRS_CC_UTILS_H_
-#define NRS_CC_UTILS_H_
+#ifndef NRS_CC_FS_DIR_H_
+#define NRS_CC_FS_DIR_H_
 
-#include <string>
+#include "cc/fs/posix/dir.h"
 
 namespace cc
 {
-
-    namespace file
+    
+    namespace fs
     {
         
-        class Utils
-        {
-         
-        public: // Static Method(s) / Function(s)
-            
-            static void EnsureUnique (const std::string& a_directory, const std::string& a_file_name, const std::string& a_file_extension, std::string& o_uri);
-            static bool Exists       (const std::string& a_uri);
-            static void Erase        (const std::string& a_uri);
-            
-        }; // end of class 'Utils'
+        //             //
+        // 'Dir' class //
+        //             //
+        typedef cc::fs::posix::Dir Dir;
         
-    } // end of namespace 'file'
+    } // end of namespace 'fs'
     
 } // end of namespace 'cc'
 
-#endif // NRS_CC_UTILS_H_
+#endif // NRS_CC_FS_DIR_H_
