@@ -112,6 +112,20 @@ namespace cc
             return what_.c_str();
         }
         
+    public: // Static Method(s) / Function(s)
+        
+        /*
+         * @brief Rethrow a standard exception.
+         */
+        static void Rethrow ()
+        {
+            try {
+                std::rethrow_exception(std::current_exception());
+            } catch(const std::exception& e) {
+                throw ::cc::Exception("%s", e.what());
+            }
+        }
+        
     };
 
 }
