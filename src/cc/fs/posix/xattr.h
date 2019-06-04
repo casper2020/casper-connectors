@@ -57,10 +57,13 @@ namespace cc
                 
             public: // Method(s) / Function(s)
                 
-                void Set     (const std::string& a_name, const std::string& a_value) const;
-                void Get     (const std::string& a_name, std::string& o_value) const;
-                void Remove  (const std::string& a_name, std::string* o_value = nullptr) const;
-                void Iterate (const std::function<void(const char* const, const char* const)>& a_callback) const;
+                void Set      (const std::string& a_name, const std::string& a_value) const;
+                void Get      (const std::string& a_name, std::string& o_value) const;
+                bool Exists   (const std::string& a_name) const;
+                void Remove   (const std::string& a_name, std::string* o_value = nullptr) const;
+                void Iterate  (const std::function<void(const char* const, const char* const)>& a_callback) const;
+                void Seal     (const char* const a_name, const unsigned char* a_magic, size_t a_length) const;
+                void Validate (const char* const a_name, const unsigned char* a_magic, size_t a_length) const;
                 
             }; // end of class 'XAttr'
             

@@ -42,8 +42,17 @@ namespace cc
             class File : public NonCopyable, public NonMovable
             {
                 
-            private: // Data
+            public: // Enum(s)
                 
+                enum class Mode : uint8_t {
+                    NotSet,
+                    Read,
+                    Write,
+                };
+                
+            private: // Data
+
+                Mode        mode_;
                 FILE*       fp_;
                 std::string uri_;
                 
@@ -54,7 +63,8 @@ namespace cc
                 
             public: // Method(s) / Function(s)
                 
-                virtual void     Open  (const std::string& a_uri);
+                virtual void     Open  (const std::string& a_uri, const Mode& a_mode);
+                virtual size_t   Read (unsigned char* o_data, const size_t a_size, bool& o_eof);
                 virtual void     Open  (const std::string& a_path, const std::string& a_prefix, const std::string& a_extension, const size_t& a_size);
                 virtual size_t   Write (const unsigned char* a_data, const size_t a_size, const bool a_flush = false);
                 virtual void     Flush ();

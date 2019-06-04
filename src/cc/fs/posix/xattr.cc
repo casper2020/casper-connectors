@@ -23,6 +23,8 @@
 
 #include "cc/fs/exception.h"
 
+#include "cc/utils/md5.h"
+
 #include <string.h> // strerror
 
 #include <sys/xattr.h>
@@ -189,7 +191,7 @@ void cc::fs::posix::XAttr::Get (const std::string& a_name, std::string& o_value)
         
         const char* const attr_name = a_name.c_str();
         
-        size_t rv;
+        ssize_t rv;
         if ( 0 != uri_.length() ) {
 
             // ... 1st call to calculate required buffer size
@@ -239,6 +241,41 @@ void cc::fs::posix::XAttr::Get (const std::string& a_name, std::string& o_value)
         throw a_cc_exception;
     }
 
+}
+
+/**
+ * @brief Check of an xattr exists
+ *
+ * @param a_name  xattr name..
+ */
+bool cc::fs::posix::XAttr::Exists (const std::string& a_name) const
+{
+    // ... ensure valid 'access' to file ...
+    if ( 0 == uri_.length() && -1 == fd_ ) {
+        throw cc::fs::Exception("Unable to open set xattr - no file uri or fd is set!");
+    }
+    
+    //
+    // On failure, -1 is returned and errno is set.
+    // On success, a positive number is returned indicating the size of the extended attribute value.
+    //
+    
+    const char* const attr_name = a_name.c_str();
+        
+    ssize_t rv;
+    if ( 0 != uri_.length() ) {
+        rv = GET_X_ATTR(uri_.c_str(), attr_name, nullptr, 0);
+    } else {
+        rv = FGET_X_ATTR(fd_, attr_name, nullptr, 0);
+    }
+    
+    const int err_no = errno;
+    
+    if ( -1 == rv && ENOATTR != err_no ) {
+        throw cc::fs::Exception("Unable to get xattr '%s' - %s!", attr_name, strerror(err_no));
+    }
+
+    return ( ENOATTR != err_no );
 }
 
 /**
@@ -420,6 +457,73 @@ void cc::fs::posix::XAttr::Iterate (const std::function<void(const char* const, 
             delete [] vb;
         }
         throw a_cc_exception;
+    }
+}
+
+/**
+ * @brief Calculate and save attributes seal.
+ *
+ * @param a_name
+ */
+void cc::fs::posix::XAttr::Seal (const char* const a_name, const unsigned char* a_magic, size_t a_length) const
+{
+    // ... ensure valid 'access' to file ...
+    if ( 0 == uri_.length() && -1 == fd_ ) {
+        throw cc::fs::Exception("Unable to open calculate xattrs seal - no file uri or fd is set!");
+    }
+
+    cc::utils::MD5 md5;
+    md5.Initialize();
+    Iterate([&md5, a_name] (const char* const a_key, const char *const a_value) {
+        if ( 0 != strcasecmp(a_key, a_name) ) {
+            md5.Update(reinterpret_cast<const unsigned char*>(a_key), strlen(a_key));
+            md5.Update(reinterpret_cast<const unsigned char*>("&"), sizeof(char));
+            md5.Update(reinterpret_cast<const unsigned char*>(a_value), strlen(a_value));
+        }
+    });
+    
+    const std::string tmp = md5.Finalize();
+    
+    char seal [64] = { 0, 0 };
+    for ( size_t idx = 0; idx < tmp.length() ; idx++ ) {
+        sprintf(&(seal[idx*2]), "%02x", ( tmp[idx] ^ a_magic[idx % a_length] ));
+    }
+
+    Set(a_name, seal);
+}
+
+/**
+ * @brief Calculate and validate attributes seal.
+ */
+void cc::fs::posix::XAttr::Validate (const char* const a_name, const unsigned char* a_magic, size_t a_length) const
+{
+    // ... ensure valid 'access' to file ...
+    if ( 0 == uri_.length() && -1 == fd_ ) {
+        throw cc::fs::Exception("Unable to verify xattrs seal - no file uri or fd is set!");
+    }
+
+    std::string value;
+    Get(a_name, value);
+
+    cc::utils::MD5 md5;
+    md5.Initialize();
+    Iterate([&md5, a_name] (const char *const a_key, const char *const a_value) {
+        if ( 0 != strcasecmp(a_key, a_name) ) {
+            md5.Update(reinterpret_cast<const unsigned char*>(a_key), strlen(a_key));
+            md5.Update(reinterpret_cast<const unsigned char*>("&"), sizeof(char));
+            md5.Update(reinterpret_cast<const unsigned char*>(a_value), strlen(a_value));
+        }
+    });
+
+    const std::string tmp = md5.Finalize();
+    
+    char seal [64] = { 0, 0 };
+    for ( size_t idx = 0; idx < tmp.length() ; idx++ ) {
+        sprintf(&(seal[idx*2]), "%02x", ( tmp[idx] ^ a_magic[idx % a_length] ));
+        }
+
+    if ( 0 != value.compare(seal) ) {
+        throw cc::fs::Exception("Xattrs seal tampered!");
     }
 }
 

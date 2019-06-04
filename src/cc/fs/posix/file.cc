@@ -37,7 +37,8 @@
  */
 cc::fs::posix::File::File ()
 {
-    fp_ = nullptr;
+    mode_ = cc::fs::posix::File::Mode::NotSet;
+    fp_   = nullptr;
 }
 
 /**
@@ -54,15 +55,57 @@ cc::fs::posix::File::~File ()
  * @brief Open a file in write mode.
  *
  * @param a_uri
+ * @param a_mode
  */
-void cc::fs::posix::File::Open (const std::string& a_uri)
+void cc::fs::posix::File::Open (const std::string& a_uri, const cc::fs::posix::File::Mode& a_mode)
 {
-    Close(/* a_force */ true);
-    fp_ = fopen(a_uri.c_str(), "w");
+    if ( nullptr != fp_ ) {
+        throw cc::fs::Exception("Unable to open file '%s' - a file is already open!", a_uri.c_str());
+    }
+    switch (a_mode) {
+        case cc::fs::posix::File::Mode::Read:
+            fp_ = fopen(a_uri.c_str(), "r");
+            break;
+        case cc::fs::posix::File::Mode::Write:
+            fp_ = fopen(a_uri.c_str(), "w");
+            break;
+        default:
+            throw cc::fs::Exception("Unable to open file '%s' - mode %hhu not supported!", a_uri.c_str(), a_mode);
+    }
     if ( nullptr == fp_ ) {
         throw cc::fs::Exception("Unable to open file '%s' - %s!", a_uri.c_str(), strerror(errno));
     }
-    uri_ = a_uri;
+    // ... done ...
+    mode_ = a_mode;
+    uri_  = a_uri;
+}
+
+/**
+ * @brief Reda data the currently open file.
+ *
+ * @param o_data Buffer where that must be written to.
+ * @param a_size Number of bytes to write.
+ * @param o_eof True if end-of-file reached.
+ *
+ * @return Number of bytes read.
+ */
+size_t cc::fs::posix::File::Read (unsigned char* o_data, const size_t a_size, bool& o_eof)
+{
+    if ( nullptr == fp_ ) {
+        throw cc::fs::Exception("Unable to read data from file - not open!");
+    }
+
+    if ( cc::fs::posix::File::Mode::Read != mode_ ) {
+        throw cc::fs::Exception("Unable to read data from file '%s' - mode %hhu not supported!", uri_.c_str(), mode_);
+    }
+
+    const size_t bytes_read = fread(o_data, sizeof(unsigned char), a_size, fp_);
+    if ( ferror(fp_) ) {
+        throw cc::fs::Exception("Unable to read data from file '%s' - %s!", uri_.c_str(), strerror(errno));
+    }
+    o_eof = ( 0 != feof(fp_) );
+
+    return bytes_read;
 }
 
 /**
@@ -75,6 +118,10 @@ void cc::fs::posix::File::Open (const std::string& a_uri)
  */
 void cc::fs::posix::File::Open (const std::string& a_path, const std::string& a_prefix, const std::string& a_extension, const size_t& a_size)
 {
+    if ( nullptr != fp_ ) {
+        throw cc::fs::Exception("Unable to create unique file at '%s' - a file is already open!", ( a_path + a_prefix ).c_str());
+    }
+
     // ... if directory does not exist ...
     if ( false == cc::fs::posix::Dir::Exists(a_path.c_str()) ) {
         // ... create it ...
@@ -83,7 +130,7 @@ void cc::fs::posix::File::Open (const std::string& a_path, const std::string& a_
     
     // ... ensure there is enough space ...
     cc::fs::posix::Dir::EnsureEnoughFreeSpace(a_path.c_str(), a_size,
-                                              ( "Unable to create unique file at '" + ( a_path + a_prefix ) + "'" ).c_str()
+        ( "Unable to create unique file at '" + ( a_path + a_prefix ) + "'" ).c_str()
     );
 
     // ... file will be placed there ...
@@ -114,9 +161,10 @@ void cc::fs::posix::File::Open (const std::string& a_path, const std::string& a_
     if ( nullptr == fp_ ) {
         throw cc::fs::Exception("Unable to open unique file '%s' - %s!", uri_.c_str(), strerror(errno));
     }
-    
-    // ... keep track of file uri ...
-    uri_ = f_template;
+
+    // ... done ...
+    mode_ = cc::fs::posix::File::Mode::Write;
+    uri_  = f_template;
 }
 
 /**
@@ -132,6 +180,10 @@ size_t cc::fs::posix::File::Write (const unsigned char* a_data, const size_t a_s
 {
     if ( nullptr == fp_ ) {
         throw cc::fs::Exception("Unable to write data to file - not open!");
+    }
+    
+    if ( cc::fs::posix::File::Mode::Write != mode_ ) {
+        throw cc::fs::Exception("Unable to write data to file '%s' - mode %hhu not supported!", uri_.c_str(), mode_);
     }
     
     const size_t bytes_written = fwrite(a_data, sizeof(unsigned char), a_size, fp_);
@@ -157,7 +209,11 @@ void cc::fs::posix::File::Flush ()
 {
     if ( nullptr == fp_ ) {
         throw cc::fs::Exception("Unable to flush data to file - not open!");
-    } else if ( 0 != fflush(fp_) ) {
+    }
+    if ( cc::fs::posix::File::Mode::Write != mode_ ) {
+        throw cc::fs::Exception("Unable to flush data to file '%s' - mode %hhu not supported!", uri_.c_str(), mode_);
+    }
+    if ( 0 != fflush(fp_) ) {
         throw cc::fs::Exception("Unable to flush data to file '%s' - %s!", uri_.c_str(), strerror(errno));
     }
 }
