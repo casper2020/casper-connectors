@@ -30,6 +30,18 @@
 #include <unistd.h> // mkstemps
 #include <libgen.h> // basename
 
+#include <string.h> // strlen, strerror, ...
+
+// statfs
+#ifdef __APPLE__
+  #include <sys/param.h>
+  #include <sys/mount.h>
+  #include <sys/syslimits.h>
+#else // linux
+  #include <sys/vfs.h>    /* or <sys/statfs.h> */
+  #include <linux/limits.h>
+#endif
+
 #ifdef __APPLE__
 #pragma mark - File
 #endif
@@ -72,7 +84,10 @@ void cc::fs::posix::File::Open (const std::string& a_uri, const cc::fs::posix::F
             fp_ = fopen(a_uri.c_str(), "w");
             break;
         default:
-            throw cc::fs::Exception("Unable to open file '%s' - mode " UINT8_FMT " not supported!", a_uri.c_str(), a_mode);
+            throw cc::fs::Exception("Unable to open file '%s' - mode " UINT8_FMT " not supported!",
+				    a_uri.c_str(),
+				    static_cast<uint8_t>(a_mode)
+	    );
     }
     if ( nullptr == fp_ ) {
         throw cc::fs::Exception("Unable to open file '%s' - %s!", a_uri.c_str(), strerror(errno));
@@ -98,7 +113,10 @@ size_t cc::fs::posix::File::Read (unsigned char* o_data, const size_t a_size, bo
     }
 
     if ( cc::fs::posix::File::Mode::Read != mode_ ) {
-        throw cc::fs::Exception("Unable to read data from file '%s' - mode " UINT8_FMT " not supported!", uri_.c_str(), mode_);
+        throw cc::fs::Exception("Unable to read data from file '%s' - mode " UINT8_FMT " not supported!",
+				uri_.c_str(),
+				static_cast<uint8_t>(mode_)
+	);
     }
 
     const size_t bytes_read = fread(o_data, sizeof(unsigned char), a_size, fp_);
@@ -185,7 +203,10 @@ size_t cc::fs::posix::File::Write (const unsigned char* a_data, const size_t a_s
     }
     
     if ( cc::fs::posix::File::Mode::Write != mode_ ) {
-        throw cc::fs::Exception("Unable to write data to file '%s' - mode " UINT8_FMT " not supported!", uri_.c_str(), mode_);
+        throw cc::fs::Exception("Unable to write data to file '%s' - mode " UINT8_FMT " not supported!",
+				uri_.c_str(),
+				static_cast<uint8_t>(mode_)
+	);
     }
     
     const size_t bytes_written = fwrite(a_data, sizeof(unsigned char), a_size, fp_);
@@ -213,7 +234,10 @@ void cc::fs::posix::File::Flush ()
         throw cc::fs::Exception("Unable to flush data to file - not open!");
     }
     if ( cc::fs::posix::File::Mode::Write != mode_ ) {
-        throw cc::fs::Exception("Unable to flush data to file '%s' - mode " UINT8_FMT " not supported!", uri_.c_str(), mode_);
+        throw cc::fs::Exception("Unable to flush data to file '%s' - mode " UINT8_FMT " not supported!",
+				uri_.c_str(),
+				static_cast<uint8_t>(mode_)
+	);
     }
     if ( 0 != fflush(fp_) ) {
         throw cc::fs::Exception("Unable to flush data to file '%s' - %s!", uri_.c_str(), strerror(errno));

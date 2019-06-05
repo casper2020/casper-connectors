@@ -128,15 +128,19 @@ EV_SRC :=                           \
 									./src/cc/fs/file.cc                                                           \
 									./src/cc/fs/posix/dir.cc                                                      \
 									./src/cc/fs/posix/file.cc                                                     \
+									./src/cc/fs/posix/xattr.cc                                                    \
 									./src/cc/i18n/singleton.cc                                                    \
 									./src/ev/casper/session.cc
 
 AUTH_SRC := \
-									  ./src/cc/auth/jwt.cc    \
+									./src/cc/auth/jwt.cc    \
+
+HASH_SRC := \
+                                                                        ./src/cc/hash/md5.cc
 
 CRYPTO_SRC := \
-									  ./src/cc/crypto/hmac.cc \
-								      ./src/cc/crypto/rsa.cc
+									./src/cc/crypto/hmac.cc \
+								        ./src/cc/crypto/rsa.cc
 
 CC_SRC := \
                                       ./src/cc/utc_time.cc

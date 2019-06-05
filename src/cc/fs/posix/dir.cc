@@ -28,8 +28,17 @@
 
 #include <libgen.h> // dirname
 
-#include <sys/param.h> // statfs
-#include <sys/mount.h> // statfs
+#include <string.h> // strlen, strerror, ...
+
+// statfs & PATH_PAMX
+#ifdef __APPLE__
+  #include <sys/param.h>
+  #include <sys/mount.h>
+  #include <sys/syslimits.h>
+#else // linux
+  #include <sys/vfs.h>    /* or <sys/statfs.h> */
+  #include <linux/limits.h>
+#endif
 
 /**
  * @brief Default constructor.

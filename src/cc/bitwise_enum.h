@@ -22,6 +22,9 @@
 #ifndef NRS_CC_BITWISE_ENUM_H_
 #define NRS_CC_BITWISE_ENUM_H_
 
+#define NRS_CC_BITWISE_ENUM_FRIEND
+// friend
+
 #define DEFINE_ENUM_WITH_BITWISE_OPERATORS(x)  \
 \
     template<typename Enum> struct EnumWithBitWiseOperators \
@@ -31,34 +34,34 @@
 \
     template<typename Enum> \
     typename std::enable_if<EnumWithBitWiseOperators<Enum>::enabled_, Enum>::type \
-    friend operator | (Enum lhs, Enum rhs) { \
+    NRS_CC_BITWISE_ENUM_FRIEND operator | (Enum lhs, Enum rhs) {					\
         using underlying = typename std::underlying_type<Enum>::type; \
         return static_cast<Enum>(static_cast<underlying>(lhs) | static_cast<underlying>(rhs)); \
     } \
 \
     template<typename Enum> \
     typename std::enable_if<EnumWithBitWiseOperators<Enum>::enabled_, Enum>::type \
-    friend operator & (Enum lhs, Enum rhs) { \
+    NRS_CC_BITWISE_ENUM_FRIEND operator & (Enum lhs, Enum rhs) { \
         using underlying = typename std::underlying_type<Enum>::type; \
         return static_cast<Enum>(static_cast<underlying>(lhs) & static_cast<underlying>(rhs)); \
     } \
 \
     template<typename Enum> \
     typename std::enable_if<EnumWithBitWiseOperators<Enum>::enabled_, Enum>::type \
-    friend operator ^ (Enum lhs, Enum rhs) { \
+    NRS_CC_BITWISE_ENUM_FRIEND operator ^ (Enum lhs, Enum rhs) { \
     using underlying = typename std::underlying_type<Enum>::type; \
         return static_cast<Enum>(static_cast<underlying>(lhs) ^ static_cast<underlying>(rhs)); \
     } \
 \
     template<typename Enum> \
     typename std::enable_if<EnumWithBitWiseOperators<Enum>::enabled_, Enum>::type \
-    friend operator ~ (Enum rhs) { \
+    NRS_CC_BITWISE_ENUM_FRIEND operator ~ (Enum rhs) { \
         return static_cast<Enum>(~static_cast<typename std::underlying_type<Enum>::type>(rhs)); \
     } \
 \
     template<typename Enum> \
     typename std::enable_if<EnumWithBitWiseOperators<Enum>::enabled_, Enum&>::type \
-    friend operator |= (Enum& lhs, Enum rhs) { \
+    NRS_CC_BITWISE_ENUM_FRIEND operator |= (Enum& lhs, Enum rhs) { \
         using underlying = typename std::underlying_type<Enum>::type; \
         lhs = static_cast<Enum>(static_cast<underlying>(lhs) | static_cast<underlying>(rhs)); \
         return lhs; \
@@ -66,7 +69,7 @@
 \
     template<typename Enum> \
     typename std::enable_if<EnumWithBitWiseOperators<Enum>::enabled_, Enum&>::type \
-    friend operator &= (Enum& lhs, Enum rhs) { \
+    NRS_CC_BITWISE_ENUM_FRIEND operator &= (Enum& lhs, Enum rhs) { \
         using underlying = typename std::underlying_type<Enum>::type; \
         lhs = static_cast<Enum>(static_cast<underlying>(lhs) & static_cast<underlying>(rhs)); \
         return lhs; \
@@ -74,7 +77,7 @@
 \
     template<typename Enum> \
     typename std::enable_if<EnumWithBitWiseOperators<Enum>::enabled_, Enum&>::type \
-    friend operator ^= (Enum& lhs, Enum rhs) { \
+    NRS_CC_BITWISE_ENUM_FRIEND operator ^= (Enum& lhs, Enum rhs) { \
         using underlying = typename std::underlying_type<Enum>::type; \
         lhs = static_cast<Enum>(static_cast<underlying>(lhs) ^ static_cast<underlying>(rhs)); \
         return lhs; \

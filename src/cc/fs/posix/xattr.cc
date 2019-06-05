@@ -62,13 +62,14 @@
     #define FGET_X_ATTR(a_fd, a_name, a_buffer, a_size) \
         fgetxattr(a_fd, a_name, a_buffer, a_size, /* position */ 0, /* a_options */ 0)
     #define SET_X_ATTR(a_uri, a_name, a_value, a_size) \
-        setxattr(a_uri, a_name, a_value, a_size, /* position */ 0, /* options */ 0);
+        setxattr(a_uri, a_name, a_value, a_size, /* position */ 0, /* options */ 0)
     #define FSET_X_ATTR(a_fd, a_name, a_value, a_size) \
-        fsetxattr(a_fd, a_name, a_value, a_size, /* position */ 0, /* options */ 0);
+        fsetxattr(a_fd, a_name, a_value, a_size, /* position */ 0, /* options */ 0)
     #define REMOVE_X_ATTR(a_uri, a_name) \
         removexattr(a_uri, a_name, /* options */ 0);
     #define FREMOVE_X_ATTR(a_fd, a_name) \
         fremovexattr(a_fd, a_name, /* options */ 0);
+    #define XATTR_DOES_NOT_EXISTS ENOATTR
 
 #else
 
@@ -89,18 +90,18 @@
     #define FLIST_X_ATTR(a_fd, a_buffer, a_size) \
         flistxattr(a_fd, a_buffer, a_size)
     #define GET_X_ATTR(a_uri, a_name, a_buffer, a_size) \
-        getxattr(a_uri, a_name, a_buffer, a_size, /* flags */ 0)
-    #define GET_X_ATTR(a_fd, a_name, a_buffer, a_size) \
-        fgetxattr(a_fd, a_name, a_buffer, a_size, /* flags */ 0)
+        getxattr(a_uri, a_name, a_buffer, a_size)
+    #define FGET_X_ATTR(a_fd, a_name, a_buffer, a_size) \
+        fgetxattr(a_fd, a_name, a_buffer, a_size)
     #define SET_X_ATTR(a_uri, a_name, a_value, a_size) \
-        setxattr(a_uri, a_name, a_value, a_size, /* flags */ 0);
+        setxattr(a_uri, a_name, a_value, a_size, /* flags */ 0)
     #define FSET_X_ATTR(a_fd, a_name, a_value, a_size) \
-        fsetxattr(a_fd, a_name, a_value, a_size, /* flags */ 0);
+        fsetxattr(a_fd, a_name, a_value, a_size, /* flags */ 0)
     #define REMOVE_X_ATTR(a_uri, a_name) \
-        removexattr(a_uri, a_name);
+        removexattr(a_uri, a_name)
     #define FREMOVE_X_ATTR(a_fd, a_name) \
-        fremovexattr(a_fd, a_name);
-
+        fremovexattr(a_fd, a_name)
+    #define XATTR_DOES_NOT_EXISTS ENODATA
 #endif
 
 /**
@@ -271,11 +272,11 @@ bool cc::fs::posix::XAttr::Exists (const std::string& a_name) const
     
     const int err_no = errno;
     
-    if ( -1 == rv && ENOATTR != err_no ) {
+    if ( -1 == rv && XATTR_DOES_NOT_EXISTS != err_no ) {
         throw cc::fs::Exception("Unable to get xattr '%s' - %s!", attr_name, strerror(err_no));
     }
 
-    return ( ENOATTR != err_no );
+    return ( XATTR_DOES_NOT_EXISTS != err_no );
 }
 
 /**
@@ -377,7 +378,7 @@ void cc::fs::posix::XAttr::Iterate (const std::function<void(const char* const, 
         size_t      kl = 0;
 
         // ... iterate keys buffer ( zero terminated strings are provided ) ...
-        size_t  rv = 0;
+        ssize_t  rv = 0;
         if ( 0 != uri_.length() ) {
             
             const char* const uri = uri_.c_str();
