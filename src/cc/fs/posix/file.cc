@@ -168,10 +168,12 @@ void cc::fs::posix::File::Open (const std::string& a_path, const std::string& a_
         uri_ += "." + a_extension;
     }
     
+    const int suffix_length = ( a_extension.length() > 0 ? static_cast<int>(a_extension.length()) + sizeof(char) : 0 );
+    
     // ... ensure unique file in destination directory ...
     char f_template[PATH_MAX] = { 0, 0 };
     memcpy(f_template, uri_.c_str(), uri_.length());
-    int fd = mkstemps(f_template, sizeof(char) * static_cast<int>(a_extension.length() + 1));
+    int fd = mkstemps(f_template, suffix_length);
     if ( -1 == fd ) {
         throw cc::fs::Exception("Unable to create unique file at '%s' - %s!", (a_path + a_prefix).c_str(), strerror(errno));
     }
