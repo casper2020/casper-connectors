@@ -19,12 +19,12 @@
  * along with casper-nginx-broker.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "cc/utils/md5.h"
+#include "cc/hash/md5.h"
 
 /**
  * @brief Default constructor.
  */
-cc::utils::MD5::MD5 ()
+cc::hash::MD5::MD5 ()
 {
     digest_[0]   = 0;
     md5_hex_[0]  = '\0';
@@ -33,7 +33,7 @@ cc::utils::MD5::MD5 ()
 /**
  * @brief Destructor.
  */
-cc::utils::MD5::~MD5 ()
+cc::hash::MD5::~MD5 ()
 {
     /* empty */
 }
@@ -41,7 +41,7 @@ cc::utils::MD5::~MD5 ()
 /**
  * @brief Initialize MD5 context.
  */
-void cc::utils::MD5::Initialize ()
+void cc::hash::MD5::Initialize ()
 {
     digest_[0]  = 0;
     md5_hex_[0] = '\0';
@@ -54,7 +54,7 @@ void cc::utils::MD5::Initialize ()
  * @param a_data   Data.
  * @param a_length Size in bytes.
  */
-void cc::utils::MD5::Update(const unsigned char* const a_data, size_t a_length)
+void cc::hash::MD5::Update(const unsigned char* const a_data, size_t a_length)
 {
     MD5_Update(&context_, a_data, static_cast<int>(a_length));
 }
@@ -64,7 +64,7 @@ void cc::utils::MD5::Update(const unsigned char* const a_data, size_t a_length)
  *
  * @return MD5 HEX string.
  */
-std::string cc::utils::MD5::Finalize ()
+std::string cc::hash::MD5::Finalize ()
 {
     
     MD5_Final (digest_,&context_);

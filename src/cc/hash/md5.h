@@ -19,8 +19,8 @@
  * along with nginx-broker.  If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
-#ifndef NRS_CC_UTILS_MD5_H_
-#define NRS_CC_UTILS_MD5_H_
+#ifndef NRS_CC_HASH_MD5_H_
+#define NRS_CC_HASH_MD5_H_
 
 #include <sys/types.h> // int64_t
 #include <stdint.h>    // uint8_t, etc
@@ -34,7 +34,7 @@
 namespace cc
 {
     
-    namespace utils
+    namespace hash
     {
         
         class MD5 final : public NonCopyable, NonMovable
@@ -63,8 +63,8 @@ namespace cc
         }; // end of class 'Time'
         
         
-    } // end of namespace 'utils'
+    } // end of namespace 'hash'
 
 } // end of namespace 'cc'
 
-#endif // NRS_CC_UTILS_MD5_H_
+#endif // NRS_CC_HASH_MD5_H_

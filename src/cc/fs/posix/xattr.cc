@@ -23,7 +23,7 @@
 
 #include "cc/fs/exception.h"
 
-#include "cc/utils/md5.h"
+#include "cc/hash/md5.h"
 
 #include <string.h> // strerror
 
@@ -472,7 +472,7 @@ void cc::fs::posix::XAttr::Seal (const char* const a_name, const unsigned char* 
         throw cc::fs::Exception("Unable to open calculate xattrs seal - no file uri or fd is set!");
     }
 
-    cc::utils::MD5 md5;
+    cc::hash::MD5 md5;
     md5.Initialize();
     Iterate([&md5, a_name] (const char* const a_key, const char *const a_value) {
         if ( 0 != strcasecmp(a_key, a_name) ) {
@@ -505,7 +505,7 @@ void cc::fs::posix::XAttr::Validate (const char* const a_name, const unsigned ch
     std::string value;
     Get(a_name, value);
 
-    cc::utils::MD5 md5;
+    cc::hash::MD5 md5;
     md5.Initialize();
     Iterate([&md5, a_name] (const char *const a_key, const char *const a_value) {
         if ( 0 != strcasecmp(a_key, a_name) ) {
