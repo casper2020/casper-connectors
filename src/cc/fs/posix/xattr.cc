@@ -466,7 +466,7 @@ void cc::fs::posix::XAttr::Iterate (const std::function<void(const char* const, 
  *
  * @param a_name
  */
-void cc::fs::posix::XAttr::Seal (const char* const a_name, const unsigned char* a_magic, size_t a_length) const
+void cc::fs::posix::XAttr::Seal (const std::string& a_name, const unsigned char* a_magic, size_t a_length) const
 {
     // ... ensure valid 'access' to file ...
     if ( 0 == uri_.length() && -1 == fd_ ) {
@@ -476,7 +476,7 @@ void cc::fs::posix::XAttr::Seal (const char* const a_name, const unsigned char* 
     cc::hash::MD5 md5;
     md5.Initialize();
     Iterate([&md5, a_name] (const char* const a_key, const char *const a_value) {
-        if ( 0 != strcasecmp(a_key, a_name) ) {
+        if ( 0 != strcasecmp(a_key, a_name.c_str()) ) {
             md5.Update(reinterpret_cast<const unsigned char*>(a_key), strlen(a_key));
             md5.Update(reinterpret_cast<const unsigned char*>("&"), sizeof(char));
             md5.Update(reinterpret_cast<const unsigned char*>(a_value), strlen(a_value));
@@ -496,7 +496,7 @@ void cc::fs::posix::XAttr::Seal (const char* const a_name, const unsigned char* 
 /**
  * @brief Calculate and validate attributes seal.
  */
-void cc::fs::posix::XAttr::Validate (const char* const a_name, const unsigned char* a_magic, size_t a_length) const
+void cc::fs::posix::XAttr::Validate (const std::string& a_name, const unsigned char* a_magic, size_t a_length) const
 {
     // ... ensure valid 'access' to file ...
     if ( 0 == uri_.length() && -1 == fd_ ) {
@@ -509,7 +509,7 @@ void cc::fs::posix::XAttr::Validate (const char* const a_name, const unsigned ch
     cc::hash::MD5 md5;
     md5.Initialize();
     Iterate([&md5, a_name] (const char *const a_key, const char *const a_value) {
-        if ( 0 != strcasecmp(a_key, a_name) ) {
+        if ( 0 != strcasecmp(a_key, a_name.c_str()) ) {
             md5.Update(reinterpret_cast<const unsigned char*>(a_key), strlen(a_key));
             md5.Update(reinterpret_cast<const unsigned char*>("&"), sizeof(char));
             md5.Update(reinterpret_cast<const unsigned char*>(a_value), strlen(a_value));
