@@ -175,7 +175,7 @@ void cc::fs::posix::XAttr::Get (const std::string& a_name, std::string& o_value)
 {
     // ... ensure valid 'access' to file ...
     if ( 0 == uri_.length() && -1 == fd_ ) {
-        throw cc::fs::Exception("Unable to open set xattr - no file uri or fd is set!");
+        throw cc::fs::Exception("Unable to open get xattr - no file uri or fd is set!");
     }
 
     //
@@ -253,7 +253,7 @@ bool cc::fs::posix::XAttr::Exists (const std::string& a_name) const
 {
     // ... ensure valid 'access' to file ...
     if ( 0 == uri_.length() && -1 == fd_ ) {
-        throw cc::fs::Exception("Unable to open set xattr - no file uri or fd is set!");
+        throw cc::fs::Exception("Unable to open verify if xattr exists - no file uri or fd is set!");
     }
     
     //
@@ -273,7 +273,7 @@ bool cc::fs::posix::XAttr::Exists (const std::string& a_name) const
     const int err_no = errno;
     
     if ( -1 == rv && XATTR_DOES_NOT_EXISTS != err_no ) {
-        throw cc::fs::Exception("Unable to get xattr '%s' - %s!", attr_name, strerror(err_no));
+        throw cc::fs::Exception("Unable to open verify if xattr '%s' exists - %s!", attr_name, strerror(err_no));
     }
 
     return ( XATTR_DOES_NOT_EXISTS != err_no );
@@ -289,7 +289,7 @@ void cc::fs::posix::XAttr::Remove (const std::string& a_name, std::string* o_val
 {
     // ... ensure valid 'access' to file ...
     if ( 0 == uri_.length() && -1 == fd_ ) {
-        throw cc::fs::Exception("Unable to open set xattr - no file uri or fd is set!");
+        throw cc::fs::Exception("Unable to open remove xattr - no file uri or fd is set!");
     }
 
     //
@@ -325,7 +325,7 @@ void cc::fs::posix::XAttr::Iterate (const std::function<void(const char* const, 
 {
     // ... ensure valid 'access' to file ...
     if ( 0 == uri_.length() && -1 == fd_ ) {
-        throw cc::fs::Exception("Unable to open set xattr - no file uri or fd is set!");
+        throw cc::fs::Exception("Unable to open iterate xattrs - no file uri or fd is set!");
     }
     
     //
