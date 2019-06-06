@@ -26,8 +26,8 @@
  */
 cc::hash::MD5::MD5 ()
 {
-    digest_[0]   = 0;
-    md5_hex_[0]  = '\0';
+    digest_[0]  = 0;
+    md5_hex_[0] = '\0';
 }
 
 /**
@@ -65,13 +65,13 @@ void cc::hash::MD5::Update(const unsigned char* const a_data, size_t a_length)
  * @return MD5 HEX string.
  */
 std::string cc::hash::MD5::Finalize ()
-{
-    
+{    
     MD5_Final (digest_,&context_);
     
-    for( int i = 0; i < MD5_DIGEST_LENGTH; i++ ) {
-        sprintf(&(md5_hex_[i*2]), "%02x", (unsigned int)digest_[i]);
+    for( size_t idx = 0; idx < MD5_DIGEST_LENGTH; idx++ ) {
+        sprintf(&(md5_hex_[idx*2]), "%02x", (unsigned int)digest_[idx]);
     }
+    md5_hex_[32] = '\0';
     
     return std::string(md5_hex_);
 }
