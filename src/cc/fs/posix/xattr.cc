@@ -519,10 +519,11 @@ void cc::fs::posix::XAttr::Validate (const std::string& a_name, const unsigned c
 
     const std::string tmp = md5.Finalize();
     
-    char seal [64] = { 0, 0 };
+    char seal [65] = { 0, 0 };
     for ( size_t idx = 0; idx < tmp.length() ; idx++ ) {
         sprintf(&(seal[idx*2]), "%02x", ( tmp[idx] ^ a_magic[idx % a_length] ));
-        }
+    }
+    seal[64] = '\0';
 
     if ( 0 != value.compare(seal) ) {
         throw cc::fs::Exception("Xattrs seal tampered!");
