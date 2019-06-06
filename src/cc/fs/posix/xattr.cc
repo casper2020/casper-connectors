@@ -485,10 +485,11 @@ void cc::fs::posix::XAttr::Seal (const std::string& a_name, const unsigned char*
     
     const std::string tmp = md5.Finalize();
     
-    char seal [64] = { 0, 0 };
+    char seal[65] = { '\0' };
     for ( size_t idx = 0; idx < tmp.length() ; idx++ ) {
         sprintf(&(seal[idx*2]), "%02x", ( tmp[idx] ^ a_magic[idx % a_length] ));
     }
+    seal[64] = '\0';
 
     Set(a_name, seal);
 }
