@@ -28,7 +28,7 @@
 #include "cc/types.h"
 
 #include <unistd.h> // mkstemps
-#include <libgen.h> // basename
+#include <libgen.h> // basename, dirname
 
 #include <string.h> // strlen, strerror, ...
 
@@ -305,6 +305,31 @@ void cc::fs::posix::File::Name (const std::string& a_uri, std::string& o_name)
     }
     
     o_name = ptr;
+}
+/**
+ * @brief Extract a path from an URI
+ *
+ * @param a_uri  The URI.
+ * @param o_path The path.
+ */
+void cc::fs::posix::File::Path (const std::string& a_uri, std::string& o_path)
+{
+    const size_t l1 = a_uri.length();
+    if ( l1 >= PATH_MAX ) {
+        throw cc::fs::Exception("Unable to obtain path from URI '%s': max path overflow!", a_uri.c_str());
+    }
+    
+    char uri[PATH_MAX];
+    
+    memcpy(uri, a_uri.c_str(), l1);
+    uri[l1] = 0;
+    
+    const char* const ptr = dirname(uri);
+    if ( nullptr == ptr || '\0' == ptr[0] ) {
+        throw cc::fs::Exception("Unable to extract path from URI '%s': is not a valid URI!", uri);
+    }
+    
+    o_path = cc::fs::posix::Dir::Normalize(ptr);
 }
 
 /**

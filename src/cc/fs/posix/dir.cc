@@ -201,7 +201,7 @@ void cc::fs::posix::Dir::Parent (const char* const a_path, std::string& o_path)
         throw cc::fs::Exception("Unable to obtain parent from path '%s': is not a valid file name!", ptr);
     }
     
-    o_path = ptr;
+    o_path = Normalize(ptr);
 }
 
 /**

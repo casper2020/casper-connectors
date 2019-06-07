@@ -190,15 +190,15 @@ void cc::fs::posix::XAttr::Get (const std::string& a_name, std::string& o_value)
 
     try {
         
-        const char* const attr_name = a_name.c_str();
+        const char* const attr_name_c_str = a_name.c_str();
         
         ssize_t rv;
         if ( 0 != uri_.length() ) {
 
             // ... 1st call to calculate required buffer size
-            rv = GET_X_ATTR(uri_.c_str(), attr_name, nullptr, 0);
+            rv = GET_X_ATTR(uri_.c_str(), attr_name_c_str, nullptr, 0);
             if ( -1 == rv ) {
-                throw cc::fs::Exception("Unable to get xattr '%s' - %s!", attr_name, strerror(errno));
+                throw cc::fs::Exception("Unable to get xattr '%s' - %s!", attr_name_c_str, strerror(errno));
             }
             
             // ... allocate buffer ...
@@ -206,17 +206,17 @@ void cc::fs::posix::XAttr::Get (const std::string& a_name, std::string& o_value)
             vb[static_cast<size_t>(rv)] = '\0';
             
             // ... 2nd call to retrieve value ...
-            rv = GET_X_ATTR(uri_.c_str(), attr_name, vb, rv);
+            rv = GET_X_ATTR(uri_.c_str(), attr_name_c_str, vb, rv);
             if ( -1 == rv ) {
-                throw cc::fs::Exception("Unable to get xattr '%s' - %s!", attr_name, strerror(errno));
+                throw cc::fs::Exception("Unable to get xattr '%s' - %s!", attr_name_c_str, strerror(errno));
             }
             
         } else {
             
             // ... 1st call to calculate required buffer size
-            rv = FGET_X_ATTR(fd_, attr_name, nullptr, 0);
+            rv = FGET_X_ATTR(fd_, attr_name_c_str, nullptr, 0);
             if ( -1 == rv ) {
-                throw cc::fs::Exception("Unable to get xattr '%s' - %s!", attr_name, strerror(errno));
+                throw cc::fs::Exception("Unable to get xattr '%s' - %s!", attr_name_c_str, strerror(errno));
             }
 
             // ... allocate buffer ...
@@ -224,9 +224,9 @@ void cc::fs::posix::XAttr::Get (const std::string& a_name, std::string& o_value)
             vb[static_cast<size_t>(rv)] = '\0';
 
             // ... 2nd call to retrieve value ...
-            rv = GET_X_ATTR(uri_.c_str(), attr_name, nullptr, 0);
+            rv = GET_X_ATTR(uri_.c_str(), attr_name_c_str, nullptr, 0);
             if ( -1 == rv ) {
-                throw cc::fs::Exception("Unable to get xattr '%s' - %s!", attr_name, strerror(errno));
+                throw cc::fs::Exception("Unable to get xattr '%s' - %s!", attr_name_c_str, strerror(errno));
             }
 
         }

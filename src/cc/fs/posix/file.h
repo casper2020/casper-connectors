@@ -79,6 +79,7 @@ namespace cc
             public: // Status Method(s) / Function(s)
                 
                 static void     Name   (const std::string& a_uri, std::string& o_name);
+                static void     Path   (const std::string& a_uri, std::string& o_path);
                 static bool     Exists (const std::string& a_uri);
                 static void     Erase  (const std::string& a_uri);
                 static void     Rename (const std::string& a_from_uri, const std::string& a_to_uri);
