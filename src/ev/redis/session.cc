@@ -392,11 +392,14 @@ void ev::redis::Session::Fetch (const ev::redis::Session::SuccessCallback a_succ
 {
     bool session_exists = false;
     
+    data_.verified_ = false;
+    data_.exists_   = false;
+    
     NewTask([this] () -> ::ev::Object* {
         
         return new ::ev::redis::Request(loggable_data_, "EXISTS", { token_prefix_ + data_.token_ } );
         
-    })->Then([this, &session_exists] (::ev::Object* a_object) -> ::ev::Object* {
+    })->Then([this] (::ev::Object* a_object) -> ::ev::Object* {
         
         //
         // EXISTS:
@@ -409,9 +412,10 @@ void ev::redis::Session::Fetch (const ev::redis::Session::SuccessCallback a_succ
         
         const ev::redis::Value& value = ev::redis::Reply::EnsureIntegerReply(a_object);
         if ( 1 != value.Integer() ) {
+            data_.verified_ = true;
+            data_.exists_   = false;
             throw ev::Exception("Session does not exists!");
         }
-        session_exists = true;
         
         return new ::ev::redis::Request(loggable_data_, "HGETALL", { token_prefix_ + data_.token_ });
         
@@ -455,19 +459,19 @@ void ev::redis::Session::Fetch (const ev::redis::Session::SuccessCallback a_succ
                 break;
         }
 
+        data_.verified_ = true;
+        
         if ( true == data_.token_is_valid_ ) {
-            data_.verified_ = true;
-            data_.exists_   = true;
+            data_.exists_ = true;
             a_success_callback(data_);
         } else {
-            data_.verified_ = true;
-            data_.exists_   = false;
+            data_.exists_ = false;
             a_invalid_session_callback(data_);
         }
 
     })->Catch([this, a_failure_callback, a_invalid_session_callback, &session_exists] (const ::ev::Exception& a_ev_exception) {
                 
-        if ( false == session_exists ) {
+        if ( true == data_.verified_ && false == data_.exists_ ) {
             a_invalid_session_callback(data_);
         } else {
             a_failure_callback(data_, a_ev_exception);
