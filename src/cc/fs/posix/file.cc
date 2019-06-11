@@ -366,7 +366,7 @@ void cc::fs::posix::File::Erase (const std::string& a_uri)
 }
 
 /**
- * @brief Erase a file
+ * @brief Move a file.
  *
  * @param a_from_uri Old file URI.
  * @param a_to_uri New file URI.

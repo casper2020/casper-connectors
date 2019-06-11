@@ -270,13 +270,15 @@ bool cc::fs::posix::XAttr::Exists (const std::string& a_name) const
         rv = FGET_X_ATTR(fd_, attr_name, nullptr, 0);
     }
     
-    const int err_no = errno;
-    
-    if ( -1 == rv && XATTR_DOES_NOT_EXISTS != err_no ) {
-        throw cc::fs::Exception("Unable to open verify if xattr '%s' exists - %s!", attr_name, strerror(err_no));
+    if ( -1 == rv ) {
+        const int err_no = errno;
+        if ( XATTR_DOES_NOT_EXISTS != err_no ) {
+            throw cc::fs::Exception("Unable to open verify if xattr '%s' exists - %s!", attr_name, strerror(err_no));
+        }
+        return false;
     }
 
-    return ( XATTR_DOES_NOT_EXISTS != err_no );
+    return true;
 }
 
 /**
