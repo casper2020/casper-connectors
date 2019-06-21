@@ -39,7 +39,7 @@ namespace ev
     namespace curl
     {
 
-        class HTTP final : public ::ev::scheduler::Scheduler::Client
+        class HTTP final : public ::ev::scheduler::Client
         {
 
         public: //

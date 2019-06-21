@@ -38,7 +38,7 @@ namespace ev
     namespace redis
     {
         
-        class Session : public ::ev::scheduler::Scheduler::Client
+        class Session : public ::ev::scheduler::Client
         {
             
         public: // Data Type(s)

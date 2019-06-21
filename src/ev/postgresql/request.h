@@ -49,6 +49,11 @@ namespace ev
             virtual const char*        AsCString () const;
             virtual const std::string& AsString  () const;
             
+        public: // STATIC API METHOD(S) / FUNCTION(S)
+            
+            static void        SQLEscape (const std::string& a_value, std::string& o_value);
+            static std::string SQLEscape (const std::string& a_value);
+            
         }; // end of class 'Request'
         
     } // end of namespace 'postgresql'

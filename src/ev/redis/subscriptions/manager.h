@@ -42,7 +42,7 @@ namespace ev
         namespace subscriptions
         {
             
-            class Manager final : public osal::Singleton<Manager>, public ::ev::scheduler::Scheduler::Client
+            class Manager final : public osal::Singleton<Manager>, public ::ev::scheduler::Client
             {
                 
             public: // Data Type(s)

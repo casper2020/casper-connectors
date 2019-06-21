@@ -48,6 +48,7 @@ namespace cc
                     NotSet,
                     Read,
                     Write,
+                    Append
                 };
                 
             private: // Data
@@ -67,6 +68,7 @@ namespace cc
                 virtual size_t   Read (unsigned char* o_data, const size_t a_size, bool& o_eof);
                 virtual void     Open  (const std::string& a_path, const std::string& a_prefix, const std::string& a_extension, const size_t& a_size);
                 virtual size_t   Write (const unsigned char* a_data, const size_t a_size, const bool a_flush = false);
+                virtual size_t   Write (const std::string& a_data, const bool a_flush = false);
                 virtual void     Flush ();
                 virtual void     Close (const bool a_force = false);
                 virtual uint64_t Size  ();

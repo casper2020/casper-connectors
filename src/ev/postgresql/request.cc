@@ -89,3 +89,53 @@ const std::string& ev::postgresql::Request::AsString () const
 {
     return payload_;
 }
+
+#ifdef __APPLE__
+#pragma mark -
+#endif
+
+/**
+ * @brief Escape an SQL term.
+ *
+ * @param a_value
+ * @param o_value
+ */
+void ev::postgresql::Request::SQLEscape (const std::string& a_value, std::string& o_value)
+{
+    o_value = "";
+    const size_t count = a_value.size();
+    if ( 0 == count ) {
+        return;
+    }
+    for ( size_t idx = 0 ; idx < a_value.size(); ++idx ) {
+        if ( '\'' == a_value[idx] ) {
+            o_value += "''";
+        } else {
+            o_value += a_value[idx];
+        }
+    }
+}
+
+/**
+ * @brief Escape an SQL term.
+ *
+ * @param a_value
+ *
+ * @return
+ */
+std::string ev::postgresql::Request::SQLEscape (const std::string& a_value)
+{
+    std::string value = "";
+    const size_t count = a_value.size();
+    if ( 0 == count ) {
+        return "";
+    }
+    for ( size_t idx = 0 ; idx < a_value.size(); ++idx ) {
+        if ( '\'' == a_value[idx] ) {
+            value += "''";
+        } else {
+            value += a_value[idx];
+        }
+    }
+    return value;
+}

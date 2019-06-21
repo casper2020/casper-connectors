@@ -80,6 +80,26 @@ void ev::Signals::Register (const std::set<int>& a_signals, std::function<bool(i
 }
 
 /**
+ * @brief Append a handler for a set of signals.
+ *
+ * @param a_signals  A set of signals to handle.
+ * @param a_callback A function to be called when a signal is intercepted.
+ */
+void ev::Signals::Append (const std::set<int>& a_signals, std::function<void (int)> a_callback)
+{
+    std::vector<std::function<void(int)>>* vector = nullptr;
+    for ( auto signal : a_signals ) {
+        auto it = other_signal_handlers_.find(signal);
+        if ( other_signal_handlers_.end() == it ) {
+            vector = new std::vector<std::function<void(int)>>();
+        } else {
+            vector = it->second;
+        }
+        vector->push_back(a_callback);
+    }
+}
+
+/**
  * @brief
  *
  * @param a_bridge_ptr
@@ -99,7 +119,12 @@ void ev::Signals::Unregister ()
 {
     ev::scheduler::Scheduler::GetInstance().Unregister(this);
     s_bridge_ptr_               = nullptr;
-    s_fatal_exception_callback_ = nullptr;
+    s_fatal_exception_callback_ = nullptr;    
+    for ( auto it : other_signal_handlers_ ) {
+        it.second->clear();
+        delete it.second;
+    }
+    other_signal_handlers_.clear();
 }
 
 #ifdef __APPLE__
@@ -119,6 +144,8 @@ bool ev::Signals::OnSignal (const int a_sig_no)
                                   "Signal %d Received...",
                                   a_sig_no
     );
+    bool rv = false;
+    
     // ... handle signal ...
     switch(a_sig_no) {
             
@@ -130,8 +157,9 @@ bool ev::Signals::OnSignal (const int a_sig_no)
             );
             ::ev::Logger::GetInstance().Recycle();
             ::ev::LoggerV2::GetInstance().Recycle();
+            rv = true;
         }
-            return true;
+            break;
             
         case SIGTTIN:
         {
@@ -168,8 +196,10 @@ bool ev::Signals::OnSignal (const int a_sig_no)
                     });
                 });
             }
+            rv = true;
         }
-            return true;
+            break;
+
         case SIGQUIT:
         case SIGTERM:
         {
@@ -179,8 +209,18 @@ bool ev::Signals::OnSignal (const int a_sig_no)
             );
         }
         default:
-            return ( nullptr != s_unhandled_signal_callback_ ? s_unhandled_signal_callback_(a_sig_no) : false );
+            rv = ( nullptr != s_unhandled_signal_callback_ ? s_unhandled_signal_callback_(a_sig_no) : false );
+            break;
     }
+    
+    // ... notify other signal handlers ...
+    for ( auto it : other_signal_handlers_ ) {
+        for ( auto callback : (*it.second) ) {
+            callback(it.first);
+        }
+    }
+    
+    return rv;
 }
 
 /**
