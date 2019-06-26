@@ -48,6 +48,7 @@ namespace ev
                 PUT,
                 DELETE,
                 POST,
+                PATCH,
                 HEAD
             }; // end of enum 'HTTPRequestType'
 
