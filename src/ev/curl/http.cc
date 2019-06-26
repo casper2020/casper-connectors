@@ -106,6 +106,26 @@ void ev::curl::HTTP::POST (const ::ev::Loggable::Data& a_loggable_data,
 }
 
 /**
+ * @brief Perforn an HTTP PATCH request.
+ *
+ * @param a_loggable_data
+ * @param a_url
+ * @param a_success_callback
+ * @param a_failure_callback
+ */
+void ev::curl::HTTP::PATCH (const ::ev::Loggable::Data& a_loggable_data,
+                            const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
+                            const std::string* a_body,
+                            EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+{
+    Async(new ::ev::curl::Request(a_loggable_data,
+                                  curl::Request::HTTPRequestType::PATCH, a_url, a_headers, a_body
+          ),
+          a_success_callback, a_failure_callback
+    );
+}
+
+/**
  * @brief Perforn an HTTP DELETE request.
  *
  * @param a_loggable_data

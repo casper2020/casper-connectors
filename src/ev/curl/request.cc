@@ -81,6 +81,9 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
         case ev::curl::Request::HTTPRequestType::POST:
             initialization_error_ += curl_easy_setopt(handle_, CURLOPT_POST, 1L);
             break;
+        case ev::curl::Request::HTTPRequestType::PATCH:
+            initialization_error_ += curl_easy_setopt(handle_, CURLOPT_CUSTOMREQUEST, "PATCH");
+            break;
         case ev::curl::Request::HTTPRequestType::HEAD:
             // ... don't fetch the actual content, you only want headers ...
             initialization_error_  = curl_easy_setopt(handle_, CURLOPT_NOBODY, 1);
@@ -103,6 +106,7 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
             break;
         case ev::curl::Request::HTTPRequestType::PUT:
         case ev::curl::Request::HTTPRequestType::DELETE:
+        case ev::curl::Request::HTTPRequestType::PATCH:
             initialization_error_ += curl_easy_setopt(handle_, CURLOPT_UPLOAD          , 1L);
             initialization_error_ += curl_easy_setopt(handle_, CURLOPT_READDATA        , this);
             initialization_error_ += curl_easy_setopt(handle_, CURLOPT_READFUNCTION    , ReadDataCallbackWrapper);
