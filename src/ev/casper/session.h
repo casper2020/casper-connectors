@@ -24,7 +24,10 @@
 
 #include "ev/redis/session.h"
 
-#include <string> // std::string
+#include <string>     // std::string
+#include <set>        // std::set
+#include <map>        // std::map
+#include <algorithm> // std::transform
 
 #include "json/json.h"
 
@@ -39,7 +42,8 @@ namespace ev
 
         private: // Data
             
-            std::string json_api_url_;
+            std::string           json_api_url_;
+            std::set<std::string> fields_;
             
         public: // Constructor(s) / Destructor
             
@@ -50,11 +54,18 @@ namespace ev
             
         public: // Inline Method(s) / Function(s)
             
-            void               SetJSON_API_URL (const std::string& a_url);
-            const std::string& JSON_API_URL    () const;
-            const std::string  GetValue        (const std::string& a_key, const std::string& a_if_empty) const;
-            const char*        GetValueCstr    (const char* a_key, const char* a_if_empty) const;
+            void                            SetJSON_API_URL (const std::string& a_url);
+            const std::string&              JSON_API_URL    () const;
             
+            const std::string               GetValue        (const std::string& a_key, const std::string& a_if_empty) const;
+            const char*                     GetValueCstr    (const char* a_key, const char* a_if_empty) const;
+            
+            void                            SetFields       (const Json::Value a_array);
+            const std::set<std::string>&    GetFields       () const;
+            
+            void                            GetHeaders (const std::set<std::string>& a_fields,
+                                                        std::map<std::string, std::string>& a_map) const;
+
         public: // Method(s) / Function(s)
             
             void               Patch           (Json::Value& a_object, const std::string& a_origin_ip_addr) const;
@@ -116,6 +127,50 @@ namespace ev
         inline const std::string& Session::JSON_API_URL () const
         {
             return json_api_url_;
+        }
+        
+        /**
+         * @brief Set interest fields.
+         *
+         * @param a_array JSON Array of strings.
+         */
+        inline void Session::SetFields (const Json::Value a_array)
+        {
+            fields_.clear();
+            for ( Json::ArrayIndex idx = 0 ; idx < a_array.size() ; ++idx ) {
+                fields_.insert(a_array[idx].asString());
+            }
+        }
+        
+        /**
+         * @return Interest fields.
+         *
+         * @param a_array JSON Array of strings.
+         */
+        inline const std::set<std::string>& Session::GetFields () const
+        {
+            return fields_;
+        }
+        
+        /**
+         * @return Fields as X-CASPER-* headers.
+         *
+         * @param a_fields Set of interest fields.
+         * @param a_map    Map of X-CASPER* headers -> values.
+         */
+        inline void Session::GetHeaders (const std::set<std::string>& a_fields, std::map<std::string, std::string>& a_map) const
+        {
+            const std::set<std::string>& set = ( a_fields.size() > 0 ? a_fields : fields_ );
+            a_map.clear();
+            for ( auto field : set ) {
+                std::string name = "X-CASPER-" + field;
+                std::transform(name.begin(), name.end(), name.begin(), ::toupper);
+                for ( std::string::size_type idx = 0 ; ( idx = name.find('_', idx) ) != std::string::npos ; ) {
+                    name.replace(idx, 1, "-");
+                    idx += 1;
+                }
+                a_map[name] = GetValue(field, "");
+            }
         }
         
     } // end of namespace 'casper'
