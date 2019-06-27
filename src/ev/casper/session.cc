@@ -46,7 +46,9 @@ ev::casper::Session::Session (const ::ev::Loggable::Data& a_loggable_data,
 ev::casper::Session::Session (const ev::casper::Session& a_session)
     : ev::redis::Session(a_session)
 {
-    /* empty */
+    for ( auto field : a_session.fields_ ) {
+        fields_.insert(field);
+    }
 }
 
 /**
