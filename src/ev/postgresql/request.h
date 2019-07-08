@@ -41,6 +41,7 @@ namespace ev
         public: // Constructor(s) / Destructor
             
             Request(const Loggable::Data& a_loggable_data, const std::string& a_payload);
+            Request(const Loggable::Data& a_loggable_data, const std::vector<char>& a_payload);
             Request(const Loggable::Data& a_loggable_data, const char* const a_format, ...) __attribute__((format(printf, 3, 4)));
             virtual ~Request();
             

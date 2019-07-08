@@ -27,6 +27,18 @@
 /**
  * @brief Default constructor.
  *
+ * @param a_loggable_data object for logging
+ * @param a_payload char array vector with query
+ */
+ev::postgresql::Request::Request (const ::ev::Loggable::Data& a_loggable_data, const std::vector<char>& a_payload)
+: ev::Request(a_loggable_data, ev::Object::Target::PostgreSQL, ev::Request::Mode::OneShot)
+{
+    payload_ = a_payload.data();
+}
+
+/**
+ * @brief Default constructor.
+ *
  * @param a_loggable_data
  * @param a_payload
  */
