@@ -83,10 +83,11 @@ namespace ev
             const bool        is_null       () const;
             const bool        is_error      () const;
             const char* const error_message () const;
+            ExecStatusType    status        () const;
             const int         columns_count () const;
             const int         rows_count    () const;
             const char* const raw_value     (const size_t a_row, const size_t a_column) const;
-            
+
         private: // Inline  Method(s) / Function(s)
             
             void Reset (const ContentType& a_content_type);
@@ -139,7 +140,7 @@ namespace ev
         {
             return ( Value::ContentType::Error == content_type_ );
         }
-        
+    
         /**
          * @return The error message, null if none.
          */
@@ -148,6 +149,14 @@ namespace ev
             return error_message_;
         }
 
+        /**
+        * @return Execution status, one of \link ExecStatusType \link.
+         */
+        inline ExecStatusType Value::status () const
+        {
+            return ( nullptr != pg_result_ ? PQresultStatus(pg_result_) : ExecStatusType::PGRES_NONFATAL_ERROR );
+        }
+    
         /**
          * @return Number of columns.
          */
