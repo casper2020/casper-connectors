@@ -26,6 +26,7 @@
 #include "cc/non-movable.h"
 
 #include <string>
+#include <map>
 #include <functional>
 
 #define XATTR_ARCHIVE_PREFIX "user."
@@ -66,6 +67,10 @@ namespace cc
                 void Iterate  (const std::function<void(const char* const, const char* const)>& a_callback) const;
                 void Seal     (const std::string& a_name, const unsigned char* a_magic, size_t a_length) const;
                 void Validate (const std::string& a_name, const unsigned char* a_magic, size_t a_length) const;
+                
+            public:
+                
+                void IterateOrdered (const std::function<void(const char* const, const char* const)>& a_callback) const;
                 
             }; // end of class 'XAttr'
             

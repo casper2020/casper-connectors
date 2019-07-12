@@ -29,6 +29,9 @@
 
 #include <sys/xattr.h>
 
+#include <utility> // std::pair
+#include <set>
+
 #ifdef __APPLE__
 
 //
@@ -474,10 +477,10 @@ void cc::fs::posix::XAttr::Seal (const std::string& a_name, const unsigned char*
     if ( 0 == uri_.length() && -1 == fd_ ) {
         throw cc::fs::Exception("Unable to open calculate xattrs seal - no file uri or fd is set!");
     }
-
+    
     cc::hash::MD5 md5;
     md5.Initialize();
-    Iterate([&md5, a_name] (const char* const a_key, const char *const a_value) {
+    IterateOrdered([&md5, a_name] (const char* const a_key, const char *const a_value) {
         if ( 0 != strcasecmp(a_key, a_name.c_str()) ) {
             md5.Update(reinterpret_cast<const unsigned char*>(a_key), strlen(a_key));
             md5.Update(reinterpret_cast<const unsigned char*>("&"), sizeof(char));
@@ -511,7 +514,7 @@ void cc::fs::posix::XAttr::Validate (const std::string& a_name, const unsigned c
 
     cc::hash::MD5 md5;
     md5.Initialize();
-    Iterate([&md5, a_name] (const char *const a_key, const char *const a_value) {
+    IterateOrdered([&md5, a_name] (const char *const a_key, const char *const a_value) {
         if ( 0 != strcasecmp(a_key, a_name.c_str()) ) {
             md5.Update(reinterpret_cast<const unsigned char*>(a_key), strlen(a_key));
             md5.Update(reinterpret_cast<const unsigned char*>("&"), sizeof(char));
@@ -532,3 +535,31 @@ void cc::fs::posix::XAttr::Validate (const std::string& a_name, const unsigned c
     }
 }
 
+#ifdef __APPLE__
+#pragma mark -
+#endif
+
+/**
+ * @brief Iterate all extended attributes, ordered by name.
+ *
+ * @param a_callback Function to call to deliver each iteration entry.
+ */
+void cc::fs::posix::XAttr::IterateOrdered (const std::function<void(const char* const, const char* const)>& a_callback) const
+{
+    std::map<std::string, std::string> attrs;
+
+    Iterate([&attrs] (const char* const a_key, const char *const a_value) {
+        attrs[a_key] = a_value;
+    });
+    
+    typedef std::function<bool(std::pair<std::string, std::string>, std::pair<std::string, std::string>)> Comparator;
+    
+    Comparator comparator = [](std::pair<std::string, std::string> a_lhs, std::pair<std::string, std::string> a_rhs) -> bool {
+        return a_lhs.second < a_rhs.second;
+    };
+    
+    std::set<std::pair<std::string, std::string>, Comparator> set(attrs.begin(), attrs.end(), comparator);
+    for ( std::pair<std::string, std::string> e : set ) {
+        a_callback(e.first.c_str(), e.second.c_str());
+    }
+}
