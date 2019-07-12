@@ -57,11 +57,11 @@ namespace cc
                 
                 virtual std::string Serialize2JSON () const;
                 
-            private: // Method(s) / Function(s)
+            protected: // Method(s) / Function(s)
                 
-                void Track (const char* const a_error_code, const uint16_t a_http_status_code,
-                            const std::string& a_i18n_key, const std::string& a_detail,
-                            const char* const a_internal);
+                virtual void Track (const char* const a_error_code, const uint16_t a_http_status_code,
+                                    const std::string& a_i18n_key, const std::string& a_detail,
+                                    const char* const a_internal);
                 
             }; // end of class 'Tracker'
 

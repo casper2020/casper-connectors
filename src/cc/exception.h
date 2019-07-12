@@ -62,7 +62,7 @@ namespace cc
     class Exception : public std::exception
     {
         
-    private: // Data
+    protected: // Data
         
         std::string what_;
         

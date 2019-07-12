@@ -33,12 +33,15 @@
 #include "ev/object.h"
 #include "ev/exception.h"
 
+#include "cc/non-copyable.h"
+#include "cc/non-movable.h"
+
 namespace ev
 {
     namespace postgresql
     {
         
-        class Value final : public ev::Object
+        class Value final : public ev::Object, public ::cc::NonCopyable, public ::cc::NonMovable
         {
             
         public: // Data Type(s)
@@ -87,6 +90,7 @@ namespace ev
             const int         columns_count () const;
             const int         rows_count    () const;
             const char* const raw_value     (const size_t a_row, const size_t a_column) const;
+            const char* const cmd_status    () const;
 
         private: // Inline  Method(s) / Function(s)
             
@@ -105,6 +109,11 @@ namespace ev
                 Reset(Value::ContentType::Null);
             }
             pg_result_ = a_result;
+        }
+        
+        inline const char* const Value::cmd_status () const
+        {
+            return PQcmdStatus(pg_result_);
         }
         
         inline void Value::operator= (const Error& a_error)

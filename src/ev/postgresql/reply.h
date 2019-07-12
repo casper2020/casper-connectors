@@ -25,13 +25,16 @@
 #include "ev/postgresql/object.h"
 #include "ev/postgresql/value.h"
 
+#include "cc/non-copyable.h"
+#include "cc/non-movable.h"
+
 namespace ev
 {
     
     namespace postgresql
     {
         
-        class Reply final : public ev::postgresql::Object
+        class Reply final : public ev::postgresql::Object, public ::cc::NonCopyable, public ::cc::NonMovable
         {
             
         public: // Const Data
