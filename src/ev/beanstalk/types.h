@@ -31,6 +31,11 @@ namespace ev
     
     namespace beanstalk
     {
+    
+        typedef struct _Tubes {
+            std::set<std::string> sessionless_;
+            std::set<std::string> action_;
+        } Tubes;
         
         typedef struct _Config {
             
@@ -39,7 +44,7 @@ namespace ev
             float                 timeout_;       //!< in seconds
             std::string           tube_;          //!< tube name
             float                 abort_polling_; //!< in seconds
-            std::set<std::string> sessionless_tubes_;
+            Tubes                 tubes_;         //!<
             
             inline void operator=(const _Config& a_config)
             {
@@ -47,9 +52,11 @@ namespace ev
                 port_          = a_config.port_;
                 timeout_       = a_config.timeout_;
                 abort_polling_ = a_config.abort_polling_;
-                tube_    = a_config.tube_;
-                for ( auto it : sessionless_tubes_ ) {
-                    sessionless_tubes_.insert(it);
+                for ( auto tube : a_config.tubes_.sessionless_ ) {
+                    tubes_.sessionless_.insert(tube);
+                }
+                for ( auto tube : a_config.tubes_.action_ ) {
+                    tubes_.action_.insert(tube);
                 }
             }
             

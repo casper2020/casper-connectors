@@ -111,6 +111,7 @@ namespace ev
                                           const char* const a_beanstalkd_port_key,
                                           const char* const a_beanstalkd_timeout_key,
                                           const char* const a_beanstalkd_sessionless_tubes_key,
+                                          const char* const a_beanstalkd_action_tubes_key,
                                           ::ev::beanstalk::Config& o_config);
             
         }; // end of class 'SharedGlue'
