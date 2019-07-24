@@ -75,6 +75,51 @@ ev::postgresql::Request::Request (const ::ev::Loggable::Data& a_loggable_data, c
 }
 
 /**
+ * @brief va_list constructor.
+ *
+ * @param a_loggable_data
+ * @param a_size
+ * @param a_format
+ * @param a_list
+ */
+ev::postgresql::Request::Request (const ::ev::Loggable::Data& a_loggable_data, size_t a_size, const char* const a_format, va_list a_list)
+: ev::Request(a_loggable_data, ev::Object::Target::PostgreSQL, ev::Request::Mode::OneShot)
+{
+    va_list args;
+    size_t  size   = a_size;
+    
+    char* buffer = (char*)malloc(size);
+    if ( nullptr == buffer ) {
+        throw std::runtime_error{"Out of memory!"};
+    }
+    buffer[0] = '\0';
+
+    va_copy(args, a_list);
+    int written = vsnprintf(buffer, size, a_format, args);
+    va_end(args);
+    
+    if ( written < 0 ) {
+        throw std::runtime_error {"string formatting error!"};
+    } else if ( written >= size ) {
+        size   = static_cast<size_t>(written);
+        buffer = (char*) realloc(buffer, size + sizeof(char));
+        if ( nullptr == buffer ) {
+            throw std::runtime_error {"Out of memory while reallocating buffer!"};
+        }
+        buffer[0] = '\0';
+        
+        va_copy(args, a_list);
+        size_t written = vsnprintf(buffer, size, a_format, args);
+        if ( written != size ) {
+            throw std::runtime_error {" String formatting error or buffer not large enough!" };
+        }
+        va_end(args);
+    }
+    payload_ = std::string(buffer);
+    free(buffer);
+}
+
+/**
  * @brief VA constructor.
  *
  * @param a_loggable_data
