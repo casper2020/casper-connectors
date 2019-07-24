@@ -265,9 +265,11 @@ ev::curl::Device::MultiContext::MultiContext (ev::curl::Device* a_device)
             last_code_ = CURLM_OK;
         }
     }
-    still_running_ = 0;
-    event_         = nullptr;
-    timer_event_   =  evtimer_new(device_ptr_->event_base_ptr_, ev::curl::Device::MultiContext::EventTimerCallback, this);
+    last_exec_code_        = CURLE_FAILED_INIT;
+    last_http_status_code_ = 500;
+    still_running_         = 0;
+    event_                 = nullptr;
+    timer_event_           =  evtimer_new(device_ptr_->event_base_ptr_, ev::curl::Device::MultiContext::EventTimerCallback, this);
 }
 
 /**
@@ -351,12 +353,12 @@ void ev::curl::Device::MultiContext::CheckMultiInfo ()
         if ( CURLMSG_DONE != current->msg ) {
             continue;
         }
+        
+        last_exec_code_        = current->data.result;
+        last_http_status_code_ = 500;
 
-        CURL*    easy               = current->easy_handle;
-        CURLcode curl_exec_result   = current->data.result;
-        long     http_response_code = -1;
-
-        if ( CURLE_OK != curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &http_response_code) ) {
+        CURL* easy = current->easy_handle;
+        if ( CURLE_OK != curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &last_http_status_code_) ) {
             // TODO CURL
         }
 
@@ -372,7 +374,7 @@ void ev::curl::Device::MultiContext::CheckMultiInfo ()
 
         ev::Result* result = new ev::Result(ev::Object::Target::CURL);
 
-        switch(curl_exec_result) {
+        switch(last_exec_code_) {
             case CURLE_OK:
                 device_ptr_->last_error_msg_ = "";
                 break;
@@ -398,14 +400,12 @@ void ev::curl::Device::MultiContext::CheckMultiInfo ()
                 device_ptr_->last_error_msg_ = "CURLE_ABORTED_BY_CALLBACK";
                 break;
             default:
-                device_ptr_->last_error_msg_ = "CURLE : " + std::to_string(curl_exec_result);
+                device_ptr_->last_error_msg_ = "CURLE : " + std::to_string(last_exec_code_);
                 break;
         }
 
         if ( 0 == device_ptr_->last_error_msg_.length() ) {
-            result->AttachDataObject(new ev::curl::Reply(static_cast<int>(http_response_code), it->second.request_ptr_->AsString(), it->second.request_ptr_->rx_headers()));
-        } else {
-            result->AttachDataObject(new ev::curl::Reply(static_cast<int>(http_response_code), "", it->second.request_ptr_->rx_headers()));
+            result->AttachDataObject(new ev::curl::Reply(static_cast<int>(last_http_status_code_), it->second.request_ptr_->AsString(), it->second.request_ptr_->rx_headers()));
         }
 
         if ( 0 != device_ptr_->last_error_msg_.length() ) {
@@ -413,7 +413,7 @@ void ev::curl::Device::MultiContext::CheckMultiInfo ()
         }
 
         // ... notify ...
-        it->second.exec_callback_((( CURLE_OK == curl_exec_result ) > 0 ? ev::Device::ExecutionStatus::Error : ev::Device::ExecutionStatus::Ok ), result);
+        it->second.exec_callback_((( CURLE_OK == last_exec_code_ ) > 0 ? ev::Device::ExecutionStatus::Error : ev::Device::ExecutionStatus::Ok ), result);
 
         // ... forget it !
         device_ptr_->map_.erase(it);

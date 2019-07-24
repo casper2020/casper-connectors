@@ -70,13 +70,15 @@ namespace ev
 
             public: // Data
 
-                Device*       device_ptr_;    //!<
-                CURLM*        handle_;        //!< CURL multi handle.
-                CURLMcode     last_code_;     //!<
-                int           setup_errors_;  //!<
-                int           still_running_; //!<
-                struct event* event_;         //!< Libevent context.
-                struct event* timer_event_;   //!<
+                Device*       device_ptr_;            //!<
+                CURLM*        handle_;                //!< CURL multi handle.
+                CURLMcode     last_code_;             //!<
+                CURLcode      last_exec_code_;        //!<
+                int           last_http_status_code_; //!<
+                int           setup_errors_;          //!<
+                int           still_running_;         //!<
+                struct event* event_;                 //!< Libevent context.
+                struct event* timer_event_;           //!<
 
             public: // Constructor(s) / Destructor
 
