@@ -43,7 +43,7 @@ namespace ev
             Request(const Loggable::Data& a_loggable_data, const std::string& a_payload);
             Request(const Loggable::Data& a_loggable_data, const std::vector<char>& a_payload);
             Request(const Loggable::Data& a_loggable_data, const char* const a_format, ...) __attribute__((format(printf, 3, 4)));
-            Request(const Loggable::Data& a_loggable_data, const char* const a_format, va_list a_args);
+            Request(const char* a_query, const Loggable::Data& a_loggable_data);
             virtual ~Request();
             
         public: // Inherited Virtual Method(s) / Function(s)

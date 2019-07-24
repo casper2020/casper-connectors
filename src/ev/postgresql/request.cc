@@ -81,25 +81,10 @@ ev::postgresql::Request::Request (const ::ev::Loggable::Data& a_loggable_data, c
  * @param a_format
  * @param ...
  */
-ev::postgresql::Request::Request (const ::ev::Loggable::Data& a_loggable_data, const char* const a_format, va_list a_args)
+ev::postgresql::Request::Request (const char* a_query, const ::ev::Loggable::Data& a_loggable_data)
 : ev::Request(a_loggable_data, ev::Object::Target::PostgreSQL, ev::Request::Mode::OneShot)
 {
-    auto temp   = std::vector<char> {};
-    auto length = std::size_t { 512 };
-
-
-    while ( temp.size() <= length ) {
-        temp.resize(length + 1);
-        va_list ap;
-        va_copy(ap, a_args);
-        const auto status = std::vsnprintf(temp.data(), temp.size(), a_format, ap);
-        va_end(ap);
-        if ( status < 0 ) {
-            throw std::runtime_error {"string formatting error"};
-        }
-        length = static_cast<std::size_t>(status);
-    }
-    payload_ = length > 0 ? std::string { temp.data(), length } : "";
+    payload_ = a_query;
 }
 
 /**
