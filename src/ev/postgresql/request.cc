@@ -90,28 +90,26 @@ ev::postgresql::Request::Request (const ::ev::Loggable::Data& a_loggable_data, s
     
     char* buffer = (char*)malloc(size);
     if ( nullptr == buffer ) {
-        throw std::runtime_error{"Out of memory!"};
+        throw ::ev::Exception("Out of memory!");
     }
-    buffer[0] = '\0';
 
     va_copy(args, a_list);
     int written = vsnprintf(buffer, size, a_format, args);
     va_end(args);
     
     if ( written < 0 ) {
-        throw std::runtime_error {"string formatting error!"};
+        throw ::ev::Exception("string formatting error!");
     } else if ( written >= size ) {
-        size   = static_cast<size_t>(written);
-        buffer = (char*) realloc(buffer, size + sizeof(char));
+        size   = static_cast<size_t>(written + sizeof(char));
+        buffer = (char*) realloc(buffer, size );
         if ( nullptr == buffer ) {
-            throw std::runtime_error {"Out of memory while reallocating buffer!"};
+            throw ::ev::Exception("Out of memory while reallocating buffer!");
         }
-        buffer[0] = '\0';
         
         va_copy(args, a_list);
-        size_t written = vsnprintf(buffer, size, a_format, args);
-        if ( written != size ) {
-            throw std::runtime_error {" String formatting error or buffer not large enough!" };
+        written = vsnprintf(buffer, size, a_format, args);
+        if ( written != static_cast<int>(size - sizeof(char)) ) {
+            throw ::ev::Exception("String formatting error or buffer not large enough!");
         }
         va_end(args);
     }
