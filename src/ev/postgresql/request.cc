@@ -99,6 +99,7 @@ ev::postgresql::Request::Request (const ::ev::Loggable::Data& a_loggable_data, s
     va_end(args);
     
     if ( written < 0 ) {
+        free(buffer);
         throw std::runtime_error {"string formatting error!"};
     } else if ( written >= size ) {
         size   = static_cast<size_t>(written);
@@ -111,6 +112,7 @@ ev::postgresql::Request::Request (const ::ev::Loggable::Data& a_loggable_data, s
         va_copy(args, a_list);
         size_t written = vsnprintf(buffer, size, a_format, args);
         if ( written != size ) {
+            free(buffer);
             throw std::runtime_error {" String formatting error or buffer not large enough!" };
         }
         va_end(args);
