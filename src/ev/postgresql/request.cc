@@ -87,9 +87,13 @@ ev::postgresql::Request::Request (const ::ev::Loggable::Data& a_loggable_data, c
     auto temp   = std::vector<char> {};
     auto length = std::size_t { 512 };
 
+
     while ( temp.size() <= length ) {
         temp.resize(length + 1);
-        const auto status = std::vsnprintf(temp.data(), temp.size(), a_format, a_args);
+        va_list ap;
+        va_copy(ap, a_args);
+        const auto status = std::vsnprintf(temp.data(), temp.size(), a_format, ap);
+        va_end(ap);
         if ( status < 0 ) {
             throw std::runtime_error {"string formatting error"};
         }
