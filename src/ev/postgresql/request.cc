@@ -100,7 +100,7 @@ ev::postgresql::Request::Request (const ::ev::Loggable::Data& a_loggable_data, s
     if ( written < 0 ) {
         free(buffer);
         throw ::ev::Exception("string formatting error!");
-    } else if ( written >= size ) {
+    } else if ( written >= static_cast<int>(size) ) {
         size   = static_cast<size_t>(written + sizeof(char));
         buffer = (char*) realloc(buffer, size );
         if ( nullptr == buffer ) {
