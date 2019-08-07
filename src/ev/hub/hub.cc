@@ -457,9 +457,8 @@ void ev::hub::Hub::Loop ()
     }
     
     timeval tv;
-    tv.tv_sec  = 15;
-    tv.tv_usec = 0;
-
+    tv.tv_sec  = 0;
+    tv.tv_usec = 50*1000;
     
     if ( 0 != event_add(socket_event_, &tv) ) {
         fault_msg_ = "Unable to add datagram socket event!";
