@@ -504,7 +504,7 @@ int ev::curl::Device::MultiContext::TimerCallback (CURLM* /* a_handle */, long a
     timeout.tv_sec  = a_timeout_ms / 1000;
     timeout.tv_usec = ( a_timeout_ms % 1000 ) * 1000;
 
-    const int ev_add_rc= evtimer_add(multi_context->timer_event_, &timeout);
+    const int ev_add_rc = evtimer_add(multi_context->timer_event_, &timeout);
     if ( 0 != ev_add_rc ) {
         multi_context->device_ptr_->exception_callback_(ev::Exception("Error while deleting CURL event: code %d!", ev_add_rc));
     }

@@ -316,7 +316,7 @@ void ev::ngx::SharedGlue::SetupREDIS (const std::map<std::string, std::string>& 
 void ev::ngx::SharedGlue::SetupCURL (const std::map<std::string, std::string>& a_config,
                                      const char* const a_max_conn_per_worker)
 {
-    size_t curl_max_conn_per_worker = 1;
+    size_t curl_max_conn_per_worker = 10;
     
     const auto curl_max_conn_per_worker_it = a_config.find(a_max_conn_per_worker);
     if ( a_config.end() != curl_max_conn_per_worker_it ) {
