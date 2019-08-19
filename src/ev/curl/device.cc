@@ -26,6 +26,8 @@
 
 #include "osal/osalite.h"
 
+#include <algorithm> // std::min
+
 /**
  * @brief Default constructor.
  *
@@ -72,6 +74,9 @@ ev::curl::Device::Status ev::curl::Device::Connect (ev::curl::Device::ConnectedC
             return ev::curl::Device::Status::Error;
         }
     }
+    
+    // .. mark as disconnected ...
+    connection_status_ = ev::Device::ConnectionStatus::Connected;
 
     // ... keep track of 'connection' callback ...
     a_callback(ev::curl::Device::ConnectionStatus::Connected, this);
@@ -114,26 +119,41 @@ ev::curl::Device::Status ev::curl::Device::Disconnect (ev::curl::Device::Disconn
 ev::curl::Device::Status ev::curl::Device::Execute (ev::curl::Device::ExecuteCallback a_callback, const ev::Request* a_request)
 {
     ev::Request* rw_request = const_cast<ev::Request*>(a_request);
+    
+    // ... reset error ...
+    last_error_msg_ = "";
 
     ev::curl::Request* curl_request = dynamic_cast<ev::curl::Request*>(rw_request);
     if ( nullptr == curl_request ) {
-        // ... can't execute command ...
+        // ... set error message ...
+        last_error_msg_ = "Can't execute a nullptr request!";
+        // ... we're done ..
         return ev::curl::Device::Status::Error;
     }
 
     // ... no connection?
     if ( nullptr == context_ ) {
-        // ... can't execute command ...
+        // ... set error message ...
+        last_error_msg_ = "Context not set!";
+        // ... we're done ..
         return ev::curl::Device::Status::Error;
     }
 
     CURL* easy_handle = curl_request->easy_handle();
     if ( nullptr == easy_handle ) {
-        a_callback(ev::Device::ExecutionStatus::Error, /* a_result */ nullptr);
+        // ... set error message ...
+        last_error_msg_   = "Easy handle not set!";
+        // ... we're done ..
         return ev::curl::Device::Status::Error;
     }
 
     // ... map easy_handle to request & callback .../
+    if ( map_.end() != map_.find(easy_handle) ) {
+        // ... set error message ...
+        last_error_msg_   = "Trying to insert a duplicated easy handle into the multi context!";
+        // ... we're done ..
+        return ev::curl::Device::Status::Error;
+    }
     map_[easy_handle] = { curl_request, a_callback };
 
     // ... add easy handle to multi handle ...
@@ -142,7 +162,7 @@ ev::curl::Device::Status ev::curl::Device::Execute (ev::curl::Device::ExecuteCal
         // ... untrack callback ...
         map_.erase(map_.find(easy_handle));
         // ... set error message ...
-        last_error_msg_   = "Unable to add easy handle to multi handle!";
+        last_error_msg_   = "Unable to add easy handle to multi context!";
         // ... we're done ..
         return ev::curl::Device::Status::Error;
     }
@@ -167,7 +187,7 @@ ev::Error* ev::curl::Device::DetachLastError ()
 #endif
 
 /**
- * @brief Release current database connection.
+ * @brief Release current curl connection.
  */
 void ev::curl::Device::Disconnect ()
 {
@@ -185,7 +205,7 @@ void ev::curl::Device::Disconnect ()
     try {
         const int del_rc = event_del(context_->event_);
         if ( 0 != del_rc ) {
-            exception_callback_(ev::Exception("Error while deleting CURL event: code %d!", del_rc));
+            exception_callback_(ev::Exception("An error occurred while deleting an event: code %d!", del_rc));
         }
         // ... release connection ...
         if ( nullptr != context_->handle_ ) {
@@ -258,6 +278,10 @@ ev::curl::Device::MultiContext::MultiContext (ev::curl::Device* a_device)
         setup_errors_ += curl_multi_setopt(handle_, CURLMOPT_SOCKETDATA    , this);
         setup_errors_ += curl_multi_setopt(handle_, CURLMOPT_TIMERFUNCTION , ev::curl::Device::MultiContext::TimerCallback);
         setup_errors_ += curl_multi_setopt(handle_, CURLMOPT_TIMERDATA     , this);
+        setup_errors_ += curl_multi_setopt(handle_, CURLMOPT_PIPELINING, 0);
+        setup_errors_ += curl_multi_setopt(handle_, CURLMOPT_MAXCONNECTS, 1L);
+        setup_errors_ += curl_multi_setopt(handle_, CURLMOPT_MAX_TOTAL_CONNECTIONS, 1L);
+
         if ( 0 != setup_errors_ ) {
             curl_multi_cleanup(handle_);
             last_code_ = CURLM_BAD_HANDLE;
@@ -281,9 +305,11 @@ ev::curl::Device::MultiContext::~MultiContext ()
         curl_multi_cleanup(handle_);
     }
     if ( nullptr != event_ ) {
+        event_del(event_);
         event_free(event_);
     }
     if ( nullptr != timer_event_ ) {
+        event_del(timer_event_);
         event_free(timer_event_);
     }
 }
@@ -299,58 +325,58 @@ bool ev::curl::Device::MultiContext::ContainsErrors () const
 }
 
 /**
- * @brief Check for bad connections.
+ * @brief Check for bad connections and multi handle for completed requests.
  *
+ * @param a_context
  * @param a_code
  * @param a_where
  */
-void ev::curl::Device::MultiContext::Validate (CURLMcode a_code, const char* a_where)
+void ev::curl::Device::MultiContext::Process (ev::curl::Device::MultiContext* a_context,
+                                              CURLMcode a_code, const char* a_where)
 {
+    //  ... first, check for bad connections ...
     if ( CURLM_OK != a_code ) {
-        const char *s;
+        const char *code_c_str;
         switch(a_code) {
             case
             CURLM_BAD_SOCKET:
-                s = "CURLM_BAD_SOCKET";
+                code_c_str = "CURLM_BAD_SOCKET";
                 break;
             case CURLM_BAD_HANDLE:
-                s = "CURLM_BAD_HANDLE";
+                code_c_str = "CURLM_BAD_HANDLE";
                 break;
             case CURLM_BAD_EASY_HANDLE:
-                s = "CURLM_BAD_EASY_HANDLE";
+                code_c_str = "CURLM_BAD_EASY_HANDLE";
                 break;
             case CURLM_OUT_OF_MEMORY:
-                s = "CURLM_OUT_OF_MEMORY";
+                code_c_str = "CURLM_OUT_OF_MEMORY";
                 break;
             case CURLM_INTERNAL_ERROR:
-                s = "CURLM_INTERNAL_ERROR";
+                code_c_str = "CURLM_INTERNAL_ERROR";
                 break;
             case CURLM_UNKNOWN_OPTION:
-                s = "CURLM_UNKNOWN_OPTION";
+                code_c_str = "CURLM_UNKNOWN_OPTION";
                 break;
             case CURLM_LAST:
-                s = "CURLM_LAST";
+                code_c_str = "CURLM_LAST";
                 break;
-            default: s="CURLM_unknown";
+            default:
+                code_c_str = "CURLM_unknown";
                 break;
         }
-        // TODO CURL
-        fprintf(stderr, "ERROR: %s returns %s\n", a_where, s);
-        exit(-1);
+        // ... this is a critical error !
+        a_context->device_ptr_->exception_callback_(ev::Exception("An error occurred while validating a multi request: code %d %s !", a_code, code_c_str));
     }
-}
 
-/**
- * @brief Check multi handle for completed requests.
- */
-void ev::curl::Device::MultiContext::CheckMultiInfo ()
-{
+    // ... check multi handle for completed requests ...
     CURLMsg*  current;
     int       remaining;
 
     while ( nullptr != ( current = curl_multi_info_read(handle_, &remaining) ) ) {
-
+        
+        // not ready?
         if ( CURLMSG_DONE != current->msg ) {
+            // ... try next ...
             continue;
         }
         
@@ -358,10 +384,12 @@ void ev::curl::Device::MultiContext::CheckMultiInfo ()
         last_http_status_code_ = 500;
 
         CURL* easy = current->easy_handle;
+        
         if ( CURLE_OK != curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &last_http_status_code_) ) {
-            // TODO CURL
+            device_ptr_->last_error_msg_ = "Unable to obtain a valid HTTP status code!";
         }
-
+        
+        // ... remove easy handle ...
         curl_multi_remove_handle(handle_, easy);
 
         const auto it = device_ptr_->map_.find(easy);
@@ -371,12 +399,10 @@ void ev::curl::Device::MultiContext::CheckMultiInfo ()
         }
 
         // ... from now one, don't call curl_easy_cleanup(easy) - it's owned by ev::curl::Request instance !
-
         ev::Result* result = new ev::Result(ev::Object::Target::CURL);
 
         switch(last_exec_code_) {
             case CURLE_OK:
-                device_ptr_->last_error_msg_ = "";
                 break;
             case CURLE_URL_MALFORMAT:
                 device_ptr_->last_error_msg_ = "CURLE_URL_MALFORMAT";
@@ -403,23 +429,24 @@ void ev::curl::Device::MultiContext::CheckMultiInfo ()
                 device_ptr_->last_error_msg_ = "CURLE : " + std::to_string(last_exec_code_);
                 break;
         }
-
+        // ... attach result or error ...
         if ( 0 == device_ptr_->last_error_msg_.length() ) {
-            result->AttachDataObject(new ev::curl::Reply(static_cast<int>(last_http_status_code_), it->second.request_ptr_->AsString(), it->second.request_ptr_->rx_headers()));
-        }
-
-        if ( 0 != device_ptr_->last_error_msg_.length() ) {
+            // ... result ...
+            result->AttachDataObject(new ev::curl::Reply(static_cast<int>(last_http_status_code_),
+                                                         it->second.request_ptr_->AsString(), it->second.request_ptr_->rx_headers())
+            );
+        } else {
+            // ... error ...
             result->AttachDataObject(device_ptr_->DetachLastError());
         }
-
         // ... notify ...
-        it->second.exec_callback_((( CURLE_OK == last_exec_code_ ) > 0 ? ev::Device::ExecutionStatus::Error : ev::Device::ExecutionStatus::Ok ), result);
-
+        it->second.exec_callback_(
+            (( CURLE_OK == last_exec_code_ ) > 0 ? ev::Device::ExecutionStatus::Error : ev::Device::ExecutionStatus::Ok ),
+            result
+        );
         // ... forget it !
         device_ptr_->map_.erase(it);
-
     }
-
 }
 
 /**
@@ -443,9 +470,16 @@ int ev::curl::Device::MultiContext::SocketCallback (CURL* a_handle, curl_socket_
     {
         case CURL_POLL_REMOVE:
         {
+            // ... forget socket context ...
             if ( nullptr != socket_context ) {
                 delete socket_context;
             }
+            // ... clear assignment ...
+            const CURLMcode cm_assign_rc = curl_multi_assign(multi_context->handle_, a_socket, nullptr);
+            if ( CURLM_OK != cm_assign_rc ) {
+                multi_context->device_ptr_->exception_callback_(ev::Exception("An error occurred while removing a socket multi handle assignment: code %d!", cm_assign_rc));
+            }
+            // ... done ...
             break;
         }
 
@@ -459,28 +493,45 @@ int ev::curl::Device::MultiContext::SocketCallback (CURL* a_handle, curl_socket_
             }
 
             // ... set socket ...
-            const short action = ( a_what & CURL_POLL_IN ? EV_READ : 0 ) | ( a_what & CURL_POLL_OUT ? EV_WRITE : 0 ) | EV_PERSIST;
+            const short action  = ( a_what & CURL_POLL_IN ? EV_READ : 0 ) | ( a_what & CURL_POLL_OUT ? EV_WRITE : 0 ) | EV_PERSIST;
+            const bool new_event = ( nullptr == socket_context->event_ );
 
             socket_context->fd_              = a_socket;
             socket_context->event_action_    = action;
             socket_context->easy_handle_ptr_ = a_handle;
-            if ( nullptr != socket_context->event_ ) {
-                event_free(socket_context->event_);
+
+            if ( true == new_event ) {
+                socket_context->event_ = event_new(multi_context->device_ptr_->event_base_ptr_, socket_context->fd_, action, ev::curl::Device::MultiContext::EventCallback, multi_context);
+            } else {
+                const int ev_del_rc = event_del(socket_context->event_);
+                if ( 0 != ev_del_rc ) {
+                    multi_context->device_ptr_->exception_callback_(ev::Exception("An error occurred while deleting a socket event: code %d!", ev_del_rc));
+                }
             }
-            socket_context->event_ = event_new(multi_context->device_ptr_->event_base_ptr_, socket_context->fd_, action, ev::curl::Device::MultiContext::EventCallback, multi_context);
-            const int ev_rc = event_add(socket_context->event_, nullptr);
-            if ( 0 != ev_rc ) {
-                // TODO CURL
-            }
-            const CURLMcode cm_rc = curl_multi_assign(multi_context->handle_, a_socket, socket_context);
-            if ( CURLM_OK != cm_rc ) {
-                // TODO CURL
+            
+            const int ev_assign_rc = event_assign(socket_context->event_, multi_context->device_ptr_->event_base_ptr_, socket_context->fd_, action, ev::curl::Device::MultiContext::EventCallback, multi_context);
+            if ( 0 != ev_assign_rc ) {
+                multi_context->device_ptr_->exception_callback_(ev::Exception("An error occurred while removing a socket multi handle assigment: code %d!", ev_assign_rc));
             }
 
+            const int ev_add_rc = event_add(socket_context->event_, nullptr);
+            if ( 0 != ev_add_rc ) {
+                multi_context->device_ptr_->exception_callback_(ev::Exception("An error occurred while adding a socket event: code %d!", ev_add_rc));
+            }
+
+            if ( true == new_event ) {
+                const CURLMcode cm_assign_rc = curl_multi_assign(multi_context->handle_, a_socket, socket_context);
+                if ( CURLM_OK != cm_assign_rc ) {
+                    multi_context->device_ptr_->exception_callback_(ev::Exception("An error occurred while adding a socket multi handle assigment: code %d!", cm_assign_rc));
+                }
+            }
+
+            // ... done ...
             break;
         }
 
         default:
+            // ... nothing to do ...
             break;
     }
 
@@ -496,20 +547,34 @@ int ev::curl::Device::MultiContext::SocketCallback (CURL* a_handle, curl_socket_
  *
  * @remarks: CURLMOPT_TIMERFUNCTION
  */
-int ev::curl::Device::MultiContext::TimerCallback (CURLM* /* a_handle */, long a_timeout_ms, void* a_user_ptr)
+int ev::curl::Device::MultiContext::TimerCallback (CURLM* a_handle, long a_timeout_ms, void* a_user_ptr)
 {
     ev::curl::Device::MultiContext* multi_context = static_cast<ev::curl::Device::MultiContext*>(a_user_ptr);
-
-    struct timeval timeout;
-    timeout.tv_sec  = a_timeout_ms / 1000;
-    timeout.tv_usec = ( a_timeout_ms % 1000 ) * 1000;
-
-    const int ev_add_rc = evtimer_add(multi_context->timer_event_, &timeout);
-    if ( 0 != ev_add_rc ) {
-        multi_context->device_ptr_->exception_callback_(ev::Exception("Error while deleting CURL event: code %d!", ev_add_rc));
+    
+    if ( a_handle != multi_context->handle_ ) {
+        multi_context->device_ptr_->exception_callback_(ev::Exception("An error occurred while deleting a timer event: invalid handle!"));
+    } else {
+        struct timeval timeout;
+        timeout.tv_sec  = a_timeout_ms / 1000;
+        timeout.tv_usec = ( a_timeout_ms % 1000 ) * 1000;
+        if ( -1 == a_timeout_ms ) {
+            if ( 1 == evtimer_pending(multi_context->timer_event_, NULL) ) {
+                const int ev_del_rc = evtimer_del(multi_context->timer_event_);
+                if ( 0 != ev_del_rc ) {
+                    multi_context->device_ptr_->exception_callback_(ev::Exception("An error occurred while deleting a timer event: code %d!", ev_del_rc));
+                }
+            }
+        } else {
+            if ( 0 == evtimer_pending(multi_context->timer_event_, NULL) ) {
+                const int ev_add_rc = evtimer_add(multi_context->timer_event_, &timeout);
+                if ( 0 != ev_add_rc ) {
+                    multi_context->device_ptr_->exception_callback_(ev::Exception("An error occurred while adding a timer event: code %d!", ev_add_rc));
+                }
+            }
+        }
     }
-
-    return CURLM_OK ;
+    
+    return CURLM_OK;
 }
 
 /**
@@ -521,19 +586,20 @@ int ev::curl::Device::MultiContext::TimerCallback (CURLM* /* a_handle */, long a
  */
 void ev::curl::Device::MultiContext::EventCallback (int a_fd, short a_kind, void* a_context)
 {
-    ev::curl::Device::MultiContext* context = static_cast<ev::curl::Device::MultiContext*>(a_context);
+    ev::curl::Device::MultiContext* multi_context = static_cast<ev::curl::Device::MultiContext*>(a_context);
 
     const int       action = ( a_kind & EV_READ ? CURL_CSELECT_IN : 0 ) | ( a_kind & EV_WRITE ? CURL_CSELECT_OUT : 0 );
-    const CURLMcode rc     = curl_multi_socket_action(context->handle_, a_fd, action, &context->still_running_);
+    const CURLMcode rc     = curl_multi_socket_action(multi_context->handle_, a_fd, action, &multi_context->still_running_);
 
-    context->Validate(rc, __FUNCTION__);
+    multi_context->Process(multi_context, rc, __FUNCTION__);
 
-    context->CheckMultiInfo();
-
-    if ( context->still_running_ <= 0 ) {
+    if ( multi_context->still_running_ <= 0 ) {
         // ... last transfer done, kill timeout ...
-        if( evtimer_pending(context->timer_event_, NULL) ) {
-            evtimer_del(context->timer_event_);
+        if ( evtimer_pending(multi_context->timer_event_, NULL) ) {
+            const int ev_del_rc = evtimer_del(multi_context->timer_event_);
+            if ( 0 != ev_del_rc ) {
+                multi_context->device_ptr_->exception_callback_(ev::Exception("An error occurred while deleting a timer event: code %d!", ev_del_rc));
+            }
         }
     }
 }
@@ -549,13 +615,9 @@ void ev::curl::Device::MultiContext::EventTimerCallback (int /* a_fd */, short /
 {
     ev::curl::Device::MultiContext* context = static_cast<ev::curl::Device::MultiContext*>(a_context);
 
-    const CURLMcode rc = curl_multi_socket_action(context->handle_,
-                                                  CURL_SOCKET_TIMEOUT, 0, &context->still_running_
-                                                 );
+    const CURLMcode rc = curl_multi_socket_action(context->handle_, CURL_SOCKET_TIMEOUT, 0, &context->still_running_);
 
-    context->Validate(rc, __FUNCTION__);
-
-    context->CheckMultiInfo();
+    context->Process(context, rc, __FUNCTION__);
 }
 
 #ifdef __APPLE__
@@ -582,6 +644,7 @@ ev::curl::Device::MultiContext::SocketContext::SocketContext ()
 ev::curl::Device::MultiContext::SocketContext::~SocketContext ()
 {
     if ( nullptr != event_ ) {
+        event_del(event_);
         event_free(event_);
     }
 }

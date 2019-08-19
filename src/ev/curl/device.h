@@ -42,7 +42,7 @@ namespace ev
         {
 
         private: // Data Type(s)
-
+            
             class MultiContext
             {
 
@@ -50,6 +50,7 @@ namespace ev
 
                 class SocketContext
                 {
+                    
 
                 public: // Data
 
@@ -87,8 +88,7 @@ namespace ev
 
             public:
 
-                void CheckMultiInfo ();
-                void Validate       (CURLMcode a_code, const char* a_where);
+                void Process        (MultiContext* a_context, CURLMcode a_code, const char* a_where);
                 bool ContainsErrors () const;
 
             public: // Static Method(s) / Function(s)
@@ -105,7 +105,7 @@ namespace ev
                 Request*        request_ptr_;
                 ExecuteCallback exec_callback_;
             } RequestContext;
-            typedef std::map<CURL*, RequestContext> RequestsMap;
+            typedef std::map<CURL*, RequestContext> RequestsMap;      
 
         private: // Data
 
