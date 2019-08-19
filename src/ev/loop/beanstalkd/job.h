@@ -24,6 +24,7 @@
 #define NRS_EV_LOOP_BEANSTALKD_JOB_H_
 
 #include <limits>
+#include <time.h>
 
 #include "cc/non-copyable.h"
 #include "cc/non-movable.h"
@@ -80,19 +81,20 @@ namespace ev
                     
                     std::string service_id_;
                     bool        transient_;
+                    int         min_progress_;
                     
                 public: // Constructor(s) / Destructor
                     
                     Config () = delete;
                     
-                    Config (const std::string& a_service_id, const bool a_transient)
-                        : service_id_(a_service_id), transient_(a_transient)
+                    Config (const std::string& a_service_id, const bool a_transient, const int a_min_progress)
+                        : service_id_(a_service_id), transient_(a_transient), min_progress_(a_min_progress)
                     {
                         /* empty */
                     }
                     
                     Config (const Config& a_config)
-                        : service_id_(a_config.service_id_), transient_(a_config.transient_)
+                        : service_id_(a_config.service_id_), transient_(a_config.transient_), min_progress_(a_config.min_progress_)
                     {
                         /* empty */
                     }
@@ -101,6 +103,7 @@ namespace ev
                     {
                         service_id_ = a_config.service_id_;
                         transient_  = a_config.transient_;
+                        min_progress_ = a_config.min_progress_;
                         return *this;
                     }
                     
@@ -135,7 +138,13 @@ namespace ev
                     const std::map<std::string, Json::Value>& args_;
                     Status                                    status_;
                     double                                    value_;
+                    bool                                      now_;
                 } Progress;
+                
+                typedef struct {
+                    int                                   timeout_in_sec_;
+                    std::chrono::steady_clock::time_point last_tp_;
+                } ProgressReport;
                 
             protected: // Const Static Data
                 
@@ -162,6 +171,7 @@ namespace ev
                 std::string               channel_;
                 int64_t                   validity_;
                 bool                      transient_;
+                ProgressReport            progress_report_;
                 bool                      cancelled_;
 
                 Json::Value               progress_;

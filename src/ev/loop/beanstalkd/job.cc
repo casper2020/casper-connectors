@@ -47,23 +47,25 @@ ev::loop::beanstalkd::Job::Job (const std::string& a_tube, const Config& a_confi
     http_(loggable_data_),
     json_api_(loggable_data_, /* a_enable_task_cancellation */ false)
 {
-    id_                   = 0;
-    validity_             = -1;
-    transient_            = config_.transient_;
-    cancelled_            = false;
+    id_                              = 0;
+    validity_                        = -1;
+    transient_                       = config_.transient_;
+    progress_report_.timeout_in_sec_ = config_.min_progress_;
+    progress_report_.last_tp_        = std::chrono::steady_clock::time_point::max();
+    cancelled_                       = false;
 
-    progress_             = Json::Value::null;
-    errors_array_         = Json::Value::null;
-    follow_up_jobs_       = Json::Value::null;
+    progress_                        = Json::Value::null;
+    errors_array_                    = Json::Value::null;
+    follow_up_jobs_                  = Json::Value::null;
 
-    chdir_hrt_.seconds_   = static_cast<uint8_t>(0);
-    chdir_hrt_.minutes_   = static_cast<uint8_t>(0);
-    chdir_hrt_.hours_     = static_cast<uint8_t>(0);
-    chdir_hrt_.day_       = static_cast<uint8_t>(0);
-    chdir_hrt_.month_     = static_cast<uint8_t>(0);
-    chdir_hrt_.year_      = static_cast<uint16_t>(0);
+    chdir_hrt_.seconds_              = static_cast<uint8_t>(0);
+    chdir_hrt_.minutes_              = static_cast<uint8_t>(0);
+    chdir_hrt_.hours_                = static_cast<uint8_t>(0);
+    chdir_hrt_.day_                  = static_cast<uint8_t>(0);
+    chdir_hrt_.month_                = static_cast<uint8_t>(0);
+    chdir_hrt_.year_                 = static_cast<uint16_t>(0);
     
-    hrt_buffer_[0]        = '\0';
+    hrt_buffer_[0]                   = '\0';
     
     ev::scheduler::Scheduler::GetInstance().Register(this);
    
@@ -172,20 +174,21 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     //
     // RESET 'job' variables
     //
-    id_                   = a_id; // beanstalkd number id
-    channel_              = redis_channel.asString();
-    validity_             = a_payload.get("validity" , default_validity_).asInt64();
-    transient_            = a_payload.get("transient", config_.transient_).asBool();
-    cancelled_            = false;
-    progress_             = Json::Value(Json::ValueType::objectValue);
-    errors_array_         = Json::Value(Json::ValueType::arrayValue);
-    follow_up_jobs_       = Json::Value::null;
-    follow_up_payload_    = Json::Value::null;
-    follow_up_id_key_     = "";
-    follow_up_key_        = "";
-    follow_up_tube_       = "";
-    follow_up_expires_in_ = -1;
-    follow_up_ttr_        = 0;
+    id_                              = a_id; // beanstalkd number id
+    channel_                         = redis_channel.asString();
+    validity_                        = a_payload.get("validity" , default_validity_).asInt64();
+    transient_                       = a_payload.get("transient", config_.transient_).asBool();
+    progress_report_.timeout_in_sec_ = a_payload.get("min_progress", config_.min_progress_).asInt();
+    cancelled_                       = false;
+    progress_                        = Json::Value(Json::ValueType::objectValue);
+    errors_array_                    = Json::Value(Json::ValueType::arrayValue);
+    follow_up_jobs_                  = Json::Value::null;
+    follow_up_payload_               = Json::Value::null;
+    follow_up_id_key_                = "";
+    follow_up_key_                   = "";
+    follow_up_tube_                  = "";
+    follow_up_expires_in_            = -1;
+    follow_up_ttr_                   = 0;
     
     //
     // JSONAPI Configuration - optional
@@ -398,6 +401,9 @@ void ev::loop::beanstalkd::Job::Finished (const Json::Value& a_response,
     // ... publish response ...
     Publish(a_response, a_success_callback, a_failure_callback);
     
+    // ... reset throttle timer ...
+    progress_report_.last_tp_ = std::chrono::steady_clock::time_point::max();
+    
     // ... broadcast job finished ...
     Broadcast(ev::loop::beanstalkd::Job::Status::Finished);
 }
@@ -412,6 +418,8 @@ void ev::loop::beanstalkd::Job::Publish (const ev::loop::beanstalkd::Job::Progre
 {
 
     const char* key;
+    
+    const auto now_tp = std::chrono::steady_clock::now();
     
     progress_ = Json::Value(Json::ValueType::objectValue);
     switch (a_progress.status_) {
@@ -447,7 +455,12 @@ void ev::loop::beanstalkd::Job::Publish (const ev::loop::beanstalkd::Job::Progre
     }
     progress_["message"]  = i18n_array;
 
-    Publish(progress_);
+    const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now_tp - progress_report_.last_tp_).count();
+
+    if ( std::chrono::steady_clock::time_point::max() == progress_report_.last_tp_ || elapsed >= progress_report_.timeout_in_sec_ || a_progress.now_ == true ) {
+        progress_report_.last_tp_ = now_tp;
+        Publish(progress_);
+    }
 }
 
 /**

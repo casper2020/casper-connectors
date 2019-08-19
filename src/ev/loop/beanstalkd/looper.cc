@@ -178,7 +178,7 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
             delete job_ptr_;
             cache_.erase(cache_.find(tube));
 
-            job_cv.Wait();
+            job_cv.Wake();
 
         }
         
