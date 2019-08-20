@@ -407,15 +407,19 @@ void ev::hub::Hub::Loop ()
 {
     fault_msg_ = "";
     
-    pthread_setname_np("ev::hub");
+    thread_id_ = osal::ThreadHelper::GetInstance().CurrentThreadID();
     
+#ifdef __APPLE__
+    pthread_setname_np("ev::hub");
+#else
+    pthread_setname_np(thread_id_, "ev::hub");
+#endif
+
     stepper_.setup_ = [this](ev::Device* a_device) {
         a_device->Setup(event_base_, [this] (const ev::Exception& a_ev_exception) {
             bridge_.ThrowFatalException(a_ev_exception);
         });
     };
-
-    thread_id_ = osal::ThreadHelper::GetInstance().CurrentThreadID();
 
     if ( nullptr != socket_event_ ) {
         event_free(socket_event_);
