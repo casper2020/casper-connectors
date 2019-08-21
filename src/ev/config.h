@@ -31,6 +31,8 @@
 #include <set>    // std::set
 #include <map>    // std::map
 
+#include <stdlib.h> // random
+
 namespace ev
 {
     typedef struct _DeviceLimits {

@@ -29,7 +29,7 @@
 #include <vector>     // std::vector
 #include <sstream>    // std::stringstream
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__clang__)
     #define STD_CPP_GENERIC_EXCEPTION_TRACE() \
         [&] () -> std::string { \
             std::stringstream ss; \
