@@ -85,6 +85,8 @@ namespace cc
                 static bool     Exists (const std::string& a_uri);
                 static void     Erase  (const std::string& a_uri);
                 static void     Rename (const std::string& a_from_uri, const std::string& a_to_uri);
+                static void     Copy   (const std::string& a_from_uri, const std::string& a_to_uri,
+                                        const bool a_overwrite = false, std::string* os_md5 = nullptr);
                 static uint64_t Size   (const std::string& a_uri);
                 static void     Unique (const std::string& a_path, const std::string& a_name, const std::string& a_extension,
                                         std::string& o_uri);

@@ -470,8 +470,12 @@ void cc::fs::posix::XAttr::Iterate (const std::function<void(const char* const, 
  * @brief Calculate and save attributes seal.
  *
  * @param a_name
+ * @param a_magic
+ * @param a_length
+ * @param a_excluding_attrs Set of xattrs name to exlcude.
  */
-void cc::fs::posix::XAttr::Seal (const std::string& a_name, const unsigned char* a_magic, size_t a_length) const
+void cc::fs::posix::XAttr::Seal (const std::string& a_name, const unsigned char* a_magic, size_t a_length,
+                                 const std::set<std::string>* a_excluding_attrs) const
 {
     // ... ensure valid 'access' to file ...
     if ( 0 == uri_.length() && -1 == fd_ ) {
@@ -480,8 +484,41 @@ void cc::fs::posix::XAttr::Seal (const std::string& a_name, const unsigned char*
     
     cc::hash::MD5 md5;
     md5.Initialize();
-    IterateOrdered([&md5, a_name] (const char* const a_key, const char *const a_value) {
-        if ( 0 != strcasecmp(a_key, a_name.c_str()) ) {
+    IterateOrdered([&md5, a_name, &a_excluding_attrs] (const char* const a_key, const char *const a_value) {
+        if ( ( nullptr == a_excluding_attrs || ( a_excluding_attrs->end() == a_excluding_attrs->find(a_key) ) )
+            &&
+            0 != strcasecmp(a_key, a_name.c_str())
+            ) {
+            
+            md5.Update(reinterpret_cast<const unsigned char*>(a_key), strlen(a_key));
+            md5.Update(reinterpret_cast<const unsigned char*>("&"), sizeof(char));
+            md5.Update(reinterpret_cast<const unsigned char*>(a_value), strlen(a_value));
+        }
+    });
+    
+    const std::string tmp = md5.Finalize();
+    
+    char seal[65] = { '\0' };
+    for ( size_t idx = 0; idx < tmp.length() ; idx++ ) {
+        sprintf(&(seal[idx*2]), "%02x", ( tmp[idx] ^ a_magic[idx % a_length] ));
+    }
+    seal[64] = '\0';
+
+    Set(a_name, seal);
+}
+
+void cc::fs::posix::XAttr::Seal (const std::string& a_name, const std::set<std::string>& a_attrs,
+                                 const unsigned char* a_magic, size_t a_length) const
+{
+    // ... ensure valid 'access' to file ...
+    if ( 0 == uri_.length() && -1 == fd_ ) {
+        throw cc::fs::Exception("Unable to open calculate xattrs seal - no file uri or fd is set!");
+    }
+    
+    cc::hash::MD5 md5;
+    md5.Initialize();
+    IterateOrdered([&md5, a_name, &a_attrs] (const char* const a_key, const char *const a_value) {
+        if ( a_attrs.end() != a_attrs.find(a_key) && 0 != strcasecmp(a_key, a_name.c_str()) ) {
             md5.Update(reinterpret_cast<const unsigned char*>(a_key), strlen(a_key));
             md5.Update(reinterpret_cast<const unsigned char*>("&"), sizeof(char));
             md5.Update(reinterpret_cast<const unsigned char*>(a_value), strlen(a_value));
@@ -502,7 +539,8 @@ void cc::fs::posix::XAttr::Seal (const std::string& a_name, const unsigned char*
 /**
  * @brief Calculate and validate attributes seal.
  */
-void cc::fs::posix::XAttr::Validate (const std::string& a_name, const unsigned char* a_magic, size_t a_length) const
+void cc::fs::posix::XAttr::Validate (const std::string& a_name, const unsigned char* a_magic, size_t a_length,
+                                     const std::set<std::string>* a_excluding_attrs) const
 {
     // ... ensure valid 'access' to file ...
     if ( 0 == uri_.length() && -1 == fd_ ) {
@@ -514,8 +552,11 @@ void cc::fs::posix::XAttr::Validate (const std::string& a_name, const unsigned c
 
     cc::hash::MD5 md5;
     md5.Initialize();
-    IterateOrdered([&md5, a_name] (const char *const a_key, const char *const a_value) {
-        if ( 0 != strcasecmp(a_key, a_name.c_str()) ) {
+    IterateOrdered([&md5, a_name, &a_excluding_attrs] (const char *const a_key, const char *const a_value) {
+        if ( ( nullptr == a_excluding_attrs || ( a_excluding_attrs->end() == a_excluding_attrs->find(a_key) ) )
+              &&
+              0 != strcasecmp(a_key, a_name.c_str())
+        ) {
             md5.Update(reinterpret_cast<const unsigned char*>(a_key), strlen(a_key));
             md5.Update(reinterpret_cast<const unsigned char*>("&"), sizeof(char));
             md5.Update(reinterpret_cast<const unsigned char*>(a_value), strlen(a_value));
@@ -531,7 +572,44 @@ void cc::fs::posix::XAttr::Validate (const std::string& a_name, const unsigned c
     seal[64] = '\0';
 
     if ( 0 != value.compare(seal) ) {
-        throw cc::fs::Exception("Xattrs seal tampered!");
+        throw cc::fs::Exception("%s tampered!", a_name.c_str());
+    }
+}
+
+/**
+ * @brief Calculate and validate attributes seal for a specific set of attributes.
+ */
+void cc::fs::posix::XAttr::Validate (const std::string& a_name, const std::set<std::string>& a_attrs,
+                                     const unsigned char* a_magic, size_t a_length) const
+{
+    // ... ensure valid 'access' to file ...
+    if ( 0 == uri_.length() && -1 == fd_ ) {
+        throw cc::fs::Exception("Unable to verify xattrs seal - no file uri or fd is set!");
+    }
+
+    std::string value;
+    Get(a_name, value);
+
+    cc::hash::MD5 md5;
+    md5.Initialize();
+    IterateOrdered([&md5, a_name, &a_attrs] (const char *const a_key, const char *const a_value) {
+        if ( a_attrs.end() != a_attrs.find(a_key) && 0 != strcasecmp(a_key, a_name.c_str() ) ) {
+            md5.Update(reinterpret_cast<const unsigned char*>(a_key), strlen(a_key));
+            md5.Update(reinterpret_cast<const unsigned char*>("&"), sizeof(char));
+            md5.Update(reinterpret_cast<const unsigned char*>(a_value), strlen(a_value));
+        }
+    });
+
+    const std::string tmp = md5.Finalize();
+    
+    char seal [65] = { 0, 0 };
+    for ( size_t idx = 0; idx < tmp.length() ; idx++ ) {
+        sprintf(&(seal[idx*2]), "%02x", ( tmp[idx] ^ a_magic[idx % a_length] ));
+    }
+    seal[64] = '\0';
+
+    if ( 0 != value.compare(seal) ) {
+        throw cc::fs::Exception("%s tampered!", a_name.c_str());
     }
 }
 
@@ -552,14 +630,7 @@ void cc::fs::posix::XAttr::IterateOrdered (const std::function<void(const char* 
         attrs[a_key] = a_value;
     });
     
-    typedef std::function<bool(std::pair<std::string, std::string>, std::pair<std::string, std::string>)> Comparator;
-    
-    Comparator comparator = [](std::pair<std::string, std::string> a_lhs, std::pair<std::string, std::string> a_rhs) -> bool {
-        return a_lhs.second < a_rhs.second;
-    };
-    
-    std::set<std::pair<std::string, std::string>, Comparator> set(attrs.begin(), attrs.end(), comparator);
-    for ( std::pair<std::string, std::string> e : set ) {
+    for ( auto e : attrs ) {
         a_callback(e.first.c_str(), e.second.c_str());
     }
 }

@@ -42,6 +42,11 @@
   #include <linux/limits.h>
 #endif
 
+
+#include <filesystem> // C++17
+
+#include "cc/hash/md5.h"
+
 #ifdef __APPLE__
 #pragma mark - File
 #endif
@@ -416,6 +421,107 @@ void cc::fs::posix::File::Rename (const std::string& a_from_uri, const std::stri
     if ( 0 != rv ) {
         throw cc::fs::Exception("Unable to rename file '%s' to '%s' - %s!", a_from_uri.c_str(), a_to_uri.c_str(), strerror(errno));
     }
+}
+
+/**
+ * @brief Copy a file.
+ *
+ * @param a_from_uri Old file URI.
+ * @param a_to_uri New file URI.
+ * @param a_overwrite When true, overwrite destination file ( if any ).
+ * @param o_md5 When not null md5 will be calculated.
+ */
+void cc::fs::posix::File::Copy (const std::string& a_from_uri, const std::string& a_to_uri, const bool a_overwrite, std::string* o_md5)
+{
+    // ... source file must exist ...
+    if ( false == cc::fs::posix::File::Exists(a_from_uri) ) {
+        throw cc::fs::Exception("Unable to copy file '%s' to '%s' - %s!",
+                                a_from_uri.c_str(), a_to_uri.c_str(), "source file does not exist!"
+        );
+    }
+    
+    // ... destination file  ...
+    if ( true == cc::fs::posix::File::Exists(a_to_uri) ) {
+        // ... exists and ...
+        if ( false == a_overwrite ) {
+            // ... can't be overriden ...
+            throw cc::fs::Exception("Unable to copy file '%s' to '%s' - %s!",
+                a_from_uri.c_str(), a_to_uri.c_str(), "destination file already exist!"
+            );
+        } else {
+            // ... can be overriden ...
+            cc::fs::posix::File::Erase(a_to_uri);
+        }
+    }
+    
+    // ... open source file ...
+    cc::fs::posix::File src_file;
+    src_file.Open(a_from_uri, cc::fs::posix::File::Mode::Read);
+    
+    cc::hash::MD5* md5 = nullptr;
+
+    // ... copy source file to destination file ...
+    unsigned char* buffer = new unsigned char [4096];
+    try {
+        
+        if ( nullptr != o_md5 ) {
+            md5 = new cc::hash::MD5();
+            md5->Initialize();
+        }
+        // ... open destination file ...
+        cc::fs::posix::File dst_file;
+        dst_file.Open(a_to_uri, cc::fs::posix::File::Mode::Write);
+        // ... copy loop ...
+        bool   eof        = false;
+        size_t bytes_read = 0;
+        do {
+            // ... read and write ( write function will test bytes written ) ...
+            bytes_read = dst_file.Write(buffer, src_file.Read(buffer, 4096, eof), /* a_flush */ true);
+            if ( nullptr != md5 ) {
+                md5->Update(buffer, bytes_read);
+            }
+        } while ( eof == false );
+        // ... close file ...
+        dst_file.Close();
+        // ... at least, ensure file has the same size ...
+        if ( cc::fs::posix::File::Size(a_from_uri) != cc::fs::posix::File::Size(a_to_uri) ) {
+            // ... notify ( file and buffer will be deleted in catch statement )  ...
+            throw cc::fs::Exception("Failed to copy file '%s' to '%s' - %s!",
+                                    a_from_uri.c_str(), a_to_uri.c_str(), "destination file size mismatch after copy!"
+            );
+        }
+        if ( nullptr != md5 ) {
+            (*o_md5) = md5->Finalize();
+        }
+    } catch (const cc::fs::Exception& a_fs_exception) {
+        // ... release previously allocated memory ...
+        delete [] buffer;
+        if ( nullptr != md5 ) {
+            delete md5;
+        }
+        // ... erase file ...
+        if ( cc::fs::posix::File::Exists(a_to_uri) ) {
+            cc::fs::posix::File::Erase(a_to_uri);
+        }
+        // ... rethrow exception ...
+        throw a_fs_exception;
+    } catch (...) {
+        // ... release previously allocated memory ...
+        delete [] buffer;
+        if ( nullptr != md5 ) {
+            delete md5;
+        }
+        // ... erase file ...
+        if ( cc::fs::posix::File::Exists(a_to_uri) ) {
+            cc::fs::posix::File::Erase(a_to_uri);
+        }
+        // ... rethrow exception ...
+        CC_EXCEPTION_RETHROW(/* a_unhandled*/ true);
+    }
+
+    delete [] buffer;
+
+    src_file.Close();
 }
 
 /**

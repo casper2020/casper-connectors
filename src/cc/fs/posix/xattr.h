@@ -27,6 +27,7 @@
 
 #include <string>
 #include <map>
+#include <set>
 #include <functional>
 
 #define XATTR_ARCHIVE_PREFIX "user."
@@ -65,9 +66,15 @@ namespace cc
                 bool Exists   (const std::string& a_name) const;
                 void Remove   (const std::string& a_name, std::string* o_value = nullptr) const;
                 void Iterate  (const std::function<void(const char* const, const char* const)>& a_callback) const;
-                void Seal     (const std::string& a_name, const unsigned char* a_magic, size_t a_length) const;
-                void Validate (const std::string& a_name, const unsigned char* a_magic, size_t a_length) const;
-                
+                void Seal     (const std::string& a_name, const unsigned char* a_magic, size_t a_length,
+                               const std::set<std::string>* a_excluding_attrs) const;
+                void Seal     (const std::string& a_name, const std::set<std::string>& a_attrs,
+                               const unsigned char* a_magic, size_t a_length) const;
+                void Validate (const std::string& a_name, const unsigned char* a_magic, size_t a_length,
+                               const std::set<std::string>* a_excluding_attrs) const;
+                void Validate (const std::string& a_name, const std::set<std::string>& a_attrs,
+                               const unsigned char* a_magic, size_t a_length) const;
+
             public:
                 
                 void IterateOrdered (const std::function<void(const char* const, const char* const)>& a_callback) const;
