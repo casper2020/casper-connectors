@@ -784,18 +784,19 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop ()
     
     try {
         
+        const ev::loop::beanstalkd::Job::MessagePumpCallbacks callbacks = {
+            /* on_fatal_exception_ */ std::bind(&ev::loop::beanstalkd::Runner::OnFatalException   , this, std::placeholders::_1),
+            /* on_main_thread_     */ std::bind(&ev::loop::beanstalkd::Runner::ExecuteOnMainThread, this, std::placeholders::_1, std::placeholders::_2),
+            /* on_submit_job_      */ std::bind(&ev::loop::beanstalkd::Runner::SubmitJob          , this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)
+        };
+        
         // ... initialize v8 ...
         ::cc::v8::Singleton::GetInstance().Initialize();
         
         consumer_cv_->Wake();
         
         looper = new ev::loop::beanstalkd::Looper(shared_config_->factory_,
-                                                  /* a_callbacks */
-                                                  {
-                                                      /* on_fatal_exception_ */ std::bind(&ev::loop::beanstalkd::Runner::OnFatalException   , this, std::placeholders::_1),
-                                                      /* on_main_thread_     */ std::bind(&ev::loop::beanstalkd::Runner::ExecuteOnMainThread, this, std::placeholders::_1, std::placeholders::_2),
-                                                      /* on_submit_job_      */ std::bind(&ev::loop::beanstalkd::Runner::SubmitJob          , this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)
-                                                  },
+                                                  callbacks,
                                                   shared_config_->default_tube_
         );
         looper->Run(*loggable_data_, shared_config_->beanstalk_, shared_config_->directories_.output_, quit_);
