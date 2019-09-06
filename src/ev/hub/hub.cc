@@ -412,7 +412,7 @@ void ev::hub::Hub::Loop ()
 #ifdef __APPLE__
     pthread_setname_np("ev::hub");
 #else
-    pthread_setname_np(thread_id_, "ev::hub");
+    pthread_setname_np(pthread_self(), "ev::hub");
 #endif
 
     stepper_.setup_ = [this](ev::Device* a_device) {
