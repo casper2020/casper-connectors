@@ -87,7 +87,7 @@ namespace ev
                     
                     Config () = delete;
                     
-                    Config (const std::string& a_service_id, const bool a_transient, const int a_min_progress)
+                    Config (const std::string& a_service_id, const bool a_transient, const int a_min_progress = 3)
                         : service_id_(a_service_id), transient_(a_transient), min_progress_(a_min_progress)
                     {
                         /* empty */

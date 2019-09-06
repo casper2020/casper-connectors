@@ -282,7 +282,41 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
             shared_config_->redis_.limits_.max_conn_per_worker_  = static_cast<size_t>(redis.get("max_conn_per_worker"  , static_cast<int>(shared_config_->redis_.limits_.max_conn_per_worker_ )).asInt());
             shared_config_->redis_.limits_.max_queries_per_conn_ = static_cast<ssize_t>(redis.get("max_queries_per_conn", static_cast<int>(shared_config_->redis_.limits_.max_queries_per_conn_)).asInt());
             shared_config_->redis_.limits_.min_queries_per_conn_ = static_cast<ssize_t>(redis.get("min_queries_per_conn", static_cast<int>(shared_config_->redis_.limits_.min_queries_per_conn_)).asInt());
-        }        
+        }
+        
+        /* logs */
+        const Json::Value logs = read_config.get("logs", Json::Value::null);
+        if ( false == logs.isNull() ) {
+            shared_config_->directories_.log_ = logs.get("directory", shared_config_->directories_.log_).asString();
+            if ( shared_config_->directories_.log_.length() > 0 ) {
+                const osal::Dir::Status mkdir_status = osal::Dir::CreateDir(shared_config_->directories_.log_.c_str());
+                if ( osal::Dir::EStatusOk != mkdir_status ) {
+                    throw ev::Exception("An error occurred while creating logs directory: %s!", shared_config_->directories_.log_.c_str());
+                }
+                // ... normalize ...
+                if ( shared_config_->directories_.log_[shared_config_->directories_.log_.length() - 1] != '/' ) {
+                    shared_config_->directories_.log_ += '/';
+                }
+                // ... at macOS and if debug mode ...
+#if defined(__APPLE__) && !defined(NDEBUG) && ( defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) )
+                // ... delete all log files ...
+                osal::File::Delete(shared_config_->directories_.log_.c_str(), "*.log", nullptr);
+#endif
+                const Json::Value tokens = logs.get("tokens", Json::Value::null);
+                if ( false == tokens.isNull() ) {
+                    if ( false == tokens.isArray() ) {
+                        throw ev::Exception("An error occurred while creating preparing log tokens: expecting an JSON array of strings!");
+                    }
+                    for ( Json::ArrayIndex idx = 0 ; idx < tokens.size() ; ++idx ) {
+                        const std::string token = tokens[idx].asString();
+                        if ( 0 == token.length() ) {
+                            continue;
+                        }
+                        shared_config_->log_tokens_[token] =  shared_config_->directories_.log_ + token + "." + std::to_string(a_config.instance_) + ".log";
+                    }
+                }
+            }
+        }
         
         InnerStartup(*startup_config_, read_config, *shared_config_);
 
