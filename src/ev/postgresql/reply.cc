@@ -24,10 +24,10 @@
 /**
  * @brief Default constructor.
  *
+ * @param a_elapsed Number of milliseconds that query execution took.
  * @param a_reply OWNERSHIP of this memory will sent value_.
- * @param a_elapsed
  */
-ev::postgresql::Reply::Reply (PGresult* a_reply, const uint64_t a_elapsed)
+ev::postgresql::Reply::Reply (const uint64_t a_elapsed, PGresult* a_reply)
     : ev::postgresql::Object(ev::postgresql::Object::Type::Reply),
       elapsed_(a_elapsed)
 {
@@ -37,11 +37,11 @@ ev::postgresql::Reply::Reply (PGresult* a_reply, const uint64_t a_elapsed)
 /**
  * @brief Constructor
  *
- * @param a_status
- * @param a_message
- * @param a_elapsed
+ * @param a_elapsed Number of milliseconds that query execution took.
+ * @param a_status One of \link ExecStatusType \link.
+ * @param a_message Repley message.
  */
-ev::postgresql::Reply::Reply (const ExecStatusType a_status, const char* const a_message, const uint64_t a_elapsed)
+ev::postgresql::Reply::Reply (const uint64_t a_elapsed, const ExecStatusType a_status, const char* const a_message)
     : ev::postgresql::Object(ev::postgresql::Object::Type::Reply),
       elapsed_(a_elapsed)
 {

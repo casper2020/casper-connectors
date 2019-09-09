@@ -29,12 +29,13 @@
 /**
  * @brief Default constructor.
  *
+ * @param a_elapsed Number of milliseconds that query execution took.
  * @param a_status  One of \link ExecStatusType \link.
  * @param a_message Error message.
  */
-ev::postgresql::Error::Error (const ExecStatusType a_status, const std::string& a_message)
+ev::postgresql::Error::Error (const uint64_t a_elapsed, const ExecStatusType a_status, const std::string& a_message)
     : ::ev::Error(::ev::Object::Target::PostgreSQL, a_message),
-    status_(a_status)
+    elapsed_(a_elapsed), status_(a_status)
 {
     message_ = a_message;
 }
@@ -42,13 +43,14 @@ ev::postgresql::Error::Error (const ExecStatusType a_status, const std::string& 
 /**
  * @brief VA constructor.
  *
+ * @param a_elapsed Number of milliseconds that query execution took.
  * @param a_status One of \link ExecStatusType \link.
  * @param a_format Error message format.
  * @param ...     Error message arguments.
  */
-ev::postgresql::Error::Error (const ExecStatusType a_status, const char* const a_format, ...)
+ev::postgresql::Error::Error (const uint64_t a_elapsed, const ExecStatusType a_status, const char* const a_format, ...)
     : ::ev::Error(::ev::Object::Target::PostgreSQL, ""),
-    status_(a_status)
+    elapsed_(a_elapsed), status_(a_status)
 {
     auto temp   = std::vector<char> {};
     auto length = std::size_t { 512 };

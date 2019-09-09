@@ -364,7 +364,7 @@ ev::postgresql::Device::Status ev::postgresql::Device::Execute (ev::postgresql::
 ev::Error* ev::postgresql::Device::DetachLastError ()
 {
     if ( 0 != last_error_msg_.length() ) {
-        return new ev::postgresql::Error(ExecStatusType::PGRES_FATAL_ERROR, last_error_msg_);
+        return new ev::postgresql::Error(/* a_elapsed */ 0, ExecStatusType::PGRES_FATAL_ERROR, last_error_msg_);
     } else {
         return nullptr;
     }
@@ -449,7 +449,7 @@ void ev::postgresql::Device::Disconnect ()
             if ( nullptr != error ) {
                 result->AttachDataObject(error);
             } else {
-                result->AttachDataObject(new ev::postgresql::Error(ExecStatusType::PGRES_FATAL_ERROR, "Disconnected from PostgreSQL server!"));
+                result->AttachDataObject(new ev::postgresql::Error(/* a_elapsed */ 0, ExecStatusType::PGRES_FATAL_ERROR, "Disconnected from PostgreSQL server!"));
             }
             execute_callback_(ev::Device::ExecutionStatus::Error, result);
             execute_callback_ = nullptr;
@@ -793,14 +793,14 @@ void ev::postgresql::Device::PostgreSQLEVCallback (evutil_socket_t /* a_fd */, s
                     // ... failed ...
                     char* error_message = PQresultVerboseErrorMessage(postgresql_result, PGVerbosity::PQERRORS_VERBOSE, PGContextVisibility::PQSHOW_CONTEXT_ERRORS);
                     if ( nullptr != error_message ) {
-                        device->context_->pending_result_->AttachDataObject(new ev::postgresql::Error(result_status, "%s", error_message), elapsed);
+                        device->context_->pending_result_->AttachDataObject(new ev::postgresql::Error(elapsed, result_status, "%s", error_message));
                         PQfreemem(error_message);
                     } else {
-                        device->context_->pending_result_->AttachDataObject(new ev::postgresql::Error(result_status, "%s", PQresStatus(result_status)), elapsed);
+                        device->context_->pending_result_->AttachDataObject(new ev::postgresql::Error(elapsed, result_status, "%s", PQresStatus(result_status)));
                     }
                 } else {
                     // ... succeeded ....
-                    device->context_->pending_result_->AttachDataObject(new ev::postgresql::Reply(postgresql_result, elapsed));
+                    device->context_->pending_result_->AttachDataObject(new ev::postgresql::Reply(elapsed, postgresql_result));
                 }
                 
                 postgresql_result = nullptr;

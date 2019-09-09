@@ -47,8 +47,8 @@ namespace ev
             
         public: // Constructor(s) / Destructor
             
-            Reply(PGresult* a_reply, const uint64_t a_elapsed);
-            Reply(const ExecStatusType a_status, const char* const a_message, const uint64_t a_elapsed);
+            Reply(const uint64_t a_elapsed, PGresult* a_reply);
+            Reply(const uint64_t a_elapsed, const ExecStatusType a_status, const char* const a_message);
             virtual ~Reply();
             
         public: // Method(s) / Function(s)

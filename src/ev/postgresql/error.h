@@ -34,12 +34,15 @@ namespace ev
         class Error final : public ::ev::Error
         {
             
-        const ExecStatusType status_;
+        public: // Data
+            
+            const uint64_t       elapsed_;
+            const ExecStatusType status_;
             
         public: // Constructor(s) / Destructor
             
-            Error(const ExecStatusType a_status, const std::string& a_message);
-            Error(const ExecStatusType a_status, const char* const a_format, ...) __attribute__((format(printf, 3, 4)));
+            Error(const uint64_t a_elapsed, const ExecStatusType a_status, const std::string& a_message);
+            Error(const uint64_t a_elapsed, const ExecStatusType a_status, const char* const a_format, ...) __attribute__((format(printf, 4, 5)));
             virtual ~Error ();
             
         }; // end of class 'Error'
