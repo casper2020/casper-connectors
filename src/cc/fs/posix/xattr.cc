@@ -634,3 +634,24 @@ void cc::fs::posix::XAttr::IterateOrdered (const std::function<void(const char* 
         a_callback(e.first.c_str(), e.second.c_str());
     }
 }
+
+/**
+ * @brief Iterate all extended attributes filtered by regular expression and ordered by name .
+ *
+ * @param a_expr     Regular expression.
+ * @param a_callback Function to call to deliver each iteration entry.
+ */
+void cc::fs::posix::XAttr::IterateOrdered (const std::regex& a_expr, const std::function<void(const char* const, const char* const)>& a_callback) const
+{
+    std::map<std::string, std::string> attrs;
+
+    Iterate([&attrs, &a_expr] (const char* const a_key, const char *const a_value) {
+        if ( true == std::regex_match(a_key, a_expr) ) {
+            attrs[a_key] = a_value;
+        }
+    });
+    
+    for ( auto e : attrs ) {
+        a_callback(e.first.c_str(), e.second.c_str());
+    }
+}

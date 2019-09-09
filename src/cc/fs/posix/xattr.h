@@ -29,6 +29,7 @@
 #include <map>
 #include <set>
 #include <functional>
+#include <regex>
 
 #define XATTR_ARCHIVE_PREFIX "user."
 
@@ -78,6 +79,7 @@ namespace cc
             public:
                 
                 void IterateOrdered (const std::function<void(const char* const, const char* const)>& a_callback) const;
+                void IterateOrdered (const std::regex& a_expr, const std::function<void(const char* const, const char* const)>& a_callback) const;
                 
             }; // end of class 'XAttr'
             
