@@ -42,9 +42,6 @@
   #include <linux/limits.h>
 #endif
 
-
-#include <filesystem> // C++17
-
 #include "cc/hash/md5.h"
 
 #ifdef __APPLE__
