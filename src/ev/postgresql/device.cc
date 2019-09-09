@@ -364,7 +364,7 @@ ev::postgresql::Device::Status ev::postgresql::Device::Execute (ev::postgresql::
 ev::Error* ev::postgresql::Device::DetachLastError ()
 {
     if ( 0 != last_error_msg_.length() ) {
-        return new ev::postgresql::Error(last_error_msg_);
+        return new ev::postgresql::Error(ExecStatusType::PGRES_FATAL_ERROR, last_error_msg_);
     } else {
         return nullptr;
     }
@@ -449,7 +449,7 @@ void ev::postgresql::Device::Disconnect ()
             if ( nullptr != error ) {
                 result->AttachDataObject(error);
             } else {
-                result->AttachDataObject(new ev::postgresql::Error("Disconnected from PostgreSQL server!"));
+                result->AttachDataObject(new ev::postgresql::Error(ExecStatusType::PGRES_FATAL_ERROR, "Disconnected from PostgreSQL server!"));
             }
             execute_callback_(ev::Device::ExecutionStatus::Error, result);
             execute_callback_ = nullptr;
@@ -672,8 +672,14 @@ void ev::postgresql::Device::PostgreSQLEVCallback (evutil_socket_t /* a_fd */, s
 
     // ... connection event?
     if ( true == call_connection_callback ) {
-        // ... write to permanent log ...
-        // ... connection established ...
+        // ... set error verbosity ...
+        if ( false == device->context_->error_verbosity_set_ ) {
+            (void)PQsetErrorVerbosity(context->connection_, PGVerbosity::PQERRORS_VERBOSE);
+            (void)PQsetErrorContextVisibility(context->connection_, PGContextVisibility::PQSHOW_CONTEXT_ERRORS);
+            device->context_->error_verbosity_set_ = true;
+        }
+        
+        // ... set statement timeout ...
         if ( device->statement_timeout_ > -1 && false == device->context_->statement_timeout_set_ ) {
             const int timeout_inc_milliseconds = (device->statement_timeout_ * 1000);
             // ... write to permanent log ...
@@ -785,7 +791,13 @@ void ev::postgresql::Device::PostgreSQLEVCallback (evutil_socket_t /* a_fd */, s
                 
                 if ( ( PGRES_COMMAND_OK != result_status ) && ( PGRES_TUPLES_OK != result_status ) ) {
                     // ... failed ...
-                    device->context_->pending_result_->AttachDataObject(new ev::postgresql::Reply(result_status, PQresStatus(result_status), elapsed));
+                    char* error_message = PQresultVerboseErrorMessage(postgresql_result, PGVerbosity::PQERRORS_VERBOSE, PGContextVisibility::PQSHOW_CONTEXT_ERRORS);
+                    if ( nullptr != error_message ) {
+                        device->context_->pending_result_->AttachDataObject(new ev::postgresql::Error(result_status, "%s", error_message), elapsed);
+                        PQfreemem(error_message);
+                    } else {
+                        device->context_->pending_result_->AttachDataObject(new ev::postgresql::Error(result_status, "%s", PQresStatus(result_status)), elapsed);
+                    }
                 } else {
                     // ... succeeded ....
                     device->context_->pending_result_->AttachDataObject(new ev::postgresql::Reply(postgresql_result, elapsed));
