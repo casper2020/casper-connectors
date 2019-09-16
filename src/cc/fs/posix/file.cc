@@ -517,6 +517,10 @@ void cc::fs::posix::File::Copy (const std::string& a_from_uri, const std::string
     }
 
     delete [] buffer;
+    
+    if ( nullptr != md5 ) {
+        delete md5;
+    }
 
     src_file.Close();
 }
