@@ -144,6 +144,8 @@ namespace ev
             void         Unset        (const DataT& a_data,
                                        const SuccessCallback a_success_callback, const FailureCallback a_failure_callback);
             void         Fetch        (const SuccessCallback a_success_callback, const InvalidCallback a_invalid_callback, const FailureCallback a_failure_callback);
+            void         Extend       (const size_t a_amount,
+                                       const SuccessCallback a_success_callback, const InvalidCallback a_invalid_callback, const FailureCallback a_failure_callback);
             
             const DataT& Data         () const;
             void         SetToken     (const std::string& a_token);
