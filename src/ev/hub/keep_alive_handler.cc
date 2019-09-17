@@ -41,12 +41,18 @@ ev::hub::KeepAliveHandler::KeepAliveHandler (ev::hub::StepperCallbacks& a_steppe
 ev::hub::KeepAliveHandler::~KeepAliveHandler ()
 {
     OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
-    for ( auto it : running_requests_ ) {
-        delete it.second;
+    for ( auto rr_it : running_requests_ ) {
+        for ( auto e_it : (*rr_it.second) ) {
+            delete e_it;
+        }
+        delete rr_it.second;
     }
     running_requests_.clear();
-    for ( auto it : disconnected_requests_ ) {
-        delete it.second;
+    for ( auto dr_it : disconnected_requests_ ) {
+        for ( auto e_it : (*dr_it.second) ) {
+            delete e_it;
+        }
+        delete dr_it.second;
     }
     disconnected_requests_.clear();
 }
@@ -70,8 +76,10 @@ void ev::hub::KeepAliveHandler::Idle ()
     
     // ... check timeouts ...
     const std::chrono::steady_clock::time_point time_point = std::chrono::steady_clock::now();
-    for ( auto it : running_requests_ ) {
-        (void)it.second->request_ptr_->CheckForTimeout(time_point);
+    for ( auto rr_it : running_requests_ ) {
+        for ( auto e_it : (*rr_it.second) ) {
+            e_it->request_ptr_->CheckForTimeout(time_point);
+        }
     }
 }
 
@@ -109,7 +117,6 @@ void ev::hub::KeepAliveHandler::Push (ev::Request* a_request)
                                 static_cast<uint8_t>(a_request->target_));
     }
     
-    ev::hub::KeepAliveHandler::Entry* entry = new ev::hub::KeepAliveHandler::Entry(a_request, device);
     try {
         // ... setup device ...
         stepper_.setup_(device);
@@ -121,14 +128,28 @@ void ev::hub::KeepAliveHandler::Push (ev::Request* a_request)
         if ( true == new_device ) {
             delete device;
         }
-        delete entry;
         // ... re-throw exception ...
         throw a_ev_exception;
     }
     
-    // ... track new entry ...
-    running_requests_[a_request] = entry;
-    
+    // ... release old and track new entry ...
+    {
+        for ( auto rr_it : running_requests_ ) {
+            for ( auto e_it : (*rr_it.second) ) {
+                delete e_it;
+            }
+            rr_it.second->clear();
+        }        
+        ev::hub::KeepAliveHandler::Entry* entry = new ev::hub::KeepAliveHandler::Entry(a_request, device);
+        const auto rr_it = running_requests_.find(a_request);
+        if ( running_requests_.end() == rr_it ) {
+            running_requests_[a_request] = new std::vector<ev::hub::KeepAliveHandler::Entry*>();
+            running_requests_[a_request]->push_back(entry);
+        } else {
+            rr_it->second->push_back(entry);
+        }
+    }
+        
     // ... map it ...
     request_device_map_[a_request] = device;
     device_request_map_[device]    = a_request;
@@ -187,7 +208,19 @@ void ev::hub::KeepAliveHandler::OnConnectionStatusChanged (const ev::Device::Con
     // ... move running request to disconnected request ...
     const auto entry_it = running_requests_.find(it->second);
     if ( running_requests_.end() != entry_it ) {
-        disconnected_requests_[it->second] = entry_it->second;
+        const auto dr_it = disconnected_requests_.find(it->second);
+        if ( disconnected_requests_.end() == dr_it ) {
+            disconnected_requests_[it->second] = new std::vector<ev::hub::KeepAliveHandler::Entry*>();
+            for ( auto e_it : (*entry_it->second) ) {
+                disconnected_requests_[it->second]->push_back(e_it);
+            }
+        } else {
+            for ( auto e_it : (*entry_it->second) ) {
+                dr_it->second->push_back(e_it);
+            }
+        }
+        entry_it->second->clear();
+        delete entry_it->second;
         running_requests_.erase(entry_it);
     }
     
@@ -203,8 +236,10 @@ void ev::hub::KeepAliveHandler::OnConnectionStatusChanged (const ev::Device::Con
     try {
         // ... for all disconnected requests ...
         for ( auto d_it : disconnected_requests_ ) {
-            // ... create and track a specific payload ...
-            payload->push_back(new Payload({d_it.second->request_ptr_->GetInvokeID(), d_it.second->request_ptr_->target_, d_it.second->request_ptr_->GetTag()}));
+            for ( auto e_it : (*d_it.second) ) {
+                // ... create and track a specific payload ...
+                payload->push_back(new Payload({e_it->request_ptr_->GetInvokeID(), e_it->request_ptr_->target_, e_it->request_ptr_->GetTag()}));
+            }
         }
     } catch (const ev::Exception& a_ev_exception) {
         // ... release allocated memory ...
@@ -219,6 +254,9 @@ void ev::hub::KeepAliveHandler::OnConnectionStatusChanged (const ev::Device::Con
     
     // ... release disconnected 'entries' ...
     for ( auto d_it : disconnected_requests_ ) {
+        for ( auto e_it : (*d_it.second) ) {
+            delete e_it;
+        }
         delete d_it.second;
     }
     disconnected_requests_.clear();
@@ -256,20 +294,13 @@ void ev::hub::KeepAliveHandler::OnConnectionStatusChanged (const ev::Device::Con
 bool ev::hub::KeepAliveHandler::OnUnhandledDataObjectReceived (const ev::Device* /* a_device */, const ev::Request* a_request , ev::Result* a_result)
 {
     OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
-
-    // ... collect result ...
-    const auto it = running_requests_.find(a_request);
-    if ( running_requests_.end() == it ) {
-        // ... reject a_result ownership ...
-        return false;
-    }
     
     typedef struct {
         const int64_t            invoke_id_;
         const ev::Object::Target target_;
         const uint8_t            tag_;
         ev::Result*              result_;
-    } Payload;
+    } Payload;    
     
     // ... issue callbacks ...
     stepper_.publish_->Call(

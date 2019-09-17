@@ -85,10 +85,12 @@ namespace ev
                 
             };
             
-            std::map<const Request*, Entry*> running_requests_;
+            typedef std::map<const Request*, std::vector<Entry*>*> RequestToEntryMap;
+            
+            RequestToEntryMap                running_requests_;
+            RequestToEntryMap                disconnected_requests_;
             std::map<Device*, Request*>      device_request_map_;
             std::map<Request*, Device*>      request_device_map_;
-            std::map<const Request*, Entry*> disconnected_requests_;
             
         public: // Inherited Pure Virtual Method(s) / Function(s) - from ev::HubHandler
             
