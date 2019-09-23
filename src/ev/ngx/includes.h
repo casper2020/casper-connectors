@@ -31,6 +31,8 @@ extern "C" {
   #include <ngx_core.h>
   #include <ngx_http.h>
   #include <ngx_errno.h>
+  #include <ngx_string.h>
+  #include <ngx_files.h>
   #include <ngx_http_request.h>
 }
 

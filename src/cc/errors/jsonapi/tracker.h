@@ -37,10 +37,15 @@ namespace cc
             class Tracker : public cc::errors::Tracker
             {
                 
+            public: // Const Data
+                
+                const bool enable_nice_piece_of_code_a_k_a_ordered_json_;
+                
             public: // Constructor (s) / Destructor
                 
                 Tracker (const std::string& a_locale, const std::string& a_content_type,
-                         const char* const a_generic_error_message_key, const char* const a_generic_error_message_with_code_key);
+                         const char* const a_generic_error_message_key, const char* const a_generic_error_message_with_code_key,
+                         bool a_enable_nice_piece_of_code_a_k_a_ordered_json = false);
                 virtual ~Tracker ();
                 
             public: // Inherited Method(s) / Function(s)
