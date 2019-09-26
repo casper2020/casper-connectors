@@ -52,6 +52,13 @@
             "Job #" INT64_FMT_MAX_RA " ~= " a_format, \
             ID(), __VA_ARGS__ \
         );
+    #define EV_LOOP_BEANSTALK_JOB_LOG_JS(a_loggable_data, a_token, a_format, ...) \
+        ev::Logger::GetInstance().Log(a_token, a_loggable_data, \
+            "Job #" INT64_FMT_MAX_RA " ~= " a_format, \
+            __VA_ARGS__ \
+        );
+
+
 #else
     #define EV_LOOP_BEANSTALK_JOB_LOG(a_token, a_format, ...) \
         ev::Logger::GetInstance().Log(a_token, loggable_data_, \

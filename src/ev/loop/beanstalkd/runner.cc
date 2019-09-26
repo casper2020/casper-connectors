@@ -856,8 +856,10 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop ()
         looper = nullptr;
     }
     
-    OnFatalException(*exception);
-    delete exception;
+    if ( nullptr != exception ) {
+        OnFatalException(*exception);
+        delete exception;
+    }
     
     // TODO check if on fatal quit is already called
     bridge_->Quit();
