@@ -175,6 +175,7 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     // Copy Startup Config
     //
     startup_config_ = new ev::loop::beanstalkd::Runner::StartupConfig({
+        /* abbr_           */ a_config.abbr_,
         /* name_           */ a_config.name_,
         /* versioned_name_ */ a_config.versioned_name_,
         /* instance_       */ a_config.instance_,
@@ -476,14 +477,15 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     // BRIDGE
     //
     bridge_ = new ev::loop::Bridge();
-    (void)bridge_->Start(shared_handler_socket_fn, a_fatal_exception_callback);
+    (void)bridge_->Start(startup_config_->abbr_, shared_handler_socket_fn, a_fatal_exception_callback);
     
     //
     // SCHEDULER
     //
     osal::ConditionVariable scheduler_cv;
     // ... then initialize scheduler ...
-    ::ev::scheduler::Scheduler::GetInstance().Start(scheduler_socket_fn,
+    ::ev::scheduler::Scheduler::GetInstance().Start(startup_config_->abbr_,
+                                                    scheduler_socket_fn,
                                                     *bridge_,
                                                     [this, &scheduler_cv]() {
                                                         scheduler_cv.Wake();
@@ -820,6 +822,8 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop ()
     ev::loop::beanstalkd::Looper*   looper    = nullptr;
     
     try {
+        
+        osal::ThreadHelper::GetInstance().SetName(startup_config_->abbr_ + "::Runner");
         
         const ev::loop::beanstalkd::Job::MessagePumpCallbacks callbacks = {
             /* on_fatal_exception_ */ std::bind(&ev::loop::beanstalkd::Runner::OnFatalException   , this, std::placeholders::_1),

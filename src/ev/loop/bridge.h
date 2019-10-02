@@ -127,6 +127,10 @@ namespace ev
                 
             };
             
+        protected: // Data
+            
+            std::string                  name_;
+            
         protected: // Theading
 
 #if 0 // TODO
@@ -171,7 +175,8 @@ namespace ev
             
         public: // Method(s) / Function(s)
             
-            CallOnMainThreadCallback Start (const std::string& a_socket_fn,
+            CallOnMainThreadCallback Start (const std::string& a_name,
+                                            const std::string& a_socket_fn,
                                             FatalExceptionCallback a_fatal_exception_callback);
             void Stop  (int a_sig_no);
             void Quit  ();

@@ -55,6 +55,7 @@ namespace ev
                 typedef std::function<void(const ev::Exception& a_ev_exception)> FatalExceptionCallback;
 
                 typedef struct {
+                    const std::string                  abbr_;
                     const std::string                  name_;
                     const std::string                  versioned_name_;
                     const int                          instance_;

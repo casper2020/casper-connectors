@@ -63,15 +63,19 @@ ev::loop::Bridge::~Bridge ()
 /**
  * @brief Synchronously start this event loop.
  *
+ * @param a_name
  * @param a_socket_fn
  * @param a_fatal_exception_callback
  *
  * @return A callback to be used when it's necessary run code in the 'main' thread.
  */
-ev::loop::Bridge::CallOnMainThreadCallback ev::loop::Bridge::Start (const std::string& a_socket_fn,
+ev::loop::Bridge::CallOnMainThreadCallback ev::loop::Bridge::Start (const std::string& a_name,
+                                                                    const std::string& a_socket_fn,
                                                                     ev::loop::Bridge::FatalExceptionCallback a_fatal_exception_callback)
 {
     try {
+        
+        name_  = a_name;
         
 #if 0 // TODO
         if ( nullptr != thread_ ) {
@@ -322,6 +326,8 @@ void ev::loop::Bridge::Loop ()
     thread_id_ = osal::ThreadHelper::GetInstance().CurrentThreadID();
     
     running_ = true;
+    
+    osal::ThreadHelper::GetInstance().SetName(name_ + "::ev::bridge");
 
 #if 0 // TODO
     detach_condition_.Wake();
