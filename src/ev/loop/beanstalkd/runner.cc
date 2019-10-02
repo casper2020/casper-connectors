@@ -635,6 +635,9 @@ void ev::loop::beanstalkd::Runner::Shutdown (int a_sig_no)
     // ... no, but will be now ...
     shutting_down_ = true;
     
+    // ... shutdown scheduled ...
+    ::ev::scheduler::Scheduler::GetInstance().Stop(/* a_finalization_callback */ nullptr, /* a_sig_no */ -1);
+
     const pid_t process_pid = getpid();
 
     OSALITE_DEBUG_TRACE("startup",
