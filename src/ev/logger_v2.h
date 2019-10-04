@@ -258,6 +258,10 @@ namespace ev
         
         bool EnsureBufferCapacity (const size_t& a_capacity);
         bool EnsureOwner          ();
+        
+    public: // Static Method(s) / Function(s)
+        
+        static size_t NumberOfDigits (size_t a_value);
 
     }; // end of class Logger
     

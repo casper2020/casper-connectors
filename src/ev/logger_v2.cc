@@ -25,3 +25,20 @@ char*  ev::LoggerV2::s_buffer_          = nullptr;
 size_t ev::LoggerV2::s_buffer_capacity_ = 0;
 uid_t  ev::LoggerV2::s_user_id_         = UINT32_MAX;
 gid_t  ev::LoggerV2::s_group_id_        = UINT32_MAX;
+
+/**
+ * @brief Calculate the number of digits for the provided value.
+ *
+ * @param a_value Value to be used.
+ * 
+ * @return Number of digits for provided value.
+ */
+size_t ev::LoggerV2::NumberOfDigits (size_t a_value)
+{
+    size_t count = 0;
+    while ( 0 != a_value ) {
+        a_value /= 10;
+        count++;
+    }
+    return count;
+}
