@@ -48,13 +48,13 @@ namespace ev
         namespace route
         {
 
-            class Gatekeeper final : public osal::Singleton<Gatekeeper> // TODO public ::cc::NonCopyable, public ::cc::NonMovable
+            class Gatekeeper final : public osal::Singleton<Gatekeeper>
             {
                 
             public: // Data Type(s)
                 
                 typedef std::function<void(const std::string&)> JobDeflector;
-                
+
             private: // Data Type(s)
                 
                 class Rule : public ::cc::NonCopyable, public ::cc::NonMovable {
@@ -70,6 +70,15 @@ namespace ev
                         const std::string str_;
                         const std::regex  regex_;
                     } Expression;
+                    
+                    typedef struct {
+                        const std::string name_;
+                        const std::string got_;
+                        const std::string expected_;
+                        const std::string reason_;
+                    } Value;
+                    
+                    typedef std::vector<Value> Fields;
                     
                 public: // Const Data
                     
@@ -107,6 +116,10 @@ namespace ev
                     
                 };
                 
+                typedef struct {
+                    std::set<std::string> bypass_methods_;
+                } Bribe;
+                
             public: // Data Type(s)
                 
                 typedef struct {
@@ -123,43 +136,56 @@ namespace ev
                 static std::string             s_logger_method_fmt_;
                 static std::string             s_logger_section_;
                 static std::string             s_logger_separator_;
+                static bool                    s_log_access_granted_;
+                static std::string             s_config_uri_;
                 static bool                    s_initialized_;
 
             private: // Data
                 
-                std::vector<Rule*> rules_;
+                std::vector<Rule*>    rules_;
 
-                std::string        tmp_path_;
-                std::smatch        tmp_match_;
-                CURLU*             tmp_url_;
-                std::ostringstream tmp_ostream_;
-                Status             tmp_status_;
+                std::string           tmp_path_;
+                std::smatch           tmp_match_;
+                CURLU*                tmp_url_;
+                Status                status_;
+                Bribe                 bribe_;
 
             public: // Method(s) / Functions
 
-                void          Startup  (const Loggable::Data& a_loggable_data_ref, const std::string& a_uri);
-                void          Load     (const std::string& a_uri, const size_t a_signo);
-                const Status& Allow    (const char* const a_method, const std::string& a_url, const ev::casper::Session& a_session,
-                                        JobDeflector a_deflector = nullptr);
-                void     Shutdown ();
+                void  Startup  (const Loggable::Data& a_loggable_data_ref,
+                                const std::string& a_uri);
+                void  Reload   (int a_signo);
+                void  Shutdown ();
                 
+            public: // Method(s) / Functions
+                
+                const Status& Allow (const std::string& a_method, const std::string& a_url, const ev::casper::Session& a_session,
+                                    const Loggable::Data &a_loggable_data);
+                const Status& Allow (const std::string& a_method, const std::string& a_url, const ev::casper::Session& a_session,
+                                    JobDeflector a_deflector,
+                                    const Loggable::Data &a_loggable_data);                
             private: // Method(s) / Function(s)
-                
+
+                void Load                (const std::string& a_uri, const size_t a_signo);
+
                 void ExtractURLComponent (const std::string& a_url, const CURLUPart a_part, std::string& o_value);
 
-            private: // Error(s) / Exception Serialization Method(s) / Function(s)
+            private: // Serialization Method(s) / Function(s)
+                
+                const Status& SetAllowed         (const std::string& a_method, const std::string& a_path,
+                                                  const Rule* a_rule);
 
-                const Status& SerializeError     (const char* const a_method, const std::string& a_path, const ev::casper::Session& a_session,
-                                                  const Rule* a_rule, const uint16_t a_code);
-                const Status& SerializeException (const char* const a_method, const std::string& a_path, const ev::casper::Session& a_session,
-                                                  const ev::Exception& a_exception);
+                const Status& SerializeError     (const std::string& a_method, const std::string& a_path, const uint16_t a_code,
+                                                  const Rule* a_rule, const Rule::Fields& a_fields);
+                const Status& SerializeException (const std::string& a_method, const std::string& a_path, const ev::Exception& a_exception);
 
             private: // Logging Method(s) / Function(s)
 
-                void Log (const Rule* a_rule);
-                void Log (const char* const a_method, const uint16_t& a_status_code, const Rule* a_rule,
-                          const ev::Exception* a_exception);
-
+                void Log (const Rule* a_rule) const;
+                void Log (const std::string& a_method, const std::string& a_path,  const uint16_t& a_status_code,
+                          const Rule* a_rule, const Rule::Fields& a_fields, const ev::Exception* a_exception) const;
+                void Log (const ev::Exception& a_exception);
+                
             }; // end of class 'Gatekeeper'
 
         } // end of namespace 'route'

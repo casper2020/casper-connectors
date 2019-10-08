@@ -44,6 +44,7 @@ namespace ev
             std::string ip_addr_;
             std::string module_;
             std::string tag_;
+            size_t      changes_count_;
             
         public: // Constructor(s) / Destructor
             
@@ -53,11 +54,11 @@ namespace ev
             Data ()
                 : owner_ptr_(nullptr)
             {
-                /* empty */
+                changes_count_ = 0;
             }
             
             /**
-             * @brief Default constructor.
+             * @brief Constructor.
              *
              * @param a_owner_ptr
              * @param a_ip_addr
@@ -65,7 +66,7 @@ namespace ev
              * @param a_tag
              */
             Data (const void* a_owner_ptr, const std::string& a_ip_addr, const std::string& a_module, const std::string& a_tag)
-                : owner_ptr_(a_owner_ptr), ip_addr_(a_ip_addr), module_(a_module), tag_(a_tag)
+                : owner_ptr_(a_owner_ptr), ip_addr_(a_ip_addr), module_(a_module), tag_(a_tag), changes_count_(0)
             {
                 /* empty */
             }
@@ -85,11 +86,14 @@ namespace ev
              *
              * @param a_module
              * @param a_ip_addr
+             * @param a_tag
              */
-            inline void Update (const std::string& a_module, const std::string& a_ip_addr)
+            inline void Update (const std::string& a_module, const std::string& a_ip_addr, const std::string& a_tag)
             {
-                module_  = a_module;
-                ip_addr_ = a_ip_addr;
+                module_         = a_module;
+                ip_addr_        = a_ip_addr;
+                tag_            = a_tag;
+                changes_count_ += 1;
             }
             
         public: // Operator(s) Overload
@@ -99,10 +103,11 @@ namespace ev
              */
             inline void operator = (const Data& a_data)
             {
-                owner_ptr_ = a_data.owner_ptr_;
-                ip_addr_   = a_data.ip_addr_;
-                module_    = a_data.module_;
-                tag_       = a_data.tag_;
+                owner_ptr_     = a_data.owner_ptr_;
+                ip_addr_       = a_data.ip_addr_;
+                module_        = a_data.module_;
+                tag_           = a_data.tag_;
+                changes_count_ = a_data.changes_count_;
             }
             
         public: // Mehtod(s) / Function(s)
@@ -140,6 +145,11 @@ namespace ev
             inline const char* tag () const
             {
                 return tag_.c_str();
+            }
+            
+            inline bool changed (const size_t a_last) const
+            {
+                return ( changes_count_ != a_last );
             }
 
         }; // end of class 'Data';

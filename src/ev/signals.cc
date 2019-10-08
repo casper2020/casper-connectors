@@ -92,6 +92,7 @@ void ev::Signals::Append (const std::set<int>& a_signals, std::function<void (in
         auto it = other_signal_handlers_.find(signal);
         if ( other_signal_handlers_.end() == it ) {
             vector = new std::vector<std::function<void(int)>>();
+            other_signal_handlers_[signal] = vector;
         } else {
             vector = it->second;
         }
