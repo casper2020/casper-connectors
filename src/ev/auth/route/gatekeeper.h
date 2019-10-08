@@ -35,8 +35,6 @@
 #include <curl/curl.h>
 #include <curl/urlapi.h>
 
-#include "osal/thread_helper.h"
-
 #include "ev/logger_v2.h"
 
 namespace ev
@@ -53,7 +51,12 @@ namespace ev
                 
             public: // Data Type(s)
                 
-                typedef std::function<void(const std::string&)> JobDeflector;
+                typedef struct {
+                    const size_t ttr_;
+                    const size_t validity_;
+                } DeflectorData;
+
+                typedef std::function<DeflectorData(const std::string&, ssize_t, ssize_t)> Deflector;
 
             private: // Data Type(s)
                 
@@ -63,6 +66,8 @@ namespace ev
                     
                     typedef struct {
                         const std::string           tube_;
+                        const ssize_t               ttr_;
+                        const ssize_t               validity_;
                         const std::set<std::string> methods_;
                     } Job;
                     
@@ -120,25 +125,30 @@ namespace ev
                     std::set<std::string> bypass_methods_;
                 } Bribe;
                 
+                typedef struct {
+                    ::ev::Loggable::Data*   data_;
+                    ::ev::LoggerV2::Client* client_;
+                    size_t                  index_padding_;
+                    std::string             index_fmt_;
+                    std::string             method_fmt_;
+                    std::string             section_;
+                    std::string             separator_;
+                    bool                    log_access_granted_;
+                } LoggerSettings;
+                
             public: // Data Type(s)
                 
                 typedef struct {
                     uint16_t    code_;
                     Json::Value data_;
+                    bool        deflected_;
                 } Status;
                 
             private: // Static Data
                 
-                static ::ev::Loggable::Data*   s_loggable_data_;
-                static ::ev::LoggerV2::Client* s_logger_client_;
-                static size_t                  s_logger_index_padding_;
-                static std::string             s_logger_index_fmt_;
-                static std::string             s_logger_method_fmt_;
-                static std::string             s_logger_section_;
-                static std::string             s_logger_separator_;
-                static bool                    s_log_access_granted_;
-                static std::string             s_config_uri_;
-                static bool                    s_initialized_;
+                static LoggerSettings s_logger_settings_;
+                static std::string    s_config_uri_;
+                static bool           s_initialized_;
 
             private: // Data
                 
@@ -162,7 +172,7 @@ namespace ev
                 const Status& Allow (const std::string& a_method, const std::string& a_url, const ev::casper::Session& a_session,
                                     const Loggable::Data &a_loggable_data);
                 const Status& Allow (const std::string& a_method, const std::string& a_url, const ev::casper::Session& a_session,
-                                    JobDeflector a_deflector,
+                                    Deflector a_deflector,
                                     const Loggable::Data &a_loggable_data);                
             private: // Method(s) / Function(s)
 
@@ -174,6 +184,9 @@ namespace ev
                 
                 const Status& SetAllowed         (const std::string& a_method, const std::string& a_path,
                                                   const Rule* a_rule);
+                
+                const Status& SetDeflected       (const std::string& a_method, const std::string& a_path,
+                                                  const Rule* a_rule, const DeflectorData& a_data);
 
                 const Status& SerializeError     (const std::string& a_method, const std::string& a_path, const uint16_t a_code,
                                                   const Rule* a_rule, const Rule::Fields& a_fields);
@@ -183,7 +196,8 @@ namespace ev
 
                 void Log (const Rule* a_rule) const;
                 void Log (const std::string& a_method, const std::string& a_path,  const uint16_t& a_status_code,
-                          const Rule* a_rule, const Rule::Fields& a_fields, const ev::Exception* a_exception) const;
+                          const Rule* a_rule, const Rule::Fields& a_fields, const DeflectorData* a_data,
+                          const ev::Exception* a_exception) const;
                 void Log (const ev::Exception& a_exception);
                 
             }; // end of class 'Gatekeeper'

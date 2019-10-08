@@ -23,6 +23,8 @@
 
 #include "ev/exception.h"
 
+#include "osal/thread_helper.h"
+
 #include "cc/utc_time.h"
 
 #include <fstream> // std::filebuf
@@ -30,16 +32,20 @@
 /*
  * STATIC DATA INITIALIZATION
  */
-::ev::Loggable::Data*   ev::auth::route::Gatekeeper::s_loggable_data_        = nullptr;
-::ev::LoggerV2::Client* ev::auth::route::Gatekeeper::s_logger_client_        = nullptr;
-size_t                  ev::auth::route::Gatekeeper::s_logger_index_padding_ = 0;
-std::string             ev::auth::route::Gatekeeper::s_logger_index_fmt_     = "";
-std::string             ev::auth::route::Gatekeeper::s_logger_method_fmt_    = "[ %6.6s ]"; // GET, POST, PATCH, DELETE
-std::string             ev::auth::route::Gatekeeper::s_logger_section_       = "";
-std::string             ev::auth::route::Gatekeeper::s_logger_separator_     = "";
-bool                    ev::auth::route::Gatekeeper::s_log_access_granted_   = false;
-std::string             ev::auth::route::Gatekeeper::s_config_uri_           = "";
-bool                    ev::auth::route::Gatekeeper::s_initialized_          = false;
+
+ev::auth::route::Gatekeeper::LoggerSettings ev::auth::route::Gatekeeper::s_logger_settings_ = {
+    /* data_               */     nullptr,
+    /* client_             */     nullptr,
+    /* index_padding_      */           0,
+    /* index_fmt_          */          "",
+    /* method_fmt_         */ "[ %6.6s ]", // GET, POST, PATCH, DELETE
+    /* section_            */          "",
+    /* separator_          */          "",
+    /* log_access_granted_ */       false
+};
+
+std::string ev::auth::route::Gatekeeper::s_config_uri_  = "";
+bool        ev::auth::route::Gatekeeper::s_initialized_ = false;
 
 /**
  * @brief Prepare singleton.
@@ -62,20 +68,21 @@ void ev::auth::route::Gatekeeper::Startup (const Loggable::Data &a_loggable_data
     
     // ... reset reusable variables ...
     status_ = {
-        /* code_ */ 500,
-        /* data_ */ Json::Value::null
+        /* code_ */      500,
+        /* data_ */      Json::Value::null,
+        /* deflected_ */ false
     };
 
-    if ( nullptr == s_loggable_data_ ) {
-        s_loggable_data_ = new ::ev::Loggable::Data(a_loggable_data_ref);
+    if ( nullptr == s_logger_settings_.data_ ) {
+        s_logger_settings_.data_ = new ::ev::Loggable::Data(a_loggable_data_ref);
     }
-    if ( nullptr == s_logger_client_ ) {
-        s_logger_client_ = new ::ev::LoggerV2::Client(*s_loggable_data_);
-        ::ev::LoggerV2::GetInstance().Register(s_logger_client_, { "gatekeeper" });
+    if ( nullptr == s_logger_settings_.client_ ) {
+        s_logger_settings_.client_ = new ::ev::LoggerV2::Client(*s_logger_settings_.data_);
+        ::ev::LoggerV2::GetInstance().Register(s_logger_settings_.client_, { "gatekeeper" });
     }
     
 #ifdef __APPLE__
-    s_log_access_granted_ = true;
+    s_logger_settings_.log_access_granted_ = true;
 #endif
     
     // ... load configuration?
@@ -116,11 +123,11 @@ void ev::auth::route::Gatekeeper::Shutdown ()
         delete rule;
     }
 
-    delete s_logger_client_;
-    s_logger_client_ = nullptr;
+    delete s_logger_settings_.client_;
+    s_logger_settings_.client_ = nullptr;
 
-    delete s_loggable_data_;
-    s_loggable_data_ = nullptr;
+    delete s_logger_settings_.data_;
+    s_logger_settings_.data_ = nullptr;
     
     bribe_.bypass_methods_.clear();
 
@@ -157,7 +164,7 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Allow (c
  * @return One of HTTP status code.
  */
 const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Allow (const std::string& a_method, const std::string& a_url, const ev::casper::Session& a_session,
-                                                                               ev::auth::route::Gatekeeper::JobDeflector a_deflector,
+                                                                               ev::auth::route::Gatekeeper::Deflector a_deflector,
                                                                                const Loggable::Data &a_loggable_data)
 {
     OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
@@ -170,8 +177,9 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Allow (c
         }
 
         // ... reset last status ...
-        status_.code_ = 500;
-        status_.data_ = Json::Value::null;
+        status_.code_      = 500;
+        status_.data_      = Json::Value::null;
+        status_.deflected_ = false;
                 
         // .. if no rules loaded ...
         if ( 0 == rules_.size() ) {
@@ -179,8 +187,8 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Allow (c
             return SetAllowed(a_method, tmp_path_, /* a_rule */ nullptr);
         }
 
-        // ... update loggable data ( s_loggable_data_ is mutable and should be always updated  ) ...
-        s_loggable_data_->Update(a_loggable_data.module(), a_loggable_data.ip_addr(), a_loggable_data.tag());
+        // ... update loggable data ( s_logger_settings_.data_ is mutable and should be always updated  ) ...
+        s_logger_settings_.data_->Update(a_loggable_data.module(), a_loggable_data.ip_addr(), a_loggable_data.tag());
 
         // ... extract path and check if it match any rule ...
         ExtractURLComponent(a_url, CURLUPart::CURLUPART_PATH, tmp_path_);
@@ -229,7 +237,9 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Allow (c
             if ( nullptr != rule->job_ ) {
                 // ... yes ...
                 if ( nullptr != a_deflector ) {
-                    a_deflector(rule->job_->tube_);
+                    // ... call deflector and we're done ...
+                    // ... we're done ...
+                    return SetDeflected(a_method, tmp_path_, rule, a_deflector(rule->job_->tube_, rule->job_->ttr_, rule->job_->validity_));
                 } else {
                     // ... 501 - Not Implemented - deflector not supported / implemented ...
                     return SerializeError(a_method, tmp_path_, 501, rule, /* a_fields */ {});
@@ -296,25 +306,25 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
      *   }
      * }
      */
-    s_loggable_data_->Update(/* a_module */ "gatekeeper", /* a_ip_addr */ "", /* a_tag */ ( 0 == a_signo ? "startup" : "signal"));
+    s_logger_settings_.data_->Update(/* a_module */ "gatekeeper", /* a_ip_addr */ "", /* a_tag */ ( 0 == a_signo ? "startup" : "signal"));
     
     auto& logger = ::ev::LoggerV2::GetInstance();
     
     // ... log event ...
     const int logger_title_padding = std::max(static_cast<int>(a_uri.length()), 106);
-    
-    s_logger_section_   = "--- " + std::string(logger_title_padding, ' ') + " ---";
-    s_logger_separator_ = "--- " + std::string(logger_title_padding, '-') + " ---";
+        
+    s_logger_settings_.section_   = "--- " + std::string(logger_title_padding, ' ') + " ---";
+    s_logger_settings_.separator_ = "--- " + std::string(logger_title_padding, '-') + " ---";
     
     std::vector<std::string> log_lines;
     // ... present 'gatekeeper' ...
-    if ( true == logger.IsRegistered(s_logger_client_, "gatekeeper") ) {
-        log_lines.push_back(s_logger_separator_);
-        log_lines.push_back(s_logger_section_);
+    if ( true == logger.IsRegistered(s_logger_settings_.client_, "gatekeeper") ) {
+        log_lines.push_back(s_logger_settings_.separator_);
+        log_lines.push_back(s_logger_settings_.section_);
         log_lines.push_back("--- " + cc::UTCTime::NowISO8601WithTZ());
         log_lines.push_back("--- " + a_uri);
-        log_lines.push_back(s_logger_section_);
-        logger.Log(s_logger_client_, "gatekeeper", log_lines);
+        log_lines.push_back(s_logger_settings_.section_);
+        logger.Log(s_logger_settings_.client_, "gatekeeper", log_lines);
     }
     
     try {
@@ -387,7 +397,9 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
                     // ... grab job ...
                     json_string_array_to_set(idx, job["methods"], job_methods);
                     job_obj = new Gatekeeper::Rule::Job({
-                        /* tube_    */ job["tube"].asString(),
+                        /* tube_     */ job["tube"].asString(),
+                        /* ttr_      */ job.get("ttr"     , -1).asInt(),
+                        /* validity_ */ job.get("validity", -1).asInt(),
                         /* methods_ */ job_methods
                     });
                 }
@@ -431,7 +443,7 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
                     if ( false == logs.isObject() ) {
                         throw ::ev::Exception("An error ocurred while parsing gatekeeper options: an object is expected!");
                     } else {
-                        s_log_access_granted_ = logs.get("log_access_granted", s_log_access_granted_).asBool();
+                        s_logger_settings_.log_access_granted_ = logs.get("log_access_granted", s_logger_settings_.log_access_granted_).asBool();
                     }
                 }
             }
@@ -458,21 +470,21 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
         s_config_uri_ = a_uri;
 
         // ... set log format rules ...
-        s_logger_index_padding_ = ::ev::LoggerV2::NumberOfDigits(rules_.size()) + 1; // + 1 - sign
-        s_logger_index_fmt_     = "[ %" + std::to_string(s_logger_index_padding_) + "zu ] %s";
+        s_logger_settings_.index_padding_ = ::ev::LoggerV2::NumberOfDigits(rules_.size()) + 1; // + 1 - sign
+        s_logger_settings_.index_fmt_     = "[ %" + std::to_string(s_logger_settings_.index_padding_) + "zu ] %s";
         
         // ... log loaded rules && separators ...
-        if ( true == logger.IsRegistered(s_logger_client_, "gatekeeper") ) {
+        if ( true == logger.IsRegistered(s_logger_settings_.client_, "gatekeeper") ) {
             // ... rules ...
             for ( size_t idx = 0 ; idx < rules_.size() ; ++idx ) {
                 Log(rules_[idx]);
             }
             // ... separators ...
             log_lines.clear();
-            log_lines.push_back(s_logger_section_);
-            log_lines.push_back(s_logger_separator_);
+            log_lines.push_back(s_logger_settings_.section_);
+            log_lines.push_back(s_logger_settings_.separator_);
             // ...
-            logger.Log(s_logger_client_, "gatekeeper", log_lines);
+            logger.Log(s_logger_settings_.client_, "gatekeeper", log_lines);
         }
         
 
@@ -481,14 +493,14 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
         throw ev::Exception("%s", a_json_exception.what());
     } catch (const ::ev::Exception& a_ev_exception) {
         // ... log event?
-        if ( true == logger.IsRegistered(s_logger_client_, "gatekeeper") ) {
+        if ( true == logger.IsRegistered(s_logger_settings_.client_, "gatekeeper") ) {
             log_lines.clear();
-            log_lines.push_back(s_logger_section_);
+            log_lines.push_back(s_logger_settings_.section_);
             log_lines.push_back("Failed to load rules from '" + a_uri + "'");
             log_lines.push_back(a_ev_exception.what());
-            log_lines.push_back(s_logger_section_);
-            log_lines.push_back(s_logger_separator_);
-            logger.Log(s_logger_client_, "gatekeeper", log_lines);
+            log_lines.push_back(s_logger_settings_.section_);
+            log_lines.push_back(s_logger_settings_.separator_);
+            logger.Log(s_logger_settings_.client_, "gatekeeper", log_lines);
         }
         // ... rethrow exception ...
         throw a_ev_exception;
@@ -539,9 +551,32 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::SetAllow
                                                                                     const ev::auth::route::Gatekeeper::Rule *a_rule)
 {
     // ... 200 - OK ...
-    status_.code_ = 200;
+    status_.code_      = 200;
+    status_.deflected_ = false;
     // ... log data ...
-    Log(a_method, a_path, /* a_status_code */ 200, a_rule, /* a_fields */ {}, /* a_exception */ nullptr);
+    Log(a_method, a_path, /* a_status_code */ 200, a_rule, /* a_fields */ {}, /* a_data */ nullptr, /* a_exception */ nullptr);
+    // ... we're done ...
+    return status_;
+}
+
+
+/**
+ * @brief Set 'allowed' and deflected data.
+ *
+ * @param a_method HTTP method name.
+ * @param a_path   Request URL path component.
+ * @param a_rule See \link Rule \link.
+ * @param a_data See \link DeflectorData \link
+ */
+const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::SetDeflected (const std::string& a_method, const std::string& a_path,
+                                                                                      const ev::auth::route::Gatekeeper::Rule *a_rule,
+                                                                                      const ev::auth::route::Gatekeeper::DeflectorData& a_data)
+{
+    // ... 200 - OK ...
+    status_.code_      = 200;
+    status_.deflected_ = true;
+    // ... log data ...
+    Log(a_method, a_path, /* a_status_code */ 200, a_rule, /* a_fields */ {}, /* a_data */ &a_data, /* a_exception */ nullptr);
     // ... we're done ...
     return status_;
 }
@@ -560,6 +595,7 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Serializ
 {
     // ... an error ocurred, translate to a JSON api error object ...
     status_.code_           = a_code;
+    status_.deflected_      = false;
     status_.data_           = Json::Value(Json::ValueType::objectValue);
     status_.data_["errors"] = Json::Value(Json::ValueType::arrayValue);
     
@@ -602,7 +638,7 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Serializ
         internal["why"]  = "No rule found for this request.";
     }
     // ... log attempt ...
-    Log(a_method, a_path, a_code, a_rule, a_fields, /* a_exception */ nullptr);
+    Log(a_method, a_path, a_code, a_rule, a_fields,  /* a_data */ nullptr, /* a_exception */ nullptr);
     // ... we're done ...
     return status_;
 }
@@ -620,6 +656,7 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Serializ
 {
     // ... an error ocurred, translate to a JSON api error object ...
     status_.code_           = 500;
+    status_.deflected_      = false;
     status_.data_           = Json::Value(Json::ValueType::objectValue);
     status_.data_["errors"] = Json::Value(Json::ValueType::arrayValue);
     
@@ -633,7 +670,7 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Serializ
     // ... fill 'meta/internal-error' data ...
     internal["exception"] = a_exception.what();
     // ... log attempt ...
-    Log(a_method, a_path, status_.code_, /* a_rule */ nullptr, /* a_fields */ {}, /* a_exception */ &a_exception);
+    Log(a_method, a_path, status_.code_, /* a_rule */ nullptr, /* a_fields */ {}, /* a_data */ nullptr, /* a_exception */ &a_exception);
     // ... we're done ...
     return status_;
 }
@@ -651,7 +688,7 @@ void ev::auth::route::Gatekeeper::Log (const ev::auth::route::Gatekeeper::Rule* 
 {
     // ... is logger token is enabled?
     auto& logger = ::ev::LoggerV2::GetInstance();
-    if ( false == logger.IsRegistered(s_logger_client_, "gatekeeper") ) {
+    if ( false == logger.IsRegistered(s_logger_settings_.client_, "gatekeeper") ) {
         // ... no ... we're done ...
         return;
     }
@@ -660,18 +697,18 @@ void ev::auth::route::Gatekeeper::Log (const ev::auth::route::Gatekeeper::Rule* 
     auto ostream = std::ostringstream();
     std::copy(a_rule->methods_.begin(), a_rule->methods_.end(), std::ostream_iterator<std::string>(ostream, ","));
 
-    logger.Log(s_logger_client_, "gatekeeper",
-               s_logger_index_fmt_.c_str(),
+    logger.Log(s_logger_settings_.client_, "gatekeeper",
+               s_logger_settings_.index_fmt_.c_str(),
                a_rule->idx_, a_rule->expr_.str_.c_str()
     );
         
-    logger.Log(s_logger_client_, "gatekeeper",
-               "%*c %18.18s: %s", static_cast<int>(s_logger_index_padding_ + 4),
+    logger.Log(s_logger_settings_.client_, "gatekeeper",
+               "%*c %18.18s: %s", static_cast<int>(s_logger_settings_.index_padding_ + 4),
                ' ', "Allowed Methods", ostream.str().c_str()
     );
     
-    logger.Log(s_logger_client_, "gatekeeper",
-               "%*c %18.18s: 0x%08lx", static_cast<int>(s_logger_index_padding_ + 4),
+    logger.Log(s_logger_settings_.client_, "gatekeeper",
+               "%*c %18.18s: 0x%08lx", static_cast<int>(s_logger_settings_.index_padding_ + 4),
                ' ', "Required Role Mask", a_rule->role_mask_
     );
     
@@ -683,9 +720,20 @@ void ev::auth::route::Gatekeeper::Log (const ev::auth::route::Gatekeeper::Rule* 
     // ... log job ...
     ostream = std::ostringstream();
     std::copy(a_rule->job_->methods_.begin(), a_rule->job_->methods_.end(), std::ostream_iterator<std::string>(ostream, ","));
-    logger.Log(s_logger_client_, "gatekeeper",
-               "%*c %18.18s: deflected to tube '%s' when method is one of ( %s )", static_cast<int>(s_logger_index_padding_ + 4),
+    logger.Log(s_logger_settings_.client_, "gatekeeper",
+               "%*c %18.18s: deflected to tube '%s' when method is one of ( %s )",
+               static_cast<int>(s_logger_settings_.index_padding_ + 4),
                ' ', "Job", a_rule->job_->tube_.c_str(), ostream.str().c_str()
+    );
+    logger.Log(s_logger_settings_.client_, "gatekeeper",
+               "%*c %18.18s: %d",
+               static_cast<int>(s_logger_settings_.index_padding_ + 4),
+               ' ', "TTR", static_cast<int>(a_rule->job_->ttr_)
+    );
+    logger.Log(s_logger_settings_.client_, "gatekeeper",
+               "%*c %18.18s: %d",
+               static_cast<int>(s_logger_settings_.index_padding_ + 4),
+               ' ', "Validity", static_cast<int>(a_rule->job_->validity_)
     );
 }
 
@@ -697,19 +745,21 @@ void ev::auth::route::Gatekeeper::Log (const ev::auth::route::Gatekeeper::Rule* 
  * @param a_code      One of HTTP status code.
  * @param a_rule      See \link Rule \link.
  * @param a_fields    Rule fields.
+ * @param a_data      See \link DeflectorData \link
  * @param a_exception Exception to log.
  */
 void ev::auth::route::Gatekeeper::Log (const std::string& a_method, const std::string& a_path, const uint16_t& a_status_code,
-                                       const ev::auth::route::Gatekeeper::Rule* a_rule, const Rule::Fields& a_fields, const ev::Exception* a_exception) const
+                                       const ev::auth::route::Gatekeeper::Rule* a_rule, const Rule::Fields& a_fields, const ev::auth::route::Gatekeeper::DeflectorData* a_data,
+                                       const ev::Exception* a_exception) const
 {    // ... is logger token is enabled?
     auto& logger = ::ev::LoggerV2::GetInstance();
-    if ( false == logger.IsRegistered(s_logger_client_, "gatekeeper") ) {
+    if ( false == logger.IsRegistered(s_logger_settings_.client_, "gatekeeper") ) {
         // ... no ... we're done ...
         return;
     }
 
     // ... if access granted but should not be logged ...
-    if ( 200 == a_status_code && false == s_log_access_granted_ ) {
+    if ( 200 == a_status_code && false == s_logger_settings_.log_access_granted_ ) {
         // ... we're done ...
         return;
     }
@@ -725,19 +775,22 @@ void ev::auth::route::Gatekeeper::Log (const std::string& a_method, const std::s
         // ... success because ...
         if ( nullptr != a_rule ) {
             // ... a rule allowed ...
-            sstream << ", " << std::setfill(' ') << std::setw(static_cast<int>(s_logger_index_padding_)) << a_rule->idx_;
+            sstream << ", " << std::setfill(' ') << std::setw(static_cast<int>(s_logger_settings_.index_padding_)) << a_rule->idx_;
             sstream << ", allowed by rule";
+            if ( nullptr != a_rule->job_ ) {
+                sstream << " and deflected to '" << a_rule->job_->tube_ << "' ( ttr = " << a_data->ttr_ << ", validity = " << a_data->validity_ << " )";
+            }
         } else if ( 0 == rules_.size() ) {
             // ... not rules loaded ...
-            sstream << ", " << std::setfill(' ') << std::setw(static_cast<int>(s_logger_index_padding_)) << -1;
+            sstream << ", " << std::setfill(' ') << std::setw(static_cast<int>(s_logger_settings_.index_padding_)) << -1;
             sstream << ", there are no rules";
         } else {
-            sstream << ", " << std::setfill(' ') << std::setw(static_cast<int>(s_logger_index_padding_)) << -1;
+            sstream << ", " << std::setfill(' ') << std::setw(static_cast<int>(s_logger_settings_.index_padding_)) << -1;
             sstream << ", gatekeeper was bribed";
         }
     } else if ( 401 == a_status_code || 405 == a_status_code ) { // ... access denied or method not allowed ...
         // ... because rule denied ...
-        sstream << ", " << std::setfill(' ') << std::setw(static_cast<int>(s_logger_index_padding_)) << a_rule->idx_;
+        sstream << ", " << std::setfill(' ') << std::setw(static_cast<int>(s_logger_settings_.index_padding_)) << a_rule->idx_;
         if ( 401 == a_status_code ) {
             sstream << ", denied by rule";
         } else { /* 405 == a_status_code */
@@ -754,7 +807,7 @@ void ev::auth::route::Gatekeeper::Log (const std::string& a_method, const std::s
             sstream << " )";
         }
     } else {
-        sstream << ", " << std::setfill(' ') << std::setw(static_cast<int>(s_logger_index_padding_)) << -1;
+        sstream << ", " << std::setfill(' ') << std::setw(static_cast<int>(s_logger_settings_.index_padding_)) << -1;
         if ( 404 == a_status_code ) { // ... not found ...
             // ... because no rule aplies ...
             sstream << ", rule not found";
@@ -768,5 +821,6 @@ void ev::auth::route::Gatekeeper::Log (const std::string& a_method, const std::s
     }
     
     // ... log entry ...
-    logger.Log(s_logger_client_, "gatekeeper", "%s", sstream.str().c_str());
+    logger.Log(s_logger_settings_.client_, "gatekeeper", "%s", a_path.c_str());
+    logger.Log(s_logger_settings_.client_, "gatekeeper", "%s", sstream.str().c_str());
 }
