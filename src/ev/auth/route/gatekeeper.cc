@@ -28,6 +28,7 @@
 #include "cc/utc_time.h"
 
 #include <fstream> // std::filebuf
+#include <iomanip> // std::setfill, etc
 
 /*
  * STATIC DATA INITIALIZATION
