@@ -27,8 +27,7 @@
 /**
  * @brief Default constructor.
  */
-ev::curl::HTTP::HTTP (const ev::Loggable::Data& a_loggable_data)
-    : loggable_data_(a_loggable_data)
+ev::curl::HTTP::HTTP ()
 {
     ::ev::scheduler::Scheduler::GetInstance().Register(this);
 }
@@ -53,11 +52,12 @@ ev::curl::HTTP::~HTTP ()
  * @param a_success_callback
  * @param a_failure_callback
  */
-void ev::curl::HTTP::GET (const std::string& a_url,
+void ev::curl::HTTP::GET (const Loggable::Data& a_loggable_data,
+                          const std::string& a_url,
                           const EV_CURL_HTTP_HEADERS* a_headers,
                           EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
 {
-    Async(new ::ev::curl::Request(loggable_data_,
+    Async(new ::ev::curl::Request(a_loggable_data,
                                   curl::Request::HTTPRequestType::GET, a_url, a_headers, /* a_body */ nullptr
           ),
           a_success_callback, a_failure_callback
@@ -71,11 +71,12 @@ void ev::curl::HTTP::GET (const std::string& a_url,
  * @param a_success_callback
  * @param a_failure_callback
  */
-void ev::curl::HTTP::PUT (const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
+void ev::curl::HTTP::PUT (const Loggable::Data& a_loggable_data,
+                          const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                           const std::string* a_body,
                           EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
 {
-    Async(new ::ev::curl::Request(loggable_data_,
+    Async(new ::ev::curl::Request(a_loggable_data,
                                   curl::Request::HTTPRequestType::PUT, a_url, a_headers, a_body
           ),
           a_success_callback, a_failure_callback
@@ -85,16 +86,37 @@ void ev::curl::HTTP::PUT (const std::string& a_url, const EV_CURL_HTTP_HEADERS* 
 /**
  * @brief Perforn an HTTP POST request.
  *
-* @param a_url
+ * @param a_url
  * @param a_success_callback
  * @param a_failure_callback
  */
-void ev::curl::HTTP::POST (const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
+void ev::curl::HTTP::POST (const Loggable::Data& a_loggable_data,
+                           const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                            const std::string* a_body,
                            EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
 {
-    Async(new ::ev::curl::Request(loggable_data_,
+    Async(new ::ev::curl::Request(a_loggable_data,
                                   curl::Request::HTTPRequestType::POST, a_url, a_headers, a_body
+          ),
+          a_success_callback, a_failure_callback
+    );
+}
+
+/**
+ * @brief Perforn an HTTP PATCH request.
+ *
+ * @param a_loggable_data
+ * @param a_url
+ * @param a_success_callback
+ * @param a_failure_callback
+ */
+void ev::curl::HTTP::PATCH (const ::ev::Loggable::Data& a_loggable_data,
+                            const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
+                            const std::string* a_body,
+                            EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+{
+    Async(new ::ev::curl::Request(a_loggable_data,
+                                  curl::Request::HTTPRequestType::PATCH, a_url, a_headers, a_body
           ),
           a_success_callback, a_failure_callback
     );
@@ -107,11 +129,12 @@ void ev::curl::HTTP::POST (const std::string& a_url, const EV_CURL_HTTP_HEADERS*
  * @param a_success_callback
  * @param a_failure_callback
  */
-void ev::curl::HTTP::DELETE (const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
+void ev::curl::HTTP::DELETE (const Loggable::Data& a_loggable_data,
+                             const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                              const std::string* a_body,
                              EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
 {
-    Async(new ::ev::curl::Request(loggable_data_,
+    Async(new ::ev::curl::Request(a_loggable_data,
                                   curl::Request::HTTPRequestType::DELETE, a_url, a_headers, a_body
           ),
           a_success_callback, a_failure_callback

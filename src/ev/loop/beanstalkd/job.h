@@ -76,7 +76,7 @@ namespace ev
         namespace beanstalkd
         {
             
-            class Job : private ev::scheduler::Scheduler::Client, private ev::redis::subscriptions::Manager::Client, public ::cc::NonCopyable, public ::cc::NonMovable
+            class Job : private ev::scheduler::Client, private ev::redis::subscriptions::Manager::Client, public ::cc::NonCopyable, public ::cc::NonMovable
             {
                 
             public: // Data Type

@@ -25,13 +25,16 @@
 #include "ev/postgresql/object.h"
 #include "ev/postgresql/value.h"
 
+#include "cc/non-copyable.h"
+#include "cc/non-movable.h"
+
 namespace ev
 {
     
     namespace postgresql
     {
         
-        class Reply final : public ev::postgresql::Object
+        class Reply final : public ev::postgresql::Object, public ::cc::NonCopyable, public ::cc::NonMovable
         {
             
         public: // Const Data
@@ -44,8 +47,8 @@ namespace ev
             
         public: // Constructor(s) / Destructor
             
-            Reply(PGresult* a_reply, const uint64_t a_elapsed);
-            Reply(const ExecStatusType a_status, const char* const a_message, const uint64_t a_elapsed);
+            Reply(const uint64_t a_elapsed, PGresult* a_reply);
+            Reply(const uint64_t a_elapsed, const ExecStatusType a_status, const char* const a_message);
             virtual ~Reply();
             
         public: // Method(s) / Function(s)

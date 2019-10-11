@@ -30,10 +30,13 @@
  * @param a_content_type
  * @param a_generic_error_message_key
  * @param a_generic_error_message_with_code_key
+ * @param a_enable_nice_piece_of_code_a_k_a_ordered_json
  */
 cc::errors::jsonapi::Tracker::Tracker (const std::string& a_locale, const std::string& a_content_type,
-                                       const char* const a_generic_error_message_key, const char* const a_generic_error_message_with_code_key)
-    : cc::errors::Tracker(a_content_type, a_locale, a_generic_error_message_key, a_generic_error_message_with_code_key)
+                                       const char* const a_generic_error_message_key, const char* const a_generic_error_message_with_code_key,
+                                       bool a_enable_nice_piece_of_code_a_k_a_ordered_json)
+    : cc::errors::Tracker(a_content_type, a_locale, a_generic_error_message_key, a_generic_error_message_with_code_key),
+      enable_nice_piece_of_code_a_k_a_ordered_json_(a_enable_nice_piece_of_code_a_k_a_ordered_json)
 {
     /* empty */
 }
@@ -150,13 +153,49 @@ void cc::errors::jsonapi::Tracker::jsonify (Json::Value& o_object)
 std::string cc::errors::jsonapi::Tracker::Serialize2JSON () const
 {
     Json::FastWriter writer;
-    Json::Value      errors_object = Json::Value(Json::ValueType::objectValue);
-    
-    errors_object["errors"] = array_;
-    
     writer.omitEndingLineFeed();
-    
-    return writer.write(errors_object);
+
+    if ( true == enable_nice_piece_of_code_a_k_a_ordered_json_ ) {
+        
+        // ... ensuring 'brilliant' idea of 'ordered' JSON serialization ...
+        //    {
+        //        "errors": [
+        //                      {
+        //                          "status": nullptr,
+        //                          "code": nullptr,
+        //                          "detail": nullptr,
+        //                          "meta": {
+        //                              "internal-error": nullptr
+        //                           }
+        //                      }
+        //         ]
+        //    }
+        std::stringstream ss;
+        
+        ss << "{\"errors\":[";
+        
+        for ( Json::ArrayIndex idx = 0 ; idx < array_.size(); ++idx ) {
+            
+            const Json::Value& error = array_[idx];
+            
+            ss << "{\"status\":"  << "\"" << error["status"].asString() << "\"," << "\"code\":\"" << error["code"].asString() << "\"";
+            if ( true == error.isMember("detail") ) {
+                ss << ",\"detail\":" << writer.write(error["detail"]);
+            }
+            ss << '}';
+        }
+        
+        ss << "]}";
+        
+        return ss.str();
+        
+    } else {
+        Json::Value      errors_object = Json::Value(Json::ValueType::objectValue);
+        
+        errors_object["errors"] = array_;
+                
+        return writer.write(errors_object);
+    }
 }
 
 #ifdef __APPLE__

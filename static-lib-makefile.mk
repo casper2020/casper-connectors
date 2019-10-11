@@ -23,6 +23,7 @@ OBJECTS := \
            $(EV_SRC:.cc=.o)        \
            $(CC_SRC:.cc=.o)        \
            $(CRYPTO_SRC:.cc=.o)    \
+           $(HASH_SRC:.cc=.o)      \
            $(AUTH_SRC:.cc=.o)
 
 LIB_NAME := libconnectors.a

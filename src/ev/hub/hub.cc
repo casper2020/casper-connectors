@@ -456,6 +456,7 @@ void ev::hub::Hub::Loop ()
     }
 
     timeval tv;
+
     tv.tv_sec  = 15;
     tv.tv_usec = 0;
 

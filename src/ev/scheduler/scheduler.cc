@@ -238,7 +238,7 @@ void ev::scheduler::Scheduler::Stop (ev::scheduler::Scheduler::FinalizationCallb
  * @param a_client
  * @param a_object
  */
-void ev::scheduler::Scheduler::Push (ev::scheduler::Scheduler::Client* a_client, ev::scheduler::Object* a_object)
+void ev::scheduler::Scheduler::Push (ev::scheduler::Client* a_client, ev::scheduler::Object* a_object)
 {
     if ( nullptr == hub_ ) {
         throw ev::Exception("Can't add a new object to scheduler - hub is not running!");
@@ -289,7 +289,7 @@ void ev::scheduler::Scheduler::Push (ev::scheduler::Scheduler::Client* a_client,
  *
  * @param a_client
  */
-void ev::scheduler::Scheduler::Register (ev::scheduler::Scheduler::Client* a_client)
+void ev::scheduler::Scheduler::Register (ev::scheduler::Client* a_client)
 {
     auto it = clients_to_objects_map_.find(a_client);
     if ( clients_to_objects_map_.end() != it ) {
@@ -305,7 +305,7 @@ void ev::scheduler::Scheduler::Register (ev::scheduler::Scheduler::Client* a_cli
  *
  * @param a_client
  */
-void ev::scheduler::Scheduler::Unregister (ev::scheduler::Scheduler::Client* a_client)
+void ev::scheduler::Scheduler::Unregister (ev::scheduler::Client* a_client)
 {
     const auto it = clients_to_objects_map_.find(a_client);
     if ( clients_to_objects_map_.end() == it ) {
@@ -338,7 +338,7 @@ void ev::scheduler::Scheduler::Unregister (ev::scheduler::Scheduler::Client* a_c
  * @param a_ms
  * @param a_callback
  */
-void ev::scheduler::Scheduler::SetClientTimeout (ev::scheduler::Scheduler::Client* a_client,
+void ev::scheduler::Scheduler::SetClientTimeout (ev::scheduler::Client* a_client,
                                                  uint64_t a_ms, ev::scheduler::Scheduler::TimeoutCallback a_callback)
 {
     bridge_ptr_->CallOnMainThread(

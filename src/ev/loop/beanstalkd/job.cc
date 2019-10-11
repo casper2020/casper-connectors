@@ -44,7 +44,6 @@ ev::loop::beanstalkd::Job::Job (const std::string& a_tube, const Config& a_confi
     redis_channel_prefix_(config_.service_id_ + ':' + tube_ + ':'),
     default_validity_(3600),
     loggable_data_(a_loggable_data),
-    http_(loggable_data_),
     json_api_(loggable_data_, /* a_enable_task_cancellation */ false)
 {
     id_                              = 0;
@@ -1034,7 +1033,9 @@ void ev::loop::beanstalkd::Job::HTTPGet (const Json::Value& a_url,
 
     ExecuteOnMainThread([this, &cv, &o_url, &o_code, &o_data, &o_elapsed, &dlsp] {
         
-        http_.GET(/* a_url */
+        http_.GET(
+                  loggable_data_,
+                  /* a_url */
                   o_url,
                   /* a_headers */
                   nullptr,

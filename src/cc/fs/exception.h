@@ -1,7 +1,7 @@
 /**
  * @file exception.h
  *
- * Copyright (c) 2011-2018 Cloudware S.A. All rights reserved.
+ * Copyright (c) 2011-2019 Cloudware S.A. All rights reserved.
  *
  * This file is part of casper-connectors.
  *
@@ -19,21 +19,21 @@
  * along with casper.  If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
-#ifndef NRS_CC_FILE_EXCEPTION_H_
-#define NRS_CC_FILE_EXCEPTION_H_
+#ifndef NRS_CC_FS_EXCEPTION_H_
+#define NRS_CC_FS_EXCEPTION_H_
 
 #include "cc/exception.h"
 
 namespace cc
 {
     
-    namespace file
+    namespace fs
     {
         
         typedef ::cc::Exception Exception;
         
-    } // end of namespace 'file'
-
+    } // end of namespace 'fs'
+    
 } // end of namespace 'cc'
 
-#endif // NRS_CC_FILE_EXCEPTION_H_
+#endif // NRS_CC_FS_EXCEPTION_H_

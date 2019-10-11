@@ -41,13 +41,21 @@ namespace ev
         public: // Constructor(s) / Destructor
             
             Request(const Loggable::Data& a_loggable_data, const std::string& a_payload);
+            Request(const Loggable::Data& a_loggable_data, const std::vector<char>& a_payload);
             Request(const Loggable::Data& a_loggable_data, const char* const a_format, ...) __attribute__((format(printf, 3, 4)));
+            Request(const Loggable::Data& a_loggable_data, size_t a_size, const char* const a_format, va_list a_list);
+            Request(const char* a_query, const Loggable::Data& a_loggable_data);
             virtual ~Request();
             
         public: // Inherited Virtual Method(s) / Function(s)
             
             virtual const char*        AsCString () const;
             virtual const std::string& AsString  () const;
+            
+        public: // STATIC API METHOD(S) / FUNCTION(S)
+            
+            static void        SQLEscape (const std::string& a_value, std::string& o_value);
+            static std::string SQLEscape (const std::string& a_value);
             
         }; // end of class 'Request'
         

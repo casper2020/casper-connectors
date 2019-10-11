@@ -34,6 +34,7 @@
 #include <string>
 #include <map>
 #include <set>      // std::set
+#include <vector>   // std::vector
 #include <exception>
 
 #include "ev/loggable.h"
@@ -66,6 +67,7 @@ namespace ev
         protected: // Data
             
             std::string           prefix_;
+            size_t                prefix_changes_count_;
             std::set<std::string> tokens_;
             
         public: // Constructor / Destructor
@@ -78,7 +80,7 @@ namespace ev
             Client (const ev::Loggable::Data& a_loggable_data_ref)
                 : loggable_data_ref_(a_loggable_data_ref)
             {
-                /* empty */
+                prefix_changes_count_ = 0;
             }
             
             /**
@@ -98,6 +100,15 @@ namespace ev
              */
             inline void SetLoggerPrefix (const std::set<std::string>& a_tokens)
             {
+                UpdateLoggerPrefix();
+                tokens_ = a_tokens;
+            }
+            
+            /**
+             * @brief Update this client logger prefix and enabled tokens.
+             */
+             inline void UpdateLoggerPrefix ()
+            {
                 std::string module_name;
                 if ( strlen(loggable_data_ref_.module()) > 22 ) {
                     module_name = "..." + std::string(loggable_data_ref_.module() + ( strlen(loggable_data_ref_.module()) + 3 - 22));
@@ -115,7 +126,9 @@ namespace ev
                          loggable_data_ref_.owner_ptr()
                 );
                 prefix_ = prefix;
-                tokens_ = a_tokens;
+                if ( true == prefix_changed() ) {
+                    prefix_changes_count_ += 1;
+                }
             }
             
             /**
@@ -124,6 +137,14 @@ namespace ev
             inline const char* prefix () const
             {
                 return prefix_.c_str();
+            }
+            
+            /**
+             * @return True if prefix has changed.
+             */
+            inline bool prefix_changed ()
+            {
+                return loggable_data_ref_.changed(prefix_changes_count_);
             }
             
             /**
@@ -249,6 +270,8 @@ namespace ev
         void     Log (Client* a_client,
                       const char* const a_token, const char* a_format, ...) __attribute__((format(printf, 4, 5)));
         
+        void     Log (Client* a_client, const char* const a_token, const std::vector<std::string>& a_lines);
+        
     public: // Other - Method(s) / Function(s)
         
         void     Recycle     ();
@@ -258,6 +281,10 @@ namespace ev
         
         bool EnsureBufferCapacity (const size_t& a_capacity);
         bool EnsureOwner          ();
+        
+    public: // Static Method(s) / Function(s)
+        
+        static size_t NumberOfDigits (size_t a_value);
 
     }; // end of class Logger
     
@@ -481,6 +508,10 @@ namespace ev
             // ... we're done ...
             return;
         }
+        // ...
+        if ( true == a_client->prefix_changed() ) {
+            a_client->UpdateLoggerPrefix();
+        }
         // ... ensure we have a valid buffer ...
         if ( false == EnsureBufferCapacity(1024) ) {
             // ... oops ...
@@ -523,6 +554,45 @@ namespace ev
             if ( stdout != file && stderr != file ) {
                 fflush(file);
             }
+        }
+    }
+
+    /**
+     * @brief Output a log message if the provided token is registered.
+     *
+     * @param a_client
+     * @param a_token
+     * @param a_lines
+     */
+    inline void LoggerV2::Log (Client* a_client, const char* const a_token, const std::vector<std::string>& a_lines)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        // ...if token is not registered...
+        if ( tokens_.end() == tokens_.find(a_token) ) {
+            // ... we're done ...
+            return;
+        }
+        // ... if client is not registered, or this token is not registered for it ...
+        const auto client_it = clients_.find(a_client);
+        if ( clients_.end() == client_it || false == (*client_it)->IsTokenRegistered(a_token) ) {
+            // ... we're done ...
+            return;
+        }
+        // ...
+        if ( true == a_client->prefix_changed() ) {
+            a_client->UpdateLoggerPrefix();
+        }
+        // ...
+        auto file = tokens_.find(a_token)->second->fp_;
+        // ... output message ...
+        for ( auto& line : a_lines ) {
+            fprintf(tokens_.find(a_token)->second->fp_, "%s,%s%s\n",
+                    cc::UTCTime::NowISO8601WithTZ().c_str(), a_client->prefix(), line.c_str()
+            );
+        }
+        // ... flush ...
+        if ( stdout != file && stderr != file ) {
+            fflush(file);
         }
     }
     

@@ -366,7 +366,7 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
                                               /* tag_       */ "instance-" + std::to_string(a_config.instance_)
     );
     // ... set a http client ...
-    http_          = new ev::curl::HTTP(*loggable_data_);
+    http_          = new ev::curl::HTTP();
     
     //                                      //
     // ... initialize shared singletons ... //

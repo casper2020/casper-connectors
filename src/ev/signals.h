@@ -28,6 +28,7 @@
 #include "ev/bridge.h"
 
 #include <set>
+#include <map>
 #include <functional>
 
 namespace ev
@@ -36,7 +37,7 @@ namespace ev
     /**
      * @brief A singleton to handle common signals
      */
-    class Signals final : public osal::Singleton<Signals>, private scheduler::Scheduler::Client
+    class Signals final : public osal::Singleton<Signals>, private scheduler::Client
     {
         
     private: // Static Const Ptrs
@@ -49,11 +50,16 @@ namespace ev
         static std::function<void(const ev::Exception& a_ev_exception)> s_fatal_exception_callback_;
         static std::function<bool(int)>                                 s_unhandled_signal_callback_;
         
+    private: // Data
+        
+        std::map<int, std::vector<std::function<void(int)>>*>          other_signal_handlers_;
+        
     public: // Method(s) / Function(s)
         
         void Startup    (const Loggable::Data& a_loggable_data_ref);
         void Register   (const std::set<int>& a_signals, std::function<bool(int)> a_callback);
         void Register   (Bridge* a_bridge_ptr, std::function<void(const ev::Exception&)> a_fatal_exception_callback);
+        void Append     (const std::set<int>& a_signals, std::function<void(int)> a_callback);
         void Unregister ();
         bool OnSignal   (const int a_sig_no);
         

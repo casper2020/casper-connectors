@@ -341,6 +341,7 @@ void ev::ngx::SharedGlue::SetupCURL (const std::map<std::string, std::string>& a
  * @param a_beanstalkd_port_key
  * @param a_beanstalkd_timeout_key
  * @param a_beanstalkd_sessionless_tubes_key
+ * @param a_beanstalkd_action_tubes_key
  * @param o_config
  */
 void ev::ngx::SharedGlue::SetupBeanstalkd (const std::map<std::string, std::string>& a_config,
@@ -348,6 +349,7 @@ void ev::ngx::SharedGlue::SetupBeanstalkd (const std::map<std::string, std::stri
                                            const char* const a_beanstalkd_port_key,
                                            const char* const a_beanstalkd_timeout_key,
                                            const char* const a_beanstalkd_sessionless_tubes_key,
+                                           const char* const a_beanstalkd_action_tubes_key,
                                            ::ev::beanstalk::Config& o_config)
 {
     // ... beanstalkd ...
@@ -363,15 +365,23 @@ void ev::ngx::SharedGlue::SetupBeanstalkd (const std::map<std::string, std::stri
     if ( a_config.end() != beanstalkd_timeout_it ) {
         o_config.timeout_ = (float)std::atof(beanstalkd_timeout_it->second.c_str());
     }
-    const auto beanstalkd_sessionless_tubes_it = a_config.find(a_beanstalkd_sessionless_tubes_key);
-    if ( a_config.end() != beanstalkd_sessionless_tubes_it ) {
-        Json::Reader reader;
+    // ... sessionless, action tubes, an array of strings is expected ...
+    const std::map<const char* const, std::set<std::string>*> beanstalkd_tubes_map = {
+        { a_beanstalkd_sessionless_tubes_key, &o_config.tubes_.sessionless_ },
+        { a_beanstalkd_action_tubes_key     , &o_config.tubes_.action_      }
+    };
+    Json::Reader reader;
+    for ( auto beanstalkd_tubes_it : beanstalkd_tubes_map ) {
+        const auto value_it = a_config.find(beanstalkd_tubes_it.first);
+        if ( a_config.end() == value_it ) {
+            continue;
+        }
         Json::Value  array;
-        if ( false == reader.parse(beanstalkd_sessionless_tubes_it->second.c_str(), array) ) {
-            throw ev::Exception("Unable to parse %s value - expected valid JSON string!", a_beanstalkd_sessionless_tubes_key);
+        if ( false == reader.parse(value_it->second.c_str(), array) ) {
+            throw ev::Exception("Unable to parse %s value - expected valid JSON string!", value_it->first.c_str());
         }
         for ( Json::ArrayIndex idx = 0 ; idx < array.size() ; ++idx ) {
-            o_config.sessionless_tubes_.insert(array[idx].asString());
+            beanstalkd_tubes_it.second->insert(array[idx].asString());
         }
     }
 }

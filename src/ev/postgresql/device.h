@@ -60,9 +60,15 @@ namespace ev
                 PGPing                                ping_;                  //!< Last ping result, one of \link PGPing \link.
                 struct event*                         event_;                 //!< Libevent context.
                 bool                                  statement_timeout_set_; //!<
+                bool                                  error_verbosity_set_;   //!<
                 Result*                               pending_result_;        //!<
                 std::chrono::steady_clock::time_point exec_start_;
-
+                std::string                           last_connection_status_;
+                std::string                           last_reported_connection_status_;
+                std::chrono::steady_clock::time_point connection_scheduled_tp_;
+                std::chrono::steady_clock::time_point connection_established_tp_;
+                std::chrono::steady_clock::time_point connection_finished_tp_;
+                bool                                  connection_established_;
                 
             public: // Constructor(s) / Destructor
 
@@ -80,8 +86,10 @@ namespace ev
                     ping_                       = PGPing::PQPING_OK;
                     event_                      = nullptr;
                     statement_timeout_set_      = false;
+                    error_verbosity_set_        = false;
                     pending_result_             = nullptr;
                     exec_start_                 = std::chrono::steady_clock::now();
+                    connection_established_     = false;
                 }
                 
                 /**

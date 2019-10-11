@@ -42,7 +42,7 @@ namespace ev
         {
 
         private: // Data Type(s)
-
+            
             class MultiContext
             {
 
@@ -50,6 +50,7 @@ namespace ev
 
                 class SocketContext
                 {
+                    
 
                 public: // Data
 
@@ -70,13 +71,15 @@ namespace ev
 
             public: // Data
 
-                Device*       device_ptr_;    //!<
-                CURLM*        handle_;        //!< CURL multi handle.
-                CURLMcode     last_code_;     //!<
-                int           setup_errors_;  //!<
-                int           still_running_; //!<
-                struct event* event_;         //!< Libevent context.
-                struct event* timer_event_;   //!<
+                Device*       device_ptr_;            //!<
+                CURLM*        handle_;                //!< CURL multi handle.
+                CURLMcode     last_code_;             //!<
+                CURLcode      last_exec_code_;        //!<
+                int           last_http_status_code_; //!<
+                int           setup_errors_;          //!<
+                int           still_running_;         //!<
+                struct event* event_;                 //!< Libevent context.
+                struct event* timer_event_;           //!<
 
             public: // Constructor(s) / Destructor
 
@@ -85,8 +88,7 @@ namespace ev
 
             public:
 
-                void CheckMultiInfo ();
-                void Validate       (CURLMcode a_code, const char* a_where);
+                void Process        (MultiContext* a_context, CURLMcode a_code, const char* a_where);
                 bool ContainsErrors () const;
 
             public: // Static Method(s) / Function(s)
@@ -103,7 +105,7 @@ namespace ev
                 Request*        request_ptr_;
                 ExecuteCallback exec_callback_;
             } RequestContext;
-            typedef std::map<CURL*, RequestContext> RequestsMap;
+            typedef std::map<CURL*, RequestContext> RequestsMap;      
 
         private: // Data
 

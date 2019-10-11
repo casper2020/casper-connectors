@@ -80,6 +80,13 @@ POSTGRESQL_HEADERS_DIR         := $(shell $(PG_CONFIG) --includedir)
 POSTGRESQL_HEADERS_SERVER_DIR  := $(shell $(PG_CONFIG) --includedir-server)
 POSTGRESQL_HEADERS_OTHER_C_DIR := $(shell $(PG_CONFIG) --pkgincludedir)
 
+CURL_HEADERS_DIR := 
+ifeq (Darwin, $(PLATFORM))
+  CURL_HEADERS_DIR := ../casper-packager/curl/darwin/pkg/$(TARGET)/curl/usr/local/casper/curl/include
+else
+  CURL_HEADERS_DIR := ../casper-packager/curl/linux/pkg/$(TARGET)/curl/usr/local/casper/curl/include
+endif
+
 EV_SRC :=                           \
 									./src/ev/logger_v2.cc                                                         \
 									./src/ev/signals.cc                                                           \
@@ -121,21 +128,27 @@ EV_SRC :=                           \
 									./src/ev/scheduler/subscription.cc                                            \
 									./src/ev/scheduler/task.cc                                                    \
 									./src/ev/scheduler/unique_id_generator.cc                                     \
-                                    ./src/ev/beanstalk/consumer.cc                                                \
+									./src/ev/beanstalk/consumer.cc                                                \
 									./src/ev/beanstalk/producer.cc                                                \
+									./src/ev/auth/route/gatekeeper.cc                                             \
 									./src/cc/errors/jsonapi/tracker.cc                                            \
 									./src/cc/errors/tracker.cc                                                    \
-									./src/cc/file/utils.cc                                                        \
-									./src/cc/file/writer.cc                                                       \
+									./src/cc/fs/file.cc                                                           \
+									./src/cc/fs/posix/dir.cc                                                      \
+									./src/cc/fs/posix/file.cc                                                     \
+									./src/cc/fs/posix/xattr.cc                                                    \
 									./src/cc/i18n/singleton.cc                                                    \
-						            ./src/ev/casper/session.cc
+									./src/ev/casper/session.cc
 
 AUTH_SRC := \
-									  ./src/cc/auth/jwt.cc    \
+									./src/cc/auth/jwt.cc    \
+
+HASH_SRC := \
+                                                                        ./src/cc/hash/md5.cc
 
 CRYPTO_SRC := \
-									  ./src/cc/crypto/hmac.cc \
-								      ./src/cc/crypto/rsa.cc
+									./src/cc/crypto/hmac.cc \
+								        ./src/cc/crypto/rsa.cc
 
 CC_SRC := \
                                       ./src/cc/utc_time.cc
@@ -178,6 +191,9 @@ ifeq (Darwin, $(PLATFORM))
 	         -I /usr/local/opt/libevent/include \
              -I /usr/local/opt/openssl/include
 endif
+
+# cURL
+INCLUDE_DIRS += -I$(CURL_HEADERS_DIR)
 
 # ngx dependency?
 ifdef NGX_DIR

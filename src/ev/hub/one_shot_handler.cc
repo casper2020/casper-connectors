@@ -365,8 +365,11 @@ void ev::hub::OneShotHandler::Push ()
         if ( devices_limits_.end() != limits_it ) {
             max_devices_in_use = limits_it->second;
         }
+        // ... if limit reached ...
         if ( in_use_devices_cnt >= max_devices_in_use ) {
-            break;
+            // ... give a chance to other kind of requests to be handled ...
+            idx++;
+            continue;
         }
         // ... remove it ...
         pending_requests_.erase(pending_requests_.begin() + idx);
@@ -584,7 +587,10 @@ void ev::hub::OneShotHandler::Push ()
         // ... next ...
 
     } while ( idx < pending_requests_.size() );
-
+    
+    // ... publish results now ...
+    Publish();
+    
 }
 
 

@@ -225,8 +225,10 @@ void cc::sockets::dgram::ipc::Server::Listen ()
     sigaddset(&sigmask, SIGTERM);
     sigaddset(&sigmask, SIGCHLD);
     pthread_sigmask(SIG_BLOCK, &sigmask, &saved_sigmask);
-    
+
+#ifdef __APPLE__
     pthread_setname_np("IPC Server");
+#endif
     
     try {
 

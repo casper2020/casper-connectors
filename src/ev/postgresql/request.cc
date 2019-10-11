@@ -27,6 +27,18 @@
 /**
  * @brief Default constructor.
  *
+ * @param a_loggable_data object for logging
+ * @param a_payload char array vector with query
+ */
+ev::postgresql::Request::Request (const ::ev::Loggable::Data& a_loggable_data, const std::vector<char>& a_payload)
+: ev::Request(a_loggable_data, ev::Object::Target::PostgreSQL, ev::Request::Mode::OneShot)
+{
+    payload_ = a_payload.data();
+}
+
+/**
+ * @brief Default constructor.
+ *
  * @param a_loggable_data
  * @param a_payload
  */
@@ -63,6 +75,64 @@ ev::postgresql::Request::Request (const ::ev::Loggable::Data& a_loggable_data, c
 }
 
 /**
+ * @brief va_list constructor.
+ *
+ * @param a_loggable_data
+ * @param a_size
+ * @param a_format
+ * @param a_list
+ */
+ev::postgresql::Request::Request (const ::ev::Loggable::Data& a_loggable_data, size_t a_size, const char* const a_format, va_list a_list)
+: ev::Request(a_loggable_data, ev::Object::Target::PostgreSQL, ev::Request::Mode::OneShot)
+{
+    va_list args;
+    size_t  size   = a_size;
+    
+    char* buffer = (char*)malloc(size);
+    if ( nullptr == buffer ) {
+        throw ::ev::Exception("Out of memory!");
+    }
+
+    va_copy(args, a_list);
+    int written = vsnprintf(buffer, size, a_format, args);
+    va_end(args);
+    
+    if ( written < 0 ) {
+        free(buffer);
+        throw ::ev::Exception("string formatting error!");
+    } else if ( written >= static_cast<int>(size) ) {
+        size   = static_cast<size_t>(written + sizeof(char));
+        buffer = (char*) realloc(buffer, size );
+        if ( nullptr == buffer ) {
+            throw ::ev::Exception("Out of memory while reallocating buffer!");
+        }
+        
+        va_copy(args, a_list);
+        written = vsnprintf(buffer, size, a_format, args);
+        va_end(args);
+        if ( written != static_cast<int>(size - sizeof(char)) ) {
+            free(buffer);
+            throw ::ev::Exception("String formatting error or buffer not large enough!");
+        }
+    }
+    payload_ = std::string(buffer);
+    free(buffer);
+}
+
+/**
+ * @brief VA constructor.
+ *
+ * @param a_loggable_data
+ * @param a_format
+ * @param ...
+ */
+ev::postgresql::Request::Request (const char* a_query, const ::ev::Loggable::Data& a_loggable_data)
+: ev::Request(a_loggable_data, ev::Object::Target::PostgreSQL, ev::Request::Mode::OneShot)
+{
+    payload_ = a_query;
+}
+
+/**
  * @brief Destructor
  */
 ev::postgresql::Request::~Request ()
@@ -88,4 +158,54 @@ const char* ev::postgresql::Request::AsCString () const
 const std::string& ev::postgresql::Request::AsString () const
 {
     return payload_;
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#endif
+
+/**
+ * @brief Escape an SQL term.
+ *
+ * @param a_value
+ * @param o_value
+ */
+void ev::postgresql::Request::SQLEscape (const std::string& a_value, std::string& o_value)
+{
+    o_value = "";
+    const size_t count = a_value.size();
+    if ( 0 == count ) {
+        return;
+    }
+    for ( size_t idx = 0 ; idx < a_value.size(); ++idx ) {
+        if ( '\'' == a_value[idx] ) {
+            o_value += "''";
+        } else {
+            o_value += a_value[idx];
+        }
+    }
+}
+
+/**
+ * @brief Escape an SQL term.
+ *
+ * @param a_value
+ *
+ * @return
+ */
+std::string ev::postgresql::Request::SQLEscape (const std::string& a_value)
+{
+    std::string value = "";
+    const size_t count = a_value.size();
+    if ( 0 == count ) {
+        return "";
+    }
+    for ( size_t idx = 0 ; idx < a_value.size(); ++idx ) {
+        if ( '\'' == a_value[idx] ) {
+            value += "''";
+        } else {
+            value += a_value[idx];
+        }
+    }
+    return value;
 }

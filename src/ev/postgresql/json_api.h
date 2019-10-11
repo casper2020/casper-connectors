@@ -38,7 +38,7 @@ namespace ev
         /**
          * @brief A class that defined a JSON API inteface.
          */
-        class JSONAPI final : public ::ev::scheduler::Scheduler::Client
+        class JSONAPI final : public ::ev::scheduler::Client
         {
             
         public: // Data Types
@@ -204,10 +204,6 @@ namespace ev
             ::ev::scheduler::Task* NewTask    (const EV_TASK_PARAMS& a_callback);
             
             void                   InvalidateHandler ();
-            
-        public: // STATIC API METHOD(S) / FUNCTION(S)
-
-            static void SQLEscape (const std::string& a_value, std::string& o_value);
 
         }; // end of class JSONAPI
         

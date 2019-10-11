@@ -390,13 +390,14 @@ void ev::redis::Session::Fetch (const ev::redis::Session::SuccessCallback a_succ
                                 const ev::redis::Session::InvalidCallback a_invalid_session_callback,
                                 const ev::redis::Session::FailureCallback a_failure_callback)
 {
-    bool session_exists = false;
+    data_.verified_ = false;
+    data_.exists_   = false;
     
     NewTask([this] () -> ::ev::Object* {
         
         return new ::ev::redis::Request(loggable_data_, "EXISTS", { token_prefix_ + data_.token_ } );
         
-    })->Then([this, &session_exists] (::ev::Object* a_object) -> ::ev::Object* {
+    })->Then([this] (::ev::Object* a_object) -> ::ev::Object* {
         
         //
         // EXISTS:
@@ -409,9 +410,10 @@ void ev::redis::Session::Fetch (const ev::redis::Session::SuccessCallback a_succ
         
         const ev::redis::Value& value = ev::redis::Reply::EnsureIntegerReply(a_object);
         if ( 1 != value.Integer() ) {
+            data_.verified_ = true;
+            data_.exists_   = false;
             throw ev::Exception("Session does not exists!");
         }
-        session_exists = true;
         
         return new ::ev::redis::Request(loggable_data_, "HGETALL", { token_prefix_ + data_.token_ });
         
@@ -455,15 +457,78 @@ void ev::redis::Session::Fetch (const ev::redis::Session::SuccessCallback a_succ
                 break;
         }
 
+        data_.verified_ = true;
+        
         if ( true == data_.token_is_valid_ ) {
-            data_.verified_ = true;
-            data_.exists_   = true;
+            data_.exists_ = true;
             a_success_callback(data_);
         } else {
-            data_.verified_ = true;
-            data_.exists_   = false;
+            data_.exists_ = false;
             a_invalid_session_callback(data_);
         }
+
+    })->Catch([this, a_failure_callback, a_invalid_session_callback] (const ::ev::Exception& a_ev_exception) {
+                
+        if ( true == data_.verified_ && false == data_.exists_ ) {
+            a_invalid_session_callback(data_);
+        } else {
+            a_failure_callback(data_, a_ev_exception);
+        }
+        
+    });
+}
+
+/**
+ * @brief Extends the currenlty set session.
+ *
+ * @param a_amount
+ * @param a_success_callback
+ * @param a_invalid_session_callback
+ * @param a_failure_callback
+ */
+void ev::redis::Session::Extend (const size_t a_amount,
+                                 const ev::redis::Session::SuccessCallback a_success_callback,
+                                 const ev::redis::Session::InvalidCallback a_invalid_session_callback,
+                                 const ev::redis::Session::FailureCallback a_failure_callback)
+{
+    bool session_exists = false;
+
+    NewTask([this] () -> ::ev::Object* {
+        
+        return new ::ev::redis::Request(loggable_data_, "EXISTS", { token_prefix_ + data_.token_ } );
+        
+    })->Then([this, a_amount, &session_exists] (::ev::Object* a_object) -> ::ev::Object* {
+        
+        //
+        // EXISTS:
+        //
+        // - Integer reply is expected:
+        //
+        //  - 1 the key exists
+        //  - 0 the key does not exists
+        //
+        
+        const ev::redis::Value& value = ev::redis::Reply::EnsureIntegerReply(a_object);
+        if ( 1 != value.Integer() ) {
+            throw ev::Exception("Session does not exists!");
+        }
+
+        session_exists = true;
+
+        return new ::ev::redis::Request(loggable_data_, "EXPIRE", { token_prefix_ + data_.token_, std::to_string(a_amount) });
+        
+    })->Finally([a_success_callback, a_invalid_session_callback, this] (::ev::Object* a_object) {
+        
+        //
+        // EXPIRE:
+        //
+        // Integer reply, specifically:
+        // - 1 if the timeout was set.
+        // - 0 if key does not exist or the timeout could not be set.
+        //
+        ev::redis::Reply::EnsureIntegerReply(a_object, 1);
+        
+        a_success_callback(data_);
 
     })->Catch([this, a_failure_callback, a_invalid_session_callback, &session_exists] (const ::ev::Exception& a_ev_exception) {
                 

@@ -1,5 +1,5 @@
 /**
- * @file logger_v2.cc
+ * @file client.h
  *
  * Copyright (c) 2011-2018 Cloudware S.A. All rights reserved.
  *
@@ -18,27 +18,33 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with casper.  If not, see <http://www.gnu.org/licenses/>.
  */
+#pragma once
+#ifndef NRS_EV_SCHEDULER_CLIENT_H_
+#define NRS_EV_SCHEDULER_CLIENT_H_
 
-#include "ev/logger_v2.h"
-
-char*  ev::LoggerV2::s_buffer_          = nullptr;
-size_t ev::LoggerV2::s_buffer_capacity_ = 0;
-uid_t  ev::LoggerV2::s_user_id_         = UINT32_MAX;
-gid_t  ev::LoggerV2::s_group_id_        = UINT32_MAX;
-
-/**
- * @brief Calculate the number of digits for the provided value.
- *
- * @param a_value Value to be used.
- * 
- * @return Number of digits for provided value.
- */
-size_t ev::LoggerV2::NumberOfDigits (size_t a_value)
+namespace ev
 {
-    size_t count = 0;
-    while ( 0 != a_value ) {
-        a_value /= 10;
-        count++;
-    }
-    return count;
-}
+    
+    namespace scheduler
+    {
+        
+        class Client
+        {
+            
+        public: // Constructor(s) / Destructor
+            
+            /**
+             * @brief Destructor.
+             */
+            virtual ~Client ()
+            {
+                /* empty */
+            }
+            
+        };
+        
+    } // end of namespace 'scheduler'
+    
+} // end of namespace 'ev'
+
+#endif // NRS_EV_SCHEDULER_CLIENT_H_

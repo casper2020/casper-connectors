@@ -27,6 +27,7 @@
 #include "osal/datagram_socket.h"
 
 #include "ev/hub/hub.h"
+#include "ev/scheduler/client.h"
 #include "ev/scheduler/task.h"
 #include "ev/scheduler/subscription.h"
 
@@ -44,28 +45,11 @@ namespace ev
         class Scheduler final : public osal::Singleton<Scheduler>
         {
             
-        public: // Data Type(s)
-            
-            class Client
-            {
-                
-            public: // Constructor(s) / Destructor
-                
-                /**
-                 * @brief Destructor.
-                 */
-                virtual ~Client ()
-                {
-                    /* empty */
-                }
-            };
-            
             typedef hub::Hub::InitializedCallback  InitializedCallback;
             typedef hub::DeviceFactoryStepCallback DeviceFactoryCallback;
             typedef hub::DeviceLimitsStepCallback  DeviceLimitsCallback;
             typedef InitializedCallback            FinalizationCallback;
             typedef std::function<void()>          TimeoutCallback;
-
             
         protected: // Data Type(s)
             

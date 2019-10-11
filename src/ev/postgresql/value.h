@@ -33,12 +33,15 @@
 #include "ev/object.h"
 #include "ev/exception.h"
 
+#include "cc/non-copyable.h"
+#include "cc/non-movable.h"
+
 namespace ev
 {
     namespace postgresql
     {
         
-        class Value final : public ev::Object
+        class Value final : public ev::Object, public ::cc::NonCopyable, public ::cc::NonMovable
         {
             
         public: // Data Type(s)
@@ -83,11 +86,13 @@ namespace ev
             const bool        is_null       () const;
             const bool        is_error      () const;
             const char* const error_message () const;
+            ExecStatusType    status        () const;
+            const char* const column_name   (const int a_number) const;
             const int         columns_count () const;
             const int         rows_count    () const;
             const char* const raw_value     (const size_t a_row, const size_t a_column) const;
-            const char* const column_name   (int a_column) const;
-            
+            const char* const cmd_status    () const;
+
         private: // Inline  Method(s) / Function(s)
             
             void Reset (const ContentType& a_content_type);
@@ -105,6 +110,11 @@ namespace ev
                 Reset(Value::ContentType::Null);
             }
             pg_result_ = a_result;
+        }
+        
+        inline const char* const Value::cmd_status () const
+        {
+            return PQcmdStatus(pg_result_);
         }
         
         inline void Value::operator= (const Error& a_error)
@@ -140,7 +150,7 @@ namespace ev
         {
             return ( Value::ContentType::Error == content_type_ );
         }
-        
+    
         /**
          * @return The error message, null if none.
          */
@@ -149,6 +159,26 @@ namespace ev
             return error_message_;
         }
 
+        /**
+        * @return Execution status, one of \link ExecStatusType \link.
+         */
+        inline ExecStatusType Value::status () const
+        {
+            return ( nullptr != pg_result_ ? PQresultStatus(pg_result_) : ExecStatusType::PGRES_NONFATAL_ERROR );
+        }
+    
+        /**
+         * @brief  Retrieve the column name associated with the given column number.
+         *
+         * @param a_number Column number, start at 0.
+         *
+         * @return Returns the column name associated with the given column number, nullptr if invalid call.
+         */
+        inline const char* const Value::column_name (const int a_number) const
+        {
+            return nullptr != pg_result_ ? PQfname(pg_result_, a_number) : nullptr;
+        }
+    
         /**
          * @return Number of columns.
          */
@@ -185,20 +215,9 @@ namespace ev
             
             if ( a_row > static_cast<size_t>(n_rows) || a_column > static_cast<size_t>(n_columns) ) {
                 throw ev::Exception("Out of bounds while accessing pg table!");
-            }           
-            return PQgetvalue(pg_result_, static_cast<int>(a_row), static_cast<int>(a_column));
-        }
-        
-        /**
-         * @return This object column name, string representation.
-         *
-         * @param a_column
-         */
-        inline const char* const Value::column_name (int a_column) const{
-            if ( nullptr == pg_result_ ) {
-                throw ev::Exception("No data!");
             }
-            return PQfname(pg_result_, a_column);
+            
+            return PQgetvalue(pg_result_, static_cast<int>(a_row), static_cast<int>(a_column));
         }
 
         /**

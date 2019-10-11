@@ -23,6 +23,7 @@
 #define NRS_EV_POSTGRESQL_ERROR_H_
 
 #include "ev/error.h"
+#include "libpq-fe.h"
 
 namespace ev
 {
@@ -33,10 +34,15 @@ namespace ev
         class Error final : public ::ev::Error
         {
             
+        public: // Data
+            
+            const uint64_t       elapsed_;
+            const ExecStatusType status_;
+            
         public: // Constructor(s) / Destructor
             
-            Error(const std::string& a_message);
-            Error(const char* const a_format, ...) __attribute__((format(printf, 2, 3)));
+            Error(const uint64_t a_elapsed, const ExecStatusType a_status, const std::string& a_message);
+            Error(const uint64_t a_elapsed, const ExecStatusType a_status, const char* const a_format, ...) __attribute__((format(printf, 4, 5)));
             virtual ~Error ();
             
         }; // end of class 'Error'

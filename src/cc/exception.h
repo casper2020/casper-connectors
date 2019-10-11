@@ -56,13 +56,16 @@
         }()
 #endif
 
+#define CC_EXCEPTION_RETHROW(a_unhandled) \
+    ::cc::Exception::Rethrow(a_unhandled, __FILE__, __LINE__, __FUNCTION__)
+
 namespace cc
 {
 
     class Exception : public std::exception
     {
         
-    private: // Data
+    protected: // Data
         
         std::string what_;
         
@@ -71,7 +74,7 @@ namespace cc
         /**
          * @brief A constructor that provides the reason of the fault origin.
          *
-         * @param a_message
+         * @param a_message Reason of the fault origin.
          */
         Exception (const std::string& a_message)
         {
@@ -82,7 +85,7 @@ namespace cc
          * @brief A constructor that provides the reason of the fault origin.
          *
          * @param a_format printf like format followed by a variable number of arguments.
-         * @param ...
+         * param ...
          */
         Exception (const char* const a_format, ...) __attribute__((format(printf, 2, 3)))
         {
@@ -112,6 +115,49 @@ namespace cc
             return what_.c_str();
         }
         
+    public: // Static Method(s) / Function(s)
+        
+        /*
+         * @brief Rethrow a standard exception.
+         */
+        static void Rethrow (const bool a_unhandled,
+                             const char* const a_file, const int a_line, const char* const a_function)
+        {
+            const std::string msg_prefix = a_unhandled ? "An unhandled " : "An ";
+            const std::string msg_suffix = " occurred at " + std::string(a_file)
+                                           + ':' + std::to_string(a_line)
+                                           + ", function " + std::string(a_function)
+            ;
+            if ( true == a_unhandled ) {
+                try {
+                    const auto e = std::current_exception();
+                    if ( e ) {
+                        std::rethrow_exception(std::current_exception());
+                    } else {
+                        throw ::cc::Exception(msg_prefix + "???" + msg_suffix + '.');
+                    }
+                } catch (const std::logic_error& a_rte) {
+                    throw ::cc::Exception(msg_prefix + "logic error" + msg_suffix + ": " + a_rte.what());
+                }  catch (const std::runtime_error& a_rte) {
+                    throw ::cc::Exception(msg_prefix + "runtime error" + msg_suffix + ": " + a_rte.what());
+                } catch (const std::exception& a_se) {
+                    throw ::cc::Exception(msg_prefix + "exception" + msg_suffix + ": " + a_se.what());
+                } catch (...) {
+                    throw ::cc::Exception(msg_prefix + "???" + msg_suffix + '.');
+                }
+            } else {
+                const auto e = std::current_exception();
+                if ( e ) {
+                    try {
+                        std::rethrow_exception(std::current_exception());
+                    } catch(const std::exception& e) {
+                        throw ::cc::Exception("%s", e.what());
+                    }
+                } else {
+                    throw ::cc::Exception(msg_prefix + "???" + msg_suffix + '.');
+                }
+            }
+        }
     };
 
 }
