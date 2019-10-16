@@ -27,6 +27,10 @@
 
 #include "ev/scheduler/scheduler.h"
 
+#include "cc/non-movable.h"
+
+#include "json/json.h"
+
 #include <string>        // std::string
 
 namespace ev
@@ -120,6 +124,79 @@ namespace ev
                     return params_;
                 }
                 
+            };
+                        
+            /*
+             * Error data holder. // TODO 2.0 - USE IT
+             */
+            class Error final : public std::exception, public ::cc::NonMovable {
+                
+            public: // Const Data
+                
+                const uint16_t    status_code_;
+                const std::string what_;
+                
+            public: // Constructor(s) / Destructor
+            
+                Error () = delete;
+                
+                /**
+                 * @brief Default constructor.
+                 *
+                 * @param a_code HTTP Status Code.
+                 * @param a_what JSON as string.
+                 */
+                Error (uint16_t a_code, const std::string& a_what)
+                    : status_code_(a_code), what_(a_what)
+                {
+                    /* empty */
+                }
+                
+                /**
+                 * @brief Copy constructor.
+                 *
+                 * @param a_erro Object to copy.
+                 */
+                Error (const Error& a_error)
+                    : status_code_(a_error.status_code_), what_(a_error.what_)
+                {
+                    /* empty */
+                }
+                
+                /**
+                 * @brief Destructor.
+                 */
+                virtual ~Error ()
+                {
+                    /* empty */
+                }
+                
+            public: // Method(s) / Function(s)
+                
+                /**
+                 * @brief Serialize previously collected message as JSON object.
+                 *
+                 * @param o_value JSON object built from previously collected message.
+                 */
+                inline bool Parse (Json::Value& o_value) const
+                {
+                    try {
+                        Json::Reader reader;
+                        return ( true == reader.parse(what_, o_value) );
+                    } catch (...) {
+                        return false;
+                    }
+                }
+                
+            public: // Operator(s) Overload
+                
+                /**
+                 * @return An explanatory string.
+                 */
+                virtual const char* what() const throw()
+                {
+                    return what_.c_str();
+                }
             };
             
         public: // Data Type(s)

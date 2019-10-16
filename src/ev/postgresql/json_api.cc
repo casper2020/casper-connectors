@@ -278,64 +278,41 @@ void ::ev::postgresql::JSONAPI::AsyncQuery (const ::ev::Loggable::Data& a_loggab
         
         return new ::ev::postgresql::Request(a_loggable_data, query);
         
-    })->Then([] (::ev::Object* a_object) -> ::ev::Object* {
-        
-        ::ev::Result* result = dynamic_cast<::ev::Result*>(a_object);
+    })->Finally([this, query, a_callback] (::ev::Object* a_object) {
+                        
+        const ::ev::Result* result = dynamic_cast<::ev::Result*>(a_object);
         if ( nullptr == result ) {
             throw ::ev::Exception("Unexpected PostgreSQL result object: nullptr!");
-        }
-        
+        }        
         if ( 1 != result->DataObjectsCount() ) {
             throw ::ev::Exception("Unexpected number of PostgreSQL result objects: got " SIZET_FMT", expecting " SIZET_FMT "!",
                                   result->DataObjectsCount(), static_cast<size_t>(1)
             );
         }
-        
         const ::ev::postgresql::Reply* reply = dynamic_cast<const ::ev::postgresql::Reply*>(result->DataObject());
         if ( nullptr == reply ) {
             const ::ev::postgresql::Error* error = dynamic_cast<const ::ev::postgresql::Error*>(result->DataObject());
             if ( nullptr != error ) {
-                std::string msg = error->message();
-                for ( char c : { '\\', '\b', '\f', '\r', '\n', '\t' } ) {
-                    msg.erase(std::remove(msg.begin(), msg.end(), c), msg.end());
-                }
-                throw ::ev::Exception(msg);
+                a_callback(/* a_uri */ query.c_str(), /* a_json */ nullptr, /* a_error */ error->message().c_str(), /* a_status */ 500, /* a_elapsed */ 0);
             } else {
-                throw ::ev::Exception("Unexpected PostgreSQL reply object: nullptr!");
+                throw ::ev::Exception("Unexpected PostgreSQL data object!");
             }
-        }
-        
-         // ... same as reply, but it was detached ...
-        return result->DetachDataObject();
-        
-    })->Finally([this, query, a_callback] (::ev::Object* a_object) {
-        
-        const ::ev::postgresql::Reply* reply = dynamic_cast<const ::ev::postgresql::Reply*>(a_object);
-        if ( nullptr == reply ) {
-            throw ::ev::Exception("Unexpected PostgreSQL data object!");
-        }
-        
-        const ::ev::postgresql::Value& value = reply->value();
-        
-        if ( true == value.is_error() ) {
-            
-            const char* const error = value.error_message();
-            throw ::ev::Exception("PostgreSQL error: '%s'!", nullptr != error ? error : "nullptr");
-            
-        } else if ( true == value.is_null() ) {
-            throw ::ev::Exception("Unexpected PostgreSQL unexpected data object : null!");
-        }
-        
-        const int rows_count    = value.rows_count();
-        const int columns_count = value.columns_count();
-        if ( 1 != rows_count && 2 != columns_count ) {
-            throw ::ev::Exception("Unexpected PostgreSQL unexpected number of returned rows : got %dx%d, expected 1x2 ( rows x columns )!",
-                                  rows_count, columns_count);
-        }
-        
-        uint16_t status = static_cast<uint16_t>(atoi(value.raw_value(0, 1)));;
-        
-        a_callback(/* a_uri */ query.c_str(), /* a_json */ value.raw_value(/* a_row */ 0, /* a_column */0), /* a_error */ nullptr, /* a_status */ status, reply->elapsed_);
+        } else {
+            const ::ev::postgresql::Value& value = reply->value();
+            if ( true == value.is_error() ) {
+                const char* const error = value.error_message();
+                throw ::ev::Exception("PostgreSQL error: '%s'!", nullptr != error ? error : "nullptr");
+            } else if ( true == value.is_null() ) {
+                throw ::ev::Exception("Unexpected PostgreSQL unexpected data object : null!");
+            }
+            const int rows_count    = value.rows_count();
+            const int columns_count = value.columns_count();
+            if ( 1 != rows_count && 2 != columns_count ) {
+                throw ::ev::Exception("Unexpected PostgreSQL unexpected number of returned rows : got %dx%d, expected 1x2 ( rows x columns )!",
+                                      rows_count, columns_count);
+            }
+            a_callback(/* a_uri */ query.c_str(), /* a_json */ value.raw_value(/* a_row */ 0, /* a_column */0), /* a_error */ nullptr, /* a_status */ static_cast<uint16_t>(atoi(value.raw_value(0, 1))), reply->elapsed_);
+        }        
         
     })->Catch([query, a_callback] (const ::ev::Exception& a_ev_exception) {
         
