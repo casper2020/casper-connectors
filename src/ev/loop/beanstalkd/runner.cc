@@ -94,11 +94,13 @@ ev::loop::beanstalkd::Runner::Runner ()
         },
         /* beanstalk_ */
         {
-            /* host_          */ "127.0.0.1",
-            /* port_          */  11300,
-            /* timeout_       */  0.0,
-            /* tubes_         */ {},
-            /* abort_polling_ */ 3.0
+            /* host_              */ "127.0.0.1",
+            /* port_              */ 11300,
+            /* timeout_           */ 0.0,
+            /* abort_polling_     */ 3.0,
+            /* tubes_             */ {} ,
+            /* sessionless_tubes_ */ {},
+            /* action_tubes_      */ {}
         },
         /* device_limits_ */ {},
         /* factory */ nullptr

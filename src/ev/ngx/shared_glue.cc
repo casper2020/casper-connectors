@@ -40,11 +40,12 @@ std::string ev::ngx::SharedGlue::s_job_id_key_ = "";
     /* host_              */ "127.0.0.1",
     /* port_              */  11300,
     /* timeout_           */  0.0,
+    /* abort_polling_     */ 3,
     /* tubes_             */ {
         "default"
     },    
-    /* abort_polling_     */ 3,
-    /* sessionless_tubes_ */ {}
+    /* sessionless_tubes_ */ {},
+    /* action_tubes_      */ {}
 };
 
 /**
@@ -367,8 +368,8 @@ void ev::ngx::SharedGlue::SetupBeanstalkd (const std::map<std::string, std::stri
     }
     // ... sessionless, action tubes, an array of strings is expected ...
     const std::map<const char* const, std::set<std::string>*> beanstalkd_tubes_map = {
-        { a_beanstalkd_sessionless_tubes_key, &o_config.tubes_.sessionless_ },
-        { a_beanstalkd_action_tubes_key     , &o_config.tubes_.action_      }
+        { a_beanstalkd_sessionless_tubes_key, &o_config.sessionless_tubes_ },
+        { a_beanstalkd_action_tubes_key     , &o_config.action_tubes_      }
     };
     Json::Reader reader;
     for ( auto beanstalkd_tubes_it : beanstalkd_tubes_map ) {
