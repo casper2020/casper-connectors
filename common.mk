@@ -80,12 +80,10 @@ POSTGRESQL_HEADERS_DIR         := $(shell $(PG_CONFIG) --includedir)
 POSTGRESQL_HEADERS_SERVER_DIR  := $(shell $(PG_CONFIG) --includedir-server)
 POSTGRESQL_HEADERS_OTHER_C_DIR := $(shell $(PG_CONFIG) --pkgincludedir)
 
-CURL_HEADERS_DIR := 
-ifeq (Darwin, $(PLATFORM))
-  CURL_HEADERS_DIR := ../casper-packager/curl/darwin/pkg/$(TARGET)/curl/usr/local/casper/curl/include
-else
-  CURL_HEADERS_DIR := ../casper-packager/curl/linux/pkg/$(TARGET)/curl/usr/local/casper/curl/include
-endif
+# ifndef CURL_INCLUDE_DIRS
+# CURL_INCLUDE_DIRS := \
+#   -I ../curl/include
+# endif
 
 EV_SRC :=                           \
 									./src/ev/logger_v2.cc                                                         \
@@ -182,7 +180,7 @@ INCLUDE_DIRS :=                     \
 	                                -I $(CPPCODEC_HEADERS_DIR)
 
 ifdef ICU4C_INCLUDE_DIR
-  INCLUDE_DIRS += -I $(ICU4C_INCLUDE_DIR)
+  INCLUDE_DIRS += $(ICU4C_INCLUDE_DIR)
 endif
 
 ifeq (Darwin, $(PLATFORM))
@@ -193,7 +191,7 @@ ifeq (Darwin, $(PLATFORM))
 endif
 
 # cURL
-INCLUDE_DIRS += -I$(CURL_HEADERS_DIR)
+INCLUDE_DIRS += $(CURL_INCLUDE_DIRS)
 
 # ngx dependency?
 ifdef NGX_DIR
@@ -229,7 +227,9 @@ VERSION :=$(shell cat version)
 info-third-party:
 	@echo "---"
 	@echo "- casper-connectors/common.mk"
-	@echo "- ICU_INCLUDE_DIRS: $(ICU_INCLUDE_DIRS)"
+	@echo "- ICU_INCLUDE_DIRS : $(ICU_INCLUDE_DIRS)"
+	@echo "- CURL_INCLUDE_DIRS: $(CURL_INCLUDE_DIRS)"
+	@echo "- INCLUDE_DIRS     : $(INCLUDE_DIRS)"
 	@echo "-"
 
 ### ###
