@@ -19,27 +19,19 @@
 
 include common.mk
 
-OBJECTS := \
-           $(EV_SRC:.cc=.o)        \
-           $(CC_SRC:.cc=.o)        \
-           $(CRYPTO_SRC:.cc=.o)    \
-           $(HASH_SRC:.cc=.o)      \
-           $(AUTH_SRC:.cc=.o)
+EXECUTABLE_NAME     :=
+EXECUTABLE_MAIN_SRC :=
+LIBRARY_TYPE        := static
+ifeq (true, $(V8_DEP_ON))
+  LIBRARY_NAME := libconnectors-v8.a
+else
+  LIBRARY_NAME := libconnectors.a
+endif
+CHILD_CWD           := $(CURDIR)
+CHILD_MAKEFILE      := $(MAKEFILE_LIST)
 
-LIB_NAME := libconnectors.a
-A_FILE := $(OUT_DIR_FOR_TARGET)/$(LIB_NAME)
+include ../casper-packager/common/c++/common.mk
 
-all: info lib
-
-info: info-third-party
-
-lib: mk_out_dir $(OBJECTS)
-	@ar rcs $(A_FILE) $(OBJECTS)
-	@echo "* [$(TARGET)] $(A_FILE) ~> done"
-
-clean_lib:
-	@echo "* [clean] $(LIB_NAME)..."
-	@rm -f $(OBJECTS)
-	@rm -f $(A_FILE)
+all: lib
 
 .SECONDARY:
