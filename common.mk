@@ -115,12 +115,24 @@ ifeq (true, $(V8_DEP_ON))
   EV_SRC += $(EV_LOOP_SRC)
 endif
 
+# ngx dependency?
+ifdef NGX_DIR
+  EV_SRC += \
+	src/ev/ngx/bridge.cc \
+	src/ev/ngx/shared_glue.cc
+endif
+
 ################
 # INCLUDE_DIRS
 ################
 
 INCLUDE_DIRS = \
 	-I src
+
+# ngx dependency?
+ifdef NGX_DIR
+  INCLUDE_DIRS += -I $(NGX_DIR)/core -I $(NGX_DIR)/http -I $(NGX_DIR)/http/modules -I $(NGX_DIR)/http/v2 -I $(NGX_DIR)/event -I $(NGX_DIR)/os/unix -I $(NGX_DIR)/../objs/
+endif
 
 ################
 # OBJECTS
@@ -140,79 +152,3 @@ endif
 
 set-dependencies: $(CONNECTORS_DEPENDENCIES)
 
-#v8-dep-on skia-dep-on icu-dep-on sbb-dep-on 
-
-# ## TODO ##
-
-# INCLUDE_DIRS :=                     \
-# 									-I src                                                                       \
-# 									-I ../casper-osal/src                                                               \
-# 									-I $(HIREDIS_HEADERS_DIR)                                                    \
-# 									-I $(JSONCPP_HEADERS_DIR)                                                    \
-# 									-I $(POSTGRESQL_HEADERS_DIR)                                                 \
-# 									-I $(POSTGRESQL_HEADERS_SERVER_DIR)                                          \
-# 									-I $(POSTGRESQL_HEADERS_OTHER_C_DIR)                                         \
-# 									-I $(BEANSTALK_CLIENT_HEADERS_DIR)                                           \
-# 	                                -I $(CPPCODEC_HEADERS_DIR)
-
-# ifdef ICU4C_INCLUDE_DIR
-#   INCLUDE_DIRS += $(ICU4C_INCLUDE_DIR)
-# endif
-
-# ifeq (Darwin, $(PLATFORM))
-#   INCLUDE_DIRS += \
-# 	         -I /usr/local/include              \
-# 	         -I /usr/local/opt/libevent/include \
-#              -I /usr/local/opt/openssl/include
-# endif
-
-# # cURL
-# INCLUDE_DIRS += $(CURL_INCLUDE_DIRS)
-
-# # ngx dependency?
-# ifdef NGX_DIR
-# 	EV_SRC += src/ev/ngx/bridge.cc \
-# 			  src/ev/ngx/shared_glue.cc
-# 	INCLUDE_DIRS += -I $(NGX_DIR)/core -I $(NGX_DIR)/http -I $(NGX_DIR)/http/modules -I $(NGX_DIR)/http/v2 -I $(NGX_DIR)/event -I $(NGX_DIR)/os/unix -I $(NGX_DIR)/../objs/
-# endif
-
-
-# VERSION :=$(shell cat version)
-
-# ### ###
-
-# info-third-party:
-# 	@echo "---"
-# 	@echo "- casper-connectors/common.mk"
-# 	@echo "- ICU_INCLUDE_DIRS : $(ICU_INCLUDE_DIRS)"
-# 	@echo "- CURL_INCLUDE_DIRS: $(CURL_INCLUDE_DIRS)"
-# 	@echo "- INCLUDE_DIRS     : $(INCLUDE_DIRS)"
-# 	@echo "-"
-
-# ### ###
-
-# # out dir
-# mk_out_dir:
-# 	@mkdir -p $(OUT_DIR_FOR_TARGET)
-# 	@echo "* [$(TARGET)] ${OUT_DIR_FOR_TARGET}..."
-
-# # c
-# %.c.o:
-# 	@echo "* [$(TARGET)] c   $< ..."
-# 	@$(C) $(CFLAGS) $< -o $@
-
-# # c++
-# .cc.o:
-# 	@echo "* [$(TARGET)] cc  $< ..."
-# 	@$(CXX) $(CXXFLAGS) $< -o $@
-
-# # c++
-# .cpp.o:
-# 	@echo "* [$(TARGET)] cpp $< ..."
-# 	@$(CXX) $(CXXFLAGS) $< -o $@
-
-# # clean
-# clean: clean_lib
-# 	@echo "* [common-clean]..."
-# 	@find . -name "*~" -delete
-# 	@echo "* [common-clean] done..."
