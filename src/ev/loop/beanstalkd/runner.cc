@@ -264,12 +264,16 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
             shared_config_->beanstalk_.host_    = beanstalkd.get("host"   , shared_config_->beanstalk_.host_   ).asString();
             shared_config_->beanstalk_.port_    = beanstalkd.get("port"   , shared_config_->beanstalk_.port_   ).asInt();
             shared_config_->beanstalk_.timeout_ = beanstalkd.get("timeout", shared_config_->beanstalk_.timeout_).asFloat();
+            shared_config_->beanstalk_.tubes_.clear();
             const Json::Value& tubes = beanstalkd["tubes"];
             if ( false == tubes.isArray() ) {
-                throw ev::Exception("An error occurred while loading configuration - invalid tubes type!");
+                const Json::Value& tube = beanstalkd["tube"];
+                if ( false == tube.isString() ) {
+                    throw ev::Exception("An error occurred while loading configuration - invalid tubes type!");
+                }
+                shared_config_->beanstalk_.tubes_.insert(tube.asString());
             }
             if ( tubes.size() > 0 ) {
-                shared_config_->beanstalk_.tubes_.clear();
                 for ( Json::ArrayIndex idx = 0 ; idx < tubes.size() ; ++idx ) {
                     shared_config_->beanstalk_.tubes_.insert(tubes[idx].asString());
                 }
