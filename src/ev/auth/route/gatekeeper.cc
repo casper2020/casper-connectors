@@ -345,7 +345,7 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
             const auto errors = reader.getStructuredErrors();
             if ( errors.size() > 0 ) {
                 throw ::ev::Exception("An error ocurred while parsing gatekeeper configuration: %s!",
-                                      reader.getFormatedErrorMessages().c_str()
+                                      reader.getFormattedErrorMessages().c_str()
                 );
             } else {
                 throw ::ev::Exception("An error ocurred while parsing gatekeeper configuration!");
