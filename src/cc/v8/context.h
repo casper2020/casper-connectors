@@ -46,7 +46,7 @@
         fprintf(stdout, \
                 "%s:%d\n\tTook %lld us to " a_format "\n", \
                 __PRETTY_FUNCTION__, __LINE__, \
-                elapsed, \
+                static_cast<long long int>(elapsed),	\
                 __VA_ARGS__ \
         ); \
         return static_cast<size_t>(elapsed); \

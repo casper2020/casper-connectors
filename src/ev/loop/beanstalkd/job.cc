@@ -381,7 +381,7 @@ void ev::loop::beanstalkd::Job::Broadcast (const ev::loop::beanstalkd::Job::Stat
             progress_["status"] = "cancelled";
         break;
         default:
-            throw ::ev::Exception("Broadcast status " UINT8_FMT " not implemented!", a_status);
+            throw ::ev::Exception("Broadcast status " UINT8_FMT " not implemented!", static_cast<uint8_t>(a_status));
     }
     progress_["channel"] = channel_;
     Publish(redis_signal_channel_, progress_);
@@ -439,7 +439,7 @@ void ev::loop::beanstalkd::Job::Publish (const ev::loop::beanstalkd::Job::Progre
             progress_["status"] = "cancelled";
             break;
         default:
-            throw ::ev::Exception("Broadcast status " UINT8_FMT " not implemented!", a_progress.status_);
+            throw ::ev::Exception("Broadcast status " UINT8_FMT " not implemented!", static_cast<uint8_t>(a_progress.status_));
     }
     
     if ( -1.0 != a_progress.value_ ) {
