@@ -278,7 +278,7 @@ void ::ev::postgresql::JSONAPI::AsyncQuery (const ::ev::Loggable::Data& a_loggab
 
         return new ::ev::postgresql::Request(a_loggable_data, query);
         
-    })->Finally([this, query, a_callback] (::ev::Object* a_object) {
+    })->Finally([query, a_callback] (::ev::Object* a_object) {
                         
         const ::ev::Result* result = dynamic_cast<::ev::Result*>(a_object);
         if ( nullptr == result ) {
