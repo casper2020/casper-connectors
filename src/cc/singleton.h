@@ -30,6 +30,21 @@
 #include "cc/non-copyable.h"
 #include "cc/non-movable.h"
 
+// TODO 2.0
+//#if ( defined(NDEBUG) && !( defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) ) )
+    #include <stdio.h>  // vsnprintf
+    #include <stdarg.h> // va_list, va_start, va_arg, va_end
+    #include <typeinfo>
+
+    #define CC_SINGLETON_DEBUG_TRACE(a_format, ...) \
+        do { \
+            fprintf(stdout, a_format, __VA_ARGS__); \
+            fflush(stdout); \
+        } while (0)
+//#else
+//    #define CC_SINGLETON_DEBUG_TRACE(a_format, ...)
+//#endif
+
 namespace cc
 {
     
@@ -95,6 +110,7 @@ namespace cc
             if ( nullptr == Singleton<T,I>::instance_ ) {
                 Singleton<T,I>::instance_    = new T();
                 Singleton<T,I>::initializer_ = new I(*Singleton<T,I>::instance_);
+                CC_SINGLETON_DEBUG_TRACE("\t⌥ [%p ✔︎] : %s\n", Singleton<T,I>::instance_, typeid(T).name());
             }
             return *Singleton<T,I>::instance_;
         }
@@ -105,6 +121,7 @@ namespace cc
                 delete initializer_;
                 initializer_ = nullptr;
             }
+            CC_SINGLETON_DEBUG_TRACE("\t⌥ [%p ✗] : %s\n", Singleton<T,I>::instance_, typeid(T).name());
             if ( nullptr != Singleton<T,I>::instance_ ) {
                 delete instance_;
                 instance_ = nullptr;
@@ -115,6 +132,7 @@ namespace cc
     
     template <typename T, typename I, typename S> T* Singleton<T,I,S>::instance_    = nullptr;
     template <typename T, typename I, typename S> I* Singleton<T,I,S>::initializer_ = nullptr;
+
 
 } // end of namespace casper
 

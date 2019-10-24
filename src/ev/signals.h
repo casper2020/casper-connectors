@@ -22,10 +22,12 @@
 #ifndef NRS_EV_SIGNALS_H_
 #define NRS_EV_SIGNALS_H_
 
-#include "osal/osal_singleton.h"
+#include "cc/singleton.h"
 
 #include "ev/scheduler/scheduler.h"
 #include "ev/bridge.h"
+
+#include "ev/logger_v2.h"
 
 #include <set>
 #include <map>
@@ -34,30 +36,45 @@
 namespace ev
 {
     
-    /**
-     * @brief A singleton to handle common signals
-     */
-    class Signals final : public osal::Singleton<Signals>, private scheduler::Client
+    // ---- //
+    class Signals;
+    class Initializer final : public ::cc::Initializer<Signals>
+    {
+
+    public: // Constructor(s) / Destructor
+
+        Initializer (Signals& a_instance);
+        virtual ~Initializer ();
+
+    }; // end of class 'Initializer'
+   
+    // ---- //
+    class Signals final : public cc::Singleton<Signals, Initializer>, private scheduler::Client
     {
         
-    private: // Static Const Ptrs
+        friend class Initializer;
         
-        static const Loggable::Data*                                    s_loggable_data_ptr_;
+    private: // Const Ptrs
         
-    private: // Static Ptrs
+        Loggable::Data*                                          loggable_data_;
+        LoggerV2::Client*                                        logger_client_;
+        
+    private: //  Ptrs
 
-        static Bridge*                                                  s_bridge_ptr_;
-        static std::function<void(const ev::Exception& a_ev_exception)> s_fatal_exception_callback_;
-        static std::function<bool(int)>                                 s_unhandled_signal_callback_;
+        std::set<int>                                            signals_;
+        Bridge*                                                  bridge_ptr_;
+        std::function<void(const ev::Exception& a_ev_exception)> fatal_exception_callback_;
+        std::function<bool(int)>                                 unhandled_signal_callback_;
         
     private: // Data
         
-        std::map<int, std::vector<std::function<void(int)>>*>          other_signal_handlers_;
+        std::map<int, std::vector<std::function<void(int)>>*>    other_signal_handlers_;
         
     public: // Method(s) / Function(s)
         
-        void Startup    (const Loggable::Data& a_loggable_data_ref);
-        void Register   (const std::set<int>& a_signals, std::function<bool(int)> a_callback);
+        void Startup    (const Loggable::Data& a_loggable_data_ref,
+                         const std::set<int>& a_signals, std::function<bool(int)> a_callback);
+        void Shutdown   ();
         void Register   (Bridge* a_bridge_ptr, std::function<void(const ev::Exception&)> a_fatal_exception_callback);
         void Append     (const std::set<int>& a_signals, std::function<void(int)> a_callback);
         void Unregister ();

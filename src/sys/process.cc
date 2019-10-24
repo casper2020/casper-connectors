@@ -28,6 +28,8 @@
 #include <string>
 #include <sstream>
 
+#include <libproc.h>
+
 #include "lemon/topology_sort.h"
 
 #include "cc/exception.h"
@@ -389,6 +391,24 @@ void sys::Process::Sort (const std::vector<const sys::Process::Info>& a_vector,
     }
     
     map.clear();
+}
+
+/**
+ * @brief Obtain an process executable file URI.
+ *
+ * @param a_pid Process pid.
+ *
+ * @return Local executable URI for provided pid.
+ */
+std::string sys::Process::GetExecURI (const pid_t& a_pid)
+{
+    char buffer[PROC_PIDPATHINFO_MAXSIZE];
+
+    const int rv = proc_pidpath(a_pid, buffer, sizeof(buffer) / sizeof(buffer[9]));
+    if ( rv <= 0 ) {
+        throw ::cc::Exception("An error occurred while trying to obtain process executable path: (%d) %s ", errno, strerror(errno));
+    }
+    return std::string(buffer);
 }
 
 #ifdef __APPLE__

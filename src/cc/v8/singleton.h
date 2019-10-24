@@ -25,36 +25,38 @@
 
 #include "cc/v8/includes.h"
 
-#include "cc/non-copyable.h"
+#include "cc/singleton.h"
 
 namespace cc
 {
     
     namespace v8
     {
+    
+    // ---- //
+    class Singleton;
+    class Initializer final : public ::cc::Initializer<Singleton>
+    {
         
-        class Singleton final : protected ::cc::NonCopyable
-        {
-            
-        public: // Static Data
-            
-            static Singleton& GetInstance()
-            {
-                static Singleton instance;
-                return instance;
-            }
+    public: // Constructor(s) / Destructor
+        
+        Initializer (Singleton& a_instance);
+        virtual ~Initializer ();
+        
+    }; // end of class 'Initializer'
+    
+    // ---- //
+    class Singleton final : public cc::Singleton<Singleton, Initializer>
+    {
+        
+        friend class Initializer;
             
         private: // Data
             
-            bool                         initialized_;
-            std::unique_ptr<::v8::Platform>              platform_;
-            ::v8::Isolate*               isolate_;
-            ::v8::Isolate::CreateParams  create_params_;
-            
-        public: // Constructor(s) / Destructor
-            
-                     Singleton ();
-            virtual ~Singleton ();
+            bool                            initialized_;
+            std::unique_ptr<::v8::Platform> platform_;
+            ::v8::Isolate*                  isolate_;
+            ::v8::Isolate::CreateParams     create_params_;
             
         public: // Method(s) / Function(s) - Oneshot call only!!!
             

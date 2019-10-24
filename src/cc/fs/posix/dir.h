@@ -63,10 +63,16 @@ namespace cc
                 
             public: // Status Method(s) / Function(s)
                 
+                static std::string Normalize             (const std::string& a_path);
                 static std::string Normalize             (const char* const a_path);
+                static bool        Exists                (const std::string& a_path);
                 static bool        Exists                (const char* const a_path);
+                static void        Make                  (const std::string& a_path, const mode_t a_mode = k_default_mode_);
                 static void        Make                  (const char* const a_path, const mode_t a_mode = k_default_mode_);
+                static void        Parent                (const std::string& a_path, std::string& o_path);
                 static void        Parent                (const char* const a_path, std::string& o_path);
+                static void        EnsureEnoughFreeSpace (const std::string& a_path, size_t a_required,
+                                                          const char* const a_error_msg_prefix = nullptr);
                 static void        EnsureEnoughFreeSpace (const char* const a_path, size_t a_required,
                                                           const char* const a_error_msg_prefix = nullptr);
 

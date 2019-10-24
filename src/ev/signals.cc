@@ -26,14 +26,9 @@
 
 #include <signal.h>
 
-/*
- * STATIC DATA INITIALIZATION
- */
-const ev::Loggable::Data*                                ev::Signals::s_loggable_data_ptr_         = nullptr;
-
-ev::Bridge*                                              ev::Signals::s_bridge_ptr_                = nullptr;
-std::function<void(const ev::Exception& a_ev_exception)> ev::Signals::s_fatal_exception_callback_  = nullptr;
-std::function<bool(int)>                                 ev::Signals::s_unhandled_signal_callback_ = nullptr;
+#ifdef __APPLE__
+#pragma mark -
+#endif
 
 /**
  * @brief Signal handler.
@@ -45,28 +40,65 @@ static void ev_sa_handler (int a_sig_no)
     (void)ev::Signals::GetInstance().OnSignal(a_sig_no);
 }
 
+#ifdef __APPLE__
+#pragma mark -
+#endif
 
 /**
- * @brief Prepare singleton.
+ * @brief Default constructor.
  *
- * @param a_loggable_data_ref
- */
-void ev::Signals::Startup (const ev::Loggable::Data& a_loggable_data_ref)
+ * @param a_instance A referece to the owner of this class.
+*/
+ev::Initializer::Initializer (ev::Signals& a_instance)
+ : cc::Initializer<ev::Signals>(a_instance)
 {
-    s_loggable_data_ptr_ = &a_loggable_data_ref;
-    ev::Logger::GetInstance().Log("signals", *s_loggable_data_ptr_,
-                                  "--- STARTUP ---"
-    );
+    instance_.loggable_data_             = nullptr;
+    instance_.logger_client_             = nullptr;
+    instance_.bridge_ptr_                = nullptr;
+    instance_.fatal_exception_callback_  = nullptr;
+    instance_.unhandled_signal_callback_ = nullptr;
 }
 
 /**
- * @brief Register a handler for a set of signals.
+ * @brief Destructor.
+*/
+ev::Initializer::~Initializer ()
+{
+    if ( nullptr != instance_.loggable_data_ ) {
+        delete instance_.loggable_data_;
+    }
+    if ( nullptr != instance_.logger_client_ ) {
+        delete instance_.logger_client_;
+    }
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#endif
+
+/**
+ * @brief Prepare singleton, register signals to listen to and a callback for unhandled signals.
  *
+ * @param a_loggable_data_ref
+ * *
  * @param a_signals  A set of signals to handle.
  * @param a_callback A function to be called when a signal is not handled by this singleton.
  */
-void ev::Signals::Register (const std::set<int>& a_signals, std::function<bool(int)> a_callback)
+void ev::Signals::Startup (const ev::Loggable::Data& a_loggable_data_ref,
+                           const std::set<int>& a_signals, std::function<bool(int)> a_callback)
 {
+    if ( nullptr != logger_client_ ) {
+        throw ::cc::Exception("Logic error - %s already called!", __PRETTY_FUNCTION__ );
+    }
+    
+    loggable_data_ = new ev::Loggable::Data(a_loggable_data_ref);
+    logger_client_ = new ev::LoggerV2::Client(*loggable_data_);
+    
+    loggable_data_->Update(loggable_data_->module(), loggable_data_->ip_addr(), __FUNCTION__);
+    
+    ev::LoggerV2::GetInstance().Register(logger_client_, { "signals"} );
+    ev::LoggerV2::GetInstance().Log(logger_client_, "signals", "--- STARTUP ---");
+    
     struct sigaction act;
 
     memset(&act, 0, sizeof(act));
@@ -74,9 +106,45 @@ void ev::Signals::Register (const std::set<int>& a_signals, std::function<bool(i
     act.sa_handler = ev_sa_handler;
     for ( auto signal : a_signals ) {
         sigaction(signal, &act, 0);
+        signals_.insert(signal);
     }
 
-    s_unhandled_signal_callback_ = a_callback;
+    unhandled_signal_callback_ = a_callback;
+}
+
+/**
+ * @brief Cleanup previous singleton settings.
+ */
+void ev::Signals::Shutdown ()
+{
+    if ( nullptr == logger_client_ ) {
+        return;
+    }
+
+    loggable_data_->Update(loggable_data_->module(), loggable_data_->ip_addr(), __FUNCTION__);
+    
+    ev::LoggerV2::GetInstance().Log(logger_client_, "signals", "--- SHUTDOWN ---");
+
+    struct sigaction act;
+
+    memset(&act, 0, sizeof(act));
+
+    act.sa_handler = SIG_DFL;
+
+    for ( auto signal : signals_ ) {
+        sigaction(signal, &act, 0);
+    }
+    signals_.clear();
+
+    unhandled_signal_callback_ = nullptr;
+    
+    ev::LoggerV2::GetInstance().Unregister(logger_client_);
+    
+    delete logger_client_;
+    logger_client_ = nullptr;
+    
+    delete loggable_data_;
+    loggable_data_ = nullptr;
 }
 
 /**
@@ -109,8 +177,8 @@ void ev::Signals::Append (const std::set<int>& a_signals, std::function<void (in
 void ev::Signals::Register (Bridge* a_bridge_ptr, std::function<void(const ev::Exception&)> a_fatal_exception_callback)
 {
     ev::scheduler::Scheduler::GetInstance().Register(this);
-    s_bridge_ptr_               = a_bridge_ptr;
-    s_fatal_exception_callback_ = a_fatal_exception_callback;
+    bridge_ptr_               = a_bridge_ptr;
+    fatal_exception_callback_ = a_fatal_exception_callback;
 }
 
 /**
@@ -119,8 +187,8 @@ void ev::Signals::Register (Bridge* a_bridge_ptr, std::function<void(const ev::E
 void ev::Signals::Unregister ()
 {
     ev::scheduler::Scheduler::GetInstance().Unregister(this);
-    s_bridge_ptr_               = nullptr;
-    s_fatal_exception_callback_ = nullptr;    
+    bridge_ptr_               = nullptr;
+    fatal_exception_callback_ = nullptr;
     for ( auto it : other_signal_handlers_ ) {
         it.second->clear();
         delete it.second;
@@ -141,9 +209,13 @@ void ev::Signals::Unregister ()
  */
 bool ev::Signals::OnSignal (const int a_sig_no)
 {
-    ev::Logger::GetInstance().Log("signals", *s_loggable_data_ptr_,
-                                  "Signal %d Received...",
-                                  a_sig_no
+    const char* const name = strsignal(a_sig_no);
+    
+    loggable_data_->Update(loggable_data_->module(), loggable_data_->ip_addr(), __FUNCTION__);
+    
+    ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                    "Signal %s received...",
+                                    ( nullptr != name ? name : std::to_string(a_sig_no).c_str() )
     );
     bool rv = false;
     
@@ -152,8 +224,8 @@ bool ev::Signals::OnSignal (const int a_sig_no)
             
         case SIGUSR1:
         {
-            ev::Logger::GetInstance().Log("signals", *s_loggable_data_ptr_,
-                                          "Signal %d - Recycle logs.",
+            ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                          "Signal %2d - Recycle logs.",
                                           a_sig_no
             );
             ::ev::Logger::GetInstance().Recycle();
@@ -164,35 +236,35 @@ bool ev::Signals::OnSignal (const int a_sig_no)
             
         case SIGTTIN:
         {
-            ev::Logger::GetInstance().Log("signals", *s_loggable_data_ptr_,
-                                          "Signal %d - Scheduling PostgreSQL connection(s) invalidation...",
-                                          SIGHUP
+            ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                          "Signal %2d - Scheduling PostgreSQL connection(s) invalidation...",
+                                          SIGTTIN
             );
-            if ( nullptr == s_bridge_ptr_ ) {
-                ev::Logger::GetInstance().Log("signals", *s_loggable_data_ptr_,
-                                              "Signal %d - Signal ignored, at this moment, application is not ready or doesn't need to handle this signal right now.",
-                                              SIGHUP
+            if ( nullptr == bridge_ptr_ ) {
+                ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                              "Signal %2d - Signal ignored, at this moment, application is not ready or doesn't need to handle this signal right now.",
+                                              SIGTTIN
                 );
-                if ( nullptr != s_fatal_exception_callback_ ) {
-                    s_fatal_exception_callback_(::ev::Exception("Application is not ready to handle signal SIGHUP!"));
+                if ( nullptr != fatal_exception_callback_ ) {
+                    fatal_exception_callback_(::ev::Exception("Application is not ready to handle signal SIGHUP!"));
                 }
             } else {
-                s_bridge_ptr_->CallOnMainThread([this](){
-                    NewTask([] () -> ::ev::Object* {
-                        ev::Logger::GetInstance().Log("signals", *s_loggable_data_ptr_,
-                                                      "Signal %d - Invalidate PostgreSQL connection(s)...",
-                                                      SIGHUP
+                bridge_ptr_->CallOnMainThread([this](){
+                    NewTask([this] () -> ::ev::Object* {
+                        ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                                      "Signal %2d - Invalidate PostgreSQL connection(s)...",
+                                                      SIGTTIN
                         );
-                        return new:: ev::Request(*s_loggable_data_ptr_, ev::Request::Target::PostgreSQL, ev::Request::Mode::OneShot, ev::Request::Control::Invalidate);
-                    })->Finally([] (::ev::Object* /* a_object */) {
-                        ev::Logger::GetInstance().Log("signals", *s_loggable_data_ptr_,
+                        return new:: ev::Request(*loggable_data_, ev::Request::Target::PostgreSQL, ev::Request::Mode::OneShot, ev::Request::Control::Invalidate);
+                    })->Finally([this] (::ev::Object* /* a_object */) {
+                        ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
                                                       "Signal %d - PostgreSQL connection(s) invalidated.",
-                                                      SIGHUP
+                                                      SIGTTIN
                         );
-                    })->Catch([] (const ::ev::Exception& a_ev_exception) {
-                        ev::Logger::GetInstance().Log("signals", *s_loggable_data_ptr_,
-                                                      "Signal %d - Unable to invalidate PostgreSQL connections: '%s'",
-                                                      SIGHUP, a_ev_exception.what()
+                    })->Catch([this] (const ::ev::Exception& a_ev_exception) {
+                        ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                                      "Signal %2d - Unable to invalidate PostgreSQL connections: '%s'",
+                                                      SIGTTIN, a_ev_exception.what()
                         );
                     });
                 });
@@ -204,13 +276,13 @@ bool ev::Signals::OnSignal (const int a_sig_no)
         case SIGQUIT:
         case SIGTERM:
         {
-            ev::Logger::GetInstance().Log("signals", *s_loggable_data_ptr_,
-                                          "Signal %d - Clean shutdown.",
+            ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                          "Signal %2d - Clean shutdown.",
                                           a_sig_no
             );
         }
         default:
-            rv = ( nullptr != s_unhandled_signal_callback_ ? s_unhandled_signal_callback_(a_sig_no) : false );
+            rv = ( nullptr != unhandled_signal_callback_ ? unhandled_signal_callback_(a_sig_no) : false );
             break;
     }
     

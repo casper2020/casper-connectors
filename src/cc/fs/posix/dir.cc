@@ -90,6 +90,18 @@ void cc::fs::posix::Dir::Make (const mode_t a_mode) const
  *
  * @return Normalized path.
  */
+std::string cc::fs::posix::Dir::Normalize (const std::string& a_path)
+{
+    return Normalize(a_path.c_str());
+}
+
+/**
+ * @brief Normalize a path.
+ *
+ * @param a_path Directory full path.
+ *
+ * @return Normalized path.
+ */
 std::string cc::fs::posix::Dir::Normalize (const char* const a_path)
 {
     const size_t str_len = nullptr != a_path ? strlen(a_path) : 0;
@@ -97,6 +109,16 @@ std::string cc::fs::posix::Dir::Normalize (const char* const a_path)
         return ( std::string(a_path) + '/' );
     }
     return a_path;
+}
+
+/**
+ * @brief Check if a directory exists.
+ *
+ * @param a_path Directory full path.
+ */
+bool cc::fs::posix::Dir::Exists (const std::string& a_path)
+{
+    return Exists(a_path.c_str());
 }
 
 /**
@@ -116,6 +138,17 @@ bool cc::fs::posix::Dir::Exists (const char* const a_path)
         return false;
     }
     throw cc::fs::Exception("Unable to check if directory '%s' exists - %s!", a_path, strerror(errno));
+}
+
+/**
+ * @brief Create (a) directory(vs) follwing a path.
+ *
+ * @param a_path Directory full path.
+ * param a_mode
+ */
+void cc::fs::posix::Dir::Make (const std::string& a_path, const mode_t a_mode)
+{
+    return Make (a_path.c_str(), a_mode);
 }
 
 /**
@@ -181,6 +214,17 @@ void cc::fs::posix::Dir::Make (const char* const a_path, const mode_t a_mode)
  * @param a_path The directory path.
  * @param o_path The parent directory path.
  */
+void cc::fs::posix::Dir::Parent (const std::string& a_path, std::string& o_path)
+{
+    Parent(a_path.c_str(), o_path);
+}
+
+/**
+ * @brief Extract parent directory from an path
+ *
+ * @param a_path The directory path.
+ * @param o_path The parent directory path.
+ */
 void cc::fs::posix::Dir::Parent (const char* const a_path, std::string& o_path)
 {
     const size_t l1 = strlen(a_path);
@@ -202,6 +246,19 @@ void cc::fs::posix::Dir::Parent (const char* const a_path, std::string& o_path)
     }
     
     o_path = Normalize(ptr);
+}
+
+/**
+ * @brief Ensure there is enough free space ( but we're not reserving it ).
+ *
+ * @param a_path             Directory full path.
+ * @param a_required         Size in bytes.
+ * @param a_error_msg_prefix Error message prefix.
+ */
+void cc::fs::posix::Dir::EnsureEnoughFreeSpace (const std::string& a_path, size_t a_required,
+                                                const char* const a_error_msg_prefix)
+{
+    EnsureEnoughFreeSpace(a_path.c_str(), a_required, a_error_msg_prefix);
 }
 
 /**

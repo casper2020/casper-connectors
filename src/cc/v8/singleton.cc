@@ -21,31 +21,40 @@
 
 #include "cc/v8/singleton.h"
 
+#ifdef __APPLE__
+#pragma mark -
+#endif
+
 /**
  * @brief Default constructor.
  */
-cc::v8::Singleton::Singleton()
+cc::v8::Initializer::Initializer (cc::v8::Singleton& a_instance)
+    : cc::Initializer<Singleton>(a_instance)
 {
-    initialized_ = false;
-    platform_    = nullptr;
-    isolate_     = nullptr;
+    instance_.initialized_ = false;
+    instance_.platform_    = nullptr;
+    instance_.isolate_     = nullptr;
 }
 
 /**
  * @brief Destructor.
  */
-cc::v8::Singleton::~Singleton ()
+cc::v8::Initializer::~Initializer ()
 {
-    if ( nullptr != isolate_ ) {
-        isolate_->Dispose();
+    if ( nullptr != instance_.isolate_ ) {
+        instance_.isolate_->Dispose();
     }
     ::v8::V8::Dispose();
     // platform_ will be deleted by call to
     ::v8::V8::ShutdownPlatform();
-    if ( nullptr != create_params_.array_buffer_allocator ) {
-        delete create_params_.array_buffer_allocator;
+    if ( nullptr != instance_.create_params_.array_buffer_allocator ) {
+        delete instance_.create_params_.array_buffer_allocator;
     }
 }
+
+#ifdef __APPLE__
+#pragma mark -
+#endif
 
 /**
  * @brief This method must ( and can only ) be called once to initialize V8 engine.

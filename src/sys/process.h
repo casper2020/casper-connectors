@@ -205,6 +205,8 @@ namespace sys
         static bool Filter (const std::list<const Process*>& a_interest, std::list<const Process*>& o_list);
         static void Sort   (const std::vector<const Process::Info>& a_vector, std::list<const Process::Info>& o_list);
         
+        static std::string GetExecURI (const pid_t& a_pid);
+        
     protected:
         
         void SetError (const Process* a_process,

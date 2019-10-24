@@ -573,8 +573,7 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     //
     // Install Signal Handler
     //
-    ::ev::Signals::GetInstance().Startup(*loggable_data_);
-    ::ev::Signals::GetInstance().Register(
+    ::ev::Signals::GetInstance().Startup(*loggable_data_,
                                           /* a_signals */
                                           {SIGUSR1, SIGTERM, SIGQUIT, SIGTTIN},
                                           /* a_callback */

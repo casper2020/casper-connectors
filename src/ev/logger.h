@@ -186,6 +186,7 @@ namespace ev
         tokens_.clear();
         if ( nullptr != buffer_ ) {
             delete [] buffer_;
+            buffer_ = nullptr;
         }
     }
     

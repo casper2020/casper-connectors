@@ -148,13 +148,13 @@ void cc::fs::posix::File::Open (const std::string& a_path, const std::string& a_
     }
 
     // ... if directory does not exist ...
-    if ( false == cc::fs::posix::Dir::Exists(a_path.c_str()) ) {
+    if ( false == cc::fs::posix::Dir::Exists(a_path) ) {
         // ... create it ...
-        cc::fs::posix::Dir::Make(a_path.c_str());
+        cc::fs::posix::Dir::Make(a_path);
     }
     
     // ... ensure there is enough space ...
-    cc::fs::posix::Dir::EnsureEnoughFreeSpace(a_path.c_str(), a_size,
+    cc::fs::posix::Dir::EnsureEnoughFreeSpace(a_path, a_size,
         ( "Unable to create unique file at '" + ( a_path + a_prefix ) + "'" ).c_str()
     );
 
