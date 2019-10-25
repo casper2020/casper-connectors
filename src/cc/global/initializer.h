@@ -57,7 +57,7 @@ namespace cc
 
         public: // Data Type(s)
             
-            typedef struct {
+            typedef struct Process {
                 const std::string alt_name_;
                 const std::string name_;
                 const std::string version_;
@@ -92,29 +92,25 @@ namespace cc
             } Callback;
             
             typedef struct {
-                Directories*          directories_;
-                ::ev::Loggable::Data* loggable_data_;
-                bool                  warmed_up_;
-                bool                  initialized_;
-            } Context;
-            
-            typedef struct {
                 const std::set<int>      register_;
                 std::function<bool(int)> unhandled_signals_callback_;
             } Signals;
             
         private: // Data
 
-            Context context_;
-            FILE*   log_fp_;
+            Process*              process_;
+            Directories*          directories_;
+            ::ev::Loggable::Data* loggable_data_;
+            bool                  warmed_up_;
+            bool                  initialized_;
 
         public: // Method(s) / Function(s)
             
             void WarmUp   (const Process& a_process, const Directories* a_directories, const Logs& a_logs, const Signals& a_signals,
                            const Callback& a_callback,
                            const std::set<std::string>* a_debug_tokens);
-            void Startup  (const Process& a_process);
-            void Shutdown (const Process& a_process, bool a_for_cleanup_only);
+            void Startup  ();
+            void Shutdown (bool a_for_cleanup_only);
             
         public: // Method(s) / Function(s)
             
@@ -136,7 +132,7 @@ namespace cc
          */
         inline ::ev::Loggable::Data& Initializer::loggable_data ()
         {
-            return *context_.loggable_data_;
+            return *loggable_data_;
         }
     
         /**
@@ -144,7 +140,7 @@ namespace cc
          */
         inline bool Initializer::IsInitialized () const
         {
-            return context_.initialized_;
+            return initialized_;
         }
                 
     } // end of namespace 'global'

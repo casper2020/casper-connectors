@@ -33,6 +33,7 @@
 #include "cc/fs/file.h"
 
 #include "cc/types.h"
+#include "cc/debug/types.h"
 
 #include "sys/process.h"
 
@@ -55,14 +56,11 @@
 cc::global::OneShot::OneShot (cc::global::Initializer& a_instance)
     : ::cc::Initializer<::cc::global::Initializer>(a_instance)
 {
-    instance_.context_.loggable_data_ = nullptr;
-    instance_.context_.warmed_up_     = false;
-    instance_.context_.initialized_   = false;
-#ifdef __APPLE__
-    instance_.log_fp_      = stdout;
-#else
-    instance_.log_fp_      = stderr;
-#endif
+    instance_.process_       = nullptr;
+    instance_.directories_    = nullptr;
+    instance_.loggable_data_ = nullptr;
+    instance_.warmed_up_     = false;
+    instance_.initialized_   = false;
 }
 
 /**
@@ -70,8 +68,14 @@ cc::global::OneShot::OneShot (cc::global::Initializer& a_instance)
  */
 cc::global::OneShot::~OneShot ()
 {
-    if ( nullptr != instance_.context_.loggable_data_ ) {
-        delete instance_.context_.loggable_data_;
+    if ( nullptr != instance_.loggable_data_ ) {
+        delete instance_.loggable_data_;
+    }
+    if ( nullptr != instance_.directories_ ) {
+        delete instance_.directories_;
+    }
+    if ( nullptr != instance_.process_ ) {
+        delete instance_.process_;
     }
 }
 
@@ -97,25 +101,36 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
                                       const std::set<std::string>* a_debug_tokens)
 {
     // ... can't start if alread initialized ...
-    if ( true == context_.warmed_up_ ) {
+    if ( true == warmed_up_ ) {
         throw ::cc::Exception("Logic error - %s already called!", __PRETTY_FUNCTION__);
     }
     
     // ... mark as 'main' thread ...
     OSALITE_DEBUG_SET_MAIN_THREAD_ID();
+    
+    process_ = new cc::global::Initializer::Process(
+        {
+            /* alt_name_  */ a_process.alt_name_,
+            /* name_      */ a_process.name_,
+            /* version_   */ a_process.version_,
+            /* info_      */ a_process.info_,
+            /* pid_       */ getpid(),
+            /* is_master_ */ a_process.is_master_
+        }
+    );
         
     // ... create loggable data ...
-    context_.loggable_data_ = new ::ev::Loggable::Data(/* owner_ptr_ */ this,
-                                                       /* ip_addr_   */ "127.0.0.1",
-                                                       /* module_    */ a_process.info_,
-                                                       /* tag_       */ ""
+    loggable_data_ = new ::ev::Loggable::Data(/* owner_ptr_ */ this,
+                                              /* ip_addr_   */ "127.0.0.1",
+                                              /* module_    */ process_->info_,
+                                              /* tag_       */ ""
     );
     
     if ( nullptr != a_directories ) {
-        context_.directories_ = new Directories(*a_directories);
+        directories_ = new Directories(*a_directories);
     } else {
-        const std::string process_name = ( 0 != a_process.alt_name_.length() ? a_process.alt_name_ : a_process.name_ );
-        context_.directories_ = new Directories({
+        const std::string process_name = ( 0 != process_->alt_name_.length() ? process_->alt_name_ : process_->name_ );
+        directories_ = new Directories({
             /* etc_   */ cc::fs::Dir::Normalize("/usr/local/etc/"      + process_name),
             /* log_   */ cc::fs::Dir::Normalize("/usr/local/var/log/"  + process_name),
             #ifdef __APPLE__
@@ -155,7 +170,7 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
                   
         // ... starting up ...
         Log("status", "\n* %s - configuring %s process w/pid %u...\n",
-             a_process.info_.c_str(), ( true == a_process.is_master_ ? "master" : "worker" ), a_process.pid_
+             process_->info_.c_str(), ( true == process_->is_master_ ? "master" : "worker" ), process_->pid_
         );
 
         //
@@ -171,14 +186,14 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
             // ... if it's a conditional enabler ...
             if ( true == entry.conditional_ ) {
                 // ... .enabled file must exists ...
-                const std::string flag = ( context_.directories_->log_ + entry.token_ + ".enabled" );
+                const std::string flag = ( directories_->log_ + entry.token_ + ".enabled" );
                 if ( false == ::cc::fs::File::Exists(flag) ) {
                     // ... it does not, next token ...
                     continue;
                 }
             }
             // ... all conditions are met to register token ...
-            ::ev::Logger::GetInstance().Register(entry.token_, ( context_.directories_->log_ + entry.token_ + ".log" ).c_str());
+            ::ev::Logger::GetInstance().Register(entry.token_, ( directories_->log_ + entry.token_ + ".log" ).c_str());
         }
         
         ::ev::LoggerV2::GetInstance().Startup();
@@ -191,42 +206,38 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
             // ... if it's a conditional enabler ...
             if ( true == entry.conditional_ ) {
                 // ... .enabled file must exists ...
-                const std::string flag = ( context_.directories_->log_ + entry.token_ + ".enabled" );
+                const std::string flag = ( directories_->log_ + entry.token_ + ".enabled" );
                 if ( false == ::cc::fs::File::Exists(flag) ) {
                     // ... it does not, next token ...
                     continue;
                 }
             }
             // ... all conditions are met to register token ...
-            ::ev::LoggerV2::GetInstance().Register(entry.token_, ( context_.directories_->log_ + entry.token_ + ".log" ).c_str());
+            ::ev::LoggerV2::GetInstance().Register(entry.token_, ( directories_->log_ + entry.token_ + ".log" ).c_str());
         }
                 
         //
         // ... signal handing ...
         //
-        ::ev::Signals::GetInstance().Startup(*context_.loggable_data_, a_signals.register_, a_signals.unhandled_signals_callback_);
+        ::ev::Signals::GetInstance().Startup(*loggable_data_, a_signals.register_, a_signals.unhandled_signals_callback_);
 
         //
         // ... configuration ...
         //
         
         Log("status", "\n\t⌥ CONFIGURATION\n");
-    #if defined(NDEBUG) && !( defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) )
-        Log("status", "\t\t- %-12s: %s\n", "Target", "release");
-    #else
-        Log("status", "\t\t- %-12s: %s\n", "Target", "debug");
-    #endif
+        Log("status", "\t\t- %-12s: %s\n", "Target", CC_IF_DEBUG_ELSE("debug", "release"));
         
         //
         // ... directories ...
         //
         const std::map<std::string, const std::string&> directories = {
-            { "etc"  , context_.directories_->etc_     },
-            { "log"  , context_.directories_->log_     },
-            { "share", context_.directories_->share_   },
-            { "run"  , context_.directories_->run_     },
-            { "lock" , context_.directories_->lock_    },
-            { "tmp"  , context_.directories_->tmp_     }
+            { "etc"  , directories_->etc_     },
+            { "log"  , directories_->log_     },
+            { "share", directories_->share_   },
+            { "run"  , directories_->run_     },
+            { "lock" , directories_->lock_    },
+            { "tmp"  , directories_->tmp_     }
         };
         
         Log("status", "\n\t⌥ DIRECTORIES\n");
@@ -255,35 +266,30 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
         Log("status", "\t\t- %-12s: %s\n"     , "LC_ALL"    , lc_all);
         Log("status", "\t\t- %-12s: %s - " DOUBLE_FMT "\n", "LC_NUMERIC", lc_numeric, (double)123.456);
 
-        //
-        // ... *printf function ...
-        //
-        
-        Log("status", "\n\t⌥ *printf(...)\n");
-        #if ! ( defined(NDEBUG) && !( defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) ) )
-        if ( true == a_process.is_master_ ) {
-            Log("status", "\t\t- %-12s: %s\n", "SIZET_FMT" , SIZET_FMT);
-            Log("status", "\t\t- %-12s: %s\n", "INT8_FMT"  , INT8_FMT);
-            Log("status", "\t\t- %-12s: %s\n", "UINT8_FMT" , UINT8_FMT);
-            Log("status", "\t\t- %-12s: %s\n", "INT16_FMT" , INT16_FMT);
-            Log("status", "\t\t- %-12s: %s\n", "UINT16_FMT", UINT16_FMT);
-            Log("status", "\t\t- %-12s: %s\n", "INT32_FMT" , INT32_FMT);
-            Log("status", "\t\t- %-12s: %s\n", "UINT32_FMT", UINT32_FMT);
-            Log("status", "\t\t- %-12s: %s\n", "INT64_FMT" , INT64_FMT);
-            Log("status", "\t\t- %-12s: %s\n", "UINT64_FMT", UINT64_FMT);
-        }
-        #endif
+        CC_IF_DEBUG(
+            //
+            // ... *printf function ...
+            //
+            if ( true == process_->is_master_ ) {
+                Log("status", "\n\t⌥ *printf(...)\n");
+                Log("status", "\t\t- %-12s: %s\n", "SIZET_FMT" , SIZET_FMT);
+                Log("status", "\t\t- %-12s: %s\n", "INT8_FMT"  , INT8_FMT);
+                Log("status", "\t\t- %-12s: %s\n", "UINT8_FMT" , UINT8_FMT);
+                Log("status", "\t\t- %-12s: %s\n", "INT16_FMT" , INT16_FMT);
+                Log("status", "\t\t- %-12s: %s\n", "UINT16_FMT", UINT16_FMT);
+                Log("status", "\t\t- %-12s: %s\n", "INT32_FMT" , INT32_FMT);
+                Log("status", "\t\t- %-12s: %s\n", "UINT32_FMT", UINT32_FMT);
+                Log("status", "\t\t- %-12s: %s\n", "INT64_FMT" , INT64_FMT);
+                Log("status", "\t\t- %-12s: %s\n", "UINT64_FMT", UINT64_FMT);
+            }
+        );
         
         //
         // ... ICU / V8 ...
         //
-
-    #if defined(__APPLE__) && ( defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) )
-        const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(context_.directories_->share_) + "v8/debug/icudtl.dat";
-    #else
-        const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(context_.directories_->share_) + "/v8/icudtl.dat";
-    #endif
-
+        
+        const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + CC_IF_DEBUG_ELSE("v8/debug/icudtl.dat", "/v8/icudtl.dat");
+        
     #ifndef CASPER_REQUIRE_GOOGLE_V8
 
         // ... ICU ...
@@ -302,10 +308,11 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
         // ... V8 ...
         Log("status", "\n\t⌥ V8\n");
         Log("status", "\t\t- %-12s: %s\n", "VERSION", ::v8::V8::GetVersion());
-        cc::v8::Singleton::GetInstance().Startup(/* a_exec_uri     */ sys::Process::GetExecURI(a_process.pid_).c_str(),
+        cc::v8::Singleton::GetInstance().Startup(/* a_exec_uri     */ sys::Process::GetExecURI(process_->pid_).c_str(),
                                                  /* a_icu_data_uri */ icu_dat_file_uri.c_str()
         );
-
+        ::cc::v8::Singleton::GetInstance().Initialize();
+        
         // ... ICU ...
         Log("status", "\n\t⌥ ICU\n");
         Log("status", "\t\t- %-12s: %s\n", "VERSION", U_ICU_VERSION);
@@ -354,14 +361,14 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
         // ... process specific initialization ...
         //
 
-        a_callback.function_(a_process, *context_.directories_, a_callback.args_);
+        a_callback.function_(*process_, *directories_, a_callback.args_);
         
         // ... mark as warmed up ...
-        context_.warmed_up_ = true;
+        warmed_up_ = true;
 
         // ... done ..
         Log("status", "\n* %s - %s process w/pid %u configured...\n",
-            a_process.info_.c_str(), ( true == a_process.is_master_ ? "master" : "worker" ), a_process.pid_
+            process_->info_.c_str(), ( true == process_->is_master_ ? "master" : "worker" ), process_->pid_
         );
 
     } catch (const std::overflow_error& a_of_e) {
@@ -389,49 +396,54 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
 
 /**
  * @brief Initialize casper-connectors.
- *
- * @param a_process Process information, see \link cc::global::Initializer::Process \link.
  */
-void cc::global::Initializer::Startup (const Process& a_process)
+void cc::global::Initializer::Startup ()
 {
+    
     Log("status", "%s with pid %d is starting up...\n",
-        a_process.info_.c_str(), (int)a_process.pid_
+        process_->info_.c_str(), (int)process_->pid_
     );
 
     // ... can't start if already initialized ...
-    if ( true == context_.initialized_ ) {
+    if ( true == initialized_ ) {
         throw ::cc::Exception("Logic error - %s already called!", __PRETTY_FUNCTION__);
     }
 
     // ... can't start if not warmed up ...
-    if ( false == context_.warmed_up_ ) {
+    if ( false == warmed_up_ ) {
         throw ::cc::Exception("Logic error - cc::global::Initializer::WarmUp not called yet!");
     }
     
     // ... mark as initialized ...
-    context_.initialized_ = true;
+    initialized_ = true;
 
     Log("status", "%s with pid  %d is started up...",
-        a_process.info_.c_str(), (int)a_process.pid_
+        process_->info_.c_str(), (int)process_->pid_
     );
 }
 
 /**
  * @brief Dealloc previously allocated memory ( if any ).
  *
- * @param a_process          Process information, see \link cc::global::Initializer::Process \link.
  * @param a_for_cleanup_only True if it's for clean up.
  */
-void cc::global::Initializer::Shutdown (const Process& a_process, bool a_for_cleanup_only)
+void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
 {
     Log("status", "* %s with pid %d is %s...\n",
-        a_process.info_.c_str(), (int)a_process.pid_, true == a_for_cleanup_only ? "cleaning" : "shutting down"
+        process_->info_.c_str(), (int)process_->pid_, true == a_for_cleanup_only ? "cleaning" : "shutting down"
     );
 
     // ... release loggable data ...
-    if ( nullptr != context_.loggable_data_ ) {
-        delete context_.loggable_data_;
-        context_.loggable_data_ = nullptr;
+    if ( nullptr != loggable_data_ ) {
+        delete loggable_data_;
+        loggable_data_ = nullptr;
+    }
+    
+    const cc::global::Initializer::Process process = *process_;
+    // ... release process data ...
+    if ( nullptr != process_ ) {
+        delete process_;
+        process_ = nullptr;
     }
 
     //
@@ -474,10 +486,10 @@ void cc::global::Initializer::Shutdown (const Process& a_process, bool a_for_cle
     }
     
     // ... mark as NOT initialized ...
-    context_.initialized_ = false;
+    initialized_ = false;
     
     Log("status", "* %s with pid %d is %s ...\n",
-        a_process.info_.c_str(), (int)a_process.pid_, true == a_for_cleanup_only ? "cleaned up" : "down"
+        process.info_.c_str(), (int)process.pid_, true == a_for_cleanup_only ? "cleaned up" : "down"
     );
 }
 
