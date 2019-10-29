@@ -25,6 +25,8 @@
 
 #include "osal/osalite.h"
 
+#include "cc/threading/worker.h"
+
 #include <sstream> // std::stringstream
 
 #ifdef __APPLE__
@@ -410,7 +412,8 @@ void ev::hub::Hub::Loop ()
     
     thread_id_ = osal::ThreadHelper::GetInstance().CurrentThreadID();
     
-    osal::ThreadHelper::GetInstance().SetName(name_ + "::ev::hub");
+    ::cc::threading::Worker::SetName(name_ + "::ev::hub");
+    ::cc::threading::Worker::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
 
     stepper_.setup_ = [this](ev::Device* a_device) {
         a_device->Setup(event_base_, [this] (const ev::Exception& a_ev_exception) {
@@ -506,7 +509,7 @@ void ev::hub::Hub::Loop ()
     while ( false == aborted_ ) {
 
         int rv = event_base_loop(event_base_, EVLOOP_NO_EXIT_ON_EMPTY);
-        OSALITE_DEBUG_TRACE("ev_hub", "~> event_base_loop=%d!", rv);
+        OSALITE_DEBUG_TRACE("ev_hub", "~> event_base_loop = %d!", rv);
         switch (rv) {
             case -1: // ... error ...
                 break;

@@ -26,6 +26,8 @@
 #include "cc/non-movable.h"
 #include "cc/non-copyable.h"
 
+#include "cc/global/types.h"
+
 #include "ev/config.h"
 
 #include "ev/redis/config.h"
@@ -57,7 +59,8 @@ namespace ev
                 typedef struct {
                     const std::string                  abbr_;
                     const std::string                  name_;
-                    const std::string                  versioned_name_;
+                    const std::string                  version_;
+                    const std::string                  info_;
                     const int                          instance_;
                     const std::string                  exec_path_;
                     const std::string                  conf_file_uri_;
@@ -170,6 +173,11 @@ namespace ev
                 void SubmitJob           (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr);
                 void ExecuteOnMainThread (std::function<void()> a_callback, bool a_blocking);
                 void OnFatalException    (const ev::Exception& a_exception);
+                
+            protected:
+                
+                void OnGlobalInitializationCompleted (const cc::global::Process& a_process, const cc::global::Directories& a_directories, const void* a_args,
+                                                      cc::global::Logs& o_logs);
                 
             private: // Method(s) / Function(s)
                 

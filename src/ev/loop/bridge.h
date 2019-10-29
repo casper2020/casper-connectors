@@ -31,7 +31,8 @@
 #include <thread>  // std::thread
 #include <atomic>
 #include <functional>
-#include <event.h> // libevent
+
+#include <event2/event.h> // libevent2
 
 namespace ev
 {
@@ -186,7 +187,8 @@ namespace ev
         public: // Inherited Virtual Method(s) / Function(s) - from ::ev::Bridge
             
             virtual void    CallOnMainThread    (std::function<void(void* a_payload)> a_callback, void* a_payload, int64_t a_timeout_ms = 0);
-            virtual void    CallOnMainThread    (std::function<void()> a_callback,int64_t a_timeout_ms = 0);
+            virtual void    CallOnMainThread    (std::function<void()> a_callback,int64_t a_timeout_ms);
+            virtual void    CallOnMainThread    (std::function<void()> a_callback);
             virtual void    ThrowFatalException (const ev::Exception& a_ev_exception);
             
         // TODO private: // Virtual Method(s) / Function(s)

@@ -31,6 +31,10 @@
 
 #include "ev/loggable.h"
 
+#include "cc/exception.h"
+
+#include "cc/global/types.h"
+
 namespace cc
 {
 
@@ -56,46 +60,27 @@ namespace cc
             friend class OneShot;
 
         public: // Data Type(s)
-            
-            typedef struct Process {
-                const std::string alt_name_;
-                const std::string name_;
-                const std::string version_;
-                const std::string info_;
-                const pid_t       pid_;
-                const bool        is_master_;
-            } Process;
-            
+                                 
             typedef struct {
-                const std::string etc_;
-                const std::string log_;
-                const std::string share_;
-                const std::string run_;
-                const std::string lock_;
-                const std::string tmp_;
-            } Directories;
-            
-            typedef struct {
-                const std::string token_;
-                const bool        conditional_;
-                const bool        enabled_;
-            } LogEntry;
-            
-            typedef struct {
-                const std::vector<LogEntry> logger_;
-                const std::vector<LogEntry> logger_v2_;
-            } Logs;
-            
-            typedef struct {
-                const std::function<void(const Process&, const Directories&, const void*)>& function_;
-                const void*                                                                 args_;
-            } Callback;
+                const std::function<void(const Process&, const Directories&, const void*, ::cc::global::Logs& )>& function_;
+                const void*                                                                                       args_;
+            } WarmUpNextStep;
             
             typedef struct {
                 const std::set<int>      register_;
                 std::function<bool(int)> unhandled_signals_callback_;
             } Signals;
             
+            typedef struct {
+                const bool required_;
+                const bool runs_on_main_thread_;
+            } V8;
+
+            typedef struct {
+                std::function<void(std::function<void()>)> call_on_main_thread_;
+                std::function<void(const cc::Exception&)>  on_fatal_exception_;
+            } Callbacks;
+
         private: // Data
 
             Process*              process_;
@@ -106,10 +91,10 @@ namespace cc
 
         public: // Method(s) / Function(s)
             
-            void WarmUp   (const Process& a_process, const Directories* a_directories, const Logs& a_logs, const Signals& a_signals,
-                           const Callback& a_callback,
+            void WarmUp   (const Process& a_process, const Directories* a_directories, const Logs& a_logs, const V8& a_v8,
+                           const WarmUpNextStep& a_next_step,
                            const std::set<std::string>* a_debug_tokens);
-            void Startup  ();
+            void Startup  (const Signals& a_signals, const Callbacks& a_callbacks);
             void Shutdown (bool a_for_cleanup_only);
             
         public: // Method(s) / Function(s)
@@ -119,13 +104,22 @@ namespace cc
             
         private: //
             
-            void Log (const char* a_token, const char* a_format, ...) __attribute__((format(printf, 3, 4)));
+            void EnableLogsIfRequired (const Logs& a_logs);
+            void Log                  (const char* a_token, const char* a_format, ...) __attribute__((format(printf, 3, 4)));
             
         public: // Static Method(s) / Function(s)
             
             static bool SupportsV8 ();
 
         }; // end of class 'Initializer'
+
+        /**
+         * @return True if this singleton is initialized, false otherwise.
+         */
+        inline bool Initializer::IsInitialized () const
+        {
+            return initialized_;
+        }
     
         /**
          * @return Global loggable data reference.
@@ -134,15 +128,7 @@ namespace cc
         {
             return *loggable_data_;
         }
-    
-        /**
-         * @return True if this singleton is initialized, false otherwise.
-         */
-        inline bool Initializer::IsInitialized () const
-        {
-            return initialized_;
-        }
-                
+
     } // end of namespace 'global'
 
 } // end of namespace 'cc'

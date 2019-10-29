@@ -27,6 +27,8 @@
 
 #include <mutex> // std::mutex
 
+#include "cc/threading/worker.h"
+
 /**
  * @brief Default constructor.
  */
@@ -98,7 +100,7 @@ ev::loop::Bridge::CallOnMainThreadCallback ev::loop::Bridge::Start (const std::s
             event_del(hack_event_);
             event_free(hack_event_);
         }
-        hack_event_ = evtimer_new(event_base_, ev::loop::Bridge::LoopHackEventCallback, &hack_event_);
+        hack_event_ = evtimer_new(event_base_, ev::loop::Bridge::LoopHackEventCallback, this);
         if ( nullptr == hack_event_ ) {
             throw ev::Exception("Unable to start hub loop - can't create 'hack' event!");
         }
@@ -257,10 +259,12 @@ void ev::loop::Bridge::Stop (int a_sig_no)
  */
 void ev::loop::Bridge::Quit ()
 {
+    OSALITE_DEBUG_TRACE("ev_bridge", "<~ Quit()...");
     if ( true == running_ && false == aborted_ ) {
         aborted_ = true;
         if ( nullptr != event_base_ ) {
-            event_base_loopbreak(event_base_);
+            OSALITE_DEBUG_TRACE("ev_bridge", "-~ Stopping base event...");
+            event_active(watchdog_event_, EV_TIMEOUT, 0);
             abort_condition_.Wait();
         }
     }
@@ -304,6 +308,21 @@ void ev::loop::Bridge::CallOnMainThread (std::function<void()> a_callback, int64
 }
 
 /**
+ * @brief Call this method to perform a callback on main thread.
+ *
+ * @param a_callback
+ */
+void ev::loop::Bridge::CallOnMainThread (std::function<void()> a_callback)
+{
+    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+
+    static std::mutex ___mutex;
+    std::lock_guard<std::mutex> lock(___mutex);
+    
+    ScheduleCalbackOnMainThread(new ev::loop::Bridge::Callback(a_callback, /* a_timeout_ms */ 0), /* a_timeout_ms */ 0);
+}
+
+/**
  * @brief Call this method handle with a fatal exception.
  */
 void ev::loop::Bridge::ThrowFatalException (const ev::Exception& a_ev_exception)
@@ -327,7 +346,8 @@ void ev::loop::Bridge::Loop ()
     
     running_ = true;
     
-    osal::ThreadHelper::GetInstance().SetName(name_ + "::ev::bridge");
+    ::cc::threading::Worker::SetName(name_ + "::ev::bridge");
+    ::cc::threading::Worker::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
 
 #if 0 // TODO
     detach_condition_.Wake();
@@ -338,7 +358,7 @@ void ev::loop::Bridge::Loop ()
     while ( false == aborted_ && nullptr != event_base_ ) {
         
         int rv = event_base_loop(event_base_, EVLOOP_NO_EXIT_ON_EMPTY);
-        OSALITE_DEBUG_TRACE("ev_bridge", "~> event_base_loop=%d!", rv);
+        OSALITE_DEBUG_TRACE("ev_bridge", "~> event_base_loop = %d!", rv);
         switch (rv) {
             case -1: // ... error ...
                 break;

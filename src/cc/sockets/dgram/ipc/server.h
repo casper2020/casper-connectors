@@ -37,7 +37,7 @@
 #include <atomic>
 #include <list>
 
-#include <event.h> // libevent
+#include <event2/event.h> // libevent2
 
 #include "json/json.h"
 

@@ -25,7 +25,6 @@
 #include "cc/singleton.h"
 
 #include "ev/scheduler/scheduler.h"
-#include "ev/bridge.h"
 
 #include "ev/logger_v2.h"
 
@@ -54,6 +53,15 @@ namespace ev
         
         friend class Initializer;
         
+    public: // Data Type(s)
+        
+        typedef struct {
+            std::function<bool(int /* a_signo */)>                         on_signal_;
+            std::function<void(const ev::Exception& /* a_ev_exception */)> on_fatal_exception_;
+            std::function<void(std::function<void()>)>                     call_on_main_thread_;
+        } Callbacks;
+        
+        
     private: // Const Ptrs
         
         Loggable::Data*                                          loggable_data_;
@@ -62,9 +70,7 @@ namespace ev
     private: //  Ptrs
 
         std::set<int>                                            signals_;
-        Bridge*                                                  bridge_ptr_;
-        std::function<void(const ev::Exception& a_ev_exception)> fatal_exception_callback_;
-        std::function<bool(int)>                                 unhandled_signal_callback_;
+        Callbacks                                                callbacks_;
         
     private: // Data
         
@@ -73,11 +79,11 @@ namespace ev
     public: // Method(s) / Function(s)
         
         void Startup    (const Loggable::Data& a_loggable_data_ref,
-                         const std::set<int>& a_signals, std::function<bool(int)> a_callback);
+                         const std::set<int>& a_signals, Callbacks a_callbacks);
         void Shutdown   ();
-        void Register   (Bridge* a_bridge_ptr, std::function<void(const ev::Exception&)> a_fatal_exception_callback);
         void Append     (const std::set<int>& a_signals, std::function<void(int)> a_callback);
         void Unregister ();
+        
         bool OnSignal   (const int a_sig_no);
         
     private: //

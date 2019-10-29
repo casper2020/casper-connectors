@@ -35,7 +35,7 @@
 #include <vector>     // std::vector
 #include <limits>     // std::numeric_limits
 
-#include <event.h> // libevent
+#include <event2/event.h> // libevent2
 
 namespace ev
 {

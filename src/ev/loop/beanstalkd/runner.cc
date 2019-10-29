@@ -23,10 +23,6 @@
 
 #include "cc/v8/singleton.h"
 
-#include "ev/signals.h"
-
-#include "ev/logger.h"
-
 #include "ev/redis/device.h"
 #include "ev/redis/subscriptions/manager.h"
 
@@ -35,13 +31,15 @@
 
 #include "osal/osalite.h"
 
-#include "osal/debug/trace.h"
-
+#include "cc/debug/types.h"
 #include "cc/utc_time.h"
+#include "cc/global/initializer.h"
 
 #include "unicode/locid.h"  // locale
 #include "unicode/utypes.h" // u_init
 #include "unicode/uclean.h" // u_cleanup
+
+#include "cc/threading/worker.h"
 
 #ifdef __APPLE__
 #pragma mark -
@@ -149,67 +147,115 @@ ev::loop::beanstalkd::Runner::~Runner ()
 void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::StartupConfig& a_config,
                                             ev::loop::beanstalkd::Runner::FatalExceptionCallback a_fatal_exception_callback)
 {
-    // ... set locale must be called @ main(int argc, char** argv) ...
-    const char* lc_all = setlocale (LC_ALL, NULL);
-    
-    setlocale (LC_NUMERIC, "C");
-    
-    const char* lc_numeric = setlocale (LC_NUMERIC, NULL);
-    
     const pid_t process_pid = getpid();
-    
-    OSALITE_DEBUG_TRACE("startup",
-                        "[%s] - pid " UINT64_FMT " - is starting up...",
-                        __PRETTY_FUNCTION__, process_pid
+
+    CC_IF_DEBUG_DECLARE_VAR(std::set<std::string>, debug_tokens);
+    CC_IF_DEBUG(
+        debug_tokens.insert("exceptions");
+    );
+
+    //
+    // ... initialize casper-connectors // third party libraries ...
+    //
+    ::cc::global::Initializer::GetInstance().WarmUp(
+        /* a_process */
+        {
+            /* alt_name_  */ "",
+            /* name_      */ a_config.name_,
+            /* version_   */ a_config.version_,
+            /* info_      */ a_config.info_,
+            /* pid_       */ process_pid,
+            /* is_master_ */ true
+        },
+        /* a_directories */
+        nullptr, /* using defaults */
+        /* a_logs */
+        {},
+        /* a_v8 */
+        {
+            /* required_            */ true,
+            /* runs_on_main_thread_ */ false
+        },       
+        /* a_next_step */
+        {
+            /* function_ */ std::bind(&ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
+            /* args_     */ (void*)(&a_config)
+        },
+        /* a_debug_tokens */
+        CC_IF_DEBUG_ELSE(&debug_tokens, nullptr)
     );
     
-    // ... set the initial seed value for future calls to random(). ...
-    struct timeval tv;
-    if ( 0 != gettimeofday(&tv, NULL) ) {
-        throw ev::Exception("Unable set the initial seed value for future calls to random()!");
-    }
-    srandom(((unsigned) process_pid << 16) ^ (unsigned)tv.tv_sec ^ (unsigned)tv.tv_usec);
-    
-    // ... mark as 'main' thread ...
-    OSALITE_DEBUG_SET_MAIN_THREAD_ID();
+    ::cc::global::Initializer::GetInstance().Startup(
+        /* a_signals */
+        {
+            /* register_ */ { SIGQUIT, SIGTERM, SIGTTIN },
+            /* on_signal_ */
+            [this](const int a_sig_no) { // unhandled signals callback
+                // ... is a 'shutdown' signal?
+                switch(a_sig_no) {
+                    case SIGQUIT:
+                    case SIGTERM:
+                    {
+                        Quit();
+                    }
+                    return true;
+                default:
+                    return false;
+                }
+            }
+        },
+        /* a_callbacks */
+        {
+            /* call_on_main_thread_    */
+            [this] (std::function<void()> a_callback) {
+                ExecuteOnMainThread(a_callback, /* a_blocking */ false);
+            },
+            /* on_fatal_exception_     */ std::bind(&ev::loop::beanstalkd::Runner::OnFatalException, this, std::placeholders::_1)
+        }
+    );
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#endif
+
+/**
+ * @brief Call this function to set nginx-broker process.
+ *
+ * @param a_process     Previously set process info.
+ * @param a_directories Previously set directories info
+ * @param a_arg         \link StartupConfig \link
+ * @param o_logs        Post initialization additional logs to enable.
+ */
+void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::global::Process& a_process,
+                                                                    const ::cc::global::Directories& a_directories,
+                                                                    const void* a_args,
+                                                                    ::cc::global::Logs& o_logs)
+{
    
     //
     // Copy Startup Config
     //
-    startup_config_ = new ev::loop::beanstalkd::Runner::StartupConfig({
-        /* abbr_           */ a_config.abbr_,
-        /* name_           */ a_config.name_,
-        /* versioned_name_ */ a_config.versioned_name_,
-        /* instance_       */ a_config.instance_,
-        /* exec_path_      */ a_config.exec_path_,
-        /* conf_file_uri_  */ a_config.conf_file_uri_
-    });
+    startup_config_ = new ev::loop::beanstalkd::Runner::StartupConfig(*(const ev::loop::beanstalkd::Runner::StartupConfig*)a_args);
     
     //
     // Work directories:
     //
     shared_config_->directories_ = {
-#ifdef __APPLE__
-        /* log_    */ "/usr/local/var/log/"  + a_config.name_ + "/",
-        /* run_    */ "/usr/local/var/run/"  + a_config.name_ + "/",
-        /* lock_   */ "/usr/local/var/lock/" + a_config.name_ + "/",
-        /* shared_ */ "/usr/local/share/"    + a_config.name_ + "/",
-#else
-        /* log_    */ "/var/log/"            + a_config.name_ + "/",
-        /* run_    */ "/var/run/"            + a_config.name_ + "/",
-        /* lock_   */ "/var/lock/"           + a_config.name_ + "/",
-        /* shared_ */ "/usr/share/"          + a_config.name_ + "/",
-#endif
-        /* output_ */ "/tmp/"
+        /* log_    */ a_directories.log_,
+        /* run_    */ a_directories.run_,
+        /* lock_   */ a_directories.lock_,
+        /* shared_ */ a_directories.share_,
+        /* output_ */ a_directories.tmp_
     };
 
     //
     // Load config:
     //
 
-    std::ifstream f_stream(a_config.conf_file_uri_);
+    std::ifstream f_stream(startup_config_->conf_file_uri_);
     if ( false == f_stream.is_open() ) {
-        throw ev::Exception("Unable to open configuration file '%s'!", a_config.conf_file_uri_.c_str());
+        throw ev::Exception("Unable to open configuration file '%s'!", startup_config_->conf_file_uri_.c_str());
     }
     
     std::string data((std::istreambuf_iterator<char>(f_stream)), std::istreambuf_iterator<char>());
@@ -319,7 +365,7 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
                         if ( 0 == token.length() ) {
                             continue;
                         }
-                        shared_config_->log_tokens_[token] =  shared_config_->directories_.log_ + token + "." + std::to_string(a_config.instance_) + ".log";
+                        shared_config_->log_tokens_[token] = shared_config_->directories_.log_ + token + "." + std::to_string(startup_config_->instance_) + ".log";
                     }
                 }
             }
@@ -330,8 +376,7 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     } catch (const Json::Exception& a_json_exception) {
         throw ev::Exception("An error occurred while loading configuration: JSON exception %s!", a_json_exception.what());
     }
-    
-    
+        
     // ... at macOS and if debug mode ...
 #if defined(__APPLE__) && !defined(NDEBUG) && ( defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) )
     // ... delete all log files ...
@@ -341,22 +386,16 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
 #else // linux
     // ... log or release rotate should take care of this ...
 #endif
-    
-    for ( auto dir : { &shared_config_->directories_.log_, &shared_config_->directories_.run_, &shared_config_->directories_.lock_ } ) {
-        if ( osal::Dir::Status::EStatusOk != osal::Dir::CreateDir(dir->c_str()) ) {
-            throw ev::Exception("Unable to create directory '%s'!", dir->c_str());
-        }
-    }
-    
+        
     //
     // Write pid file for SYSTEMD:
     //
-    const std::string pid_file = shared_config_->directories_.run_ + std::to_string(a_config.instance_) + ".pid";
+    const std::string pid_file = shared_config_->directories_.run_ + std::to_string(startup_config_->instance_) + ".pid";
     FILE* pid_fd = fopen(pid_file.c_str(), "w");
     if ( nullptr == pid_fd ) {
         throw ev::Exception("Unable to open file '%s' to write pid: nullptr", pid_file.c_str());
     } else {
-        const int bytes_written = fprintf(pid_fd, "%d", process_pid);
+        const int bytes_written = fprintf(pid_fd, "%d", a_process.pid_);
         if ( bytes_written <= 0 ) {
             fclose(pid_fd);
             throw ev::Exception("Unable to pid write to file '%s'", pid_file.c_str());
@@ -368,102 +407,50 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     // .. set loggable data ...
     loggable_data_ = new ::ev::Loggable::Data(/* owner_ptr_ */ this,
                                               /* ip_addr_   */ shared_config_->ip_addr_,
-                                              /* module_    */ a_config.versioned_name_,
-                                              /* tag_       */ "instance-" + std::to_string(a_config.instance_)
+                                              /* module_    */ startup_config_->info_,
+                                              /* tag_       */ "instance-" + std::to_string(startup_config_->instance_)
     );
+    
     // ... set a http client ...
-    http_          = new ev::curl::HTTP();
+    http_ = new ev::curl::HTTP();
     
-    //                                      //
-    // ... initialize shared singletons ... //
-    //                                      //
-    // ... Debug Logger(s) ...
-    osal::debug::Trace::GetInstance().Startup();
+    //
+    // ... set PERMANENT DEBUG log tokens ...
+    //
+#if 0
+    CC_IF_DEBUG(
+      // ... v0 ...
+      for ( auto token : { "ev_bridge" } ) {
+          o_logs.push_back({ /* token_ */ token ,/* uri_ */ "", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 0 });
+      }
+    );
+#endif
+
+    //
+    // ... set PERMANENT log tokens  ...
+    //
     
-    // ... Permanent Logger(s) ...
-    ::ev::Logger::GetInstance().Startup();
+    // ... v1 ...
+    for ( auto token : { "libpq-connections" } ) {
+        if ( shared_config_->log_tokens_.end() != shared_config_->log_tokens_.find(token) ) {
+            continue;
+        }
+        o_logs.push_back({ /* token_ */ token ,/* uri_ */ shared_config_->directories_.log_ + token + "." + std::to_string(startup_config_->instance_) + ".log", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 1 });
+    }
+    // ... v2 ...
+    for ( auto token : { "signals" } ) {
+        if ( shared_config_->log_tokens_.end() != shared_config_->log_tokens_.find(token) ) {
+            continue;
+        }
+        o_logs.push_back({ /* token_ */ token ,/* uri_ */ shared_config_->directories_.log_ + token + "." + std::to_string(startup_config_->instance_) + ".log", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 2 });
+    }
+
+    //
+    // ... set OPTIONAL log tokens  ...
+    //
     for ( auto it : shared_config_->log_tokens_ ) {
-        ::ev::Logger::GetInstance().Register(it.first, it.second);
+        o_logs.push_back({ /* token_ */ it.first, /* uri_ */ it.second, /* conditional_ */ false,  /* enabled_ */ true, /* version_ */ 2 });
     }
-
-    // ... V8 ...
-#if defined(__APPLE__) && ( defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) )
-    const std::string icu_data_uri = shared_config_->directories_.shared_ + "/v8/debug/icudtl.dat";
-#else
-    const std::string icu_data_uri = shared_config_->directories_.shared_ + "/v8/icudtl.dat";
-#endif
-    cc::v8::Singleton::GetInstance().Startup(/* a_exec_uri     */  a_config.exec_path_.c_str(),
-                                             /* a_icu_data_uri */ icu_data_uri.c_str()
-    );
-    
-    //
-    // ICU
-    //
-#ifdef USE_SYSTEM_ICU
-    UErrorCode icu_error_code = UErrorCode::U_ZERO_ERROR;
-    u_init(&icu_error_code);
-    if ( UErrorCode::U_ZERO_ERROR != icu_error_code ) {
-        throw ev::Exception("Error while initializing ICU: error code %d", (int)icu_error_code);
-    }
-#endif // if not, should be already initialized by v8
-    
-    // ... ensure required locale(s) is / are supported ...
-    const U_ICU_NAMESPACE::Locale icu_default_locale = uloc_getDefault();
-    
-    UErrorCode icu_set_locale_error = U_ZERO_ERROR;
-    
-    // ... check if locale is supported
-    for ( auto locale : { "pt_PT", "en_UK" } ) {
-        U_ICU_NAMESPACE::Locale::setDefault(U_ICU_NAMESPACE::Locale::createFromName(locale), icu_set_locale_error);
-        if ( U_FAILURE(icu_set_locale_error) ) {
-            throw ev::Exception("Error while initializing ICU: %s locale is not supported!", locale);
-        }
-        const U_ICU_NAMESPACE::Locale test_locale = uloc_getDefault();
-        if ( 0 != strcmp(locale, test_locale.getBaseName()) ) {
-            throw ev::Exception("Error while initializing ICU: %s locale is not supported!", locale);
-        }
-    }
-    // ... rollback to default locale ...
-    U_ICU_NAMESPACE::Locale::setDefault(icu_default_locale, icu_set_locale_error);
-    if ( U_FAILURE(icu_set_locale_error) ) {
-        throw ev::Exception("Error while setting ICU: unable to rollback to default locale!");
-    }
-    
-    //                                               //
-    // ... LOG IMPORTANT INITIALIZATION SETTINGS ... //
-    //                                               //
-    osal::debug::Trace::GetInstance().Log("status", "\n* %s - starting up process w/pid %u...\n",
-                                          a_config.name_.c_str(), process_pid
-    );
-
-#if defined(NDEBUG) && !( defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) )
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "Target", "release");
-#else
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "Target", "debug");
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "SIZET_FMT" , SIZET_FMT);
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "INT8_FMT"  , INT8_FMT);
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "UINT8_FMT" , UINT8_FMT);
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "INT16_FMT" , INT16_FMT);
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "UINT16_FMT", UINT16_FMT);
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "INT32_FMT" , INT32_FMT);
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "UINT32_FMT", UINT32_FMT);
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "INT64_FMT" , INT64_FMT);
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "UINT64_FMT", UINT64_FMT);
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "DOUBLE_FMT", DOUBLE_FMT);
-#endif
-
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "IUC D LOC" , icu_default_locale.getBaseName());
-
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n"     , "LC_ALL"    , lc_all);
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s - " DOUBLE_FMT "\n", "LC_NUMERIC", lc_numeric, (double)123.456);
-
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: " UINT64_FMT "\n", "MTID", osal::ThreadHelper::GetInstance().CurrentThreadID());
-
-    osal::debug::Trace::GetInstance().Log("status", "\t- %-12s: %s\n", "UTC TIME", ::cc::UTCTime::NowISO8601DateTime().c_str());
-
-    osal::debug::Trace::GetInstance().Log("status", "* %s - process w/pid %u configured...\n",
-                                          a_config.name_.c_str(), process_pid
-    );
     
     //
     // SOCKETS:
@@ -472,18 +459,18 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     
     // ... prepare socket file names ...
     ss.str("");
-    ss << shared_config_->directories_.run_ << "ev-scheduler." << process_pid << ".socket";
+    ss << shared_config_->directories_.run_ << "ev-scheduler." << a_process.pid_ << ".socket";
     const std::string scheduler_socket_fn = ss.str();
     
     ss.str("");
-    ss << shared_config_->directories_.run_ << "ev-shared-handler." << process_pid << ".socket";
+    ss << shared_config_->directories_.run_ << "ev-shared-handler." << a_process.pid_ << ".socket";
     const std::string  shared_handler_socket_fn = ss.str();
     
     //
     // BRIDGE
     //
     bridge_ = new ev::loop::Bridge();
-    (void)bridge_->Start(startup_config_->abbr_, shared_handler_socket_fn, a_fatal_exception_callback);
+    (void)bridge_->Start(startup_config_->abbr_, shared_handler_socket_fn, std::bind(&ev::loop::beanstalkd::Runner::OnFatalException, this, std::placeholders::_1));
     
     //
     // SCHEDULER
@@ -566,39 +553,8 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
                                                                }
     );
     
-    // ... register to handle signal tasks ...
-    ::ev::Signals::GetInstance().Register(bridge_, std::bind(&ev::loop::beanstalkd::Runner::OnFatalException, this, std::placeholders::_1));
-    
-    
-    //
-    // Install Signal Handler
-    //
-    ::ev::Signals::GetInstance().Startup(*loggable_data_,
-                                          /* a_signals */
-                                          {SIGUSR1, SIGTERM, SIGQUIT, SIGTTIN},
-                                          /* a_callback */
-                                          [this](const int a_sig_no) {
-                                              // ... is a 'shutdown' signal?
-                                              switch(a_sig_no) {
-                                                  case SIGQUIT:
-                                                  case SIGTERM:
-                                                  {
-                                                      Quit();
-                                                  }
-                                                      return true;
-                                                  default:
-                                                      return false;
-                                              }
-                                          }
-    );
-    
     // ... mark as initialized ...
     initialized_ = true;
-    
-    OSALITE_DEBUG_TRACE("startup",
-                        "[%s] - pid " UINT64_FMT " - started up",
-                        __PRETTY_FUNCTION__, process_pid
-    );
 }
 
 /**
@@ -638,26 +594,16 @@ void ev::loop::beanstalkd::Runner::Shutdown (int a_sig_no)
         // ... yes ...
         return;
     }
-    
+
     // ... no, but will be now ...
     shutting_down_ = true;
     
     // ... shutdown scheduled ...
     ::ev::scheduler::Scheduler::GetInstance().Stop(/* a_finalization_callback */ nullptr, /* a_sig_no */ -1);
 
-    const pid_t process_pid = getpid();
-
-    OSALITE_DEBUG_TRACE("startup",
-                        "[%s] - pid " UINT64_FMT " - is shutting down...",
-                        __PRETTY_FUNCTION__, process_pid
-    );
-    
-    // ... first unregister from scheduler ...
-    ::ev::Signals::GetInstance().Unregister();
-    
     // ... clean up
     ::osal::ConditionVariable cleanup_cv;
-    const auto cleanup = ([this, process_pid, a_sig_no, &cleanup_cv](){
+    const auto cleanup = ([this, a_sig_no, &cleanup_cv](){
         
         // ... then shutdown 'redis' subscriptions ...
         ::ev::redis::subscriptions::Manager::GetInstance().Shutdown();
@@ -691,49 +637,6 @@ void ev::loop::beanstalkd::Runner::Shutdown (int a_sig_no)
             http_ = nullptr;
         }
 
-        OSALITE_DEBUG_TRACE("startup",
-                            "[%s] - pid " UINT64_FMT " - is down...",
-                            __PRETTY_FUNCTION__, process_pid
-        );        
-        
-        //
-        // ... singletons shutdown ...
-        //
-
-        // ... debug trace cache ...
-        osal::debug::Trace::GetInstance().Shutdown();
-        // ... logger ...
-        ev::Logger::GetInstance().Shutdown();
-        // ... v8 ...
-        ::cc::v8::Singleton::GetInstance().Shutdown();
-        // ... signal handler ...
-        // DOES NOT EXIST: ::ev::Signals::GetInstance().Shutdown();
-        
-        //
-        // ... singletons destruction ...
-        //
-
-        // ... logger ...
-        ev::Logger::Destroy();
-        // ... debug trace ...
-        osal::debug::Trace::Destroy();
-        // ... v8 ...
-        // DOES NOT EXIST: ::cc::v8::Singleton::Destroy();
-        // ... signal handler ...
-        ::ev::Signals::Destroy();
-
-        // ... v8 ...
-        // TODO ::cc::v8::Singleton::Destroy();
-        
-        //
-        // third party libraries cleanup
-        //
-        // ... ICU ...
-#ifdef USE_SYSTEM_ICU
-        u_cleanup();
-#endif
-        
-        // ...
         // ... reset initialized flag ...
         initialized_ = false;
         quit_        = false;
@@ -749,8 +652,9 @@ void ev::loop::beanstalkd::Runner::Shutdown (int a_sig_no)
         cleanup();
     }
     cleanup_cv.Wait();
-    
-    (void)process_pid;
+        
+    // ... casper-connectors // third party libraries cleanup ...
+    ::cc::global::Initializer::GetInstance().Shutdown(/* a_for_cleanup_only */ false);
 }
 
 #ifdef __APPLE__
@@ -825,10 +729,11 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop ()
 {
     ev::Exception*                  exception = nullptr;
     ev::loop::beanstalkd::Looper*   looper    = nullptr;
-    
+        
     try {
         
-        osal::ThreadHelper::GetInstance().SetName(startup_config_->abbr_ + "::Runner");
+        ::cc::threading::Worker::SetName(startup_config_->abbr_ + "::Runner");
+        ::cc::threading::Worker::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
         
         const ev::loop::beanstalkd::Job::MessagePumpCallbacks callbacks = {
             /* on_fatal_exception_ */ std::bind(&ev::loop::beanstalkd::Runner::OnFatalException   , this, std::placeholders::_1),

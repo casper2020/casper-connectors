@@ -52,11 +52,9 @@ static void ev_sa_handler (int a_sig_no)
 ev::Initializer::Initializer (ev::Signals& a_instance)
  : cc::Initializer<ev::Signals>(a_instance)
 {
-    instance_.loggable_data_             = nullptr;
-    instance_.logger_client_             = nullptr;
-    instance_.bridge_ptr_                = nullptr;
-    instance_.fatal_exception_callback_  = nullptr;
-    instance_.unhandled_signal_callback_ = nullptr;
+    instance_.loggable_data_ = nullptr;
+    instance_.logger_client_ = nullptr;
+    instance_.callbacks_     = { nullptr, nullptr, nullptr };
 }
 
 /**
@@ -81,11 +79,12 @@ ev::Initializer::~Initializer ()
  *
  * @param a_loggable_data_ref
  * *
- * @param a_signals  A set of signals to handle.
- * @param a_callback A function to be called when a signal is not handled by this singleton.
+ * @param a_signals   A set of signals to handle.
+ * @param a_callbacks A set of functions to be called accordingly to status.
  */
 void ev::Signals::Startup (const ev::Loggable::Data& a_loggable_data_ref,
-                           const std::set<int>& a_signals, std::function<bool(int)> a_callback)
+                           const std::set<int>& a_signals,
+                           Callbacks a_callbacks)
 {
     if ( nullptr != logger_client_ ) {
         throw ::cc::Exception("Logic error - %s already called!", __PRETTY_FUNCTION__ );
@@ -108,8 +107,10 @@ void ev::Signals::Startup (const ev::Loggable::Data& a_loggable_data_ref,
         sigaction(signal, &act, 0);
         signals_.insert(signal);
     }
-
-    unhandled_signal_callback_ = a_callback;
+    
+    callbacks_ = a_callbacks;
+    
+    ev::scheduler::Scheduler::GetInstance().Register(this);
 }
 
 /**
@@ -136,7 +137,7 @@ void ev::Signals::Shutdown ()
     }
     signals_.clear();
 
-    unhandled_signal_callback_ = nullptr;
+    callbacks_ = { nullptr, nullptr, nullptr };
     
     ev::LoggerV2::GetInstance().Unregister(logger_client_);
     
@@ -170,30 +171,16 @@ void ev::Signals::Append (const std::set<int>& a_signals, std::function<void (in
 
 /**
  * @brief
- *
- * @param a_bridge_ptr
- * @param a_fatal_exception_callback
- */
-void ev::Signals::Register (Bridge* a_bridge_ptr, std::function<void(const ev::Exception&)> a_fatal_exception_callback)
-{
-    ev::scheduler::Scheduler::GetInstance().Register(this);
-    bridge_ptr_               = a_bridge_ptr;
-    fatal_exception_callback_ = a_fatal_exception_callback;
-}
-
-/**
- * @brief
  */
 void ev::Signals::Unregister ()
 {
     ev::scheduler::Scheduler::GetInstance().Unregister(this);
-    bridge_ptr_               = nullptr;
-    fatal_exception_callback_ = nullptr;
     for ( auto it : other_signal_handlers_ ) {
         it.second->clear();
         delete it.second;
     }
     other_signal_handlers_.clear();
+    callbacks_ = { nullptr, nullptr, nullptr };
 }
 
 #ifdef __APPLE__
@@ -240,35 +227,26 @@ bool ev::Signals::OnSignal (const int a_sig_no)
                                           "Signal %2d - Scheduling PostgreSQL connection(s) invalidation...",
                                           SIGTTIN
             );
-            if ( nullptr == bridge_ptr_ ) {
-                ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
-                                              "Signal %2d - Signal ignored, at this moment, application is not ready or doesn't need to handle this signal right now.",
-                                              SIGTTIN
-                );
-                if ( nullptr != fatal_exception_callback_ ) {
-                    fatal_exception_callback_(::ev::Exception("Application is not ready to handle signal SIGHUP!"));
-                }
-            } else {
-                bridge_ptr_->CallOnMainThread([this](){
-                    NewTask([this] () -> ::ev::Object* {
-                        ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
-                                                      "Signal %2d - Invalidate PostgreSQL connection(s)...",
-                                                      SIGTTIN
-                        );
-                        return new:: ev::Request(*loggable_data_, ev::Request::Target::PostgreSQL, ev::Request::Mode::OneShot, ev::Request::Control::Invalidate);
-                    })->Finally([this] (::ev::Object* /* a_object */) {
-                        ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
-                                                      "Signal %d - PostgreSQL connection(s) invalidated.",
-                                                      SIGTTIN
-                        );
-                    })->Catch([this] (const ::ev::Exception& a_ev_exception) {
-                        ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
-                                                      "Signal %2d - Unable to invalidate PostgreSQL connections: '%s'",
-                                                      SIGTTIN, a_ev_exception.what()
-                        );
-                    });
+            callbacks_.call_on_main_thread_([this](){
+                NewTask([this] () -> ::ev::Object* {
+                    ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                                  "Signal %2d - Invalidate PostgreSQL connection(s)...",
+                                                  SIGTTIN
+                    );
+                    return new:: ev::Request(*loggable_data_, ev::Request::Target::PostgreSQL, ev::Request::Mode::OneShot, ev::Request::Control::Invalidate);
+                })->Finally([this] (::ev::Object* /* a_object */) {
+                    ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                                  "Signal %d - PostgreSQL connection(s) invalidated.",
+                                                  SIGTTIN
+                    );
+                })->Catch([this] (const ::ev::Exception& a_ev_exception) {
+                    ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                                  "Signal %2d - Unable to invalidate PostgreSQL connections: '%s'",
+                                                  SIGTTIN, a_ev_exception.what()
+                    );
                 });
-            }
+                }
+            );
             rv = true;
         }
             break;
@@ -282,7 +260,7 @@ bool ev::Signals::OnSignal (const int a_sig_no)
             );
         }
         default:
-            rv = ( nullptr != unhandled_signal_callback_ ? unhandled_signal_callback_(a_sig_no) : false );
+            rv = ( nullptr != callbacks_.on_signal_ ? callbacks_.on_signal_(a_sig_no) : false );
             break;
     }
     

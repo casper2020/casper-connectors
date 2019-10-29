@@ -26,7 +26,7 @@
 #include <chrono>
 #include <functional>
 
-#include <event.h> // libevent
+#include <event2/event.h> // libevent2
 
 namespace cc
 {

@@ -64,7 +64,8 @@
 namespace cc
 {
     
-    
+    // TODO 2.0 - use or merge cc/global/types.h
+
     typedef struct _Directories
     {
         

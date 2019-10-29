@@ -46,6 +46,9 @@
 #include <locale.h>         // setlocale
 #include "unicode/locid.h"  // locale
 
+#include <event2/event.h>  // event_get_version
+#include <event2/thread.h> // evthread_use_pthreads
+
 #include <map>
 
 /**
@@ -83,21 +86,22 @@ cc::global::OneShot::~OneShot ()
 #pragma mark -
 #endif
 
+#define CC_GLOBAL_INITIALIZER_KEY_FMT "%-18s:"
+
 /**
  * @brief Warmup casper-connectors.
  *
  * @param a_process      [REQUIRED] Process information, see \link cc::global::Initializer::Process \link.
  * @param a_directories  [OPTIONAL] directories information, see \link cc::global::Initializer::Directories \link.
  * @param a_logs         [REQUIRED] Logs to be registered.
- * @param a_signals      [REQUIRED] Signals to register and callback, see \link cc::global::Initializer::Signals \link.
- * @param a_callback     [REQUIRED] The function to be called before finalizing this function call.
+ * @param a_next_step    [REQUIRED] Function & arguments to call / pass before exiting this function call.
  * @param a_debug_tokens [OPTIONAL] Debug tokens to register.
  */
-void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_process,
-                                      const cc::global::Initializer::Directories* a_directories,
-                                      const cc::global::Initializer::Logs& a_logs,
-                                      const cc::global::Initializer::Signals& a_signals,
-                                      const Callback& a_callback,
+void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
+                                      const cc::global::Directories* a_directories,
+                                      const cc::global::Logs& a_logs,
+                                      const cc::global::Initializer::V8& a_v8,
+                                      const cc::global::Initializer::WarmUpNextStep& a_next_step,
                                       const std::set<std::string>* a_debug_tokens)
 {
     // ... can't start if alread initialized ...
@@ -108,7 +112,7 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
     // ... mark as 'main' thread ...
     OSALITE_DEBUG_SET_MAIN_THREAD_ID();
     
-    process_ = new cc::global::Initializer::Process(
+    process_ = new cc::global::Process(
         {
             /* alt_name_  */ a_process.alt_name_,
             /* name_      */ a_process.name_,
@@ -143,6 +147,13 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
             /* tmp_   */ cc::fs::Dir::Normalize("/tmp/")
         });
     }
+    
+    // ... ensure essential directories exists ...
+    for ( auto& dir : { &directories_->log_, &directories_->run_, &directories_->lock_ } ) {
+        if ( false == cc::fs::Dir::Exists(*dir) ) {
+            cc::fs::Dir::Make(*dir);
+        }
+    }
                 
     try {
         
@@ -172,61 +183,13 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
         Log("status", "\n* %s - configuring %s process w/pid %u...\n",
              process_->info_.c_str(), ( true == process_->is_master_ ? "master" : "worker" ), process_->pid_
         );
-
-        //
-        // ... logs ...
-        //
-        ::ev::Logger::GetInstance().Startup();
-        for ( auto& entry : a_logs.logger_ ) {
-            // ... if not enabled ...
-            if ( false == entry.enabled_ ) {
-                // ... next token ...
-                continue;
-            }
-            // ... if it's a conditional enabler ...
-            if ( true == entry.conditional_ ) {
-                // ... .enabled file must exists ...
-                const std::string flag = ( directories_->log_ + entry.token_ + ".enabled" );
-                if ( false == ::cc::fs::File::Exists(flag) ) {
-                    // ... it does not, next token ...
-                    continue;
-                }
-            }
-            // ... all conditions are met to register token ...
-            ::ev::Logger::GetInstance().Register(entry.token_, ( directories_->log_ + entry.token_ + ".log" ).c_str());
-        }
-        
-        ::ev::LoggerV2::GetInstance().Startup();
-        for ( auto& entry : a_logs.logger_v2_ ) {
-            // ... if not enabled ...
-            if ( false == entry.enabled_ ) {
-                // ... next token ...
-                continue;
-            }
-            // ... if it's a conditional enabler ...
-            if ( true == entry.conditional_ ) {
-                // ... .enabled file must exists ...
-                const std::string flag = ( directories_->log_ + entry.token_ + ".enabled" );
-                if ( false == ::cc::fs::File::Exists(flag) ) {
-                    // ... it does not, next token ...
-                    continue;
-                }
-            }
-            // ... all conditions are met to register token ...
-            ::ev::LoggerV2::GetInstance().Register(entry.token_, ( directories_->log_ + entry.token_ + ".log" ).c_str());
-        }
                 
-        //
-        // ... signal handing ...
-        //
-        ::ev::Signals::GetInstance().Startup(*loggable_data_, a_signals.register_, a_signals.unhandled_signals_callback_);
-
         //
         // ... configuration ...
         //
         
         Log("status", "\n\t⌥ CONFIGURATION\n");
-        Log("status", "\t\t- %-12s: %s\n", "Target", CC_IF_DEBUG_ELSE("debug", "release"));
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "Target", CC_IF_DEBUG_ELSE("debug", "release"));
         
         //
         // ... directories ...
@@ -242,19 +205,28 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
         
         Log("status", "\n\t⌥ DIRECTORIES\n");
         for ( auto it : directories ) {
-            Log("status", "\t\t- %-12s: %s\n", it.first.c_str(), it.second.c_str());
+            Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", it.first.c_str(), it.second.c_str());
         }
-                
-        // ... set the initial seed value for future calls to random(). ...
-        struct timeval tv;
-        if ( 0 != gettimeofday(&tv, NULL) ) {
-            throw ::cc::Exception("Unable set the initial seed value for future calls to random()!");
-        }
+
+        //
+        // ... logs ...
+        //
+        ::ev::Logger::GetInstance().Startup();
+        ::ev::LoggerV2::GetInstance().Startup();
+        
+        EnableLogsIfRequired(a_logs);
         
         //
         // ... c funtions - system locale ...
         //
 
+        // ... set the initial seed value for future calls to random(). ...
+        struct timeval tv;
+        if ( 0 != gettimeofday(&tv, NULL) ) {
+            throw ::cc::Exception("Unable set the initial seed value for future calls to random()!");
+        }
+        srandom(((unsigned) process_->pid_ << 16) ^ (unsigned)tv.tv_sec ^ (unsigned)tv.tv_usec);
+        
         // ... set locale must be called @ main(int argc, char** argv) ...
         const char* lc_all = setlocale (LC_ALL, NULL);
         
@@ -263,8 +235,8 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
         const char* lc_numeric = setlocale (LC_NUMERIC, NULL);
 
         Log("status", "\n\t⌥ LOCALE\n");
-        Log("status", "\t\t- %-12s: %s\n"     , "LC_ALL"    , lc_all);
-        Log("status", "\t\t- %-12s: %s - " DOUBLE_FMT "\n", "LC_NUMERIC", lc_numeric, (double)123.456);
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n"     , "LC_ALL"    , lc_all);
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s - " DOUBLE_FMT "\n", "LC_NUMERIC", lc_numeric, (double)123.456);
 
         CC_IF_DEBUG(
             //
@@ -272,15 +244,15 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
             //
             if ( true == process_->is_master_ ) {
                 Log("status", "\n\t⌥ *printf(...)\n");
-                Log("status", "\t\t- %-12s: %s\n", "SIZET_FMT" , SIZET_FMT);
-                Log("status", "\t\t- %-12s: %s\n", "INT8_FMT"  , INT8_FMT);
-                Log("status", "\t\t- %-12s: %s\n", "UINT8_FMT" , UINT8_FMT);
-                Log("status", "\t\t- %-12s: %s\n", "INT16_FMT" , INT16_FMT);
-                Log("status", "\t\t- %-12s: %s\n", "UINT16_FMT", UINT16_FMT);
-                Log("status", "\t\t- %-12s: %s\n", "INT32_FMT" , INT32_FMT);
-                Log("status", "\t\t- %-12s: %s\n", "UINT32_FMT", UINT32_FMT);
-                Log("status", "\t\t- %-12s: %s\n", "INT64_FMT" , INT64_FMT);
-                Log("status", "\t\t- %-12s: %s\n", "UINT64_FMT", UINT64_FMT);
+                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "SIZET_FMT" , SIZET_FMT);
+                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INT8_FMT"  , INT8_FMT);
+                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "UINT8_FMT" , UINT8_FMT);
+                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INT16_FMT" , INT16_FMT);
+                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "UINT16_FMT", UINT16_FMT);
+                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INT32_FMT" , INT32_FMT);
+                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "UINT32_FMT", UINT32_FMT);
+                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INT64_FMT" , INT64_FMT);
+                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "UINT64_FMT", UINT64_FMT);
             }
         );
         
@@ -290,33 +262,52 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
         
         const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + CC_IF_DEBUG_ELSE("v8/debug/icudtl.dat", "/v8/icudtl.dat");
         
+        // ... LIBEVENT2 ...
+        Log("status", "\n\t⌥ LIBEVENT2\n");
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", event_get_version());
+        const int evthread_use_pthreads_rv = evthread_use_pthreads();
+        if ( 0 == evthread_use_pthreads_rv ) {
+            Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "PTHREADS", "OK");
+        } else {
+            throw ::cc::Exception("Unable to initialize libevent2, error code is %d", (int)evthread_use_pthreads_rv);
+        }
+
     #ifndef CASPER_REQUIRE_GOOGLE_V8
 
         // ... ICU ...
         
         Log("status", "\n\t⌥ ICU\n");
-        Log("status", "\t\t- %-12s: %s\n", "VERSION", U_ICU_VERSION);
-        Log("status", "\t\t- %-12s: %s\n", "DATA FILE", icu_dat_file_uri.c_str());
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", U_ICU_VERSION);
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DATA FILE", icu_dat_file_uri.c_str());
         const UErrorCode icu_error_code = ::cc::icu::Initializer::GetInstance().Load(icu_dat_file_uri);
         if ( UErrorCode::U_ZERO_ERROR == icu_error_code ) {
-            Log("status", "\t\t- %-12s: OK\n", "INIT");
+            Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " OK\n", "INIT");
         } else {
             throw ::cc::Exception("Unable to initialize ICU, error code is %d", (int)icu_error_code);
         }
+
+        if ( true == a_v8.required_ ) {
+            throw ::cc::Exception("V8 is required but initializer was not compiled with V8 support!");
+        }
+        
     #else
 
         // ... V8 ...
-        Log("status", "\n\t⌥ V8\n");
-        Log("status", "\t\t- %-12s: %s\n", "VERSION", ::v8::V8::GetVersion());
-        cc::v8::Singleton::GetInstance().Startup(/* a_exec_uri     */ sys::Process::GetExecURI(process_->pid_).c_str(),
-                                                 /* a_icu_data_uri */ icu_dat_file_uri.c_str()
-        );
-        ::cc::v8::Singleton::GetInstance().Initialize();
+        if ( true == a_v8.required_ ) {
+            Log("status", "\n\t⌥ V8\n");
+            Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", ::v8::V8::GetVersion());
+            cc::v8::Singleton::GetInstance().Startup(/* a_exec_uri     */ sys::Process::GetExecURI(process_->pid_).c_str(),
+                                                     /* a_icu_data_uri */ icu_dat_file_uri.c_str()
+            );
+        }
+        if ( true == a_v8.runs_on_main_thread_ ) {
+            ::cc::v8::Singleton::GetInstance().Initialize();
+        }
         
         // ... ICU ...
         Log("status", "\n\t⌥ ICU\n");
-        Log("status", "\t\t- %-12s: %s\n", "VERSION", U_ICU_VERSION);
-        Log("status", "\t\t- %-12s: %s\n", "DATA FILE", icu_dat_file_uri.c_str());
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", U_ICU_VERSION);
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DATA FILE", icu_dat_file_uri.c_str());
 
     #endif
             
@@ -342,17 +333,17 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
             throw ::cc::Exception("Error while initializing ICU: unable to rollback to default locale!");
         }
             
-        Log("status", "\t\t- %-12s: %s\n", "LOCALE", icu_default_locale.getBaseName());
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "LOCALE", icu_default_locale.getBaseName());
         
         //
         // .. cURL ...
         //
         
         Log("status", "\n\t⌥ cURL\n");
-        Log("status", "\t\t- %-12s: %s\n", "VERSION", LIBCURL_VERSION);
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", LIBCURL_VERSION);
         const CURLcode curl_init_rv = cc::curl::Initializer::GetInstance().Start();
         if ( CURLE_OK == curl_init_rv ) {
-            Log("status", "\t\t- %-12s: OK\n", "INIT");
+            Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " OK\n", "INIT");
         } else {
             throw ::cc::Exception("Unable to initialize cURL, error code is %d", (int)curl_init_rv);
         }
@@ -360,8 +351,12 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
         //
         // ... process specific initialization ...
         //
+        
+        ::cc::global::Logs other_logs;
 
-        a_callback.function_(*process_, *directories_, a_callback.args_);
+        a_next_step.function_(*process_, *directories_, a_next_step.args_, other_logs);
+        
+        EnableLogsIfRequired(other_logs);
         
         // ... mark as warmed up ...
         warmed_up_ = true;
@@ -396,12 +391,16 @@ void cc::global::Initializer::WarmUp (const cc::global::Initializer::Process& a_
 
 /**
  * @brief Initialize casper-connectors.
+ * *
+ * @param a_signals      [REQUIRED] Signals to register and callback, see \link cc::global::Initializer::Signals \link.
+ * @param a_callbacks    [REQUIRED] A set o function that can be called through this object life cycle.
  */
-void cc::global::Initializer::Startup ()
+void cc::global::Initializer::Startup (const cc::global::Initializer::Signals& a_signals,
+                                       const cc::global::Initializer::Callbacks& a_callbacks)
 {
     
-    Log("status", "%s with pid %d is starting up...\n",
-        process_->info_.c_str(), (int)process_->pid_
+    Log("status", "* %s - %s process w/pid %d is starting up...\n",
+        process_->info_.c_str(), ( true == process_->is_master_ ? "master" : "worker" ), (int)process_->pid_
     );
 
     // ... can't start if already initialized ...
@@ -413,12 +412,24 @@ void cc::global::Initializer::Startup ()
     if ( false == warmed_up_ ) {
         throw ::cc::Exception("Logic error - cc::global::Initializer::WarmUp not called yet!");
     }
-    
+        
+    //
+    // ... signal handing ...
+    //
+    ::ev::Signals::GetInstance().Startup(*loggable_data_, a_signals.register_,
+            /* a_callbacks */
+            {
+                /* on_signal_           */ a_signals.unhandled_signals_callback_,
+                /* on_fatal_exception_  */ a_callbacks.on_fatal_exception_,
+                /* call_on_main_thread_ */ a_callbacks.call_on_main_thread_
+            }
+    );
+
     // ... mark as initialized ...
     initialized_ = true;
 
-    Log("status", "%s with pid  %d is started up...",
-        process_->info_.c_str(), (int)process_->pid_
+    Log("status", "* %s - %s process w/pid %d is started up...\n",
+        process_->info_.c_str(), ( true == process_->is_master_ ? "master" : "worker" ), (int)process_->pid_
     );
 }
 
@@ -439,7 +450,7 @@ void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
         loggable_data_ = nullptr;
     }
     
-    const cc::global::Initializer::Process process = *process_;
+    const cc::global::Process process = *process_;
     // ... release process data ...
     if ( nullptr != process_ ) {
         delete process_;
@@ -496,6 +507,61 @@ void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
 #ifdef __APPLE__
 #pragma mark -
 #endif
+
+/**
+ * @brief Enable logs ( if required ).
+ *
+ * @param a_logs Logs settings, see \link cc::global::Logs \link.
+ */
+void cc::global::Initializer::EnableLogsIfRequired (const cc::global::Logs& a_logs)
+{
+    if ( 0 == a_logs.size() ) {
+        return;
+    }
+    
+    size_t enabled_count = 0;
+
+    for ( auto& entry : a_logs ) {
+        // ... if not enabled ...
+        if ( false == entry.enabled_ ) {
+            // ... next token ...
+            continue;
+        }
+        // ... if it's a conditional enabler ...
+        if ( true == entry.conditional_ ) {
+            // ... .enabled file must exists ...
+            const std::string flag = ( directories_->log_ + entry.token_ + ".enabled" );
+            if ( false == ::cc::fs::File::Exists(flag) ) {
+                // ... it does not, next token ...
+                continue;
+            }
+        }
+        
+        enabled_count++;
+        if ( 1 == enabled_count ) {
+            Log("status", "\n\t⌥ LOGS\n");
+        }
+        
+        // ... all conditions are met to register token ...
+        const std::string uri = ( entry.uri_.length() > 0 ? entry.uri_ : ( directories_->log_ + entry.token_ + ".log" ) ) ;
+
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " [" UINT8_FMT "] %s\n", entry.token_.c_str(), entry.version_, uri.c_str());
+        
+        switch(entry.version_) {
+            case 0:
+                ::osal::debug::Trace::GetInstance().Register(entry.token_, stdout);
+                break;
+            case 1:
+                ::ev::Logger::GetInstance().Register(entry.token_, uri);
+                break;
+            case 2:
+                ::ev::LoggerV2::GetInstance().Register(entry.token_, uri);
+                break;
+            default:
+                throw ::cc::Exception("Unsupported logger version %d", entry.version_);
+        }
+    }
+}
 
 /**
  * @brief Log a message.

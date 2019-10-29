@@ -83,14 +83,18 @@ namespace cc
         
     protected: // constructor
         
+        Singleton (Singleton&) = delete;
+        Singleton (Singleton&&) = delete;
         Singleton ()
         {
             /* empty */
+            // CC_SINGLETON_DEBUG_TRACE("\t⌥ [%p ✔︎] : %s\n", this, typeid(T).name());
         }
                 
         ~Singleton()
         {
             /* empty */
+            // CC_SINGLETON_DEBUG_TRACE("\t⌥ [%p ✗] : %s\n", this, typeid(T).name());
         }
                 
     private: // operators
@@ -110,7 +114,6 @@ namespace cc
             if ( nullptr == Singleton<T,I>::instance_ ) {
                 Singleton<T,I>::instance_    = new T();
                 Singleton<T,I>::initializer_ = new I(*Singleton<T,I>::instance_);
-                CC_SINGLETON_DEBUG_TRACE("\t⌥ [%p ✔︎] : %s\n", Singleton<T,I>::instance_, typeid(T).name());
             }
             return *Singleton<T,I>::instance_;
         }
@@ -121,7 +124,6 @@ namespace cc
                 delete initializer_;
                 initializer_ = nullptr;
             }
-            CC_SINGLETON_DEBUG_TRACE("\t⌥ [%p ✗] : %s\n", Singleton<T,I>::instance_, typeid(T).name());
             if ( nullptr != Singleton<T,I>::instance_ ) {
                 delete instance_;
                 instance_ = nullptr;
