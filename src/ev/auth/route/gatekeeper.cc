@@ -233,7 +233,7 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Allow (c
         // ... validate 'role_mask' ...
         const std::string   role_mask    = a_session.GetValue("role_mask", "");
         const unsigned long role_mask_ul = ( 0 != role_mask.length() ? std::stoul(role_mask, nullptr, 10) : 0 );
-        if ( 0 != ( rule->role_mask_ & role_mask_ul ) ) {
+        if ( ( 0 != ( rule->role_mask_ & role_mask_ul ) ) || ( 0 == rule->role_mask_ && 0 == role_mask_ul ) ) {
             // ... passage granted, deflect job?
             if ( nullptr != rule->job_ ) {
                 // ... yes ...
