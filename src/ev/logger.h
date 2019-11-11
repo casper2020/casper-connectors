@@ -206,14 +206,14 @@ namespace ev
         FILE* fp = fopen(a_file.c_str(), "a");
         if ( nullptr == fp ) {
             const char* const err_str = strerror(errno);
-            throw new RegistrationException("An error occurred while creating preparing log file '" + a_file + "': " + std::string(nullptr != err_str ? err_str : "nullptr") + " !");
+            throw RegistrationException("An error occurred while creating preparing log file '" + a_file + "': " + std::string(nullptr != err_str ? err_str : "nullptr") + " !");
         }
         // ... keep track of it ...
         try {
             tokens_[a_token] = new Token(a_token, a_file, fp);
         } catch (...) {
             // ... failure ...
-            throw new RegistrationException("A 'C++ Generic Exception' occurred while registering log token '" + a_token + "'!");
+            throw RegistrationException("A 'C++ Generic Exception' occurred while registering log token '" + a_token + "'!");
         }
     }
     
@@ -336,7 +336,7 @@ namespace ev
             it.second->fp_ = fopen(it.second->fn_.c_str(), "w");
             if ( nullptr == it.second->fp_ ) {
                 const char* const err_str = strerror(errno);
-                throw new RegistrationException("An error occurred while creating rotating log file '" + it.second->fn_ + "': " + std::string(nullptr != err_str ? err_str : "nullptr") + " !");
+                throw RegistrationException("An error occurred while creating rotating log file '" + it.second->fn_ + "': " + std::string(nullptr != err_str ? err_str : "nullptr") + " !");
             }
             // ... write a comment line ...
             fprintf(it.second->fp_, "---- NEW LOG '%s' ----\n", it.second->fn_.c_str());
