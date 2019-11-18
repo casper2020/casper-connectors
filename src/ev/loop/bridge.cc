@@ -639,7 +639,7 @@ void ev::loop::Bridge::WatchdogCallback (evutil_socket_t /* a_fd */, short /* a_
  * @param a_flags
  * @param a_arg
  */
-void ev::loop::Bridge::DifferedScheduleCallback (evutil_socket_t /* a_fd */, short a_flags, void* a_arg)
+void ev::loop::Bridge::DifferedScheduleCallback (evutil_socket_t /* a_fd */, short /* a_flags */, void* a_arg)
 {
     ev::loop::Bridge::Callback* callback = (ev::loop::Bridge::Callback*)a_arg;
     ev::loop::Bridge*           self     = (ev::loop::Bridge*)callback->parent_ptr_;

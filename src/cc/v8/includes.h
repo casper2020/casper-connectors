@@ -25,6 +25,7 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
 
 #include "libplatform/libplatform.h"
 #include "v8.h"

@@ -68,7 +68,7 @@ namespace ev
         } else if ( a_index >= data_objects_.size() ) {
             throw ev::Exception("Attach index out of bounds!");
         } else {
-            data_objects_.insert(data_objects_.begin() + a_index, a_object);
+            data_objects_.insert(data_objects_.begin() + static_cast<ssize_t>(a_index), a_object);
         }
     }
 
@@ -85,7 +85,7 @@ namespace ev
             throw ev::Exception("Detach index out of bounds!");
         }
         Object* rv = data_objects_[a_index];
-        data_objects_.erase(data_objects_.begin() + a_index);
+        data_objects_.erase(data_objects_.begin() + static_cast<ssize_t>(a_index));
         return rv;
     }
 

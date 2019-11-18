@@ -448,8 +448,9 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
     //
     // ... set OPTIONAL log tokens  ...
     //
+    // TODO MAKE ALL LOGS v2?
     for ( auto it : shared_config_->log_tokens_ ) {
-        o_logs.push_back({ /* token_ */ it.first, /* uri_ */ it.second, /* conditional_ */ false,  /* enabled_ */ true, /* version_ */ 2 });
+        o_logs.push_back({ /* token_ */ it.first, /* uri_ */ it.second, /* conditional_ */ false,  /* enabled_ */ true, /* version_ */ 1 });
     }
     
     //

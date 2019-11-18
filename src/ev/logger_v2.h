@@ -262,7 +262,7 @@ namespace ev
         void     Unregister   (Client* a_client);
         bool     Using        (Client* a_client, int a_fd);
 
-        size_t   Count        (const char* const a_protocol);
+        ssize_t  Count        (const char* const a_protocol);
         
         
     public: // Log API - Method(s) / Function(s)
@@ -459,7 +459,7 @@ namespace ev
      *
      * @return The number of registered clients for a specific 'name'.
      */
-    inline size_t LoggerV2::Count (const char* const a_name)
+    inline ssize_t LoggerV2::Count (const char* const a_name)
     {
         std::lock_guard<std::mutex> lock(mutex_);
         const auto c_it = counter_.find(a_name);

@@ -44,10 +44,13 @@
 #include "ev/logger_v2.h"
 
 #include <locale.h>         // setlocale
-#include "unicode/locid.h"  // locale
+
+#include "cc/icu/includes.h"
 
 #include <event2/event.h>  // event_get_version
 #include <event2/thread.h> // evthread_use_pthreads
+
+#include "osal/debug/trace.h"
 
 #include <map>
 

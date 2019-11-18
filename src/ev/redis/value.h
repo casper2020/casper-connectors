@@ -201,10 +201,10 @@ namespace ev
             if ( ContentType::Array != content_type_ ) {
                 throw ev::Exception("Data object is not an array!");
             }
-            if ( static_cast<size_t>(a_index) >= array_value_.size() ) {
+            if ( a_index < 0 || static_cast<size_t>(a_index) >= array_value_.size() ) {
                 throw ev::Exception("Index out of bounds!");
             }
-            return *array_value_[a_index];
+            return *array_value_[static_cast<size_t>(a_index)];
         }
         
         /**
@@ -217,10 +217,10 @@ namespace ev
             if ( ContentType::Array != content_type_ ) {
                 throw ev::Exception("Data object is not an array!");
             }
-            if ( static_cast<size_t>(a_index) >= array_value_.size() ) {
+            if ( a_index < 0 || static_cast<size_t>(a_index) >= array_value_.size() ) {
                 throw ev::Exception("Index out of bounds!");
             }
-            return *array_value_[a_index];
+            return *array_value_[static_cast<size_t>(a_index)];
         }
 
         /**
