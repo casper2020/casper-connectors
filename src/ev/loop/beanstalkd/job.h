@@ -249,9 +249,10 @@ namespace ev
                                 
                 void PublishProgress  (const Json::Value& a_payload); // TODO CHECK USAGE and remove it ?
                 
-                void AppendError       (const Json::Value& a_error);
-                void AppendError       (const char* const a_type, const std::string& a_why, const char *const a_where, const int a_code);
-                bool HasErrorsSet      () const;
+                void   AppendError       (const Json::Value& a_error);
+                void   AppendError       (const char* const a_type, const std::string& a_why, const char *const a_where, const int a_code);
+                bool   HasErrorsSet      () const;
+                size_t ErrorsCount        () const;
                 
                 void Publish           (const Progress& a_progress);
                 void Broadcast         (const Status a_status);
@@ -368,6 +369,11 @@ namespace ev
             inline bool Job::HasErrorsSet () const
             {
                 return ( false == cancelled_ && 0 != errors_array_.size() );
+            }
+        
+            inline size_t Job::ErrorsCount () const
+            {
+                return static_cast<size_t>(errors_array_.size());
             }
             
             inline bool Job::HasFollowUpJobs () const

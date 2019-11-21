@@ -350,11 +350,7 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
                 if ( shared_config_->directories_.log_[shared_config_->directories_.log_.length() - 1] != '/' ) {
                     shared_config_->directories_.log_ += '/';
                 }
-                // ... at macOS and if debug mode ...
-#if defined(__APPLE__) && !defined(NDEBUG) && ( defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) )
-                // ... delete all log files ...
-                osal::File::Delete(shared_config_->directories_.log_.c_str(), "*.log", nullptr);
-#endif
+
                 const Json::Value tokens = logs.get("tokens", Json::Value::null);
                 if ( false == tokens.isNull() ) {
                     if ( false == tokens.isArray() ) {
@@ -380,7 +376,6 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
     // ... at macOS and if debug mode ...
 #if defined(__APPLE__) && !defined(NDEBUG) && ( defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) )
     // ... delete all log files ...
-    osal::File::Delete(shared_config_->directories_.log_.c_str(), "*.log", nullptr);
     osal::File::Delete(shared_config_->directories_.run_.c_str(), "*.pid", nullptr);
     osal::File::Delete(shared_config_->directories_.run_.c_str(), "ev-*.socket", nullptr);
 #else // linux
