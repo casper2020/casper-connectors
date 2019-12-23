@@ -433,18 +433,25 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
         o_logs.push_back({ /* token_ */ token ,/* uri_ */ shared_config_->directories_.log_ + token + "." + std::to_string(startup_config_->instance_) + ".log", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 1 });
     }
     // ... v2 ...
-    for ( auto token : { "signals" } ) {
-        if ( shared_config_->log_tokens_.end() != shared_config_->log_tokens_.find(token) ) {
-            continue;
-        }
+    for ( auto token : { "signals", "queue", "stats" } ) {
         o_logs.push_back({ /* token_ */ token ,/* uri_ */ shared_config_->directories_.log_ + token + "." + std::to_string(startup_config_->instance_) + ".log", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 2 });
     }
 
     //
     // ... set OPTIONAL log tokens  ...
     //
-    // TODO MAKE ALL LOGS v2?
+    // TODO 2.0 MAKE ALL LOGS v2?
     for ( auto it : shared_config_->log_tokens_ ) {
+        bool already_registered = false;
+        for ( auto token : { "signals", "queue", "stats" } ) {
+            if ( shared_config_->log_tokens_.end() != shared_config_->log_tokens_.find(token) ) {
+                already_registered = true;
+                break;
+            }
+        }
+        if ( true == already_registered ) {
+            continue;
+        }
         o_logs.push_back({ /* token_ */ it.first, /* uri_ */ it.second, /* conditional_ */ false,  /* enabled_ */ true, /* version_ */ 1 });
     }
     
@@ -742,11 +749,12 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop ()
         
         consumer_cv_->Wake();
         
-        looper = new ev::loop::beanstalkd::Looper(shared_config_->factory_,
+        looper = new ev::loop::beanstalkd::Looper(*loggable_data_,
+                                                  shared_config_->factory_,
                                                   callbacks,
                                                   shared_config_->default_tube_
         );
-        looper->Run(*loggable_data_, shared_config_->beanstalk_, shared_config_->directories_.output_, quit_);
+        looper->Run(shared_config_->beanstalk_, shared_config_->directories_.output_, quit_);
         
     } catch (const Beanstalk::ConnectException& a_beanstalk_exception) {
         exception = new ::ev::Exception("An error occurred while connecting to Beanstalkd:\n%s\n", a_beanstalk_exception.what());

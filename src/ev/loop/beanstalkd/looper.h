@@ -23,6 +23,8 @@
 #ifndef NRS_EV_LOOP_BEANSTALKD_LOOPER_H_
 #define NRS_EV_LOOP_BEANSTALKD_LOOPER_H_
 
+#include "ev/loop/beanstalkd/object.h"
+
 #include "ev/loggable.h"
 
 #include "ev/exception.h"
@@ -43,7 +45,7 @@ namespace ev
         namespace beanstalkd
         {
             
-            class Looper final
+            class Looper final : private ::ev::loop::beanstalkd::Object
             {
                 
             private: // Data Type(s)
@@ -69,13 +71,14 @@ namespace ev
                 
             public: // Constructor(s) / Destructor
                 
-                Looper (const Job::Factory& a_factory, const Job::MessagePumpCallbacks& a_callbacks, const std::string a_default_tube = "");
+                Looper (const ev::Loggable::Data& a_loggable_data,
+                        const Job::Factory& a_factory, const Job::MessagePumpCallbacks& a_callbacks,
+                        const std::string a_default_tube = "");
                 virtual ~Looper ();
                 
             public: // Method(s) / Function(s)
                 
-                void Run (ev::Loggable::Data& a_loggable_data,
-                          const ::ev::beanstalk::Config& a_beanstakd_config, const std::string& a_output_directory,
+                void Run (const ::ev::beanstalk::Config& a_beanstakd_config, const std::string& a_output_directory,
                           volatile bool& a_aborted);
                 
             }; // end of class 'Looper'

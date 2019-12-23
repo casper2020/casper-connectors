@@ -21,7 +21,6 @@
 
 #include "ev/loop/beanstalkd/looper.h"
 
-#include "ev/logger.h"
 #include "ev/exception.h"
 
 #include "osal/osalite.h"
@@ -29,26 +28,25 @@
 
 #include "json/json.h"
 
-#if 1
-#define EV_LOOP_BEANSTALK_QUEUE_LOG(a_token, a_loggable_data, a_format, ...) \
-        ev::Logger::GetInstance().Log(a_token, a_loggable_data, \
-            a_format, __VA_ARGS__ \
-        );
-#endif
-
 /**
  * @brief Default constructor.
  *
- * @param _factory
+ * @param a_loggable_data
+ * @param a_factory
  * @param a_callbacks
  * @param a_default_tube
  */
-ev::loop::beanstalkd::Looper::Looper (const ev::loop::beanstalkd::Job::Factory& a_factory, const ev::loop::beanstalkd::Job::MessagePumpCallbacks& a_callbacks, const std::string a_default_tube)
-    : factory_(a_factory), callbacks_(a_callbacks),
-      default_tube_(a_default_tube)
+ev::loop::beanstalkd::Looper::Looper (const ev::Loggable::Data& a_loggable_data,
+                                      const ev::loop::beanstalkd::Job::Factory& a_factory, const ev::loop::beanstalkd::Job::MessagePumpCallbacks& a_callbacks,
+                                      const std::string a_default_tube)
+    : ::ev::loop::beanstalkd::Object(a_loggable_data),
+       factory_(a_factory), callbacks_(a_callbacks), default_tube_(a_default_tube)
 {
     beanstalk_ = nullptr;
     job_ptr_   = nullptr;
+    EV_LOOP_BEANSTALK_IF_LOG_ENABLED({
+        ev::LoggerV2::GetInstance().Register(logger_client_, { "queue", "stats" });
+    });
 }
 
 /**
@@ -68,13 +66,11 @@ ev::loop::beanstalkd::Looper::~Looper ()
 /**
  * @brief Consumer loop.
  *
- * @param a_loggable_data
  * @param a_beanstakd_config
  * @param a_output_directory
  * @param a_aborted
  */
-void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
-                                        const ::ev::beanstalk::Config& a_beanstakd_config, const std::string& a_output_directory,
+void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beanstakd_config, const std::string& a_output_directory,
                                         volatile bool& a_aborted)
 {   
     Beanstalk::Job job;
@@ -84,35 +80,45 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
     uint16_t       http_status_code;
     
     // ... write to permanent log ...
+    EV_LOOP_BEANSTALK_LOG("queue",
+                          "Connecting to %s:%d...",
+                          a_beanstakd_config.host_.c_str(),
+                          a_beanstakd_config.port_
+    );
+
+    beanstalk_ = new ::ev::beanstalk::Consumer(a_beanstakd_config);
+    
+    loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
+    
+    // ... write to permanent log ...
+    EV_LOOP_BEANSTALK_LOG("queue",
+                          "%s",
+                          "Connection established..."
+    );
+
     std::stringstream ss;
     for ( auto it : a_beanstakd_config.tubes_ ) {
         ss << it << ',';
     }
     ss.seekp(-1, std::ios_base::end); ss << '\0';
-    
-    EV_LOOP_BEANSTALK_QUEUE_LOG("queue", a_loggable_data,
-                                "Trying to connect to %s:%d using '%s' tubes...",
-                                a_beanstakd_config.host_.c_str(),
-                                a_beanstakd_config.port_,
-                                ss.str().c_str()
+    EV_LOOP_BEANSTALK_LOG("queue",
+                          "Listening to '%s' %s...",
+                          ss.str().c_str(),
+                          a_beanstakd_config.tubes_.size() != 1 ? "tubes" : "tube"
     );
     
-    beanstalk_ = new ::ev::beanstalk::Consumer(a_beanstakd_config);
-    
-    a_loggable_data.SetTag("consumer");
-    
+    // TODO 2.0 : log service id
+    //    EV_LOOP_BEANSTALK_LOG("queue",
+    //                          "Using service id '%s'",
+    //                          a_beanstakd_config.
+    //    );
+
     // ... write to permanent log ...
-    EV_LOOP_BEANSTALK_QUEUE_LOG("queue", a_loggable_data,
-                                "%s",
-                                "Connection established..."
+    EV_LOOP_BEANSTALK_LOG("queue",
+                          "WTNG %19.19s"  "-",
+                          "--"
     );
-    
-    // ... write to permanent log ...
-    EV_LOOP_BEANSTALK_QUEUE_LOG("queue", a_loggable_data,
-                                "%s",
-                                "Waiting..."
-    );
-    
+
     //
     // consumer loop
     //
@@ -123,12 +129,14 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
             continue;
         }
         
-        a_loggable_data.SetTag("consumer");
+        loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
       
         // ... write to permanent log ...
-        EV_LOOP_BEANSTALK_QUEUE_LOG("queue", a_loggable_data,
-                                    "Job #" INT64_FMT_MAX_RA " ~> Processing...",
-                                    job.id()
+        EV_LOOP_BEANSTALK_LOG("queue",
+                              "RSRVD" INT64_FMT_MAX_RA ": %12.12s: " SIZET_FMT " byte(s)",
+                              job.id(),
+                              "PAYLOAD",
+                              job.body().length()
         );
         
         uri          = "";
@@ -137,6 +145,7 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
         
         job_payload_ = Json::Value::null;
         if ( false == json_reader_.parse(job.body(), job_payload_) ) {
+            delete beanstalk_; beanstalk_ = nullptr;
             throw ev::Exception("An error occurred while loading job payload: JSON parsing error - %s\n", json_reader_.getFormattedErrorMessages().c_str());
         }
         
@@ -154,6 +163,9 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
         
         // ... process job ...
         osal::ConditionVariable job_cv;
+        
+        const std::chrono::steady_clock::time_point start_tp = std::chrono::steady_clock::now();
+        
         try {
             
             job_ptr_->Consume(/* a_id */ job.id(), /* a_body */ job_payload_,
@@ -181,22 +193,26 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
             job_cv.Wake();
 
         }
+
+        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_tp).count();
         
         job_ptr_ = nullptr;
-        
+
+        loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
+
         // ... check print result ...
         if ( true == success || true == cancelled || 404 == http_status_code ) {
             
             // ... write to permanent log ...
             if ( 404 == http_status_code ) {
-                EV_LOOP_BEANSTALK_QUEUE_LOG("queue", a_loggable_data,
-                                            "Job #" INT64_FMT_MAX_RA " ~> %s...",
-                                            job.id(), "NOT FOUND"
+                EV_LOOP_BEANSTALK_LOG("queue",
+                                      "Job #" INT64_FMT_MAX_RA " ~> %s...",
+                                      job.id(), "NOT FOUND"
                 );
             } else {
-                EV_LOOP_BEANSTALK_QUEUE_LOG("queue", a_loggable_data,
-                                            "Job #" INT64_FMT_MAX_RA " ~> %s...",
-                                            job.id(), ( true == cancelled ? "Cancelled" : "Done" )
+                EV_LOOP_BEANSTALK_LOG("queue",
+                                      "Job #" INT64_FMT_MAX_RA " ~> %s...",
+                                      job.id(), ( true == cancelled ? "Cancelled" : "Done" )
                 );
             }
             
@@ -205,21 +221,26 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
         } else {
             
             // ... write to permanent log ...
-            EV_LOOP_BEANSTALK_QUEUE_LOG("queue", a_loggable_data,
-                                        "Job #" INT64_FMT_MAX_RA " ~> Buried: making it available for human inspection",
-                                        job.id()
+            EV_LOOP_BEANSTALK_LOG("queue",
+                                  "Job #" INT64_FMT_MAX_RA " ~> Buried: making it available for human inspection",
+                                  job.id()
             );
             
             // ... bury it - making it available for human inspection ....
             beanstalk_->Bury(job);
         }
-        
-        a_loggable_data.SetTag("consumer");
+
+        // ... write to permanent log ...
+        EV_LOOP_BEANSTALK_LOG("queue",
+                              "Job #" INT64_FMT_MAX_RA " ~> FINISHED: " UINT64_FMT "ms.",
+                              job.id(),
+                              static_cast<uint64_t>(elapsed)
+        );
         
         // ... write to permanent log ...
-        EV_LOOP_BEANSTALK_QUEUE_LOG("queue", a_loggable_data,
-                                    "%s",
-                                    "Waiting..."
+        EV_LOOP_BEANSTALK_LOG("queue",
+                              "WTNG %19.19s"  "-",
+                              "--"
         );
         
         // ... since a call to asString() can allocate dynamic memory ...
@@ -228,12 +249,12 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
         
     }
     
-    a_loggable_data.SetTag("consumer");
+    loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
     
     // ... write to permanent log ...
-    EV_LOOP_BEANSTALK_QUEUE_LOG("queue", a_loggable_data,
-                                "%s",
-                                "Stopped..."
+    EV_LOOP_BEANSTALK_LOG("queue",
+                          "%s",
+                          "Stopped..."
     );
     
     //
@@ -248,5 +269,6 @@ void ev::loop::beanstalkd::Looper::Run (ev::Loggable::Data& a_loggable_data,
     for ( auto it : cache_ ) {
         delete it.second;
     }
+
     cache_.clear();
 }

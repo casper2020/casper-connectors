@@ -101,7 +101,10 @@ namespace ev
             inline void SetLoggerPrefix (const std::set<std::string>& a_tokens)
             {
                 UpdateLoggerPrefix();
-                tokens_ = a_tokens;
+                tokens_.clear();
+                for ( auto token : a_tokens ) {
+                    tokens_.insert(token);
+                }
             }
             
             /**
@@ -115,6 +118,12 @@ namespace ev
                 } else {
                     module_name = loggable_data_ref_.module();
                 }
+                std::string tag;
+                if ( strlen(loggable_data_ref_.tag()) > 30 ) {
+                    tag = "..." + std::string(loggable_data_ref_.tag() + ( strlen(loggable_data_ref_.tag()) + 3 - 30));
+                } else {
+                    tag = loggable_data_ref_.tag();
+                }
                 // ... logger ...
                 char prefix [256] = { 0 };
                 snprintf(prefix, sizeof(prefix) / sizeof(prefix[0]),
@@ -122,7 +131,7 @@ namespace ev
                          static_cast<unsigned>(getpid()),
                          loggable_data_ref_.ip_addr(),
                          module_name.c_str(),
-                         loggable_data_ref_.tag(),
+                         tag.c_str(),
                          loggable_data_ref_.owner_ptr()
                 );
                 prefix_ = prefix;

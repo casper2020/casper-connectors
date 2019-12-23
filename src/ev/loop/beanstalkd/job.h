@@ -26,6 +26,8 @@
 #include <limits>
 #include <time.h>
 
+#include "ev/loop/beanstalkd/object.h"
+
 #include "cc/non-copyable.h"
 #include "cc/non-movable.h"
 
@@ -46,26 +48,22 @@
 #define EV_LOOP_BEANSTALK_JOB_LOG_DEFINE_CONST(a_type, a_name, a_value) \
     a_type a_name = a_value
 
-#if 1
-    #define EV_LOOP_BEANSTALK_JOB_LOG(a_token, a_format, ...) \
-        ev::Logger::GetInstance().Log(a_token, loggable_data_, \
-            "Job #" INT64_FMT_MAX_RA " ~= " a_format, \
-            ID(), __VA_ARGS__ \
-        );
-    #define EV_LOOP_BEANSTALK_JOB_LOG_JS(a_loggable_data, a_token, a_format, ...) \
-        ev::Logger::GetInstance().Log(a_token, a_loggable_data, \
-            "Job #" INT64_FMT_MAX_RA " ~= " a_format, \
-            __VA_ARGS__ \
-        );
+#define EV_LOOP_BEANSTALK_JOB_LOG_QUEUE(a_stage, a_format, ...) \
+ev::LoggerV2::GetInstance().Log(logger_client_, "queue", \
+    "Job #" INT64_FMT_MAX_RA ": %12.12s: " a_format, \
+    ID(), a_stage, __VA_ARGS__ \
+);
 
-
-#else
-    #define EV_LOOP_BEANSTALK_JOB_LOG(a_token, a_format, ...) \
-        ev::Logger::GetInstance().Log(a_token, loggable_data_, \
-            "Job #" INT64_FMT_MAX_RA " ~= [ %6" PRIu64 " ms ] " a_format, \
-            ID(), static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_tp_).count()), __VA_ARGS__ \
-        );
-#endif
+#define EV_LOOP_BEANSTALK_JOB_LOG(a_token, a_format, ...) \
+    ev::LoggerV2::GetInstance().Log(logger_client_, a_token, \
+        "Job #" INT64_FMT_MAX_RA ": " a_format, \
+        ID(), __VA_ARGS__ \
+    );
+#define EV_LOOP_BEANSTALK_JOB_LOG_JS(a_token, a_format, ...) \
+    ev::LoggerV2::GetInstance().Log(logger_client_, a_token, \
+        "Job #" INT64_FMT_MAX_RA ": " a_format, \
+        __VA_ARGS__ \
+    );
 
 namespace ev
 {
@@ -76,7 +74,8 @@ namespace ev
         namespace beanstalkd
         {
             
-            class Job : private ev::scheduler::Client, private ev::redis::subscriptions::Manager::Client, public ::cc::NonCopyable, public ::cc::NonMovable
+            class Job : protected ::ev::loop::beanstalkd::Object,
+                        private ev::scheduler::Client, private ev::redis::subscriptions::Manager::Client, public ::cc::NonCopyable, public ::cc::NonMovable
             {
                 
             public: // Data Type
@@ -168,10 +167,6 @@ namespace ev
                 
                 const Json::Value         default_validity_;
                 
-            protected: // Logs Data
-                
-                ev::Loggable::Data        loggable_data_;
-                
             private: // Data
                 
                 int64_t                   id_;
@@ -203,7 +198,7 @@ namespace ev
                 
                 ev::curl::HTTP             http_;
                 ::ev::postgresql::JSONAPI  json_api_;
-
+                
             protected:
                 
                 Json::Reader               json_reader_;
@@ -213,11 +208,16 @@ namespace ev
             private: // Ptrs
                 
                 const MessagePumpCallbacks* callbacks_ptr_;
+
+            private: // Stats
                 
+                std::chrono::steady_clock::time_point start_tp_;
+                std::chrono::steady_clock::time_point end_tp_;
+
             public: // Constructor(s) / Destructor
                 
                 Job () = delete;
-                Job (const std::string& a_tube, const Config& a_config, const ev::Loggable::Data& a_loggable_data);
+                Job (const ev::Loggable::Data& a_loggable_data, const std::string& a_tube, const Config& a_config);
                 virtual ~Job ();
                 
             public:
@@ -255,6 +255,7 @@ namespace ev
                 size_t ErrorsCount        () const;
                 
                 void Publish           (const Progress& a_progress);
+                void Publish           (const std::vector<ev::loop::beanstalkd::Job::Progress>& a_progress);
                 void Broadcast         (const Status a_status);
                 void Finished          (const Json::Value& a_response,
                                         const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback);
@@ -269,6 +270,10 @@ namespace ev
                 uint64_t     FollowUpJobsCount       () const;
                 Json::Value& AppendFollowUpJob       ();
                 bool         SubmitFollowUpJobs      ();
+                
+            protected: // Stats
+                
+                const std::chrono::steady_clock::time_point& start_tp () const;
             
             private: // REDIS / BEANSTALK Helper Method(s) / Function(s)
                 
@@ -386,6 +391,10 @@ namespace ev
                 return ( true == follow_up_jobs_.isArray() ? static_cast<uint64_t>(follow_up_jobs_.size()) : 0 );
             }
             
+            inline const std::chrono::steady_clock::time_point& Job::start_tp () const
+            {
+                return start_tp_;
+            }
             
         } // end of namespace 'beanstalkd'
         

@@ -33,17 +33,17 @@
 /**
  * @brief Default constructor.
  *
+ * @param a_loggable_data
  * @param a_tube
  * @param a_config
- * @param a_loggable_data_ref
  */
-ev::loop::beanstalkd::Job::Job (const std::string& a_tube, const Config& a_config, const ev::Loggable::Data& a_loggable_data)
-    : tube_(a_tube), config_(a_config),
+ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const std::string& a_tube, const Config& a_config)
+    : ::ev::loop::beanstalkd::Object(a_loggable_data),
+    tube_(a_tube), config_(a_config),
     redis_signal_channel_(config_.service_id_ + ":job-signal"),
     redis_key_prefix_(config_.service_id_ + ":jobs:" + tube_ + ':'),
     redis_channel_prefix_(config_.service_id_ + ':' + tube_ + ':'),
     default_validity_(3600),
-    loggable_data_(a_loggable_data),
     json_api_(loggable_data_, /* a_enable_task_cancellation */ false)
 {
     id_                              = 0;
@@ -71,6 +71,12 @@ ev::loop::beanstalkd::Job::Job (const std::string& a_tube, const Config& a_confi
     json_writer_.omitEndingLineFeed();
     
     callbacks_ptr_ = nullptr;
+    start_tp_      = std::chrono::steady_clock::time_point::min();
+    end_tp_        = std::chrono::steady_clock::time_point::min();
+    
+    EV_LOOP_BEANSTALK_IF_LOG_ENABLED({
+        ev::LoggerV2::GetInstance().Register(logger_client_, { "queue", "stats" });
+    });
 }
 
 /**
@@ -113,37 +119,7 @@ void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callba
                                                                                  return nullptr;
                                                                              },
                                                                              /* a_data_callback */
-                                                                             [this] (const std::string& a_name, const std::string& a_message) -> EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK {
-                                                                                 
-                                                                                 ExecuteOnMainThread([this, a_name, a_message] {
-                                                                                     
-                                                                                     Json::Value  object;
-                                                                                     Json::Reader reader;
-                                                                                     try {
-                                                                                         if ( true == reader.parse(a_message, object, false) ) {
-                                                                                             if ( true ==  object.isMember("id") && true == object.isMember("status") ) {
-                                                                                                 const Json::Value id = object.get("id", -1);
-                                                                                                 if ( 0 == channel_.compare(std::to_string(static_cast<int64_t>(id.asInt64()))) ) {
-                                                                                                     const Json::Value value = object.get("status", Json::Value::null);
-                                                                                                     if ( true == value.isString() && 0 == strcasecmp(value.asCString(), "cancelled") ) {
-                                                                                                         EV_LOOP_BEANSTALK_JOB_LOG("queue",
-                                                                                                                                   "Received from REDIS channel '%s': %s",
-                                                                                                                                   a_name.c_str(),
-                                                                                                                                   a_message.c_str()
-                                                                                                         );
-                                                                                                         cancelled_ = true;
-                                                                                                     }
-                                                                                                 }
-                                                                                             }
-                                                                                         }
-                                                                                     } catch (const Json::Exception& /* a_json_exception */) {
-                                                                                         // ... eat it ...
-                                                                                     }
-                                                                                     
-                                                                                 }, /* a_blocking */ false);
-                                                                                 
-                                                                                 return nullptr;
-                                                                             },
+                                                                             std::bind(&ev::loop::beanstalkd::Job::JobSignalsDataCallback, this, std::placeholders::_1, std::placeholders::_2),
                                                                              /* a_client */
                                                                              this
         );
@@ -199,7 +175,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     //
     // Configure Log
     //
-    loggable_data_.SetTag(redis_key_prefix_ + channel_);
+    loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), redis_key_prefix_ + channel_);
     
     //
     // Check for job cancellation
@@ -218,6 +194,14 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
         
     };
     
+    start_tp_ = std::chrono::steady_clock::now();
+    end_tp_   = start_tp_;
+
+    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("TUBE"   , "%s", tube_.c_str());
+    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ID"     , "%s", a_payload.get("id"  , "???").asCString());
+    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("CHANNEL", "%s", ( redis_channel_prefix_ + channel_ ).c_str());
+    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("KEY"    , "%s", ( redis_key_prefix_     + channel_ ).c_str());
+
     // ... first check if job as cancelled ...
     if ( true == ShouldCancel() ) {
         // ... notify ...
@@ -226,6 +210,12 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
         // ... execute job ...
         Run(a_id, a_payload, a_completed_callback, cancelled_callback);
     }
+
+    end_tp_ = std::chrono::steady_clock::now();
+    
+    EV_LOOP_BEANSTALK_JOB_LOG_DEFINE_CONST(auto, elapsed, std::chrono::duration_cast<std::chrono::milliseconds>(end_tp_ - start_tp()).count());
+    
+    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("DONE", "" UINT64_FMT "ms", static_cast<uint64_t>(elapsed));
 
     // ... prevent from REDIS cancellation messages to be logged ...
     channel_  = "";
@@ -407,7 +397,6 @@ void ev::loop::beanstalkd::Job::Finished (const Json::Value& a_response,
     Broadcast(ev::loop::beanstalkd::Job::Status::Finished);
 }
 
-
 /**
  * @brief Publish a 'progress' message.
  *
@@ -459,6 +448,18 @@ void ev::loop::beanstalkd::Job::Publish (const ev::loop::beanstalkd::Job::Progre
     if ( std::chrono::steady_clock::time_point::max() == progress_report_.last_tp_ || elapsed >= progress_report_.timeout_in_sec_ || a_progress.now_ == true ) {
         progress_report_.last_tp_ = now_tp;
         Publish(progress_);
+    }
+}
+
+/**
+ * @brief Publish 'progress' messages.
+ *
+ * @param a_progress
+ */
+void ev::loop::beanstalkd::Job::Publish (const std::vector<ev::loop::beanstalkd::Job::Progress>& a_progress)
+{
+    for ( auto& p : a_progress ) {
+        Publish(p);
     }
 }
 
@@ -530,12 +531,8 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
     const std::string redis_key     = redis_key_prefix_     + channel_;
     const std::string redis_message = json_writer_.write(a_object);
 
-    EV_LOOP_BEANSTALK_JOB_LOG("queue",
-                              "Publishing to REDIS channel '%s' : %s",
-                              redis_key.c_str(),
-                              redis_message.c_str()
-    );
-
+    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("PUBLISH", "%s", redis_message.c_str());
+    
     ExecuteOnMainThread([this, a_success_callback, a_failure_callback, &cv, &redis_channel, &redis_key, &redis_message] {
 
         ev::scheduler::Task* t = NewTask([this, &redis_channel, redis_message] () -> ::ev::Object* {
@@ -657,10 +654,8 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
 
         t->Catch([this, &cv, a_failure_callback] (const ::ev::Exception& a_ev_exception) {
 
-            // ... log error ...
-            EV_LOOP_BEANSTALK_JOB_LOG("error",
-                                      "PUBLISH failed: %s",
-                                      a_ev_exception.what()
+            EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ERROR", "PUBLISH FAILED: %s",
+                                            a_ev_exception.what()
             );
 
             // ... notify ...
@@ -755,12 +750,7 @@ bool ev::loop::beanstalkd::Job::SubmitFollowUpJobs ()
         
         const Json::Value& entry = follow_up_jobs_[idx];
         const Json::Value& job   = entry["job"];
-        
-        EV_LOOP_BEANSTALK_JOB_LOG("queue",
-                                  "Submitting follow up job # " SIZET_FMT,
-                                  static_cast<size_t>(idx + 1)
-        );
-        
+                
         OSALITE_DEBUG_TRACE("job", "Job #" INT64_FMT " ~= submitting follow up job #" SIZET_FMT ":\n%s",
                             id_, static_cast<size_t>(idx + 1), entry.toStyledString().c_str()
         );
@@ -792,6 +782,11 @@ void ev::loop::beanstalkd::Job::SubmitFollowUpJob (const size_t a_number, const 
     follow_up_ttr_        = follow_up_payload_.get("ttr", 300).asUInt();
     
     osal::ConditionVariable cancellation_cv;
+    
+    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("SUBMIT",
+                                    "FOLLOW UP JOB # " SIZET_FMT ": %s, ttr set to " UINT32_FMT ", expires in " INT64_FMT,
+                                    a_number, follow_up_tube_.c_str(), follow_up_ttr_, follow_up_expires_in_
+    );
     
     ExecuteOnMainThread([this, a_number, &cancellation_cv] {
         
@@ -855,11 +850,12 @@ void ev::loop::beanstalkd::Job::SubmitFollowUpJob (const size_t a_number, const 
                 
                 SubmitJob(/* a_tube */ follow_up_tube_.c_str(), /* a_payload */ payload, /* a_ttr */ follow_up_ttr_);
                 
-                EV_LOOP_BEANSTALK_JOB_LOG("queue",
-                                          "Submitted follow up job # " SIZET_FMT " to tube %s, ttr set to " UINT32_FMT " and validity set to " INT64_FMT " : %s",
-                                          a_number, follow_up_tube_.c_str(), follow_up_ttr_, follow_up_expires_in_, payload.c_str()
+                EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("SUBMITTED",
+                                                "FOLLOW UP JOB # " SIZET_FMT ": %s",
+                                                static_cast<size_t>(a_number),
+                                                payload.c_str()
                 );
-                
+
             } catch (const ::Beanstalk::ConnectException& a_btc_exception) {
                 throw ::ev::Exception("%s", a_btc_exception.what());
             }
@@ -871,10 +867,9 @@ void ev::loop::beanstalkd::Job::SubmitFollowUpJob (const size_t a_number, const 
             const std::string prefix = "rror while submitting follow up job # " + std::to_string(a_number) + " to tube " + follow_up_tube_;
             
             // ... log error ...
-            EV_LOOP_BEANSTALK_JOB_LOG("queue",
-                                      "e%s: %s",
-                                      prefix.c_str(), a_ev_exception.what()
-                                      );
+            EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ERROR", "SUBMIT FAILED: e%s: %s",
+                                            prefix.c_str(), a_ev_exception.what()
+            );
             
             AppendError(/* a_type  */ "Beanstalk Error",
                         /* a_why   */ ( 'E'+ prefix + ": " + a_ev_exception.what() ).c_str(),
@@ -1263,9 +1258,8 @@ const std::string& ev::loop::beanstalkd::Job::EnsureOutputDir (const int64_t a_v
             throw ev::Exception("Unable to create output directory %s!", output_directory_.c_str());
         }
         
-        EV_LOOP_BEANSTALK_JOB_LOG("queue",
-                                  "Changing output dir to %s...",
-                                  output_directory_.c_str()
+        EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("SETUP", "Changing output dir to %s...",
+                                        output_directory_.c_str()
         );
         
         // ... prevent unnecessary changes ...
@@ -1360,10 +1354,8 @@ EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK ev::loop::beanstalkd::Job::JobS
                     if ( 0 == channel_.compare(std::to_string(static_cast<int64_t>(id.asInt64()))) ) {
                         const Json::Value value = object.get("status", Json::Value::null);
                         if ( true == value.isString() && 0 == strcasecmp(value.asCString(), "cancelled") ) {
-                            EV_LOOP_BEANSTALK_JOB_LOG("queue",
-                                                      "Received from REDIS channel '%s': %s",
-                                                      a_name.c_str(),
-                                                      a_message.c_str()
+                            EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("CANCELLED", "%s: %s",
+                                                            a_name.c_str(), a_message.c_str()
                             );
                             cancelled_ = true;
                         }
