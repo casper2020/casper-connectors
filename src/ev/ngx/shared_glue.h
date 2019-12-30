@@ -29,6 +29,8 @@
 #include "ev/object.h"
 #include "ev/ngx/includes.h"
 
+#include "ev/exception.h"
+
 #include "ev/beanstalk/config.h"
 
 #include "osal/condition_variable.h"
@@ -44,6 +46,13 @@ namespace ev
         class SharedGlue
         {
             
+        public: // Data Type(s)
+            
+            typedef struct {
+                std::function<void(const ::ev::Exception&)> on_fatal_exception_;
+                std::function<void(std::function<void()>)>  call_on_main_thread_;
+            } Callbacks;
+
         protected: // Data Type(s)
             
             typedef struct _DeviceLimits {
@@ -52,7 +61,7 @@ namespace ev
                 ssize_t                  min_queries_per_conn_;
                 std::function<ssize_t()> rnd_queries_per_conn_;
             } DeviceLimits;
-            
+                        
         protected: // Data
             
             std::map<ev::Object::Target, DeviceLimits> device_limits_;
