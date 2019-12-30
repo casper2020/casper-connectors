@@ -181,12 +181,6 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Allow (c
         status_.code_      = 500;
         status_.data_      = Json::Value::null;
         status_.deflected_ = false;
-                
-        // .. if no rules loaded ...
-        if ( 0 == rules_.size() ) {
-            // ... passage allowed ...
-            return SetAllowed(a_method, tmp_path_, /* a_rule */ nullptr);
-        }
 
         // ... update loggable data ( s_logger_settings_.data_ is mutable and should be always updated  ) ...
         s_logger_settings_.data_->Update(a_loggable_data.module(), a_loggable_data.ip_addr(), a_loggable_data.tag());
