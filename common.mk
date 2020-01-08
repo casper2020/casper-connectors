@@ -27,6 +27,9 @@ CONNECTORS_CC_FS_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/fs/posix/file.cc \
   $(PROJECT_SRC_DIR)/src/cc/fs/posix/xattr.cc
 
+CONNECTORS_CC_THREADING_SRC := \
+  $(PROJECT_SRC_DIR)/src/cc/threading/posix/worker.cc
+
 CONNECTORS_CC_I18N_SRC:= \
   $(PROJECT_SRC_DIR)/src/cc/i18n/singleton.cc
 
@@ -49,18 +52,26 @@ CONNECTORS_CC_V8_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/v8/context.cc \
   $(PROJECT_SRC_DIR)/src/cc/v8/singleton.cc
 
+CONNECTORS_CC_GLOBAL_SRC := \
+  $(PROJECT_SRC_DIR)/src/cc/global/initializer.cc
+
+CONNECTORS_CC_ICU_SRC := \
+  $(PROJECT_SRC_DIR)/src/cc/icu/initializer.cc
+
+CONNECTORS_CC_CURL_SRC := \
+  $(PROJECT_SRC_DIR)/src/cc/curl/initializer.cc
+
 CONNECTORS_CC_SRC := \
+  $(CONNECTORS_CC_GLOBAL_SRC) \
+  $(CONNECTORS_CC_THREADING_SRC) \
   $(PROJECT_SRC_DIR)/src/cc/utc_time.cc \
   $(CONNECTORS_CC_FS_SRC)               \
   $(CONNECTORS_CC_I18N_SRC)             \
   $(CONNECTORS_CC_ERRORS_SRC)
 
-ifeq (true, $(V8_DEP_ON))
-  CONNECTORS_CC_SRC += $(CONNECTORS_CC_V8_SRC)
-endif
-
 CONNECTORS_EV_LOOP_SRC := \
  $(PROJECT_SRC_DIR)/src/ev/loop/bridge.cc            \
+ $(PROJECT_SRC_DIR)/src/ev/loop/beanstalkd/object.cc \
  $(PROJECT_SRC_DIR)/src/ev/loop/beanstalkd/runner.cc \
  $(PROJECT_SRC_DIR)/src/ev/loop/beanstalkd/looper.cc \
  $(PROJECT_SRC_DIR)/src/ev/loop/beanstalkd/job.cc
@@ -111,10 +122,6 @@ CONNECTORS_EV_SRC := \
   $(PROJECT_SRC_DIR)/src/ev/auth/route/gatekeeper.cc         \
   $(PROJECT_SRC_DIR)/src/ev/casper/session.cc
 
-ifeq (true, $(V8_DEP_ON))
-  CONNECTORS_EV_SRC += $(CONNECTORS_EV_LOOP_SRC)
-endif
-
 # ngx dependency?
 ifdef NGX_DIR
   CONNECTORS_EV_SRC += \
@@ -137,4 +144,19 @@ ifeq (true, $(V8_DEP_ON))
 endif
 
 set-dependencies: $(CONNECTORS_DEPENDENCIES)
-
+  ifeq (true, $(ICU_DEP_ON))
+    CONNECTORS_CC_SRC += $(CONNECTORS_CC_ICU_SRC)
+  endif
+  ifeq (true, $(CURL_DEP_ON))
+    CONNECTORS_CC_SRC += $(CONNECTORS_CC_CURL_SRC)
+  endif
+  ifeq (true, $(V8_DEP_ON))
+    CONNECTORS_CC_SRC += $(CONNECTORS_CC_V8_SRC)
+    CONNECTORS_EV_SRC += $(CONNECTORS_EV_LOOP_SRC)
+  endif
+  CC_SRC := \
+    $(CONNECTORS_EV_SRC)        \
+    $(CONNECTORS_CC_SRC)        \
+    $(CONNECTORS_CC_CRYPTO_SRC) \
+    $(CONNECTORS_CC_HASH_SRC)   \
+    $(CONNECTORS_CC_AUTH_SRC)

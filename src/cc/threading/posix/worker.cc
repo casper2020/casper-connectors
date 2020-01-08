@@ -23,6 +23,7 @@
 
 #include "cc/exception.h"
 
+#include <string.h>  // strerror
 #include <pthread.h> // pthread_setname_np
 #include <signal.h>  // sigaddset
 

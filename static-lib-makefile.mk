@@ -51,40 +51,11 @@ include $(PROJECT_SRC_DIR)/common.mk
 INCLUDE_DIRS := \
   $(CONNECTORS_INCLUDE_DIRS)
 
-CC_SRC := \
-  $(CONNECTORS_EV_SRC)        \
-  $(CONNECTORS_CC_SRC)        \
-  $(CONNECTORS_CC_CRYPTO_SRC) \
-  $(CONNECTORS_CC_HASH_SRC)   \
-  $(CONNECTORS_CC_AUTH_SRC)
-
 OBJECTS := \
   $(CC_SRC:.cc=.o)
 
 include $(PACKAGER_DIR)/common/c++/common.mk
 
-set-dependencies: icu-dep-on
-
 all: lib
 
 .SECONDARY:
-
-
-# include common.mk
-
-# EXECUTABLE_NAME     :=
-# EXECUTABLE_MAIN_SRC :=
-# LIBRARY_TYPE        := static
-# ifeq (true, $(V8_DEP_ON))
-#   LIBRARY_NAME := libconnectors-v8.a
-# else
-#   LIBRARY_NAME := libconnectors.a
-# endif
-# CHILD_CWD           := $(CURDIR)
-# CHILD_MAKEFILE      := $(MAKEFILE_LIST)
-
-# include ../casper-packager/common/c++/common.mk
-
-# all: lib
-
-# .SECONDARY:
