@@ -25,7 +25,11 @@
 
 #include <string>
 
-#include <errno.h>  // errno_t
+#ifdef __APPLE
+  #include <errno.h>  // errno_t
+#else
+  #define errno_t int
+#endif
 
 #include "cc/non-copyable.h"
 #include "cc/non-movable.h"
