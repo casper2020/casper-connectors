@@ -267,8 +267,12 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         //
         // ... ICU / V8 ...
         //
-        
-        const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + CC_IF_DEBUG_ELSE("v8/debug/icudtl.dat", "/v8/icudtl.dat");
+
+	#ifdef __APPLE__
+	    const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + CC_IF_DEBUG_ELSE("icu/debug/icudtl.dat", "icu/icudtl.dat");
+	#else
+	    const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + "icu/icudtl.dat";
+	#endif
         
         // ... LIBEVENT2 ...
         Log("status", "\n\t⌥ LIBEVENT2\n");
