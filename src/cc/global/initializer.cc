@@ -137,16 +137,21 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         directories_ = new Directories(*a_directories);
     } else {
         const std::string process_name = ( 0 != process_->alt_name_.length() ? process_->alt_name_ : process_->name_ );
+        #ifdef __APPLE__
+            const std::string prefix = "/usr/local";
+        #else
+            const std::string prefix = "";
+        #endif
         directories_ = new Directories({
-            /* etc_   */ cc::fs::Dir::Normalize("/usr/local/etc/"      + process_name),
-            /* log_   */ cc::fs::Dir::Normalize("/usr/local/var/log/"  + process_name),
+            /* etc_   */ cc::fs::Dir::Normalize(prefix + "/etc/"      + process_name),
+            /* log_   */ cc::fs::Dir::Normalize(prefix + "/var/log/"  + process_name),
             #ifdef __APPLE__
-            /* share_ */ cc::fs::Dir::Normalize("/usr/local/share/"    + process_name),
+            /* share_ */ cc::fs::Dir::Normalize(prefix + "/share/"    + process_name),
             #else
                 /* share_ */ cc::fs::Dir::Normalize("/usr/share/"      + process_name),
             #endif
-            /* run_   */ cc::fs::Dir::Normalize("/usr/local/var/run/"  + process_name),
-            /* lock_  */ cc::fs::Dir::Normalize("/usr/local/var/lock/" + process_name),
+            /* run_   */ cc::fs::Dir::Normalize(prefix + "/var/run/"  + process_name),
+            /* lock_  */ cc::fs::Dir::Normalize(prefix + "/var/lock/" + process_name),
             /* tmp_   */ cc::fs::Dir::Normalize("/tmp/")
         });
     }
