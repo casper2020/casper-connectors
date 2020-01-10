@@ -52,6 +52,9 @@ CONNECTORS_CC_V8_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/v8/context.cc \
   $(PROJECT_SRC_DIR)/src/cc/v8/singleton.cc
 
+CONNECTORS_CC_SYS_SRC := \
+  $(PROJECT_SRC_DIR)/src/sys/process.cc
+
 CONNECTORS_CC_GLOBAL_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/global/initializer.cc
 
@@ -138,7 +141,7 @@ ifdef NGX_DIR
 endif
 
 # dependencies
-CONNECTORS_DEPENDENCIES := casper-osal-dep-on jsoncpp-dep-on hiredis-dep-on beanstalk-client-dep-on zlib-dep-on icu-dep-on curl-dep-on cppcodec-dep-on postgresql-dep-on
+CONNECTORS_DEPENDENCIES := casper-osal-dep-on lemon-dep-on jsoncpp-dep-on hiredis-dep-on beanstalk-client-dep-on zlib-dep-on icu-dep-on curl-dep-on cppcodec-dep-on postgresql-dep-on
 ifeq (true, $(V8_DEP_ON))
   CONNECTORS_DEPENDENCIES += v8-dep-on 
 endif
@@ -152,6 +155,7 @@ set-dependencies: $(CONNECTORS_DEPENDENCIES)
   endif
   ifeq (true, $(V8_DEP_ON))
     CONNECTORS_CC_SRC += $(CONNECTORS_CC_V8_SRC)
+    CONNECTORS_CC_SRC += $(CONNECTORS_CC_SYS_SRC)
     CONNECTORS_EV_SRC += $(CONNECTORS_EV_LOOP_SRC)
   endif
   CC_SRC := \

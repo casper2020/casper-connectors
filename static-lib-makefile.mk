@@ -56,6 +56,10 @@ OBJECTS := \
 
 include $(PACKAGER_DIR)/common/c++/common.mk
 
+ifeq (true, $(V8_DEP_ON))
+  CXXFLAGS+=-DCASPER_REQUIRE_GOOGLE_V8
+endif
+
 all: lib
 
 .SECONDARY:

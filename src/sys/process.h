@@ -30,6 +30,8 @@
 #include <list>
 #include <sys/types.h> // pid_t
 
+#include <string.h> // strdup, strerror
+
 #include "sys/error.h"
 
 #include "cc/non-copyable.h"
@@ -107,13 +109,13 @@ namespace sys
             
         public: // NOT ALLOWED
             
-            Info ()                         = delete; //!< Default Constructor
+            Info ()                        = delete; //!< Default Constructor
             Info& operator = (Info const&) = delete; //!< Copy Assign
             Info& operator = (Info &&)     = delete; //!< Move Assign
             
         }; // end of class 'Info';
         
-        typedef std::list<Process*> List;
+	// TOD 2.0 WHERE IT's USED, CASPER-APP? typedef std::list<Process*> List;
         
     protected: // Data
         
@@ -203,7 +205,7 @@ namespace sys
     public: // Static Method(s) / Function(s) - Declaration
         
         static bool Filter (const std::list<const Process*>& a_interest, std::list<const Process*>& o_list);
-        static void Sort   (const std::vector<const Process::Info>& a_vector, std::list<const Process::Info>& o_list);
+        static void Sort   (const std::vector<Info>& a_vector, std::list<Info>& o_list);
         
         static std::string GetExecURI (const pid_t& a_pid);
         
