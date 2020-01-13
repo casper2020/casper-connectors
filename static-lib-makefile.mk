@@ -30,6 +30,8 @@ PROJECT_SRC_DIR     := $(ROOT_DIR)/casper-connectors
 EXECUTABLE_NAME     := 
 EXECUTABLE_MAIN_SRC :=
 LIBRARY_TYPE        := static
+ICU_DEP_ON          ?= true
+CURL_DEP_ON         ?= true
 ifeq (true, $(V8_DEP_ON))
   LIBRARY_NAME := libconnectors-v8.a
 else
