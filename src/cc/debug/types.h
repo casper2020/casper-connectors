@@ -106,12 +106,10 @@
 #define CC_MACRO_STRINGIFY_ARG(a) #a
 
 #define CC_WARNING_UNUSED_VARIABLE(a_name) \
-    CC_DO_PRAGMA(message ("TODO 2.0: unused variable '" #a_name "'")); \
-    CC_DO_PRAGMA(Unused (a_name)); \
-    (void)a_name;
+  _Pragma(CC_MACRO_STRINGIFY_ARG(GCC warning("TODO 2.0: unused variable '" #a_name "'"))); \
+  (void)a_name;
 
 #define CC_WARNING_TODO(a_name) \
-    _Pragma(CC_MACRO_STRINGIFY_ARG(GCC warning("" #a_name)))
-
+   _Pragma(CC_MACRO_STRINGIFY_ARG(GCC warning("" #a_name)))
 
 #endif // NRS_CC_DEBUG_TYPES_H_
