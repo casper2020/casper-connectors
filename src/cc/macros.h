@@ -24,4 +24,10 @@
 
 #define NRS_WARN_UNUSED_RESULT __attribute__((warn_unused_result))
 
+#define CC_MARK_INTENDED_VIRTUAL_OVERRIDING(function) \
+    _Pragma("clang diagnostic push") \
+    _Pragma("clang diagnostic ignored \"-Woverloaded-virtual\"") \
+    function \
+    _Pragma("clang diagnostic pop")\
+
 #endif // NRS_CC_MACROS_H_

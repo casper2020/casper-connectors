@@ -411,24 +411,24 @@ std::string sys::Process::GetExecURI (const pid_t& a_pid)
     const int rv = proc_pidpath(a_pid, buffer, sizeof(buffer) / sizeof(buffer[9]));
     if ( rv <= 0 ) {
         throw ::cc::Exception("An error occurred while trying to obtain process executable path: (%d) %s ", errno, strerror(errno));
-w    }
+    }
     return std::string(buffer);
 #else
     char uri[PATH_MAX/2] ; uri[0] = '\0';
     const int aux = snprintf(uri, (PATH_MAX/2)-1, "/proc/%u/exe", a_pid);
     if ( aux < 0 ) {
-      throw ::cc::Exception("An error occurred while trying to obtain process executable path: (%d) %s ", errno, strerror(errno));
+        throw ::cc::Exception("An error occurred while trying to obtain process executable path: (%d) %s ", errno, strerror(errno));
     } else if ( aux >= (PATH_MAX/2)-1 ) {
-      throw ::cc::Exception("An error occurred while trying to obtain process executable path: (%d) %s ", aux, "buffer to short to set proc URI");
+        throw ::cc::Exception("An error occurred while trying to obtain process executable path: (%d) %s ", aux, "buffer to short to set proc URI");
     }
     char buffer[PATH_MAX];
     ssize_t len;
     if ( -1 == ( len = readlink(uri, buffer, PATH_MAX-1) ) ) {
-      throw ::cc::Exception("An error occurred while trying to obtain process executable path: (%d) %s ", errno, strerror(errno));
+        throw ::cc::Exception("An error occurred while trying to obtain process executable path: (%d) %s ", errno, strerror(errno));
     } else if ( (PATH_MAX-1-1) == len ) {
-      throw ::cc::Exception("An error occurred while trying to obtain process executable path: (%d) %s ", aux, "buffer to short to write URI");
+        throw ::cc::Exception("An error occurred while trying to obtain process executable path: (%d) %s ", aux, "buffer to short to write URI");
     } else {
-      return std::string(buffer, len);
+        return std::string(buffer, len);
     }
 #endif
 }
