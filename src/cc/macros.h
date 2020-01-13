@@ -22,7 +22,18 @@
 #ifndef NRS_CC_MACROS_H_
 #define NRS_CC_MACROS_H_
 
-#define NRS_WARN_UNUSED_RESULT __attribute__((warn_unused_result))
+#define CC_DO_PRAGMA(x) _Pragma (#x)
+#define CC_MACRO_DEFER(M,...) M(__VA_ARGS__)
+#define CC_MACRO_STRINGIFY_ARG(a) #a
+
+#define CC_WARN_UNUSED_RESULT __attribute__((warn_unused_result))
+
+#define CC_WARNING_UNUSED_VARIABLE(a_name) \
+  _Pragma(CC_MACRO_STRINGIFY_ARG(GCC warning("TODO 2.0: unused variable '" #a_name "'"))); \
+  (void)a_name;
+
+#define CC_WARNING_TODO(a_name) \
+   _Pragma(CC_MACRO_STRINGIFY_ARG(GCC warning("" #a_name)))
 
 #define CC_MARK_INTENDED_VIRTUAL_OVERRIDING(function) \
     _Pragma("clang diagnostic push") \
