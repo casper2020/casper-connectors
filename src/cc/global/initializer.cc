@@ -236,15 +236,22 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         srandom(((unsigned) process_->pid_ << 16) ^ (unsigned)tv.tv_sec ^ (unsigned)tv.tv_usec);
         
         // ... set locale must be called @ main(int argc, char** argv) ...
-        const char* lc_all = setlocale (LC_ALL, NULL);
+
+	const char* c_all_tmp = setlocale(LC_ALL, NULL);
+	if ( nullptr == c_all_tmp ) {
+	  throw ::cc::Exception("Unable to initialize C locale - nullptr- the request cannot be honored!");
+	}
+        const std::string lc_all = c_all_tmp;
         
-        setlocale (LC_NUMERIC, "C");
-        
-        const char* lc_numeric = setlocale (LC_NUMERIC, NULL);
+	const char* c_numeric_tmp = setlocale(LC_NUMERIC, NULL);
+	if ( nullptr ==  c_numeric_tmp ) {
+	  throw ::cc::Exception("Unable to initialize C numeric - nullptr- the request cannot be honored! ");
+	}
+        const std::string lc_numeric = c_numeric_tmp;
 
         Log("status", "\n\t⌥ LOCALE\n");
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n"     , "LC_ALL"    , lc_all);
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s - " DOUBLE_FMT "\n", "LC_NUMERIC", lc_numeric, (double)123.456);
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s - %s \n"     , "LC_ALL"    , lc_all.c_str(), "€ $ £");
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s - " DOUBLE_FMT "\n", "LC_NUMERIC", lc_numeric.c_str(), (double)123.456);
 
         CC_IF_DEBUG(
             //
