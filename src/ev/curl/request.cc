@@ -96,13 +96,27 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
 	    );
     }
 
+    tx_body_ = nullptr != a_body ? *a_body : "";
+
     // ... setup handle callbacks according to HTTP request type ...
     switch ( http_request_type_ ) {
         case ev::curl::Request::HTTPRequestType::POST:
-            initialization_error_ += curl_easy_setopt(handle_, CURLOPT_READDATA        , this);
-            initialization_error_ += curl_easy_setopt(handle_, CURLOPT_READFUNCTION    , ReadDataCallbackWrapper);
+        {
+            bool disable_chunked = false;
+            if ( nullptr != a_headers && a_headers->size() > 0 ) {
+                const auto it   = a_headers->find("Expect");
+                disable_chunked = ( a_headers->end() != it && it->second.size() == 1 && 0 == it->second[0].size() );
+            }
+            if ( true == disable_chunked ) {
+                initialization_error_ += curl_easy_setopt(handle_, CURLOPT_POSTFIELDS, strdup(tx_body_.c_str()));
+                initialization_error_ += curl_easy_setopt(handle_, CURLOPT_INFILESIZE_LARGE, (curl_off_t)tx_body_.length());
+            } else {
+                initialization_error_ += curl_easy_setopt(handle_, CURLOPT_READDATA        , this);
+                initialization_error_ += curl_easy_setopt(handle_, CURLOPT_READFUNCTION    , ReadDataCallbackWrapper);
+            }
             initialization_error_ += curl_easy_setopt(handle_, CURLOPT_WRITEDATA       , this);
             initialization_error_ += curl_easy_setopt(handle_, CURLOPT_WRITEFUNCTION   , WriteDataCallbackWrapper);
+        }
             break;
         case ev::curl::Request::HTTPRequestType::PUT:
         case ev::curl::Request::HTTPRequestType::DELETE:
@@ -124,7 +138,7 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
     // ... append headers?
     if ( nullptr != a_headers && a_headers->size() > 0 ) {
         for ( auto h_it = a_headers->begin() ; a_headers->end() != h_it ; ++h_it ) {
-            const std::string header = h_it->first + ": " + h_it->second.front();
+            const std::string header = h_it->first + ":" + ( h_it->second.front().length() > 0 ? " " + h_it->second.front() : "" );
             headers_ = curl_slist_append(headers_, header.c_str());
             if ( nullptr == headers_ ) {
                 if ( nullptr != handle_ ) {
@@ -161,9 +175,10 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
             handle_ = nullptr;
         }
         throw ev::Exception("Unable to initializer CURL handle - error code %d!", initialization_error_);
+    } else {
+        tx_body_ = "";
     }
     step_     = ev::curl::Request::Step::NotSet;
-    tx_body_  = nullptr != a_body ? *a_body : "";
     tx_count_ = 0;
 }
 
