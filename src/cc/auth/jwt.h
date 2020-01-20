@@ -95,6 +95,8 @@ namespace cc
             
             Json::Value Debug                () const;
             
+            const Json::Value& payload () const;
+            
         }; // end of class 'JWT'
         
         /**
@@ -117,6 +119,11 @@ namespace cc
             object["payload"] = payload_;
             
             return object;
+        }
+    
+        inline const Json::Value& JWT::payload () const
+        {
+            return payload_;
         }
         
     } // end of namespace 'auth'
