@@ -101,10 +101,10 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
     tx_body_ = nullptr != a_body ? *a_body : "";
 
     // ... setup handle callbacks according to HTTP request type ...
+    bool disable_chunked = false;
     switch ( http_request_type_ ) {
         case ev::curl::Request::HTTPRequestType::POST:
         {
-            bool disable_chunked = false;
             if ( nullptr != a_headers && a_headers->size() > 0 ) {
                 const auto it   = a_headers->find("Expect");
                 disable_chunked = ( a_headers->end() != it && it->second.size() == 1 && 0 == it->second[0].size() );
@@ -148,6 +148,16 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
                     handle_ = nullptr;
                 }
                 throw ev::Exception("Unable to append request headers - nullptr!");
+            }
+        }
+        if ( false == disable_chunked && true == a_disable_chunked ) {
+            headers_ = curl_slist_append(headers_, "Expect:");
+            if ( nullptr == headers_ ) {
+                if ( nullptr != handle_ ) {
+                    curl_easy_cleanup(handle_);
+                    handle_ = nullptr;
+                }
+                throw ev::Exception("Unable to append request header 'Expect' - nullptr!");
             }
         }
         initialization_error_ += curl_easy_setopt(handle_, CURLOPT_HTTPHEADER, headers_);
