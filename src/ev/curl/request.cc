@@ -33,10 +33,12 @@
  * @param a_type
  * @param a_payload
  * @param a_headers
+ * @param a_disable_chunked
  */
 ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
                             const ev::curl::Request::HTTPRequestType& a_type, const std::string& a_url,
-                            const EV_CURL_HEADERS_MAP* a_headers = nullptr, const std::string* a_body = nullptr)
+                            const EV_CURL_HEADERS_MAP* a_headers, const std::string* a_body,
+                            bool a_disable_chunked)
     : ev::Request(a_loggable_data, ev::Object::Target::CURL, ev::Request::Mode::OneShot), http_request_type_(a_type)
 {
     url_                  = a_url;
@@ -107,7 +109,7 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
                 const auto it   = a_headers->find("Expect");
                 disable_chunked = ( a_headers->end() != it && it->second.size() == 1 && 0 == it->second[0].size() );
             }
-            if ( true == disable_chunked ) {
+            if ( true == disable_chunked || true == a_disable_chunked ) {
                 initialization_error_ += curl_easy_setopt(handle_, CURLOPT_POSTFIELDS, strdup(tx_body_.c_str()));
                 initialization_error_ += curl_easy_setopt(handle_, CURLOPT_INFILESIZE_LARGE, (curl_off_t)tx_body_.length());
             } else {
