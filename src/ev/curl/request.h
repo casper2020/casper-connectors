@@ -94,8 +94,7 @@ namespace ev
 
             Request (const Loggable::Data& a_loggable_data,
                      const HTTPRequestType& a_type, const std::string& a_url,
-                     const EV_CURL_HEADERS_MAP* a_headers = nullptr, const std::string* a_body = nullptr,
-                     bool a_disable_chunked = false);
+                     const EV_CURL_HEADERS_MAP* a_headers = nullptr, const std::string* a_body = nullptr);
             virtual ~Request();
 
         public: // Inherited Virtual Method(s) / Function(s)
