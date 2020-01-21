@@ -79,7 +79,7 @@ void ev::curl::HTTP::PUT (const ::ev::Loggable::Data& a_loggable_data,
                           EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
 {
     Async(new ::ev::curl::Request(a_loggable_data,
-                                  curl::Request::HTTPRequestType::PUT, a_url, a_headers, a_body,
+                                  curl::Request::HTTPRequestType::PUT, a_url, a_headers, a_body
           ),
           a_success_callback, a_failure_callback
     );
