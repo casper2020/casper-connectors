@@ -513,11 +513,24 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
 */
 void ev::auth::route::Gatekeeper::ExtractURLComponent (const std::string& a_url, const CURLUPart a_part, std::string& o_value)
 {
-    const CURLUcode set_rc = curl_url_set(tmp_url_, CURLUPART_URL, a_url.c_str(), /* flags */ 0);
-    if ( CURLUE_OK != set_rc ) {
-        throw ::ev::Exception("Unable to set a CURLU value!");
+    if ( 0 == strncasecmp("http", a_url.c_str(), sizeof(char) * 4) ) {
+        const CURLUcode set_rc = curl_url_set(tmp_url_, CURLUPART_URL, a_url.c_str(), /* flags */ 0);
+        if ( CURLUE_OK != set_rc ) {
+            throw ::ev::Exception("Unable to set a cURL URL value!");
+        }
+    } else if ( 0 == strncasecmp("?", a_url.c_str(), sizeof(char)) ) {
+        const CURLUcode set_rc = curl_url_set(tmp_url_, CURLUPART_QUERY, a_url.c_str(), /* flags */ 0);
+        if ( CURLUE_OK != set_rc ) {
+            throw ::ev::Exception("Unable to set a cURL QUERY value!");
+        }
+    } else if ( 0 == strncasecmp("/", a_url.c_str(), sizeof(char)) ) {
+        const CURLUcode set_rc = curl_url_set(tmp_url_, CURLUPART_PATH, a_url.c_str(), /* flags */ 0);
+        if ( CURLUE_OK != set_rc ) {
+            throw ::ev::Exception("Unable to set a cURL PATH value!");
+        }
+    } else {
+        throw ::ev::Exception("Unable to set a cURL ??? value!");
     }
-
     char*           part_value  = NULL;
     const CURLUcode part_get_rc = curl_url_get(tmp_url_, a_part, &part_value, /* flags */ 0);
     if ( CURLUE_OK == part_get_rc ) {
