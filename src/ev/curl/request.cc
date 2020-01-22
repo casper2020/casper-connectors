@@ -36,7 +36,7 @@
  */
 ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
                             const ev::curl::Request::HTTPRequestType& a_type, const std::string& a_url,
-                            const EV_CURL_HEADERS_MAP* a_headers = nullptr, const std::string* a_body = nullptr)
+                            const EV_CURL_HEADERS_MAP* a_headers, const std::string* a_body)
     : ev::Request(a_loggable_data, ev::Object::Target::CURL, ev::Request::Mode::OneShot), http_request_type_(a_type)
 {
     url_                  = a_url;
@@ -102,18 +102,9 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
     switch ( http_request_type_ ) {
         case ev::curl::Request::HTTPRequestType::POST:
         {
-            bool disable_chunked = false;
-            if ( nullptr != a_headers && a_headers->size() > 0 ) {
-                const auto it   = a_headers->find("Expect");
-                disable_chunked = ( a_headers->end() != it && it->second.size() == 1 && 0 == it->second[0].size() );
-            }
-            if ( true == disable_chunked ) {
-                initialization_error_ += curl_easy_setopt(handle_, CURLOPT_POSTFIELDS, strdup(tx_body_.c_str()));
-                initialization_error_ += curl_easy_setopt(handle_, CURLOPT_INFILESIZE_LARGE, (curl_off_t)tx_body_.length());
-            } else {
-                initialization_error_ += curl_easy_setopt(handle_, CURLOPT_READDATA        , this);
-                initialization_error_ += curl_easy_setopt(handle_, CURLOPT_READFUNCTION    , ReadDataCallbackWrapper);
-            }
+            initialization_error_ += curl_easy_setopt(handle_, CURLOPT_POSTFIELDSIZE   , (curl_off_t)tx_body_.size());
+            initialization_error_ += curl_easy_setopt(handle_, CURLOPT_READDATA        , this);
+            initialization_error_ += curl_easy_setopt(handle_, CURLOPT_READFUNCTION    , ReadDataCallbackWrapper);
             initialization_error_ += curl_easy_setopt(handle_, CURLOPT_WRITEDATA       , this);
             initialization_error_ += curl_easy_setopt(handle_, CURLOPT_WRITEFUNCTION   , WriteDataCallbackWrapper);
         }
@@ -153,7 +144,7 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
 
 
     if ( ev::curl::Request::HTTPRequestType::POST == http_request_type_ ) {
-        const std::string content_length = "Content-Length: " + std::to_string( nullptr != a_body ? a_body->size() : 0 );
+        const std::string content_length = "Content-Length: " + std::to_string(tx_body_.size());
         headers_ = curl_slist_append(headers_, content_length.c_str());
         if ( nullptr == headers_ ) {
             if ( nullptr != handle_ ) {
@@ -163,6 +154,9 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
             throw ev::Exception("Unable to append request headers - nullptr!");
         }
     }
+    
+    step_     = ev::curl::Request::Step::NotSet;
+    tx_count_ = 0;
 
     // ... check for error(s) ...
     if ( initialization_error_ != CURLE_OK ) {
@@ -174,12 +168,9 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
             curl_easy_cleanup(handle_);
             handle_ = nullptr;
         }
-        throw ev::Exception("Unable to initializer CURL handle - error code %d!", initialization_error_);
-    } else {
         tx_body_ = "";
+        throw ev::Exception("Unable to initializer CURL handle - error code %d!", initialization_error_);
     }
-    step_     = ev::curl::Request::Step::NotSet;
-    tx_count_ = 0;
 }
 
 /**
