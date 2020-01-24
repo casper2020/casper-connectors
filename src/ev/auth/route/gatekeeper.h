@@ -52,11 +52,16 @@ namespace ev
             public: // Data Type(s)
                 
                 typedef struct {
-                    const size_t ttr_;
-                    const size_t validity_;
-                } DeflectorData;
-
-                typedef std::function<DeflectorData(const std::string&, ssize_t, ssize_t)> Deflector;
+                    const size_t      ttr_;
+                    const size_t      validity_;
+                    uint16_t          status_code_;   // HTTP STATUS CODE
+                    std::string       status_message_;
+                } DeflectorResult;
+                
+                typedef struct {
+                    std::function<DeflectorResult(const std::string&, ssize_t, ssize_t)> on_deflect_;
+                    std::function<void(const::ev::Exception&)>                           on_exception_caught_;
+                } Deflector;
 
             private: // Data Type(s)
                 
@@ -139,9 +144,12 @@ namespace ev
             public: // Data Type(s)
                 
                 typedef struct {
-                    uint16_t    code_;
-                    Json::Value data_;
-                    bool        deflected_;
+                    uint16_t       code_;
+                    Json::Value    data_;
+                    bool           deflected_;
+                    uint16_t       deflector_code_;
+                    std::string    deflector_msg_;
+                    cc::Exception* exception_;
                 } Status;
                 
             private: // Static Data
@@ -173,7 +181,8 @@ namespace ev
                                     const Loggable::Data &a_loggable_data);
                 const Status& Allow (const std::string& a_method, const std::string& a_url, const ev::casper::Session& a_session,
                                     Deflector a_deflector,
-                                    const Loggable::Data &a_loggable_data);                
+                                    const Loggable::Data &a_loggable_data);
+
             private: // Method(s) / Function(s)
 
                 void Load                (const std::string& a_uri, const size_t a_signo);
@@ -186,17 +195,19 @@ namespace ev
                                                   const Rule* a_rule);
                 
                 const Status& SetDeflected       (const std::string& a_method, const std::string& a_path,
-                                                  const Rule* a_rule, const DeflectorData& a_data);
+                                                  const Rule* a_rule, const DeflectorResult& a_result);
 
                 const Status& SerializeError     (const std::string& a_method, const std::string& a_path, const uint16_t a_code,
-                                                  const Rule* a_rule, const Rule::Fields& a_fields);
+                                                  const Rule* a_rule, const Rule::Fields& a_fields,
+                                                  const DeflectorResult* a_deflector_result = nullptr);
+                
                 const Status& SerializeException (const std::string& a_method, const std::string& a_path, const ev::Exception& a_exception);
 
             private: // Logging Method(s) / Function(s)
 
                 void Log (const Rule* a_rule) const;
                 void Log (const std::string& a_method, const std::string& a_path,  const uint16_t& a_status_code,
-                          const Rule* a_rule, const Rule::Fields& a_fields, const DeflectorData* a_data,
+                          const Rule* a_rule, const Rule::Fields& a_fields, const DeflectorResult* a_result,
                           const ev::Exception* a_exception) const;
                 void Log (const ev::Exception& a_exception);
                 
