@@ -535,7 +535,10 @@ void ev::redis::Device::HiredisConnectCallback (const struct redisAsyncContext* 
 
         // ... check for error(s) ...
         if ( REDIS_OK != a_status ) {
-            device->last_error_msg_ = nullptr != a_context->errstr ? a_context->errstr : std::to_string(a_status);
+            device->last_error_msg_ = "REDIS CONNECTOR: " + ( nullptr != a_context->errstr ? a_context->errstr : std::to_string(a_status) );
+            if ( nullptr != strcasestr(device->last_error_msg_.c_str(), "Connection refused") ) {
+                device->last_error_msg_ += " at " + device->ip_address_ + ":" + std::to_string(device->port_number_) + ", database " + std::to_string(device->database_index_);
+            }
         } else {
             device->last_error_msg_ = "";
         }
