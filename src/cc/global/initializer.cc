@@ -98,6 +98,7 @@ cc::global::OneShot::~OneShot ()
  * @param a_directories  [OPTIONAL] directories information, see \link cc::global::Initializer::Directories \link.
  * @param a_logs         [REQUIRED] Logs to be registered.
  * @param a_next_step    [REQUIRED] Function & arguments to call / pass before exiting this function call.
+ * @param a_present      [REQUIRED]
  * @param a_debug_tokens [OPTIONAL] Debug tokens to register.
  */
 void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
@@ -105,6 +106,7 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
                                       const cc::global::Logs& a_logs,
                                       const cc::global::Initializer::V8& a_v8,
                                       const cc::global::Initializer::WarmUpNextStep& a_next_step,
+                                      const std::function<void(std::string&, std::map<std::string, std::string>&)> a_present,
                                       const std::set<std::string>* a_debug_tokens)
 {
     // ... can't start if alread initialized ...
@@ -379,7 +381,22 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         
         // ... mark as warmed up ...
         warmed_up_ = true;
-
+        
+        //
+        // ... present ...
+        //
+        if ( nullptr != a_present ) {
+            std::string                        title;
+            std::map<std::string, std::string> values;
+            a_present(title, values);
+            if ( values.size() > 0 ) {
+                Log("status", "\n\t⌥ %s\n", title.c_str());
+                for ( const auto& p : values ) {
+                    Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", p.first.c_str(), p.second.c_str());
+                }
+            }
+        }
+        
         // ... done ..
         Log("status", "\n* %s - %s process w/pid %u configured...\n",
             process_->info_.c_str(), ( true == process_->is_master_ ? "master" : "worker" ), process_->pid_

@@ -26,6 +26,7 @@
 
 #include <set>
 #include <vector>
+#include <map>
 #include <string>
 #include <functional> // std::function
 
@@ -93,6 +94,7 @@ namespace cc
             
             void WarmUp   (const Process& a_process, const Directories* a_directories, const Logs& a_logs, const V8& a_v8,
                            const WarmUpNextStep& a_next_step,
+                           const std::function<void(std::string&, std::map<std::string, std::string>&)> a_present,
                            const std::set<std::string>* a_debug_tokens);
             void Startup  (const Signals& a_signals, const Callbacks& a_callbacks);
             void Shutdown (bool a_for_cleanup_only);

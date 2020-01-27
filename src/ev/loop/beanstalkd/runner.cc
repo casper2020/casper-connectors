@@ -41,6 +41,8 @@
 
 #include "cc/threading/worker.h"
 
+#include <iterator> // std::advance
+
 #ifdef __APPLE__
 #pragma mark -
 #endif
@@ -181,9 +183,18 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
             /* function_ */ std::bind(&ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
             /* args_     */ (void*)(&a_config)
         },
+        /* a_present */ [this] (std::string& o_title, std::map<std::string, std::string>& o_values) {
+            o_title = "TUBES";
+            auto it = shared_config_->beanstalk_.tubes_.begin();
+            for ( size_t idx = 0 ; idx < shared_config_->beanstalk_.tubes_.size(); ++idx ) {
+                std::advance(it, idx);
+                o_values["tubes[" + std::to_string(idx) + "]"] = *it;
+            }
+        },
         /* a_debug_tokens */
         CC_IF_DEBUG_ELSE(&debug_tokens, nullptr)
     );
+    
     
     ::cc::global::Initializer::GetInstance().Startup(
         /* a_signals */
