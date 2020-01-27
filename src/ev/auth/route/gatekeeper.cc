@@ -69,9 +69,12 @@ void ev::auth::route::Gatekeeper::Startup (const Loggable::Data &a_loggable_data
     
     // ... reset reusable variables ...
     status_ = {
-        /* code_ */      500,
-        /* data_ */      Json::Value::null,
-        /* deflected_ */ false
+        /* code_           */ 500,
+        /* data_           */ Json::Value::null,
+        /* deflected_      */ false,
+        /* deflector_code_ */ 421,
+        /* deflector_msg_  */ "",
+        /* exception_ */ nullptr
     };
 
     if ( nullptr == s_logger_settings_.data_ ) {
@@ -152,7 +155,7 @@ void ev::auth::route::Gatekeeper::Shutdown ()
 const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Allow (const std::string& a_method, const std::string& a_url, const ev::casper::Session& a_session,
                                                                                const Loggable::Data &a_loggable_data)
 {
-    return Allow(a_method, a_url, a_session, /* a_deflector */ nullptr, a_loggable_data);
+    return Allow(a_method, a_url, a_session, /* a_deflector */ { nullptr, nullptr }, a_loggable_data);
 }
 
 /**
@@ -178,9 +181,15 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Allow (c
         }
 
         // ... reset last status ...
-        status_.code_      = 500;
-        status_.data_      = Json::Value::null;
-        status_.deflected_ = false;
+        status_.code_           = 500;
+        status_.data_           = Json::Value::null;
+        status_.deflected_      = false;
+        status_.deflector_code_ = 421;
+        status_.deflector_msg_  = "";
+        if ( nullptr != status_.exception_ ) {
+            delete status_.exception_;
+            status_.exception_ = nullptr;
+        }
 
         // ... update loggable data ( s_logger_settings_.data_ is mutable and should be always updated  ) ...
         s_logger_settings_.data_->Update(a_loggable_data.module(), a_loggable_data.ip_addr(), a_loggable_data.tag());
@@ -231,10 +240,25 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Allow (c
             // ... passage granted, deflect job?
             if ( nullptr != rule->job_ ) {
                 // ... yes ...
-                if ( nullptr != a_deflector ) {
-                    // ... call deflector and we're done ...
-                    // ... we're done ...
-                    return SetDeflected(a_method, tmp_path_, rule, a_deflector(rule->job_->tube_, rule->job_->ttr_, rule->job_->validity_));
+                if ( nullptr != a_deflector.on_deflect_ ) {
+                    // ... call deflector ...
+                    try {
+                        const auto result = a_deflector.on_deflect_(rule->job_->tube_, rule->job_->ttr_, rule->job_->validity_);
+                        if ( 200 == result.status_code_ ) {
+                            return SetDeflected(a_method, tmp_path_, rule, result);
+                        } else {
+                            return SerializeError(a_method, tmp_path_, result.status_code_, rule, /* a_fields */ {}, &result);
+                        }
+                    } catch (const ::ev::Exception& a_ev_exception) {
+                        // ... notify caller ...
+                        if ( nullptr != a_deflector.on_exception_caught_ ) {
+                            // ... deflector will handle with exceptions ...
+                            a_deflector.on_exception_caught_(a_ev_exception);
+                        } else {
+                            // ... re-throw exception ...
+                            throw a_ev_exception;
+                        }
+                    }
                 } else {
                     // ... 501 - Not Implemented - deflector not supported / implemented ...
                     return SerializeError(a_method, tmp_path_, 501, rule, /* a_fields */ {});
@@ -513,11 +537,24 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
 */
 void ev::auth::route::Gatekeeper::ExtractURLComponent (const std::string& a_url, const CURLUPart a_part, std::string& o_value)
 {
-    const CURLUcode set_rc = curl_url_set(tmp_url_, CURLUPART_URL, a_url.c_str(), /* flags */ 0);
-    if ( CURLUE_OK != set_rc ) {
-        throw ::ev::Exception("Unable to set a CURLU value!");
+    if ( 0 == strncasecmp("http", a_url.c_str(), sizeof(char) * 4) ) {
+        const CURLUcode set_rc = curl_url_set(tmp_url_, CURLUPART_URL, a_url.c_str(), /* flags */ 0);
+        if ( CURLUE_OK != set_rc ) {
+            throw ::ev::Exception("Unable to set a cURL URL value!");
+        }
+    } else if ( 0 == strncasecmp("?", a_url.c_str(), sizeof(char)) ) {
+        const CURLUcode set_rc = curl_url_set(tmp_url_, CURLUPART_QUERY, a_url.c_str(), /* flags */ 0);
+        if ( CURLUE_OK != set_rc ) {
+            throw ::ev::Exception("Unable to set a cURL QUERY value!");
+        }
+    } else if ( 0 == strncasecmp("/", a_url.c_str(), sizeof(char)) ) {
+        const CURLUcode set_rc = curl_url_set(tmp_url_, CURLUPART_PATH, a_url.c_str(), /* flags */ 0);
+        if ( CURLUE_OK != set_rc ) {
+            throw ::ev::Exception("Unable to set a cURL PATH value!");
+        }
+    } else {
+        throw ::ev::Exception("Unable to set a cURL ??? value!");
     }
-
     char*           part_value  = NULL;
     const CURLUcode part_get_rc = curl_url_get(tmp_url_, a_part, &part_value, /* flags */ 0);
     if ( CURLUE_OK == part_get_rc ) {
@@ -546,8 +583,14 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::SetAllow
                                                                                     const ev::auth::route::Gatekeeper::Rule *a_rule)
 {
     // ... 200 - OK ...
-    status_.code_      = 200;
-    status_.deflected_ = false;
+    status_.code_           = 200;
+    status_.deflected_      = false;
+    status_.deflector_code_ = 421;
+    status_.deflector_msg_  = "";
+    if ( nullptr != status_.exception_ ) {
+        delete status_.exception_;
+        status_.exception_ = nullptr;
+    }
     // ... log data ...
     Log(a_method, a_path, /* a_status_code */ 200, a_rule, /* a_fields */ {}, /* a_data */ nullptr, /* a_exception */ nullptr);
     // ... we're done ...
@@ -561,17 +604,23 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::SetAllow
  * @param a_method HTTP method name.
  * @param a_path   Request URL path component.
  * @param a_rule See \link Rule \link.
- * @param a_data See \link DeflectorData \link
+ * @param a_result See \link DeflectorResult \link
  */
 const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::SetDeflected (const std::string& a_method, const std::string& a_path,
                                                                                       const ev::auth::route::Gatekeeper::Rule *a_rule,
-                                                                                      const ev::auth::route::Gatekeeper::DeflectorData& a_data)
+                                                                                      const ev::auth::route::Gatekeeper::DeflectorResult& a_result)
 {
     // ... 200 - OK ...
-    status_.code_      = 200;
-    status_.deflected_ = true;
+    status_.code_           = 200;
+    status_.deflected_      = true;
+    status_.deflector_code_ = a_result.status_code_;
+    status_.deflector_msg_  = a_result.status_message_;
+    if ( nullptr != status_.exception_ ) {
+        delete status_.exception_;
+        status_.exception_ = nullptr;
+    }
     // ... log data ...
-    Log(a_method, a_path, /* a_status_code */ 200, a_rule, /* a_fields */ {}, /* a_data */ &a_data, /* a_exception */ nullptr);
+    Log(a_method, a_path, /* a_status_code */ 200, a_rule, /* a_fields */ {}, /* a_data */ &a_result, /* a_exception */ nullptr);
     // ... we're done ...
     return status_;
 }
@@ -584,13 +633,28 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::SetDefle
  * @param a_code   One of HTTP status code.
  * @param a_rule   See \link Rule \link.
  * @param a_fields Rule fields.
+ * @param a_result If deflection attempted, it's result.
  */
-const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::SerializeError (const std::string& a_method, const std::string& a_path, const uint16_t a_code,
-                                                                                        const ev::auth::route::Gatekeeper::Rule* a_rule, const Rule::Fields& a_fields)
+const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::SerializeError (const std::string& a_method, const std::string& a_path,
+                                                                                        const uint16_t a_code,
+                                                                                        const ev::auth::route::Gatekeeper::Rule* a_rule,
+                                                                                        const Rule::Fields& a_fields,
+                                                                                        const ev::auth::route::Gatekeeper::DeflectorResult* a_result)
 {
     // ... an error ocurred, translate to a JSON api error object ...
     status_.code_           = a_code;
     status_.deflected_      = false;
+    if ( nullptr != a_result ) {
+        status_.deflector_code_ = a_result->status_code_;
+        status_.deflector_msg_  = a_result->status_message_;
+    } else {
+        status_.deflector_code_ = 421;
+        status_.deflector_msg_  = "";
+    }
+    if ( nullptr != status_.exception_ ) {
+        delete status_.exception_;
+        status_.exception_ = nullptr;
+    }
     status_.data_           = Json::Value(Json::ValueType::objectValue);
     status_.data_["errors"] = Json::Value(Json::ValueType::arrayValue);
     
@@ -627,13 +691,20 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Serializ
     // ... fill 'meta/internal-error' data ...
     internal["method"] = a_method;
     internal["path"]   = a_path;
-    if ( nullptr != a_rule ) {
+    if ( nullptr != a_result && a_result->status_message_.length() > 0 ) {
+        internal["why"]  = a_result->status_message_;
+    } else if ( nullptr != a_rule ) {
         internal["why"] = "Access denied by rule at index " + std::to_string(a_rule->idx_) + ".";
     } else {
-        internal["why"]  = "No rule found for this request.";
+        internal["why"] = "No rule found for this request.";
     }
     // ... log attempt ...
-    Log(a_method, a_path, a_code, a_rule, a_fields,  /* a_data */ nullptr, /* a_exception */ nullptr);
+    if ( nullptr != a_result ) {
+        const ev::Exception e = ev::Exception(internal["why"].asString());
+        Log(a_method, a_path, a_code, a_rule, a_fields,  /* a_data */ nullptr, /* a_exception */ &e);
+    } else {
+        Log(a_method, a_path, a_code, a_rule, a_fields,  /* a_data */ nullptr, /* a_exception */ nullptr);
+    }
     // ... we're done ...
     return status_;
 }
@@ -652,6 +723,12 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Serializ
     // ... an error ocurred, translate to a JSON api error object ...
     status_.code_           = 500;
     status_.deflected_      = false;
+    status_.deflector_code_ = 421;
+    status_.deflector_msg_  = "";
+    if ( nullptr != status_.exception_ ) {
+        delete status_.exception_;
+    }
+    status_.exception_      = new ::cc::Exception(a_exception);
     status_.data_           = Json::Value(Json::ValueType::objectValue);
     status_.data_["errors"] = Json::Value(Json::ValueType::arrayValue);
     
@@ -740,11 +817,12 @@ void ev::auth::route::Gatekeeper::Log (const ev::auth::route::Gatekeeper::Rule* 
  * @param a_code      One of HTTP status code.
  * @param a_rule      See \link Rule \link.
  * @param a_fields    Rule fields.
- * @param a_data      See \link DeflectorData \link
+ * @param a_result    See \link DeflectorResult \link
  * @param a_exception Exception to log.
  */
 void ev::auth::route::Gatekeeper::Log (const std::string& a_method, const std::string& a_path, const uint16_t& a_status_code,
-                                       const ev::auth::route::Gatekeeper::Rule* a_rule, const Rule::Fields& a_fields, const ev::auth::route::Gatekeeper::DeflectorData* a_data,
+                                       const ev::auth::route::Gatekeeper::Rule* a_rule, const Rule::Fields& a_fields,
+                                       const ev::auth::route::Gatekeeper::DeflectorResult* a_result,
                                        const ev::Exception* a_exception) const
 {    // ... is logger token is enabled?
     auto& logger = ::ev::LoggerV2::GetInstance();
@@ -773,7 +851,7 @@ void ev::auth::route::Gatekeeper::Log (const std::string& a_method, const std::s
             sstream << ", " << std::setfill(' ') << std::setw(static_cast<int>(s_logger_settings_.index_padding_)) << a_rule->idx_;
             sstream << ", allowed by rule";
             if ( nullptr != a_rule->job_ ) {
-                sstream << " and deflected to '" << a_rule->job_->tube_ << "' ( ttr = " << a_data->ttr_ << ", validity = " << a_data->validity_ << " )";
+                sstream << " and deflected to '" << a_rule->job_->tube_ << "' ( ttr = " << a_result->ttr_ << ", validity = " << a_result->validity_ << " )";
             }
         } else if ( 0 == rules_.size() ) {
             // ... not rules loaded ...
