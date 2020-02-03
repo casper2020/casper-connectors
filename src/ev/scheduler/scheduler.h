@@ -76,6 +76,10 @@ namespace ev
             
             std::atomic<int>                   pending_callbacks_count_;
             
+        private: // Data
+            
+            std::set<std::string>              pending_timeouts_;
+            
         public: // Method(s) / Function(s)
             
             void Start      (const std::string& a_socket_fn,
