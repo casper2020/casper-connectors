@@ -22,6 +22,8 @@
 #ifndef NRS_EV_SCHEDULER_CLIENT_H_
 #define NRS_EV_SCHEDULER_CLIENT_H_
 
+#include <algorithm> // std::min
+
 namespace ev
 {
     
@@ -31,7 +33,27 @@ namespace ev
         class Client
         {
             
+        private: // Data
+            
+            std::string id_;
+            
         public: // Constructor(s) / Destructor
+            
+            /**
+             * @brief Default constructor.
+             */
+            Client ()
+            {
+                id_ = std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+                id_ += "-";
+                id_ += std::to_string(reinterpret_cast<uintptr_t>(this));
+                id_ += "-";
+                for (int idx = 0; idx < std::min(48, 63); ++idx ) {
+                    id_ += alphanum()[random() % 62];
+                }
+                id_ += "-";
+                id_ += std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+            }
             
             /**
              * @brief Destructor.
@@ -41,8 +63,30 @@ namespace ev
                 /* empty */
             }
             
+        public:
+            
+            const std::string& id () const;
+            
+        protected: // Const Expr
+            
+            /**
+             * @return Const 64 length alpha numeric string.
+             */
+            static inline constexpr const char* alphanum ()
+            {
+                return "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            }
+
         };
-        
+    
+        /**
+         * @return A previously random generated id.
+         */
+        inline const std::string& Client::id () const
+        {
+            return id_;
+        }
+            
     } // end of namespace 'scheduler'
     
 } // end of namespace 'ev'

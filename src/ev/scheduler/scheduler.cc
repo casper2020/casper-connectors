@@ -327,6 +327,11 @@ void ev::scheduler::Scheduler::Unregister (ev::scheduler::Client* a_client)
         object_to_client_map_.erase(object_to_client_map_.find(obj));
     }
     // [E] AG: NOV 26, 2018
+    // ... unregister timeout callbacks ...
+    const auto timeout_callback_it = pending_timeouts_.find(a_client->id());
+    if ( pending_timeouts_.end() != timeout_callback_it ) {
+        pending_timeouts_.erase(timeout_callback_it);
+    }
     // ... get rid of 'zombie' objects ...
     KillZombies();
 }
@@ -341,13 +346,20 @@ void ev::scheduler::Scheduler::Unregister (ev::scheduler::Client* a_client)
 void ev::scheduler::Scheduler::SetClientTimeout (ev::scheduler::Client* a_client,
                                                  uint64_t a_ms, ev::scheduler::Scheduler::TimeoutCallback a_callback)
 {
+    const std::string id = a_client->id();
+    // ... register as pending callback ...
+    pending_timeouts_.insert(id);
+    // ... schedule callback ...
     bridge_ptr_->CallOnMainThread(
                                   /* a_callback */
-                                  [this, a_client, a_callback] () {
-                                      const auto it = clients_to_objects_map_.find(a_client);
-                                      if ( clients_to_objects_map_.end() == it ) {
+                                  [this, id, a_callback] () {
+                                      // ... if ...
+                                      const auto t_it = pending_timeouts_.find(id);
+                                      if ( pending_timeouts_.end() == t_it ) {
+                                          // ... timeout was cancelled, function can't be called ...
                                           return;
                                       }
+                                      // ... timeout was not cancelled, call function now ...
                                       a_callback();
                                   },
                                   /* a_timeout_ms */
