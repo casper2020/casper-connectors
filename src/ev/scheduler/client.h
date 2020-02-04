@@ -72,7 +72,7 @@ namespace ev
             /**
              * @return Const 64 length alpha numeric string.
              */
-            constexpr const char* const alphanum () const
+            constexpr const char* alphanum () const
             {
                 return "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
             }
