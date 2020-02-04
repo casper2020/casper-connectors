@@ -67,12 +67,12 @@ namespace ev
             
             const std::string& id () const;
             
-        protected:
+        protected: // Const Expr
             
             /**
              * @return Const 64 length alpha numeric string.
              */
-            constexpr const char* alphanum () const
+            static inline constexpr const char* alphanum ()
             {
                 return "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
             }
