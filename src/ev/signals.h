@@ -52,7 +52,7 @@ namespace ev
         
     private: // Data
         
-        std::map<int, std::vector<std::function<void(int)>>*>          other_signal_handlers_;
+        static std::map<int, std::vector<std::function<void(int)>>*>          s_other_signal_handlers_;
         
     public: // Method(s) / Function(s)
         

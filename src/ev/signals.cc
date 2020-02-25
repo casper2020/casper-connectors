@@ -35,6 +35,8 @@ ev::Bridge*                                              ev::Signals::s_bridge_p
 std::function<void(const ev::Exception& a_ev_exception)> ev::Signals::s_fatal_exception_callback_  = nullptr;
 std::function<bool(int)>                                 ev::Signals::s_unhandled_signal_callback_ = nullptr;
 
+std::map<int, std::vector<std::function<void(int)>>*> ev::Signals::s_other_signal_handlers_ = {};
+
 /**
  * @brief Signal handler.
  *
@@ -89,10 +91,10 @@ void ev::Signals::Append (const std::set<int>& a_signals, std::function<void (in
 {
     std::vector<std::function<void(int)>>* vector = nullptr;
     for ( auto signal : a_signals ) {
-        auto it = other_signal_handlers_.find(signal);
-        if ( other_signal_handlers_.end() == it ) {
+        auto it = s_other_signal_handlers_.find(signal);
+        if ( s_other_signal_handlers_.end() == it ) {
             vector = new std::vector<std::function<void(int)>>();
-            other_signal_handlers_[signal] = vector;
+            s_other_signal_handlers_[signal] = vector;
         } else {
             vector = it->second;
         }
@@ -121,11 +123,11 @@ void ev::Signals::Unregister ()
     ev::scheduler::Scheduler::GetInstance().Unregister(this);
     s_bridge_ptr_               = nullptr;
     s_fatal_exception_callback_ = nullptr;    
-    for ( auto it : other_signal_handlers_ ) {
+    for ( auto it : s_other_signal_handlers_ ) {
         it.second->clear();
         delete it.second;
     }
-    other_signal_handlers_.clear();
+    s_other_signal_handlers_.clear();
 }
 
 #ifdef __APPLE__
@@ -210,12 +212,19 @@ bool ev::Signals::OnSignal (const int a_sig_no)
             );
         }
         default:
-            rv = ( nullptr != s_unhandled_signal_callback_ ? s_unhandled_signal_callback_(a_sig_no) : false );
+	  {
+	    if ( nullptr != s_unhandled_signal_callback_ ) {
+	      rv = s_unhandled_signal_callback_(a_sig_no);
+	      if ( true == rv ) {
+		return rv;
+	      }
+	    }
+	  }
             break;
     }
     
     // ... notify other signal handlers ...
-    for ( auto it : other_signal_handlers_ ) {
+    for ( auto it : s_other_signal_handlers_ ) {
         for ( auto callback : (*it.second) ) {
             callback(it.first);
         }

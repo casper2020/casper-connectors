@@ -256,8 +256,8 @@ void ev::loop::Bridge::Quit ()
     if ( true == running_ && false == aborted_ ) {
         aborted_ = true;
         if ( nullptr != event_base_ ) {
-            event_base_loopbreak(event_base_);
-            abort_condition_.Wait();
+	  event_active(watchdog_event_, EV_TIMEOUT, 0);
+	  abort_condition_.Wait();
         }
     }
 }
@@ -322,6 +322,10 @@ void ev::loop::Bridge::Loop ()
     thread_id_ = osal::ThreadHelper::GetInstance().CurrentThreadID();
     
     running_ = true;
+
+    if ( false == osal::ThreadHelper::GetInstance().AtMainThread() ) {
+      osal::posix::ThreadHelper::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
+    }
 
 #if 0 // TODO
     detach_condition_.Wake();

@@ -410,6 +410,8 @@ void ev::hub::Hub::Loop ()
 #ifdef __APPLE__
     pthread_setname_np("ev::hub");
 #endif
+
+    osal::posix::ThreadHelper::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
     
     stepper_.setup_ = [this](ev::Device* a_device) {
         a_device->Setup(event_base_, [this] (const ev::Exception& a_ev_exception) {
