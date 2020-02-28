@@ -87,6 +87,13 @@ else
   CURL_HEADERS_DIR := ../casper-packager/curl/linux/pkg/$(TARGET)/curl/usr/local/casper/curl/include
 endif
 
+LIBUNWIND_HEADERS_DIR :=
+ifeq (Darwin, $(PLATFORM))
+  LIBUNWIND_HEADERS_DIR := ../casper-packager/libunwind/darwin/pkg/$(TARGET)/libunwind/usr/local/casper/libunwind/include
+else
+  LIBUNWIND_HEADERS_DIR := ../casper-packager/libunwind/linux/pkg/$(TARGET)/libunwind/usr/local/casper/libunwind/include
+endif
+
 EV_SRC :=                           \
 									./src/ev/logger_v2.cc                                                         \
 									./src/ev/signals.cc                                                           \
@@ -133,6 +140,7 @@ EV_SRC :=                           \
 									./src/ev/auth/route/gatekeeper.cc                                             \
 									./src/cc/errors/jsonapi/tracker.cc                                            \
 									./src/cc/errors/tracker.cc                                                    \
+									./src/cc/backtrace/unwind.cc                                                  \
 									./src/cc/fs/file.cc                                                           \
 									./src/cc/fs/posix/dir.cc                                                      \
 									./src/cc/fs/posix/file.cc                                                     \
@@ -193,7 +201,7 @@ ifeq (Darwin, $(PLATFORM))
 endif
 
 # cURL
-INCLUDE_DIRS += -I$(CURL_HEADERS_DIR)
+INCLUDE_DIRS += -I$(CURL_HEADERS_DIR) -I$(LIBUNWIND_HEADERS_DIR)
 
 # ngx dependency?
 ifdef NGX_DIR
