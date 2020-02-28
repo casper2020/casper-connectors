@@ -255,14 +255,16 @@ namespace ev
         
     public: // Registration API - Method(s) / Function(s)
         
-        void     Register     (const std::string& a_token, const std::string& a_file);
+        void        Register     (const std::string& a_token, const std::string& a_file);
+        bool        IsRegistered (const std::string& a_token);
         
-        bool     IsRegistered (Client* a_client, const std::string& a_token);
-        void     Register     (Client* a_client, const std::set<std::string>& a_tokens);
-        void     Unregister   (Client* a_client);
-        bool     Using        (Client* a_client, int a_fd);
+        bool        IsRegistered (Client* a_client, const std::string& a_token);
+        void        Register     (Client* a_client, const std::set<std::string>& a_tokens);
+        std::string Prefix       (Client* a_client) const;
+        void        Unregister   (Client* a_client);
+        bool        Using        (Client* a_client, int a_fd);
 
-        size_t   Count        (const char* const a_protocol);
+        size_t      Count        (const char* const a_protocol);
         
         
     public: // Log API - Method(s) / Function(s)
@@ -345,6 +347,19 @@ namespace ev
         }
     }
     
+    /**
+     * @brief Check if a token is registered.
+     *
+     * @param a_token
+     *
+     * @return True if so, false otherwise.
+     */
+    inline bool LoggerV2::IsRegistered (const std::string& a_token)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        // ... exists?
+        return ( tokens_.end() != tokens_.find(a_token) );
+    }
     
     /**
      * @brief Check if a client has a token registered.
