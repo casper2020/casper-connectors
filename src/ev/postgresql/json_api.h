@@ -198,10 +198,52 @@ namespace ev
                     return what_.c_str();
                 }
             };
-            
+
         public: // Data Type(s)
             
             typedef std::function<void(const char* a_uri, const char* a_json, const char* a_error, uint16_t a_status, uint64_t a_elapsed)> Callback;
+
+        private: // Data Type(s)
+            
+            class String
+            {
+             
+            private: // Const Data
+                
+                const bool        set_;
+                const std::string value_;
+                
+            public: // Constructor(s) / Destructor
+                
+                String (const char* const a_value)
+                    : set_( nullptr != a_value ), value_( nullptr != a_value  ? a_value : "")
+                {
+                    /* empty */
+                }
+                
+                virtual ~String ()
+                {
+                    /* empty */
+                }
+                
+            public: // Inline Method(s) / Function(s)
+                
+                inline const char* const value () const { return set_ ? value_.c_str() : nullptr; }
+                
+            };
+            
+            typedef struct {
+                String   uri_;
+                String   json_;
+                String   error_;
+                uint16_t status_;
+                uint64_t elapsed_;
+            } OutPayload;
+            
+            typedef struct {
+                const bool        deferred_;
+                const OutPayload* payload_;
+            } Response;
             
         private: // Const Refs
             
@@ -220,10 +262,14 @@ namespace ev
             std::string  sharded_schema_;       //!< Current sharded schema.
             std::string  subentity_schema_;     //!< Current subentity schema.
             std::string  subentity_prefix_;     //!< Current subentity table prefix.
+                
+        private: // Data
+                
+            Response response_;
             
         public: // Constructor(s) / Destructor
             
-            JSONAPI (const Loggable::Data& a_loggable_data_ref, bool a_enable_task_cancellation);
+            JSONAPI (const Loggable::Data& a_loggable_data_ref, bool a_enable_task_cancellation, bool a_deferred_response = false);
             JSONAPI (const JSONAPI& a_json_api);
             virtual ~JSONAPI ();
             
@@ -278,6 +324,10 @@ namespace ev
             void                   AsyncQuery (const ::ev::Loggable::Data& a_loggable_data,
                                                const std::string a_uri, Callback a_callback,
                                                std::string* o_query = nullptr);
+            
+            void                   OnReply    (const char* a_uri, const char* a_json, const char* a_error, uint16_t a_status, uint64_t a_elapsed,
+                                               Callback a_callback);
+            
             ::ev::scheduler::Task* NewTask    (const EV_TASK_PARAMS& a_callback);
             
             void                   InvalidateHandler ();
