@@ -66,7 +66,7 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
     initialization_error_ += curl_easy_setopt(handle_, CURLOPT_MAX_RECV_SPEED_LARGE, max_recv_speed_);
     initialization_error_ += curl_easy_setopt(handle_, CURLOPT_HEADERFUNCTION      , HeaderFunctionCallbackWrapper);
     initialization_error_ += curl_easy_setopt(handle_, CURLOPT_HEADERDATA          , this);
-
+    initialization_error_ += curl_easy_setopt(handle_, CURLOPT_FORBID_REUSE        , 1L);
     // ... setup handle options according to HTTP request type ...
     switch ( http_request_type_ ) {
         case ev::curl::Request::HTTPRequestType::GET:
