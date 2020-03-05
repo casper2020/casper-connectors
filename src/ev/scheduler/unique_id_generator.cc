@@ -26,25 +26,38 @@
 #include "ev/exception.h"
 #include <limits> // std::numeric_limits
 
-uint64_t ev::scheduler::UniqueIDGenerator::k_invalid_id_ = 0;
-uint64_t ev::scheduler::UniqueIDGenerator::next_         = ev::scheduler::UniqueIDGenerator::k_invalid_id_;
+uint64_t             ev::scheduler::UniqueIDGenerator::k_invalid_id_ = 0;
+uint64_t             ev::scheduler::UniqueIDGenerator::next_         = ev::scheduler::UniqueIDGenerator::k_invalid_id_;
+std::set<uint64_t>   ev::scheduler::UniqueIDGenerator::rented_       = {};
+std::queue<uint64_t> ev::scheduler::UniqueIDGenerator::cached_       = {};
+void*                ev::scheduler::UniqueIDGenerator::last_owner_   = nullptr;
 
 /**
  * @brief 'Rent' an unique id.
+ *
+ * @param a_owner
  */
-uint64_t ev::scheduler::UniqueIDGenerator::Rent ()
+uint64_t ev::scheduler::UniqueIDGenerator::Rent (void* /* a_owner */)
 {
     OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     uint64_t rv;
-    if ( cached_.size() > 0 ) {
-        rv = cached_.front();
-        cached_.pop();
-    } else {
-        if ( ( next_ + 1 ) == std::numeric_limits<uint64_t>::max() ) {
-            throw ev::Exception("Out of unique IDs!");
-        }
+//    if ( cached_.size() > 0 ) {
+//        rv = cached_.front();
+//        cached_.pop();
+//    } else {
+//        if ( ( next_ + 1 ) == std::numeric_limits<uint64_t>::max() ) {
+//            throw ev::Exception("Out of unique IDs while generating a new id!");
+//        }
+//        rv = ++next_;
+//    }
+//    // ... avoid sequential ids ...
+//    if ( a_owner == last_owner_ ) {
+//        if ( ( next_ + 1 ) == std::numeric_limits<uint64_t>::max() ) {
+//            throw ev::Exception("Out of unique IDs while avoiding sequential id!");
+//        }
         rv = ++next_;
-    }
+//    }
+//    last_owner_ = a_owner;
     return rv;
 }
 
@@ -52,11 +65,16 @@ uint64_t ev::scheduler::UniqueIDGenerator::Rent ()
  * @brief 'Return' an unique id.
  *
  * @param a_id Previously rented id.
+ * @param a_owner
  */
-void ev::scheduler::UniqueIDGenerator::Return (uint64_t a_id)
+void ev::scheduler::UniqueIDGenerator::Return (void* /* a_owner */, uint64_t /* a_id */)
 {
     OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
-    cached_.push(a_id);
+//    const auto it = rented_.find(a_id);
+//    if ( rented_.end() != it ) {
+//        rented_.erase(it);
+//        cached_.push(a_id);
+//    }
 }
 
 /**
@@ -67,6 +85,7 @@ void ev::scheduler::UniqueIDGenerator::Startup ()
     while ( cached_.size() > 0 ) {
         cached_.pop();
     }
+    rented_.clear();
     next_ = ev::scheduler::UniqueIDGenerator::k_invalid_id_;
 }
 
@@ -78,5 +97,6 @@ void ev::scheduler::UniqueIDGenerator::Shutdown ()
     while ( cached_.size() > 0 ) {
         cached_.pop();
     }
+    rented_.clear();
     next_ = 0;
 }
