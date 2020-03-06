@@ -36,9 +36,14 @@
  *
  * @param a_loggable_data_ref
  * @param a_enable_task_cancellation
+ * @param a_deferred_response
  */
-::ev::postgresql::JSONAPI::JSONAPI (const ::ev::Loggable::Data& a_loggable_data_ref, bool a_enable_task_cancellation)
-    : loggable_data_ref_(a_loggable_data_ref), enable_task_cancellation_(a_enable_task_cancellation)
+::ev::postgresql::JSONAPI::JSONAPI (const ::ev::Loggable::Data& a_loggable_data_ref, bool a_enable_task_cancellation, bool a_deferred_response)
+    : loggable_data_ref_(a_loggable_data_ref), enable_task_cancellation_(a_enable_task_cancellation),
+      response_({
+          /* deferred_ */ a_deferred_response,
+          /* payload_  */ nullptr
+      })
 {
     if ( true == enable_task_cancellation_ ) {
         uris_.invalidate_ = std::bind(&::ev::postgresql::JSONAPI::InvalidateHandler, this);
@@ -52,7 +57,11 @@
  * @param a_loggable_data_ref
  */
 ::ev::postgresql::JSONAPI::JSONAPI (const ::ev::postgresql::JSONAPI& a_json_api)
-    : loggable_data_ref_(a_json_api.loggable_data_ref_), enable_task_cancellation_(a_json_api.enable_task_cancellation_)
+    : loggable_data_ref_(a_json_api.loggable_data_ref_), enable_task_cancellation_(a_json_api.enable_task_cancellation_),
+      response_({
+          /* deferred_ */ a_json_api.response_.deferred_,
+          /* payload_  */ nullptr
+      })
 {
     uris_.SetBase(a_json_api.uris_.GetBase());
     user_id_          = a_json_api.user_id_;
@@ -73,6 +82,9 @@
 ::ev::postgresql::JSONAPI::~JSONAPI ()
 {
     ::ev::scheduler::Scheduler::GetInstance().Unregister(this);
+    if ( nullptr != response_.payload_ ) {
+        delete response_.payload_;
+    }
 }
 
 #ifdef __APPLE__
@@ -273,12 +285,12 @@ void ::ev::postgresql::JSONAPI::AsyncQuery (const ::ev::Loggable::Data& a_loggab
     if ( nullptr != o_query ) {
         (*o_query) = query;
     }
-
-    NewTask([query, a_loggable_data] () -> ::ev::Object* {
-
+    
+    NewTask([this, query, a_loggable_data] () -> ::ev::Object* {
+        
         return new ::ev::postgresql::Request(a_loggable_data, query);
         
-    })->Finally([query, a_callback] (::ev::Object* a_object) {
+    })->Finally([this, query, a_callback] (::ev::Object* a_object) {
                         
         const ::ev::Result* result = dynamic_cast<::ev::Result*>(a_object);
         if ( nullptr == result ) {
@@ -311,14 +323,55 @@ void ::ev::postgresql::JSONAPI::AsyncQuery (const ::ev::Loggable::Data& a_loggab
                 throw ::ev::Exception("Unexpected PostgreSQL unexpected number of returned rows : got %dx%d, expected 1x2 ( rows x columns )!",
                                       rows_count, columns_count);
             }
-            a_callback(/* a_uri */ query.c_str(), /* a_json */ value.raw_value(/* a_row */ 0, /* a_column */0), /* a_error */ nullptr, /* a_status */ static_cast<uint16_t>(atoi(value.raw_value(0, 1))), reply->elapsed_);
-        }        
+            OnReply(/* a_uri */ query.c_str(), /* a_json */ value.raw_value(/* a_row */ 0, /* a_column */0), /* a_error */ nullptr,
+                    /* a_status */ static_cast<uint16_t>(atoi(value.raw_value(0, 1))), /* a_elapsed */ reply->elapsed_, /* a_callback */ a_callback
+            );
+        }
         
-    })->Catch([query, a_callback] (const ::ev::Exception& a_ev_exception) {
-
-        a_callback(/* a_uri */ query.c_str(), /* a_json */ nullptr, /* a_error */ a_ev_exception.what(), /* a_status */ 500, /* a_elapsed */ 0);
-
+    })->Catch([this, query, a_callback] (const ::ev::Exception& a_ev_exception) {
+        OnReply(/* a_uri */ query.c_str(), /* a_json */ nullptr, /* a_error */ a_ev_exception.what(), /* a_status */ 500, /* a_elapsed */ 0, /* a_callback */ a_callback);
     });
+}
+
+/**
+* @brief Call this to deliver a previous request reply.
+*
+* @param a_uri
+* @param a_json
+* @param a_error
+* @param a_status
+* @param a_elapsed
+* @param a_callback
+*/
+void ::ev::postgresql::JSONAPI::OnReply (const char* a_uri, const char* a_json, const char* a_error, uint16_t a_status, uint64_t a_elapsed,
+                                         Callback a_callback)
+{
+    if ( true == response_.deferred_ ) {
+        response_.payload_ = new ::ev::postgresql::JSONAPI::OutPayload({
+            /* uri_     */ a_uri,
+            /* json_    */ a_json,
+            /* error_   */ a_error,
+            /* status_  */ a_status,
+            /* elapsed_ */ a_elapsed
+        });
+        ::ev::scheduler::Scheduler::GetInstance().SetClientTimeout(this, /* a_ms */ 10,
+            [this, a_callback] () {
+                // ... callback might destroy this object ... first copy data ...
+                const ::ev::postgresql::JSONAPI::OutPayload* payload = new ::ev::postgresql::JSONAPI::OutPayload(*response_.payload_);
+                try {
+                    // ... then perform callback w/copied data ...
+                    a_callback(payload->uri_.value(), payload->json_.value(), payload->error_.value(), payload->status_, payload->elapsed_);
+                    // ... release payload ...
+                    delete payload;
+                } catch (...) {
+                    // ... oops, release payload ...
+                    delete payload;
+                }
+            }
+        );
+    } else {
+        a_callback(a_uri, a_json, a_error, a_status, a_elapsed);
+    }
 }
 
 /**

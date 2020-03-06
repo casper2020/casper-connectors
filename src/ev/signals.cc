@@ -260,7 +260,12 @@ bool ev::Signals::OnSignal (const int a_sig_no)
             );
         }
         default:
-            rv = ( nullptr != callbacks_.on_signal_ ? callbacks_.on_signal_(a_sig_no) : false );
+            if ( nullptr != callbacks_.on_signal_ ) {
+                rv = callbacks_.on_signal_(a_sig_no);
+                if ( true == rv ) {
+                    return rv;
+                }
+            }
             break;
     }
     

@@ -54,8 +54,8 @@ namespace ev
         protected: // Data Type(s)
             
             typedef std::vector<scheduler::Object*>       ObjectsVector;
-            typedef std::map<Client*, ObjectsVector*>     ClientsToObjectMap;
-            typedef std::map<scheduler::Object*, Client*> ObjectsToClientMap;
+            typedef std::map<std::string, ObjectsVector*> ClientsToObjectMap;
+            typedef std::map<int64_t, Client*>            ObjectsToClientMap;
             typedef std::map<int64_t, scheduler::Object*> IdsToObjectMap;
             
         protected: // Static Data

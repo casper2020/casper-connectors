@@ -24,6 +24,7 @@
 
 #include "osal/osal_singleton.h"
 
+#include <set>        // std::set
 #include <queue>      // std::queue
 #include <inttypes.h> // uint64_t
 
@@ -33,25 +34,24 @@ namespace ev
     namespace scheduler
     {
 
-        class UniqueIDGenerator : public osal::Singleton<UniqueIDGenerator>
+        class UniqueIDGenerator final : public osal::Singleton<UniqueIDGenerator>
         {
             
         public: // Const Data
             
             static uint64_t k_invalid_id_;
             
-        private: // Data
+        private: // Static Data
             
-            static uint64_t next_;
-            
-        protected: // Data
-            
-            std::queue<uint64_t> cached_;
-            
+            static uint64_t             next_;
+            static std::set<uint64_t>   rented_;
+            static std::queue<uint64_t> cached_;
+            static void*                last_owner_;
+
         public: // Method(s) / Function(s)
             
-            uint64_t Rent ();
-            void     Return (uint64_t a_id);
+            uint64_t Rent (void* a_owner);
+            void     Return (void* a_owner, uint64_t a_id);
             
         public: //
             

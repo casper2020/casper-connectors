@@ -38,7 +38,7 @@ ev::scheduler::Object::Object (const ev::scheduler::Object::Type a_type)
 ev::scheduler::Object::~Object ()
 {
     if ( ev::scheduler::UniqueIDGenerator::k_invalid_id_ != unique_id_ ) {
-        ev::scheduler::UniqueIDGenerator::GetInstance().Return(unique_id_);
+        ev::scheduler::UniqueIDGenerator::GetInstance().Return(this, unique_id_);
     }
 }
 
@@ -48,7 +48,7 @@ ev::scheduler::Object::~Object ()
 uint64_t ev::scheduler::Object::UniqueID ()
 {
     if ( ev::scheduler::UniqueIDGenerator::k_invalid_id_ == unique_id_ ) {
-        unique_id_ = ev::scheduler::UniqueIDGenerator::GetInstance().Rent();
+        unique_id_ = ev::scheduler::UniqueIDGenerator::GetInstance().Rent(this);
     }
     return unique_id_;
 }

@@ -119,6 +119,15 @@ void ev::scheduler::Scheduler::Scheduler::Start (const std::string& a_name,
                             return false;
                         }
 
+                        // ... client still waiting for this object?
+                        auto objects_to_client_map_it = object_to_client_map_.find(object->UniqueID());
+                        if ( object_to_client_map_.end() == objects_to_client_map_it ) {
+                            // ... no longer waiting ...
+                            ReleaseObject(object);
+                            // ... a_result not accepted ...
+                            return false;
+                        }
+
                         //
                         // ... a_result:
                         //
@@ -244,7 +253,7 @@ void ev::scheduler::Scheduler::Push (ev::scheduler::Client* a_client, ev::schedu
         throw ev::Exception("Can't add a new object to scheduler - hub is not running!");
     }
     
-    const auto it = clients_to_objects_map_.find(a_client);
+    const auto it = clients_to_objects_map_.find(a_client->id());
     if ( clients_to_objects_map_.end() == it ) {
         throw ev::Exception("Client %p not registered @ events scheduler!", (void*)a_client);
     }
@@ -267,11 +276,11 @@ void ev::scheduler::Scheduler::Push (ev::scheduler::Client* a_client, ev::schedu
     } else {
         // ... new object ....
         it->second->push_back(a_object);
-        
-        object_to_client_map_[a_object] = a_client;
-        
+
         const uint64_t object_unique_id = a_object->UniqueID();
-        ids_to_object_map_[object_unique_id] = a_object;
+
+        object_to_client_map_[object_unique_id] = a_client;
+        ids_to_object_map_[object_unique_id]    = a_object;
         
         (void)std::atomic_fetch_add(&pending_callbacks_count_, 1);
         // <invoke_id>:<mode>:<target>:<tag>
@@ -291,11 +300,11 @@ void ev::scheduler::Scheduler::Push (ev::scheduler::Client* a_client, ev::schedu
  */
 void ev::scheduler::Scheduler::Register (ev::scheduler::Client* a_client)
 {
-    auto it = clients_to_objects_map_.find(a_client);
+    auto it = clients_to_objects_map_.find(a_client->id());
     if ( clients_to_objects_map_.end() != it ) {
         return;
     }
-    clients_to_objects_map_[a_client] = new ev::scheduler::Scheduler::ObjectsVector();
+    clients_to_objects_map_[a_client->id()] = new ev::scheduler::Scheduler::ObjectsVector();
     // ... get rid of 'zombie' objects ...
     KillZombies();
 }
@@ -307,7 +316,7 @@ void ev::scheduler::Scheduler::Register (ev::scheduler::Client* a_client)
  */
 void ev::scheduler::Scheduler::Unregister (ev::scheduler::Client* a_client)
 {
-    const auto it = clients_to_objects_map_.find(a_client);
+    const auto it = clients_to_objects_map_.find(a_client->id());
     if ( clients_to_objects_map_.end() == it ) {
         return;
     }
@@ -317,14 +326,14 @@ void ev::scheduler::Scheduler::Unregister (ev::scheduler::Client* a_client)
     delete it->second;
     clients_to_objects_map_.erase(it);
     // [B] AG: NOV 26, 2018
-    std::vector<scheduler::Object*> to_erase;
+    std::vector<uint64_t> to_erase;
     for ( auto it = object_to_client_map_.begin() ; object_to_client_map_.end() != it ; ++it ) {
         if ( it->second == a_client ) {
             to_erase.push_back(it->first);
         }
     }
-    for ( auto obj : to_erase ) {
-        object_to_client_map_.erase(object_to_client_map_.find(obj));
+    for ( auto obj_id : to_erase ) {
+        object_to_client_map_.erase(object_to_client_map_.find(obj_id));
     }
     // [E] AG: NOV 26, 2018
     // ... unregister timeout callbacks ...
@@ -379,7 +388,7 @@ void ev::scheduler::Scheduler::CallOnMainThread (Client* a_client, std::function
     bridge_ptr_->CallOnMainThread(
                                   /* a_callback */
                                   [this, a_client, a_callback] () {
-                                      const auto it = clients_to_objects_map_.find(a_client);
+                                      const auto it = clients_to_objects_map_.find(a_client->id());
                                       if ( clients_to_objects_map_.end() == it ) {
                                           return;
                                       }
@@ -421,10 +430,10 @@ void ev::scheduler::Scheduler::ReleaseObject (ev::scheduler::Object* a_object)
             break;
         }
     }
-    // ... not a zombie, check if ot was detached ...
+    // ... not a zombie, check if it was detached ...
     for ( auto it = detached_.begin(); detached_.end() != it ; ++it ) {
         if ( a_object == (*it) ) {
-            // ... detached , promote it to a zombie ...
+            // ... detached, promote it to a zombie ...
             detached_.erase(it);
             break;
         }
@@ -432,10 +441,10 @@ void ev::scheduler::Scheduler::ReleaseObject (ev::scheduler::Object* a_object)
     
     bool is_attached = false;
     
-    // ... chec if it's attached to a client ...
-    auto objects_to_client_map_it = object_to_client_map_.find(a_object);
+    // ... check if it's attached to a client ...
+    auto objects_to_client_map_it = object_to_client_map_.find(a_object->UniqueID());
     if ( object_to_client_map_.end() != objects_to_client_map_it ) {
-        auto clients_to_objects_map_it = clients_to_objects_map_.find(objects_to_client_map_it->second);
+        auto clients_to_objects_map_it = clients_to_objects_map_.find(objects_to_client_map_it->second->id());
         if ( clients_to_objects_map_.end() != clients_to_objects_map_it ) {
             for ( auto clients_objects_it = clients_to_objects_map_it->second->begin(); clients_to_objects_map_it->second->end() != clients_objects_it ; ++clients_objects_it ) {
                 if ( (*clients_objects_it) == a_object ) {
