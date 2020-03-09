@@ -28,8 +28,8 @@
 
 uint64_t             ev::scheduler::UniqueIDGenerator::k_invalid_id_ = 0;
 uint64_t             ev::scheduler::UniqueIDGenerator::next_         = ev::scheduler::UniqueIDGenerator::k_invalid_id_;
-std::set<uint64_t>   ev::scheduler::UniqueIDGenerator::rented_       = {};
-std::queue<uint64_t> ev::scheduler::UniqueIDGenerator::cached_       = {};
+std::set<uint64_t>   ev::scheduler::UniqueIDGenerator::rented_;
+std::queue<uint64_t> ev::scheduler::UniqueIDGenerator::cached_;
 void*                ev::scheduler::UniqueIDGenerator::last_owner_   = nullptr;
 
 /**
