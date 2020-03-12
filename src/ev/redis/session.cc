@@ -495,7 +495,7 @@ void ev::redis::Session::Extend (const size_t a_amount,
 
     NewTask([this] () -> ::ev::Object* {
         
-        return new ::ev::redis::Request(loggable_data_, "EXISTS", { token_prefix_ + data_.token_ } );
+        return new ::ev::redis::Request(loggable_data_, "TTL", { token_prefix_ + data_.token_ } );
         
     })->Then([this, a_amount, &session_exists] (::ev::Object* a_object) -> ::ev::Object* {
         
@@ -504,18 +504,21 @@ void ev::redis::Session::Extend (const size_t a_amount,
         //
         // - Integer reply is expected:
         //
-        //  - 1 the key exists
-        //  - 0 the key does not exists
+        //  -2 if the key does not exist
+        //  -1 if the key exists but has no associated expire.
+        // >= 0 TTL in seconds
         //
         
         const ev::redis::Value& value = ev::redis::Reply::EnsureIntegerReply(a_object);
-        if ( 1 != value.Integer() ) {
+        if ( -2 == value.Integer() ) {
             throw ev::Exception("Session does not exists!");
+        } else if ( -1 == value.Integer() ) {
+            throw ev::Exception("Session exists but has no associated expire!");
         }
 
         session_exists = true;
 
-        return new ::ev::redis::Request(loggable_data_, "EXPIRE", { token_prefix_ + data_.token_, std::to_string(a_amount) });
+        return new ::ev::redis::Request(loggable_data_, "EXPIRE", { token_prefix_ + data_.token_, std::to_string(value.Integer() + a_amount) });
         
     })->Finally([a_success_callback, a_invalid_session_callback, this] (::ev::Object* a_object) {
         
