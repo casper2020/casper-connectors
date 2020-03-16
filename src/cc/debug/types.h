@@ -27,7 +27,7 @@
 #if !defined(NDEBUG) || defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG)
     #define CC_DEBUG_ON 1
 #else
-    #undefine CC_DEBUG_ON
+    #undef CC_DEBUG_ON
 #endif
 
 #ifdef CC_DEBUG_ON
