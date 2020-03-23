@@ -96,6 +96,7 @@ namespace ev
                     const Expression            expr_;
                     const std::set<std::string> methods_;
                     const unsigned long         role_mask_;
+                    const unsigned long         module_mask_;
                     const Job*                  job_;
                     
                 public: // Constructor(s) / Destructor
@@ -105,14 +106,16 @@ namespace ev
                     /**
                      * @brief Default constructor.
                      *
-                     * @param a_expr      Regex.
-                     * @param a_methods   Supported { "GET", "POST", "PATCH", "DELETE" }
-                     * @param a_role_mask Bitmask.
-                     * @param a_job       \link Job \link if any ( this object will be deleted ) .
+                     * @param a_expr        Regex.
+                     * @param a_methods     Supported { "GET", "POST", "PATCH", "DELETE" }
+                     * @param a_role_mask   Bitmask.
+                     * @param a_module_mask Bitmask.
+                     * @param a_job         \link Job \link if any ( this object will be deleted ) .
                      */
-                    Rule (const size_t& a_idx, const Expression& a_expr, const std::set<std::string>& a_methods, const unsigned long& a_role_mask,
+                    Rule (const size_t& a_idx, const Expression& a_expr, const std::set<std::string>& a_methods,
+                          const unsigned long& a_role_mask, const unsigned long& a_module_mask,
                           const Job* a_job = nullptr)
-                        : idx_(a_idx), expr_(a_expr), methods_(a_methods), role_mask_(a_role_mask), job_(a_job)
+                        : idx_(a_idx), expr_(a_expr), methods_(a_methods), role_mask_(a_role_mask), module_mask_(a_module_mask), job_(a_job)
                     {
                         /* empty */
                     }

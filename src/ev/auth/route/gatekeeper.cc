@@ -236,7 +236,14 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Allow (c
         // ... validate 'role_mask' ...
         const std::string   role_mask    = a_session.GetValue("role_mask", "");
         const unsigned long role_mask_ul = ( 0 != role_mask.length() ? std::stoul(role_mask, nullptr, 10) : 0 );
-        if ( ( 0 != ( rule->role_mask_ & role_mask_ul ) ) || ( 0 == rule->role_mask_ && 0 == role_mask_ul ) ) {
+        
+        const std::string   module_mask    = a_session.GetValue("module_mask", "");
+        const unsigned long module_mask_ul = ( 0 != module_mask.length() ? std::stoul(module_mask, nullptr, 10) : 0 );
+        
+        const bool valid_role_mask   = ( ( 0 != ( rule->role_mask_   & role_mask_ul   ) ) || ( 0 == rule->role_mask_   ) );
+        const bool valid_module_mask = ( ( 0 != ( rule->module_mask_ & module_mask_ul ) ) || ( 0 == rule->module_mask_ ) );
+        
+        if ( true == valid_role_mask && true ==  valid_module_mask ) {
             // ... passage granted, deflect job?
             if ( nullptr != rule->job_ ) {
                 // ... yes ...
@@ -277,10 +284,24 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Allow (c
         sstream << "0x" << std::setfill ('0') << std::setw(8) << std::hex << role_mask_ul;
         const std::string got_role_mask = sstream.str();
         sstream = std::stringstream();
+        sstream << "0x" << std::setfill ('0') << std::setw(8) << std::hex << rule->module_mask_;
+        const std::string expected_module_mask = sstream.str();
+        sstream = std::stringstream();
+        sstream << "0x" << std::setfill ('0') << std::setw(8) << std::hex << module_mask_ul;
+        const std::string got_module_mask = sstream.str();
+        sstream = std::stringstream();
         sstream << "0 == ( " << expected_role_mask << " & " << got_role_mask << " )";
-        const std::string reason = sstream.str();
+        const std::string role_mask_reasom = sstream.str();
+        sstream = std::stringstream();
+        sstream << "0 == ( " << expected_module_mask << " & " << got_module_mask << " )";
+        const std::string module_mask_reason = sstream.str();
         // ... 401 - Access Denied - authenticated but invalid credentials ( in this case role_mask )
-        return SerializeError(a_method, tmp_path_, 401, rule, /* a_fields */ {{ "role_mask", expected_role_mask, got_role_mask, reason }});
+        return SerializeError(a_method, tmp_path_, 401, rule,
+                              /* a_fields */ {
+                                    { "role_mask"  , expected_role_mask  , got_role_mask  , role_mask_reasom   },
+                                    { "module_mask", expected_module_mask, got_module_mask, module_mask_reason }
+                               }
+        );
         
     } catch (const ::ev::Exception& a_ev_exception) {
         // ... 500 - Internal Server Error - oops ...
@@ -363,7 +384,7 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
             const auto errors = reader.getStructuredErrors();
             if ( errors.size() > 0 ) {
                 throw ::ev::Exception("An error ocurred while parsing gatekeeper configuration: %s!",
-                                      reader.getFormattedErrorMessages().c_str()
+                                      reader.getFormatedErrorMessages().c_str()
                 );
             } else {
                 throw ::ev::Exception("An error ocurred while parsing gatekeeper configuration!");
@@ -395,15 +416,20 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
             // ... ensure it's a valid array of objects and load regexp ...
             for ( Json::ArrayIndex idx = 0 ; idx < array.size() ; ++idx ) {
                 // ... pick rule definitions ...
-                const Json::Value& object    = array[idx];
-                const Json::Value& methods   = object["methods"];
-                const Json::Value& role_mask = object["role_mask"];
-                const Json::Value& expr      = object["expr"];
-                const Json::Value& job       = object["job"];
+                const Json::Value& object      = array[idx];
+                const Json::Value& methods     = object["methods"];
+                const Json::Value& role_mask   = object["role_mask"];
+                const Json::Value& module_mask = object["module_mask"];
+                const Json::Value& expr        = object["expr"];
+                const Json::Value& job         = object["job"];
                 // ... ensure we've a valid object ...
-                if ( false == object.isObject() || false == expr.isString() || false == methods.isArray() || false == role_mask.isString() ) {
+                if ( false == object.isObject() || false == expr.isString() || false == methods.isArray() || false == role_mask.isString() || false == module_mask.isString() ) {
                     // ... notify error ...
-                    throw ::ev::Exception("An error ocurred while parsing gatekeeper configuration: element at %d is not a valid object!", idx);
+                    if ( false == object.isObject() ) {
+                        throw ::ev::Exception("An error ocurred while parsing gatekeeper configuration: element at %d is not a valid object!", idx);
+                    } else {
+                        throw ::ev::Exception("An error ocurred while parsing gatekeeper configuration: element at %d is not a valid object - one or more field ( expr, role_mask, module_mask ) os missing or invalid!", idx);
+                    }
                 }
                 json_string_array_to_set(idx, methods, rule_methods);
                 // ... job ?
@@ -424,12 +450,14 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
                 }
                 // ... keep track of new rule ...
                 new_rules.push_back(new Gatekeeper::Rule(
-                                                         /* a_idx       */ static_cast<size_t>(idx),
-                                                         /* a_expr      */ { expr.asString(), std::regex(expr.asString(), std::regex_constants::ECMAScript | std::regex_constants::icase) },
-                                                         /* a_methods   */ rule_methods,
-                                                         /* a_role_mask */ std::stoul(role_mask.asString(), nullptr, 16),
-                                                         /* a_job       */ job_obj
-                                                         ));
+                                                         /* a_idx         */ static_cast<size_t>(idx),
+                                                         /* a_expr        */ { expr.asString(), std::regex(expr.asString(), std::regex_constants::ECMAScript | std::regex_constants::icase) },
+                                                         /* a_methods     */ rule_methods,
+                                                         /* a_role_mask   */ std::stoul(role_mask.asString(), nullptr, 16),
+                                                         /* a_module_mask */ std::stoul(module_mask.asString(), nullptr, 16),
+                                                         /* a_job          */ job_obj
+                                                         )
+                );
                 // ... clean up ...
                 job_obj = nullptr;
                 rule_methods.clear();
@@ -781,7 +809,12 @@ void ev::auth::route::Gatekeeper::Log (const ev::auth::route::Gatekeeper::Rule* 
     
     logger.Log(s_logger_settings_.client_, "gatekeeper",
                "%*c %18.18s: 0x%08lx", static_cast<int>(s_logger_settings_.index_padding_ + 4),
-               ' ', "Required Role Mask", a_rule->role_mask_
+               ' ', "Role Mask", a_rule->role_mask_
+    );
+    
+    logger.Log(s_logger_settings_.client_, "gatekeeper",
+                  "%*c %18.18s: 0x%08lx", static_cast<int>(s_logger_settings_.index_padding_ + 4),
+                  ' ', "Module Mask", a_rule->module_mask_
     );
     
     // ... done?
