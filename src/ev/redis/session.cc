@@ -493,31 +493,11 @@ void ev::redis::Session::Extend (const size_t a_amount,
 {
     bool session_exists = false;
 
-    NewTask([this] () -> ::ev::Object* {
+    NewTask([this, a_amount] () -> ::ev::Object* {
         
-        return new ::ev::redis::Request(loggable_data_, "EXISTS", { token_prefix_ + data_.token_ } );
-        
-    })->Then([this, a_amount, &session_exists] (::ev::Object* a_object) -> ::ev::Object* {
-        
-        //
-        // EXISTS:
-        //
-        // - Integer reply is expected:
-        //
-        //  - 1 the key exists
-        //  - 0 the key does not exists
-        //
-        
-        const ev::redis::Value& value = ev::redis::Reply::EnsureIntegerReply(a_object);
-        if ( 1 != value.Integer() ) {
-            throw ev::Exception("Session does not exists!");
-        }
-
-        session_exists = true;
-
         return new ::ev::redis::Request(loggable_data_, "EXPIRE", { token_prefix_ + data_.token_, std::to_string(a_amount) });
         
-    })->Finally([a_success_callback, a_invalid_session_callback, this] (::ev::Object* a_object) {
+    })->Finally([a_success_callback, a_invalid_session_callback, this, &session_exists] (::ev::Object* a_object) {
         
         //
         // EXPIRE:
@@ -527,7 +507,14 @@ void ev::redis::Session::Extend (const size_t a_amount,
         // - 0 if key does not exist or the timeout could not be set.
         //
         ev::redis::Reply::EnsureIntegerReply(a_object, 1);
+
+        const ev::redis::Value& value = ev::redis::Reply::EnsureIntegerReply(a_object);
+        if ( 1 != value.Integer() ) {
+            throw ev::Exception("Session does not exist or the timeout could not be set!");
+        }
         
+        session_exists = true;
+
         a_success_callback(data_);
 
     })->Catch([this, a_failure_callback, a_invalid_session_callback, &session_exists] (const ::ev::Exception& a_ev_exception) {
