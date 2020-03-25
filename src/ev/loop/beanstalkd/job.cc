@@ -52,6 +52,7 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
     progress_report_.timeout_in_sec_ = config_.min_progress_;
     progress_report_.last_tp_        = std::chrono::steady_clock::time_point::max();
     cancelled_                       = false;
+    already_ran_                     = false;
 
     progress_                        = Json::Value::null;
     errors_array_                    = Json::Value::null;
@@ -155,6 +156,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     transient_                       = a_payload.get("transient", config_.transient_).asBool();
     progress_report_.timeout_in_sec_ = a_payload.get("min_progress", config_.min_progress_).asInt();
     cancelled_                       = false;
+    already_ran_                     = false;
     progress_                        = Json::Value(Json::ValueType::objectValue);
     errors_array_                    = Json::Value(Json::ValueType::arrayValue);
     follow_up_jobs_                  = Json::Value::null;
@@ -180,7 +182,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     //
     // Check for job cancellation
     //
-    const auto cancelled_callback = [this, &a_cancelled_callback] () {
+    const auto cancelled_callback = [this, &a_cancelled_callback] (bool a_already_ran) {
       
         // ... publish 'job cancelled' 'progress' ...
         Publish({
@@ -190,7 +192,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
             /* value_  */ -1.0
         });
         
-        a_cancelled_callback();
+        a_cancelled_callback(a_already_ran);
         
     };
     
@@ -205,7 +207,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     // ... first check if job as cancelled ...
     if ( true == ShouldCancel() ) {
         // ... notify ...
-        cancelled_callback();
+        cancelled_callback(already_ran_);
     } else {
         // ... execute job ...
         Run(a_id, a_payload, a_completed_callback, cancelled_callback);
@@ -688,20 +690,23 @@ bool ev::loop::beanstalkd::Job::ShouldCancel ()
         NewTask([this, redis_key] () -> ::ev::Object* {
             
             return new ev::redis::Request(loggable_data_,
-                                          "HGET",
-                                          { /* key   */ redis_key, /* field */ "cancelled" }
+                                          "HMGET",
+                                          { /* key   */ redis_key, /* field */ "cancelled", /* field */ "status" }
             );
             
         })->Finally([this, &cancellation_cv] (::ev::Object* a_object) {
             
             //
-            // HGET:
+            // HMGET:
             //
-            // - String value is expected:
+            // - An array of String valueS is expected:
             //
-            const ::ev::redis::Value& value = ev::redis::Reply::GetCommandReplyValue(a_object);
-            if ( false == value.IsNil() && true == value.IsString() ) {
-                cancelled_ = ( 0 == strcasecmp(value.String().c_str(), "true") );
+            const ::ev::redis::Value& value = ev::redis::Reply::EnsureArrayReply(a_object, /* a_size */ 2);
+            cancelled_ = ( 0 == strcasecmp(value[0].String().c_str(), "true") );
+            if ( value[1].String().length() > 0 ) {
+                already_ran_ = ( 0 != strcasecmp(value[1].AsJSONObject().get("status", "").asCString(), "queued") );
+            } else {
+                already_ran_ = false;
             }
             
             cancellation_cv.Wake();

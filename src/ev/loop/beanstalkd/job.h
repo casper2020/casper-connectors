@@ -116,7 +116,7 @@ namespace ev
                 }; // end of class 'Config';
                 
                 typedef std::function<void(const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code)> CompletedCallback;
-                typedef std::function<void()>                                                                                  CancelledCallback;
+                typedef std::function<void(bool a_already_ran)>                                                                CancelledCallback;
 
                 typedef std::function<void(const ev::Exception&)>                                                              FatalExceptionCallback;
                 typedef std::function<void(std::function<void()> a_callback, bool a_blocking)>                                 DispatchOnMainThread;
@@ -175,6 +175,7 @@ namespace ev
                 bool                      transient_;
                 ProgressReport            progress_report_;
                 bool                      cancelled_;
+                bool                      already_ran_;
 
                 Json::Value               progress_;
                 Json::Value               errors_array_;
@@ -261,6 +262,7 @@ namespace ev
                                         const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback);
 
                 bool           WasCancelled      () const;
+                bool           AlreadyRan        () const;
                 bool           ShouldCancel      ();
                 bool&          cancellation_flag ();
                 
@@ -361,6 +363,14 @@ namespace ev
             inline bool Job::WasCancelled() const
             {
                 return cancelled_;
+            }
+        
+            /**
+             * @return True if the job was cancelled, false otherwise.
+             */
+            inline bool Job::AlreadyRan() const
+            {
+                return already_ran_;
             }
             
             /**

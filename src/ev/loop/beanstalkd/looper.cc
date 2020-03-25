@@ -77,6 +77,7 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
     std::string    uri;
     bool           cancelled;
     bool           success;
+    bool           already_ran;
     uint16_t       http_status_code;
     
     // ... write to permanent log ...
@@ -142,6 +143,7 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
         uri          = "";
         cancelled    = false;
         success      = false;
+        already_ran  = false;
         
         job_payload_ = Json::Value::null;
         if ( false == json_reader_.parse(job.body(), job_payload_) ) {
@@ -177,8 +179,9 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
                                   job_cv.Wake();
                               },
                               /* on_cancelled_           */
-                              [&cancelled,&job_cv] () {
-                                  cancelled = true;
+                              [&cancelled, &already_ran, &job_cv] (bool a_already_ran) {
+                                  cancelled   = true;
+                                  already_ran = a_already_ran;
                                   job_cv.Wake();
                               }
             );
@@ -201,7 +204,7 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
         loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
 
         // ... check print result ...
-        if ( true == success || true == cancelled || 404 == http_status_code ) {
+        if ( true == success || true == cancelled || true == already_ran || 404 == http_status_code ) {
             
             // ... write to permanent log ...
             if ( 404 == http_status_code ) {
@@ -212,7 +215,7 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
             } else {
                 EV_LOOP_BEANSTALK_LOG("queue",
                                       "Job #" INT64_FMT_MAX_RA " ~> %s...",
-                                      job.id(), ( true == cancelled ? "Cancelled" : "Done" )
+                                      job.id(), ( true == already_ran ? "Ignored" : true == cancelled ? "Cancelled" : "Done" )
                 );
             }
             
