@@ -361,7 +361,7 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         //
         
         Log("status", "\n\t⌥ cURL\n");
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", LIBCURL_VERSION);
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", curl_version());        
         const CURLcode curl_init_rv = cc::curl::Initializer::GetInstance().Start();
         if ( CURLE_OK == curl_init_rv ) {
             Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " OK\n", "INIT");
