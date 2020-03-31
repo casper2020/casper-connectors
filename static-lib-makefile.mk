@@ -37,7 +37,7 @@ ifeq (true, $(V8_DEP_ON))
 else
   LIBRARY_NAME := libconnectors.a
 endif
-VERSION             := $(shell cat $(PROJECT_SRC_DIR)/VERSION)
+VERSION             := $(shell cat $(PROJECT_SRC_DIR)/version)
 CHILD_CWD           := $(THIS_DIR)
 CHILD_MAKEFILE      := $(firstword $(MAKEFILE_LIST))
 
