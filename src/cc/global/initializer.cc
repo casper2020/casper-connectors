@@ -276,12 +276,6 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         //
         // ... ICU / V8 ...
         //
-
-	#ifdef __APPLE__
-	    const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + CC_IF_DEBUG_ELSE("icu/debug/icudtl.dat", "icu/icudtl.dat");
-	#else
-	    const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + "icu/icudtl.dat";
-	#endif
         
         // ... LIBEVENT2 ...
         Log("status", "\n\t⌥ LIBEVENT2\n");
@@ -296,7 +290,12 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
     #ifndef CASPER_REQUIRE_GOOGLE_V8
 
         // ... ICU ...
-        
+        #ifdef __APPLE__
+            const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + CC_IF_DEBUG_ELSE("icu/debug/icudtl.dat", "icu/icudtl.dat");
+        #else
+            const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + "icu/icudtl.dat";
+        #endif
+
         Log("status", "\n\t⌥ ICU\n");
         Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", U_ICU_VERSION);
         Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DATA FILE", icu_dat_file_uri.c_str());
@@ -304,7 +303,9 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         if ( UErrorCode::U_ZERO_ERROR == icu_error_code ) {
             Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " OK\n", "INIT");
         } else {
-            throw ::cc::Exception("Unable to initialize ICU, error code is %d", (int)icu_error_code);
+            throw ::cc::Exception("Unable to initialize ICU, error code is %d : %s", (int)icu_error_code,
+                                  ::cc::icu::Initializer::GetInstance().load_error_msg().c_str()
+            );
         }
 
         if ( true == a_v8.required_ ) {

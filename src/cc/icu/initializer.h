@@ -54,16 +54,23 @@ namespace cc
                 
         private: // Data
             
-            bool       initialized_;
-            UErrorCode last_error_code_;
-            char*      icu_data_;
+            bool        initialized_;
+            UErrorCode  last_error_code_;
+            std::string load_error_msg_;
 
         public: // Method(s) / Function(s)
                 
             const UErrorCode& Load (const std::string& a_dtl_uri);
+            
+            const std::string load_error_msg () const;
 
         }; // end of class 'Initializer'
-                
+            
+        inline const std::string Initializer::load_error_msg () const
+        {
+            return load_error_msg_;
+        }
+    
     } // end of namespace 'icu'
 
 } // end of namespace 'cc'

@@ -21,6 +21,13 @@
 
 #include "cc/icu/initializer.h"
 
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>  // open
+#include <unistd.h> // close
+#include <errno.h>  // errno
+#include <string.h> // strlen, strerror, ...
+
 #include <unicode/utypes.h> // u_init
 #include <unicode/uclean.h> // u_cleanup
 #include <unicode/udata.h>  // udata_setCommonData, udata_setFileAccess
@@ -35,7 +42,6 @@ cc::icu::OneShot::OneShot (cc::icu::Initializer& a_instance)
 {
     instance_.initialized_     = false;
     instance_.last_error_code_ = UErrorCode::U_ZERO_ERROR;
-    instance_.icu_data_        = nullptr;
 }
 
 /**
@@ -45,9 +51,6 @@ cc::icu::OneShot::~OneShot ()
 {
     if ( true == instance_.initialized_ ) {
         u_cleanup();
-    }
-    if ( nullptr != instance_.icu_data_ ) {
-        delete [] instance_.icu_data_;
     }
 }
 
@@ -64,6 +67,9 @@ cc::icu::OneShot::~OneShot ()
  */
 const UErrorCode& cc::icu::Initializer::Load (const std::string& a_dtl_uri)
 {
+    struct stat sb;
+    void*       data = nullptr;
+
     // ... if already loaded ...
     if ( true == initialized_ ) {
         // ... we're done ...
@@ -74,33 +80,33 @@ const UErrorCode& cc::icu::Initializer::Load (const std::string& a_dtl_uri)
     last_error_code_ = U_FILE_ACCESS_ERROR;
     
     // ... open file ...
-    FILE* fp = fopen(a_dtl_uri.c_str(), "rb");
-    if ( nullptr == fp ) {
-        // ... can't be open, we're done ...
-        return last_error_code_;
-    }
-    
-    // ... calculate required buffer size ...
-    fseek(fp, 0, SEEK_END);
-    const size_t size = ftell(fp);
-    rewind(fp);
-    
-    // ... allocate buffer data ...
-    icu_data_ = new char[size];
-    if ( size != fread(icu_data_, sizeof(char), size, fp) ) {
-        fclose(fp);
+    int fd = open(a_dtl_uri.c_str(), O_RDONLY);
+    if ( -1 == fd ) {
+        load_error_msg_ = a_dtl_uri + " ~ fopen failed with error " + std::to_string(errno) + " - " + strerror(errno);
         goto leave;
     }
-    fclose(fp);
+    
+    // .. gather file info ...
+    if ( -1 == fstat(fd, &sb) ) {
+        load_error_msg_ = a_dtl_uri + " ~ fstat failed with error " + std::to_string(errno) + " - " + strerror(errno);
+        goto leave;
+    }
+    
+    // ... map it ...
+    data = mmap(NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    if ( MAP_FAILED == data ) {
+        load_error_msg_ = a_dtl_uri + " ~ mmap failed with error " + std::to_string(errno) + " - " + strerror(errno);
+        goto leave;
+    }
+    
+    //  ..tell the kernel that accesses are likely to be random rather than sequential ..
+    if ( -1 == madvise(data, sb.st_size, MADV_RANDOM) ) {
+        load_error_msg_ = a_dtl_uri + " ~ madvise failed with error " + std::to_string(errno) + " - " + strerror(errno);
+        goto leave;
+    }
 
     // ... reset error code ...
     last_error_code_ = UErrorCode::U_ZERO_ERROR;
-
-    // ... set loaded data ...
-    udata_setCommonData(reinterpret_cast<void*>(icu_data_), &last_error_code_);
-    if ( UErrorCode::U_ZERO_ERROR != last_error_code_ ) {
-        goto leave;
-    }
     
     // ... stop trying to load ICU data from files ...
     udata_setFileAccess(UDATA_ONLY_PACKAGES, &last_error_code_);
@@ -108,6 +114,12 @@ const UErrorCode& cc::icu::Initializer::Load (const std::string& a_dtl_uri)
         goto leave;
     }
     
+    // ... set loaded data ...
+    udata_setCommonData(data, &last_error_code_);
+    if ( UErrorCode::U_ZERO_ERROR != last_error_code_ ) {
+        goto leave;
+    }
+
     // ... initialize
     u_init(&last_error_code_);
     if ( UErrorCode::U_ZERO_ERROR != last_error_code_ ) {
@@ -115,16 +127,12 @@ const UErrorCode& cc::icu::Initializer::Load (const std::string& a_dtl_uri)
     }
     
 leave:
-    // ... if an error is set ...
-    if ( UErrorCode::U_ZERO_ERROR != last_error_code_ ) {
-        // ... release previously allocated memory ( if any ) ...
-        if ( nullptr != icu_data_ ) {
-            delete[] icu_data_;
-            icu_data_ = nullptr;
-        }
+    // ... close file ...
+    if ( -1 != fd ) {
+        close(fd);
     }
-    //
-    initialized_ = ( nullptr != icu_data_ );
+    // ... success?
+    initialized_ = ( UErrorCode::U_ZERO_ERROR == last_error_code_ );
     // .. we're done ...
     return last_error_code_;
 }
