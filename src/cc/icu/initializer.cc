@@ -109,7 +109,7 @@ const UErrorCode& cc::icu::Initializer::Load (const std::string& a_dtl_uri)
     last_error_code_ = UErrorCode::U_ZERO_ERROR;
     
     // ... stop trying to load ICU data from files ...
-    udata_setFileAccess(UDATA_ONLY_PACKAGES, &last_error_code_);
+    udata_setFileAccess(UDATA_NO_FILES, &last_error_code_);
     if ( UErrorCode::U_ZERO_ERROR != last_error_code_ ) {
         load_error_msg_ = a_dtl_uri + " ~ madvise failed with error " + std::to_string(last_error_code_) + " - " + u_errorName(last_error_code_);
         goto leave;
