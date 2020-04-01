@@ -89,8 +89,9 @@ namespace ev
                              int a_sig_no);
             void Push       (Client* a_client, scheduler::Object* a_task);
             
-            void Register   (Client* a_client);
-            void Unregister (Client* a_client);
+            bool IsRegistered (Client* a_client);
+            void Register     (Client* a_client);
+            void Unregister   (Client* a_client);
             
             void SetClientTimeout (Client* a_client, uint64_t a_ms, TimeoutCallback a_callback);
             

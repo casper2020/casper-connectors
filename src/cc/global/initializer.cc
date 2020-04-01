@@ -398,6 +398,8 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
             }
         }
         
+        ::ev::Signals::GetInstance().WarmUp(*loggable_data_);
+        
         // ... done ..
         Log("status", "\n* %s - %s process w/pid %u configured...\n",
             process_->info_.c_str(), ( true == process_->is_master_ ? "master" : "worker" ), process_->pid_
@@ -453,7 +455,7 @@ void cc::global::Initializer::Startup (const cc::global::Initializer::Signals& a
     //
     // ... signal handing ...
     //
-    ::ev::Signals::GetInstance().Startup(*loggable_data_, a_signals.register_,
+    ::ev::Signals::GetInstance().Startup(a_signals.register_,
             /* a_callbacks */
             {
                 /* on_signal_           */ a_signals.unhandled_signals_callback_,

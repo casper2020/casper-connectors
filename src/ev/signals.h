@@ -78,8 +78,10 @@ namespace ev
         
     public: // Method(s) / Function(s)
         
-        void Startup    (const Loggable::Data& a_loggable_data_ref,
-                         const std::set<int>& a_signals, Callbacks a_callbacks);
+        void WarmUp     (const Loggable::Data& a_loggable_data_ref);
+        
+        void Startup    (const std::set<int>& a_signals, Callbacks a_callbacks);
+        
         void Shutdown   ();
         void Append     (const std::set<int>& a_signals, std::function<void(int)> a_callback);
         void Unregister ();

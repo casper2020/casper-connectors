@@ -294,6 +294,22 @@ void ev::scheduler::Scheduler::Push (ev::scheduler::Client* a_client, ev::schedu
 }
 
 /**
+ * @brief Check if a client is already registered.
+ *
+ * @param a_client
+ *
+ * @return True if so, false otherwise.
+ */
+bool ev::scheduler::Scheduler::IsRegistered (ev::scheduler::Client* a_client)
+{
+    auto it = clients_to_objects_map_.find(a_client->id());
+    if ( clients_to_objects_map_.end() != it ) {
+        return true;
+    }
+    return false;
+}
+
+/**
  * @brief Setup scheduler for a new client.
  *
  * @param a_client

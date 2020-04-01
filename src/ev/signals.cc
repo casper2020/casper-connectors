@@ -75,16 +75,12 @@ ev::Initializer::~Initializer ()
 #endif
 
 /**
- * @brief Prepare singleton, register signals to listen to and a callback for unhandled signals.
+ * @brief Warm-up singleton.
  *
  * @param a_loggable_data_ref
- * *
- * @param a_signals   A set of signals to handle.
- * @param a_callbacks A set of functions to be called accordingly to status.
+ *
  */
-void ev::Signals::Startup (const ev::Loggable::Data& a_loggable_data_ref,
-                           const std::set<int>& a_signals,
-                           Callbacks a_callbacks)
+void ev::Signals::WarmUp (const ev::Loggable::Data& a_loggable_data_ref)
 {
     if ( nullptr != logger_client_ ) {
         throw ::cc::Exception("Logic error - %s already called!", __PRETTY_FUNCTION__ );
@@ -92,11 +88,30 @@ void ev::Signals::Startup (const ev::Loggable::Data& a_loggable_data_ref,
     
     loggable_data_ = new ev::Loggable::Data(a_loggable_data_ref);
     logger_client_ = new ev::LoggerV2::Client(*loggable_data_);
+
+    loggable_data_->Update(loggable_data_->module(), loggable_data_->ip_addr(), __FUNCTION__);
+
+    ev::LoggerV2::GetInstance().Register(logger_client_, { "signals"} );
+    ev::LoggerV2::GetInstance().Log(logger_client_, "signals", "--- WARM-UP ---");
+}
+
+/**
+ * @brief Prepare singleton, register signals to listen to and a callback for unhandled signals.
+ *
+ * @param a_signals   A set of signals to handle.
+ * @param a_callbacks A set of functions to be called accordingly to status.
+ */
+void ev::Signals::Startup (const std::set<int>& a_signals,
+                           Callbacks a_callbacks)
+{
+    
+    if ( true == ev::scheduler::Scheduler::GetInstance().IsRegistered(this) ) {
+        throw ::cc::Exception("Logic error - %s already called!", __PRETTY_FUNCTION__ );
+    }
+    
+    ev::LoggerV2::GetInstance().Log(logger_client_, "signals", "--- STARTUP ---");
     
     loggable_data_->Update(loggable_data_->module(), loggable_data_->ip_addr(), __FUNCTION__);
-    
-    ev::LoggerV2::GetInstance().Register(logger_client_, { "signals"} );
-    ev::LoggerV2::GetInstance().Log(logger_client_, "signals", "--- STARTUP ---");
     
     struct sigaction act;
 
@@ -223,30 +238,37 @@ bool ev::Signals::OnSignal (const int a_sig_no)
             
         case SIGTTIN:
         {
-            ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
-                                          "Signal %2d - Scheduling PostgreSQL connection(s) invalidation...",
-                                          SIGTTIN
-            );
-            callbacks_.call_on_main_thread_([this](){
-                NewTask([this] () -> ::ev::Object* {
-                    ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
-                                                  "Signal %2d - Invalidate PostgreSQL connection(s)...",
-                                                  SIGTTIN
-                    );
-                    return new:: ev::Request(*loggable_data_, ev::Request::Target::PostgreSQL, ev::Request::Mode::OneShot, ev::Request::Control::Invalidate);
-                })->Finally([this] (::ev::Object* /* a_object */) {
-                    ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
-                                                  "Signal %d - PostgreSQL connection(s) invalidated.",
-                                                  SIGTTIN
-                    );
-                })->Catch([this] (const ::ev::Exception& a_ev_exception) {
-                    ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
-                                                  "Signal %2d - Unable to invalidate PostgreSQL connections: '%s'",
-                                                  SIGTTIN, a_ev_exception.what()
-                    );
-                });
-                }
-            );
+            if ( nullptr != callbacks_.call_on_main_thread_ ) {
+                ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                              "Signal %2d - Scheduling PostgreSQL connection(s) invalidation...",
+                                              SIGTTIN
+                );
+                callbacks_.call_on_main_thread_([this](){
+                    NewTask([this] () -> ::ev::Object* {
+                        ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                                      "Signal %2d - Invalidate PostgreSQL connection(s)...",
+                                                      SIGTTIN
+                        );
+                        return new:: ev::Request(*loggable_data_, ev::Request::Target::PostgreSQL, ev::Request::Mode::OneShot, ev::Request::Control::Invalidate);
+                    })->Finally([this] (::ev::Object* /* a_object */) {
+                        ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                                      "Signal %d - PostgreSQL connection(s) invalidated.",
+                                                      SIGTTIN
+                        );
+                    })->Catch([this] (const ::ev::Exception& a_ev_exception) {
+                        ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                                      "Signal %2d - Unable to invalidate PostgreSQL connections: '%s'",
+                                                      SIGTTIN, a_ev_exception.what()
+                        );
+                    });
+                    }
+                );
+            } else {
+                ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                              "Signal %2d - PostgreSQL connection(s) invalidation REJECTED - not ready yet!",
+                                              SIGTTIN
+                );
+            }
             rv = true;
         }
             break;
@@ -255,8 +277,8 @@ bool ev::Signals::OnSignal (const int a_sig_no)
         case SIGTERM:
         {
             ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
-                                          "Signal %2d - Clean shutdown.",
-                                          a_sig_no
+                                          "Signal %2d - Clean shutdown %s special handling.",
+                                          a_sig_no, nullptr != callbacks_.on_signal_ ? "with" : "without"
             );
         }
         default:
