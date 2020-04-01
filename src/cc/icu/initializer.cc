@@ -40,6 +40,7 @@
 cc::icu::OneShot::OneShot (cc::icu::Initializer& a_instance)
     : ::cc::Initializer<::cc::icu::Initializer>(a_instance)
 {
+    instance_.icu_data_        = nullptr;
     instance_.initialized_     = false;
     instance_.last_error_code_ = UErrorCode::U_ZERO_ERROR;
 }
@@ -51,6 +52,9 @@ cc::icu::OneShot::~OneShot ()
 {
     if ( true == instance_.initialized_ ) {
         u_cleanup();
+    }
+    if ( nullptr != instance_.icu_data_ ) {
+        delete [] instance_.icu_data_;
     }
 }
 
@@ -67,8 +71,11 @@ cc::icu::OneShot::~OneShot ()
  */
 const UErrorCode& cc::icu::Initializer::Load (const std::string& a_dtl_uri)
 {
+#if 1
+#else
     struct stat sb;
     void*       data = nullptr;
+#endif
 
     // ... if already loaded ...
     if ( true == initialized_ ) {
@@ -79,6 +86,26 @@ const UErrorCode& cc::icu::Initializer::Load (const std::string& a_dtl_uri)
     // ... clear last error ...
     last_error_code_ = U_FILE_ACCESS_ERROR;
     
+#if 1
+    FILE* fp = fopen(a_dtl_uri.c_str(), "rb");
+    if ( nullptr == fp ) {
+        load_error_msg_ = a_dtl_uri + " ~ fopen failed with error " + std::to_string(errno) + " - " + strerror(errno);
+        // ... we're done ...
+        return last_error_code_;
+    }
+    // ... calculate required buffer size ...
+    fseek(fp, 0, SEEK_END);
+    const size_t size = ftell(fp);
+    rewind(fp);
+    
+    // ... allocate buffer data ...
+   icu_data_ = new char[size];
+   if ( size != fread(icu_data_, sizeof(char), size, fp) ) {
+       const int ferrno = ferror(fp);
+       load_error_msg_ = a_dtl_uri + " ~ fread failed with error " + std::to_string(ferrno) + " - " + strerror(ferrno);
+   }
+
+#else
     // ... open file ...
     int fd = open(a_dtl_uri.c_str(), O_RDONLY);
     if ( -1 == fd ) {
@@ -104,6 +131,7 @@ const UErrorCode& cc::icu::Initializer::Load (const std::string& a_dtl_uri)
         load_error_msg_ = a_dtl_uri + " ~ madvise failed with error " + std::to_string(errno) + " - " + strerror(errno);
         goto leave;
     }
+#endif
 
     // ... reset error code ...
     last_error_code_ = UErrorCode::U_ZERO_ERROR;
@@ -116,7 +144,11 @@ const UErrorCode& cc::icu::Initializer::Load (const std::string& a_dtl_uri)
     }
     
     // ... set loaded data ...
+#if 1
+    udata_setCommonData(icu_data_, &last_error_code_);
+#else
     udata_setCommonData(data, &last_error_code_);
+#endif
     if ( UErrorCode::U_ZERO_ERROR != last_error_code_ ) {
         load_error_msg_ = a_dtl_uri + " ~ udata_setCommonData failed with error " + std::to_string(last_error_code_) + " - " + u_errorName(last_error_code_);
         goto leave;
@@ -130,10 +162,21 @@ const UErrorCode& cc::icu::Initializer::Load (const std::string& a_dtl_uri)
     }
     
 leave:
+#if 1
+    // ... if an error is set ...
+    if ( UErrorCode::U_ZERO_ERROR != last_error_code_ ) {
+        // ... release previously allocated memory ( if any ) ...
+        if ( nullptr != icu_data_ ) {
+            delete[] icu_data_;
+            icu_data_ = nullptr;
+        }
+    }
+#else
     // ... close file ...
     if ( -1 != fd ) {
         close(fd);
     }
+#endif
     // ... success?
     initialized_ = ( UErrorCode::U_ZERO_ERROR == last_error_code_ );
     // .. we're done ...

@@ -54,6 +54,7 @@ namespace cc
                 
         private: // Data
             
+            char*       icu_data_;
             bool        initialized_;
             UErrorCode  last_error_code_;
             std::string load_error_msg_;
