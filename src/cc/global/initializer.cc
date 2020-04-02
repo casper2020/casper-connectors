@@ -193,7 +193,7 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         // .. global status ...
         osal::debug::Trace::GetInstance().Register("status", where);
         
-        if ( process_->banner_.length() > 0 ) {
+        if ( true == process_->is_master_ && process_->banner_.length() > 0 ) {
             Log("status", "\n%s\n", process_->banner_.c_str());
         }
         
