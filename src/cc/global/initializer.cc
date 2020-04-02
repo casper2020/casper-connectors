@@ -126,6 +126,7 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
             /* version_   */ a_process.version_,
             /* rel_date_  */ a_process.rel_date_,
             /* info_      */ a_process.info_,
+            /* banner_    */ a_process.banner_,
             /* pid_       */ getpid(),
             /* is_master_ */ a_process.is_master_
         }
@@ -191,7 +192,11 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         
         // .. global status ...
         osal::debug::Trace::GetInstance().Register("status", where);
-                  
+        
+        if ( process_->banner_.length() > 0 ) {
+            Log("status", "\n%s\n", process_->banner_.c_str());
+        }
+        
         // ... starting up ...
         Log("status", "\n* %s - configuring %s process w/pid %u...\n",
              process_->info_.c_str(), ( true == process_->is_master_ ? "master" : "worker" ), process_->pid_
