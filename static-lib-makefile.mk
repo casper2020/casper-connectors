@@ -32,6 +32,7 @@ EXECUTABLE_MAIN_SRC :=
 LIBRARY_TYPE        := static
 ICU_DEP_ON          ?= true
 CURL_DEP_ON         ?= true
+OPENSSL_DEP_ON      ?= true
 ifeq (true, $(V8_DEP_ON))
   LIBRARY_NAME := libconnectors-v8.a
 else
