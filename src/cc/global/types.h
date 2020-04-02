@@ -35,6 +35,7 @@ namespace cc
             const std::string alt_name_;
             const std::string name_;
             const std::string version_;
+            const std::string rel_date_;
             const std::string info_;
             const pid_t       pid_;
             const bool        is_master_;

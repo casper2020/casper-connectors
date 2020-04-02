@@ -54,6 +54,8 @@
 
 #include <map>
 
+#include <openssl/crypto.h> // SSLeay_version // SSLEAY_VERSION
+
 /**
  * @brief Default constructor.
  *
@@ -122,6 +124,7 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
             /* alt_name_  */ a_process.alt_name_,
             /* name_      */ a_process.name_,
             /* version_   */ a_process.version_,
+            /* rel_date_  */ a_process.rel_date_,
             /* info_      */ a_process.info_,
             /* pid_       */ getpid(),
             /* is_master_ */ a_process.is_master_
@@ -197,9 +200,14 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         //
         // ... configuration ...
         //
+        std::string process_name_uc = process_->name_;
+        std::transform(process_name_uc.begin(), process_name_uc.end(), process_name_uc.begin(), ::toupper);
         
-        Log("status", "\n\t⌥ CONFIGURATION\n");
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "Target", CC_IF_DEBUG_ELSE("debug", "release"));
+        Log("status", "\n\t⌥ %s\n", process_name_uc.c_str());
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION"      , process_->version_.c_str());
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "RELEASE DATE" , process_->rel_date_.c_str());
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INFO"         , process_->info_.c_str());
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "TARGET"       , CC_IF_DEBUG_ELSE("debug", "release"));
         
         //
         // ... directories ...
@@ -276,7 +284,15 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         //
         // ... ICU / V8 ...
         //
-        
+                
+        // ... LIBEVENT2 ...
+        Log("status", "\n\t⌥ OPENSSL\n");
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION"  , SSLeay_version(SSLEAY_VERSION));
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "FLAGS"    , SSLeay_version(SSLEAY_CFLAGS));
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "BUILT ON" , SSLeay_version(SSLEAY_BUILT_ON));
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "PLATFORM" , SSLeay_version(SSLEAY_PLATFORM));
+        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DIR"      , SSLeay_version(SSLEAY_DIR));
+
         // ... LIBEVENT2 ...
         Log("status", "\n\t⌥ LIBEVENT2\n");
         Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", event_get_version());
