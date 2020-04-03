@@ -175,7 +175,7 @@ namespace ev
 
                 void  Startup  (const Loggable::Data& a_loggable_data_ref,
                                 const std::string& a_uri);
-                void  Reload   (int a_signo);
+                bool  Reload   (int a_signo);
                 void  Shutdown ();
                 
             public: // Method(s) / Functions

@@ -23,6 +23,8 @@
 
 #include "osal/utf8_string.h"
 
+#include "cc/logs/basic.h"
+
 #include "ev/exception.h"
 
 #include "ev/logger.h"
@@ -83,8 +85,10 @@ void ev::ngx::SharedGlue::PreConfigure (const ngx_core_conf_t* a_config, const b
     // ... ensure directory can be written to ...
     if ( UINT32_MAX != a_config->user && UINT32_MAX != a_config->group ) {
         
-        ev::Logger::GetInstance().EnsureOwner(a_config->user, a_config->group);
-        ev::LoggerV2::GetInstance().EnsureOwner(a_config->user, a_config->group);
+        ev::Logger::GetInstance().EnsureOwnership(a_config->user, a_config->group);
+        ev::LoggerV2::GetInstance().EnsureOwnership(a_config->user, a_config->group);
+        cc::logs::Basic::GetInstance().EnsureOwnership(a_config->user, a_config->group);
+        osal::debug::Trace::GetInstance().EnsureOwnership(a_config->user, a_config->group);
         
         const int chown_status = chown(socket_files_dn_.c_str(), a_config->user, a_config->group);
         if ( 0 != chown_status ) {

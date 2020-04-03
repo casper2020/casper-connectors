@@ -44,12 +44,16 @@ namespace sys
             
         public: // Inherited Virtual Method(s) / Function(s) - Declaration
             
-            virtual bool IsZombie  (const bool a_optional, bool& o_is_zombie);
-            virtual bool IsRunning (const bool a_optional, const pid_t a_parent_pid, bool& o_is_running);
+            virtual bool IsZombie      (const bool a_optional, bool& o_is_zombie);
+            virtual bool IsRunning     (const bool a_optional, const pid_t a_parent_pid, bool& o_is_running);
             
         private: // Method(s) / Function(s)
             
             bool GetInfo (const bool a_optional, struct proc_bsdshortinfo& o_info);
+
+        public: // Static Method(s)  / Function(s)
+            
+            static bool IsProcessBeingDebugged (const pid_t& a_pid);
             
         }; // end of class 'Process'
 

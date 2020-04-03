@@ -25,6 +25,8 @@
 #include <errno.h>         // errno
 #include <sys/sysctl.h>    // sysctl
 
+#include <exception>
+
 /**
  * @brief Destructor
  */
@@ -228,4 +230,36 @@ bool sys::bsd::Process::GetInfo (const bool a_optional, struct proc_bsdshortinfo
     
     // ... done ...
     return ( false == is_error_set() );
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#endif
+
+/**
+ * @brief Check if current process is being debugged.
+ *
+ * @param a_pid Process pid.
+ *
+ * @return True if so, false otherwise.
+ */
+bool sys::bsd::Process::IsProcessBeingDebugged (const pid_t& a_pid)
+{
+    struct kinfo_proc   info;
+    size_t              size = sizeof(struct kinfo_proc);
+    
+    memset(&info, 0, size);
+    
+    // ... tell sysctl the info we want - information about a specific process ...
+    int mib[4] = { CTL_KERN,  KERN_PROC, KERN_PROC_PID , a_pid };
+    
+    // ... grab process info ...
+    int err_no = sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
+    if ( -1 == err_no ) {
+        err_no = errno;
+        throw std::runtime_error("Unable to get process info: " + std::to_string(err_no) + " - " + strerror(err_no));
+    }
+    
+    // ... done - the provided process is being debugged if the P_TRACED flag is set ...
+    return ( (info.kp_proc.p_flag & P_TRACED) != 0 );
 }

@@ -21,6 +21,8 @@
 
 #include "ev/signals.h"
 
+#include "cc/logs/basic.h"
+
 #include "ev/logger.h"
 #include "ev/logger_v2.h"
 
@@ -93,6 +95,14 @@ void ev::Signals::WarmUp (const ev::Loggable::Data& a_loggable_data_ref)
 
     ev::LoggerV2::GetInstance().Register(logger_client_, { "signals"} );
     ev::LoggerV2::GetInstance().Log(logger_client_, "signals", "--- WARM-UP ---");
+    
+    /* id_ */  /* name_ */  /* description_ */  /* purpose_ */
+    supported_ = {
+        { SIGQUIT, "SIGQUIT", strsignal(SIGQUIT), "Quit application." },
+        { SIGTERM, "SIGTERM", strsignal(SIGTERM), "Terminate application." },
+        { SIGTTIN, "SIGTTIN", strsignal(SIGTTIN), "PostgreSQL Connections Invalidation && Gatekeeper Configs Reload." },
+        { SIGUSR1, "SIGUSR1", strsignal(SIGUSR1), "Logs Recycling." }
+    };
 }
 
 /**
@@ -164,23 +174,22 @@ void ev::Signals::Shutdown ()
 }
 
 /**
- * @brief Append a handler for a set of signals.
+ * @brief Append more signal handlers.
  *
- * @param a_signals  A set of signals to handle.
- * @param a_callback A function to be called when a signal is intercepted.
+ * @param a_handlers Hnadler information.
  */
-void ev::Signals::Append (const std::set<int>& a_signals, std::function<void (int)> a_callback)
+void ev::Signals::Append (const std::vector<ev::Signals::Handler>& a_handlers)
 {
-    std::vector<std::function<void(int)>>* vector = nullptr;
-    for ( auto signal : a_signals ) {
-        auto it = other_signal_handlers_.find(signal);
+    std::vector<::ev::Signals::Handler>* vector = nullptr;
+    for ( auto handler : a_handlers ) {
+        auto it = other_signal_handlers_.find(handler.signal_);
         if ( other_signal_handlers_.end() == it ) {
-            vector = new std::vector<std::function<void(int)>>();
-            other_signal_handlers_[signal] = vector;
+            vector = new std::vector<::ev::Signals::Handler>();
+            other_signal_handlers_[handler.signal_] = vector;
         } else {
             vector = it->second;
         }
-        vector->push_back(a_callback);
+        vector->push_back(ev::Signals::Handler(handler));
     }
 }
 
@@ -230,6 +239,7 @@ bool ev::Signals::OnSignal (const int a_sig_no)
                                           "Signal %2d - Recycle logs.",
                                           a_sig_no
             );
+            ::cc::logs::Basic::GetInstance().Recycle();
             ::ev::Logger::GetInstance().Recycle();
             ::ev::LoggerV2::GetInstance().Recycle();
             rv = true;
@@ -293,8 +303,35 @@ bool ev::Signals::OnSignal (const int a_sig_no)
     
     // ... notify other signal handlers ...
     for ( auto it : other_signal_handlers_ ) {
-        for ( auto callback : (*it.second) ) {
-            callback(it.first);
+        for ( auto handler : (*it.second) ) {
+            if ( it.first != a_sig_no ) {
+                continue;;
+            }
+            ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                          "Signal %2d - %s...",
+                                            a_sig_no, handler.description_.c_str()
+            );
+            try {
+                const std::string msg = handler.callback_();
+                ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                              "Signal %2d - %s...",
+                                                a_sig_no, msg.c_str()
+                );
+            } catch (const ::cc::Exception& a_cc_exception) {
+                ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                                "Signal %2d - %s",
+                                                a_sig_no, a_cc_exception.what()
+                );
+            } catch (...) {
+                try {
+                    ::cc::Exception::Rethrow(/* a_unhandled */ true, __FILE__, __LINE__, __FUNCTION__);
+                } catch (::cc::Exception& a_cc_exception) {
+                    ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
+                                                    "Signal %2d - %s",
+                                                    a_sig_no, a_cc_exception.what()
+                    );
+                }
+            }
         }
     }
     

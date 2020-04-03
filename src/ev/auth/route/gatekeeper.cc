@@ -99,13 +99,21 @@ void ev::auth::route::Gatekeeper::Startup (const Loggable::Data &a_loggable_data
 }
 
 /**
-* @brief Reload gatekeeper configuration.
-*
-* @param a_signo Signal number that requested this action.
+ * @brief Reload gatekeeper configuration.
+ *
+ * @param a_signo Signal number that requested this action.
+ *
+ * @return True if reloaded, false if there's no config file set.
 */
-void ev::auth::route::Gatekeeper::Reload (int a_signo)
+bool ev::auth::route::Gatekeeper::Reload (int a_signo)
 {
+    if ( 0 == s_config_uri_.length() ) {
+        return false;
+    }
+    // ... reload ...
     Load(s_config_uri_, a_signo);
+    // ... done ...
+    return true;
 }
 
 /**

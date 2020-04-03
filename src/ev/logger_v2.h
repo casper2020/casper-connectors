@@ -22,6 +22,8 @@
 #ifndef NRS_EV_LOGGER_V2_H_
 #define NRS_EV_LOGGER_V2_H_
 
+#include "cc/logs/logger.h"
+
 #include "cc/utc_time.h"
 
 #include <limits.h>
@@ -48,12 +50,8 @@
 namespace ev
 {
         
-    class LoggerV2 final : public osal::Singleton<LoggerV2>
+    class LoggerV2 final : public ::cc::logs::Logger, public osal::Singleton<LoggerV2>
     {
-        
-    private: // Threading
-        
-        std::mutex mutex_;
         
     public: // Data Types
         
@@ -176,96 +174,14 @@ namespace ev
                 return tokens_.end() != tokens_.find(a_token);
             }
             
-        }; // end of class 'Client'
-        
-        class RegistrationException : public std::exception {
-            
-        private: // Data
-            
-            const std::string what_;
-            
-        public: // Constructor / Destructor
-            
-            RegistrationException (const std::string& a_what)
-            : what_(a_what)
-            {
-                // ... empty ...
-            }
-            
-            virtual ~RegistrationException ()
-            {
-                // ... empty ...
-            }
-            
-        public:
-            
-            const char* what() const noexcept {return what_.c_str();}
-            
-        };
-        
-    protected: // Data Types
-        
-        /**
-         * An object that defines a token.
-         */
-        class Token
-        {
-            
-        public: // Const Data
-            
-            const std::string name_;
-            const std::string fn_;
-            
-        public: // Data
-            
-            FILE* fp_;
-            
-        public: // Constructor(s) / Destructor
-            
-            /**
-             * @brief Default constructor.
-             *
-             * @param a_name The token name.
-             * @param a_fn
-             * @param a_fp
-             */
-            Token (const std::string& a_name, const std::string& a_fn, FILE* a_fp)
-            : name_(a_name), fn_(a_fn), fp_(a_fp)
-            {
-                /* empty */
-            }
-            
-            /**
-             * @brief Destructor.
-             */
-            virtual ~Token ()
-            {
-                if ( nullptr != fp_ && stderr != fp_ && stdout != fp_ ) {
-                    fclose(fp_);
-                }
-            }
-            
-        };
-        
+        }; // end of class 'Client'           
+
     private: // Data
         
         std::set<Client*>              clients_;
         std::map<std::string, ssize_t> counter_;
-        std::map<std::string, Token*>  tokens_;
-        static char*                   s_buffer_;
-        static size_t                  s_buffer_capacity_;
-        static uid_t                   s_user_id_;
-        static gid_t                   s_group_id_;
-        
-    public: // Initialization / Release API - Method(s) / Function(s)
-        
-        void    Startup  ();
-        void    Shutdown ();
         
     public: // Registration API - Method(s) / Function(s)
-        
-        void        Register     (const std::string& a_token, const std::string& a_file);
-        bool        IsRegistered (const std::string& a_token);
         
         bool        IsRegistered (Client* a_client, const std::string& a_token);
         void        Register     (Client* a_client, const std::set<std::string>& a_tokens);
@@ -273,7 +189,7 @@ namespace ev
         void        Unregister   (Client* a_client);
         bool        Using        (Client* a_client, int a_fd);
 
-        ssize_t  Count        (const char* const a_protocol);
+        ssize_t  Count           (const char* const a_protocol);
         
         
     public: // Log API - Method(s) / Function(s)
@@ -282,94 +198,13 @@ namespace ev
                       const char* const a_token, const char* a_format, ...) __attribute__((format(printf, 4, 5)));
         
         void     Log (Client* a_client, const char* const a_token, const std::vector<std::string>& a_lines);
-        
-    public: // Other - Method(s) / Function(s)
-        
-        void     Recycle     ();
-        bool     EnsureOwner (uid_t a_user_id, gid_t a_group_id);
 
-    protected: // Method(s) / Function(s)
-        
-        bool EnsureBufferCapacity (const size_t& a_capacity);
-        bool EnsureOwner          ();
-        
     public: // Static Method(s) / Function(s)
         
         static size_t NumberOfDigits (size_t a_value);
 
     }; // end of class Logger
-    
-    /**
-     * @brief Initialize logger instance.
-     */
-    inline void LoggerV2::Startup  ()
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if ( nullptr != s_buffer_ ) {
-            delete [] s_buffer_;
-        }
-        s_buffer_          = new char[1024];
-        s_buffer_capacity_ = nullptr != s_buffer_ ? 1024 : 0;
-    }
-    
-    /**
-     * @brief Release all dynamically allocated memory and close files ( if any )..
-     */
-    inline void LoggerV2::Shutdown ()
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        for ( auto it : tokens_ ) {
-            delete it.second;
-        }
-        tokens_.clear();
-        if ( nullptr != s_buffer_ ) {
-            delete [] s_buffer_;
-	    s_buffer_ = nullptr;
-        }
-    }
-    
-    /**
-     * @brief Register a token.
-     *
-     * @param a_token
-     * @param a_file
-     */
-    inline void LoggerV2::Register (const std::string& a_token, const std::string& a_file)
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        // ... already registered? ...
-        if ( tokens_.end() != tokens_.find(a_token) ) {
-            return;
-        }
-        // ... try to open log file ...
-        FILE* fp = fopen(a_file.c_str(), "a");
-        if ( nullptr == fp ) {
-            const char* const err_str = strerror(errno);
-            throw RegistrationException("An error occurred while creating preparing log file '" + a_file + "': " + std::string(nullptr != err_str ? err_str : "nullptr") + " !");
-        }
-        // ... keep track of it ...
-        try {
-            tokens_[a_token] = new Token(a_token, a_file, fp);
-        } catch (...) {
-            // ... failure ...
-            throw RegistrationException("A 'C++ Generic Exception' occurred while registering log token '" + a_token + "'!");
-        }
-    }
-    
-    /**
-     * @brief Check if a token is registered.
-     *
-     * @param a_token
-     *
-     * @return True if so, false otherwise.
-     */
-    inline bool LoggerV2::IsRegistered (const std::string& a_token)
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        // ... exists?
-        return ( tokens_.end() != tokens_.find(a_token) );
-    }
-    
+
     /**
      * @brief Check if a client has a token registered.
      *
@@ -493,23 +328,6 @@ namespace ev
         return c_it->second;
     }
     
-    
-    /**
-     * @brief Change the logs permissions to a specific user / group.
-     *
-     * @param a_user_id
-     * @param a_group_id
-     *
-     * @return True if all files changed to new permissions or it not needed, false otherwise.
-     */
-    inline bool LoggerV2::EnsureOwner (uid_t a_user_id, gid_t a_group_id)
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        s_user_id_  = a_user_id;
-        s_group_id_ = a_group_id;
-        return EnsureOwner();
-    }
-    
     /**
      * @brief Output a log message if the provided token is registered.
      *
@@ -544,15 +362,15 @@ namespace ev
         int aux = INT_MAX;
         // ... try at least 2 times to construct the output message ...
         for ( uint8_t attempt = 0 ; attempt < 2 ; ++attempt ) {
-            s_buffer_[0] = '\0';
+            buffer_[0] = '\0';
             va_list args;
             va_start(args, a_format);
-            aux = vsnprintf(s_buffer_, s_buffer_capacity_ - 1, a_format, args);
+            aux = vsnprintf(buffer_, buffer_capacity_ - 1, a_format, args);
             va_end(args);
             if ( aux < 0 ) {
                 // ... an error has occurred ...
                 break;
-            } else if ( aux > static_cast<int>(s_buffer_capacity_) ) {
+            } else if ( aux > static_cast<int>(buffer_capacity_) ) {
                 // ... realloc buffer ...
                 if ( true == EnsureBufferCapacity(static_cast<size_t>(aux + 1)) ) {
                     // ... last attempt to write to buffer ...
@@ -567,13 +385,13 @@ namespace ev
             }
         }
         // ... ready to output the message ? ...
-        if ( aux > 0 && static_cast<size_t>(aux) < s_buffer_capacity_ ) {
+        if ( aux > 0 && static_cast<size_t>(aux) < buffer_capacity_ ) {
             auto file = tokens_.find(a_token)->second->fp_;
             // ... output message ...
             fprintf(tokens_.find(a_token)->second->fp_, "%s,%s",
                     cc::UTCTime::NowISO8601WithTZ().c_str(), a_client->prefix()
             );
-            fprintf(tokens_.find(a_token)->second->fp_, "%s\n", s_buffer_);
+            fprintf(tokens_.find(a_token)->second->fp_, "%s\n", buffer_);
             // ... flush ...
             if ( stdout != file && stderr != file ) {
                 fflush(file);
@@ -619,89 +437,6 @@ namespace ev
             fflush(file);
         }
     }
-    
-    /**
-     * @brief Recycle currently open log files.
-     */
-    inline void LoggerV2::Recycle ()
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        // ... for all tokens ...
-        for ( auto it : tokens_ ) {
-            // ... if no file is open ...
-            if ( stdout == it.second->fp_ || stderr == it.second->fp_ ) {
-                // ... next ...
-                continue;
-            }
-            // ... else close ...
-            if ( nullptr != it.second->fp_ ) {
-                fclose(it.second->fp_);
-            }
-            // ... and reopen it ...
-            it.second->fp_ = fopen(it.second->fn_.c_str(), "w");
-            if ( nullptr == it.second->fp_ ) {
-                const char* const err_str = strerror(errno);
-                throw RegistrationException("An error occurred while creating rotating log file '" + it.second->fn_ + "': " + std::string(nullptr != err_str ? err_str : "nullptr") + " !");
-            }
-            // ... write a comment line ...
-            fprintf(it.second->fp_, "---- NEW LOG '%s' ----\n", it.second->fn_.c_str());
-            fflush(it.second->fp_);
-        }
-        EnsureOwner();
-    }
-    
-    /**
-     * @brief Ensure that the current buffer has at least the required capacity.
-     *
-     * @param a_capacity The required capacity ( in bytes ).
-     *
-     * @return True when the buffer has at least the required capacity.
-     */
-    inline bool LoggerV2::EnsureBufferCapacity (const size_t& a_capacity)
-    {
-        // ... buffer is allocated and has enough capacity? ...
-        if ( s_buffer_capacity_ >= a_capacity ) {
-            // ... good to go ...
-            return true;
-        }
-        // ... if buffer is not allocated ...
-        if ( nullptr != s_buffer_ ) {
-            delete [] s_buffer_;
-        }
-        // ... try to allocate it now ...
-        s_buffer_ = new char[a_capacity];
-        if ( nullptr == s_buffer_ ) {
-            // ... out of memory ...
-            s_buffer_capacity_ = 0;
-        } else {
-            // ... we're good to go ....
-            s_buffer_capacity_ = a_capacity;
-        }
-        // ... we're good to go if ...
-        return ( a_capacity == s_buffer_capacity_ );
-    }
-    
-    /**
-     * @brief Change the logs permissions to a specific user / group.
-     *
-     * @return True if all files changed to new permissions or it not needed, false otherwise.
-     */
-    inline bool LoggerV2::EnsureOwner ()
-    {
-        if ( UINT32_MAX == s_user_id_ || UINT32_MAX == s_group_id_ ) {
-            return true;
-        }
-        size_t count = 0;
-        for ( auto it : tokens_ ) {
-            const int chown_status = chown(it.second->fn_.c_str(), s_user_id_, s_group_id_);
-            const int chmod_status = chmod(it.second->fn_.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
-            if ( 0 == chown_status && 0 == chmod_status ) {
-                count++;
-            }
-        }
-        return ( tokens_.size() == count );
-    }
-    
     
 } // end of namespace 'ev'
 

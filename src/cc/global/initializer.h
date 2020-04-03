@@ -89,6 +89,7 @@ namespace cc
             ::ev::Loggable::Data* loggable_data_;
             bool                  warmed_up_;
             bool                  initialized_;
+            bool                  being_debugged_;
 
         public: // Method(s) / Function(s)
             
@@ -107,7 +108,6 @@ namespace cc
         private: //
             
             void EnableLogsIfRequired (const Logs& a_logs);
-            void Log                  (const char* a_token, const char* a_format, ...) __attribute__((format(printf, 3, 4)));
             
         public: // Static Method(s) / Function(s)
             

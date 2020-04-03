@@ -61,20 +61,33 @@ namespace ev
             std::function<void(std::function<void()>)>                     call_on_main_thread_;
         } Callbacks;
         
+        typedef struct {
+            int         id_;
+            std::string name_;
+            std::string description_;
+            std::string purpose_;
+        } SignalInfo;
+        
+        typedef struct {
+            int                          signal_;
+            std::string                  description_;
+            std::function<std::string()> callback_;
+        } Handler;
         
     private: // Const Ptrs
         
-        Loggable::Data*                                          loggable_data_;
-        LoggerV2::Client*                                        logger_client_;
+        Loggable::Data*                      loggable_data_;
+        LoggerV2::Client*                    logger_client_;
         
     private: //  Ptrs
 
-        std::set<int>                                            signals_;
-        Callbacks                                                callbacks_;
+        std::set<int>                        signals_;
+        Callbacks                            callbacks_;
         
     private: // Data
         
-        std::map<int, std::vector<std::function<void(int)>>*>    other_signal_handlers_;
+        std::map<int, std::vector<Handler>*> other_signal_handlers_;
+        std::vector<SignalInfo>              supported_;
         
     public: // Method(s) / Function(s)
         
@@ -83,10 +96,14 @@ namespace ev
         void Startup    (const std::set<int>& a_signals, Callbacks a_callbacks);
         
         void Shutdown   ();
-        void Append     (const std::set<int>& a_signals, std::function<void(int)> a_callback);
+        void Append     (const std::vector<Handler>& a_handlers);
         void Unregister ();
         
         bool OnSignal   (const int a_sig_no);
+        
+    public: // Inline Mehtod(s) / Function(s)
+        
+        const std::vector<SignalInfo>& Supported () const;
         
     private: //
         
@@ -94,6 +111,11 @@ namespace ev
         
     }; // end of class 'Signals' 
     
+    inline const std::vector<Signals::SignalInfo>& Signals::Supported () const
+    {
+        return supported_;
+    }
+
 }
 
 #endif // NRS_EV_SIGNALS_H_

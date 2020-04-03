@@ -50,12 +50,35 @@
 #include <event2/event.h>  // event_get_version
 #include <event2/thread.h> // evthread_use_pthreads
 
-#include "osal/debug/trace.h"
+#include "cc/logs/basic.h"
 
 #include <map>
 
 #include <openssl/crypto.h> // SSLeay_version // SSLEAY_VERSION
 
+#ifdef __APPLE__
+    #include "sys/bsd/process.h" // IsProcessBeingDebugged
+#endif
+
+#ifdef CC_GLOBAL_INITIALIZER_LOGGER_REGISTER
+    #undef CC_GLOBAL_INITIALIZER_LOGGER_REGISTER
+#endif
+#define CC_GLOBAL_INITIALIZER_LOGGER_REGISTER(a_token, a_where) \
+    if ( false == being_debugged_ ) { \
+        cc::logs::Basic::GetInstance().Register(a_token, a_where); \
+    }
+
+#ifdef CC_GLOBAL_INITIALIZER_LOG
+    #undef CC_GLOBAL_INITIALIZER_LOG
+#endif
+#define CC_GLOBAL_INITIALIZER_LOG(a_token, a_format, ...) \
+    if ( false == being_debugged_ ) { \
+        cc::logs::Basic::GetInstance().Log(a_token, a_format, __VA_ARGS__); \
+    } else { \
+        fprintf(stdout, a_format, __VA_ARGS__); \
+        fflush(stdout); \
+    }
+    
 /**
  * @brief Default constructor.
  *
@@ -64,11 +87,16 @@
 cc::global::OneShot::OneShot (cc::global::Initializer& a_instance)
     : ::cc::Initializer<::cc::global::Initializer>(a_instance)
 {
-    instance_.process_       = nullptr;
+    instance_.process_        = nullptr;
     instance_.directories_    = nullptr;
-    instance_.loggable_data_ = nullptr;
-    instance_.warmed_up_     = false;
-    instance_.initialized_   = false;
+    instance_.loggable_data_  = nullptr;
+    instance_.warmed_up_      = false;
+    instance_.initialized_    = false;
+#ifdef __APPLE__
+    instance_.being_debugged_ = sys::bsd::Process::IsProcessBeingDebugged(getpid());
+#else
+    instance_.being_debugged_ = false;
+#endif
 }
 
 /**
@@ -171,19 +199,20 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
                 
     try {
         
+        cc::logs::Basic::GetInstance().Startup();
+        
         //
         // ... initialize debug trace ...
         //
+        // TODO 2.0
         osal::debug::Trace::GetInstance().Startup();
 
-        // TODO 2.0
-
         #ifdef __APPLE__
-                FILE* where = stdout;
-        #else
-                FILE* where = stderr;
+            FILE* where = stdout;
+        #else // assuming linux
+            FILE* where = stderr;
         #endif
-
+                
         if ( nullptr != a_debug_tokens ) {
             for ( auto token : *a_debug_tokens ) {
                 OSALITE_REGISTER_DEBUG_TOKEN(token, where);
@@ -191,14 +220,13 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         }
         
         // .. global status ...
-        osal::debug::Trace::GetInstance().Register("status", where);
-        
+        CC_GLOBAL_INITIALIZER_LOGGER_REGISTER("cc-status", directories_->log_ + "cc-status.log");
         if ( true == process_->is_master_ && process_->banner_.length() > 0 ) {
-            Log("status", "\n%s\n", process_->banner_.c_str());
+            CC_GLOBAL_INITIALIZER_LOG("cc-status", "\n%s\n", process_->banner_.c_str());
         }
         
         // ... starting up ...
-        Log("status", "\n* %s - configuring %s process w/pid %u...\n",
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n* %s - configuring %s process w/pid %u...\n",
              process_->info_.c_str(), ( true == process_->is_master_ ? "master" : "worker" ), process_->pid_
         );
                 
@@ -208,11 +236,11 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         std::string process_name_uc = process_->name_;
         std::transform(process_name_uc.begin(), process_name_uc.end(), process_name_uc.begin(), ::toupper);
         
-        Log("status", "\n\t⌥ %s\n", process_name_uc.c_str());
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION"      , process_->version_.c_str());
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "RELEASE DATE" , process_->rel_date_.c_str());
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INFO"         , process_->info_.c_str());
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "TARGET"       , CC_IF_DEBUG_ELSE("debug", "release"));
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", process_name_uc.c_str());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION"      , process_->version_.c_str());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "RELEASE DATE" , process_->rel_date_.c_str());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INFO"         , process_->info_.c_str());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "TARGET"       , CC_IF_DEBUG_ELSE("debug", "release"));
         
         //
         // ... directories ...
@@ -226,9 +254,9 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
             { "tmp"  , directories_->tmp_     }
         };
         
-        Log("status", "\n\t⌥ DIRECTORIES\n");
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "DIRECTORIES");
         for ( auto it : directories ) {
-            Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", it.first.c_str(), it.second.c_str());
+            CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", it.first.c_str(), it.second.c_str());
         }
 
         //
@@ -251,38 +279,39 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         srandom(((unsigned) process_->pid_ << 16) ^ (unsigned)tv.tv_sec ^ (unsigned)tv.tv_usec);
         
         // ... set locale must be called @ main(int argc, char** argv) ...
-
-	const char* c_all_tmp = setlocale(LC_ALL, NULL);
-	if ( nullptr == c_all_tmp ) {
-	  throw ::cc::Exception("Unable to initialize C locale - nullptr- the request cannot be honored!");
-	}
+        
+        const char* c_all_tmp = setlocale(LC_ALL, NULL);
+        if ( nullptr == c_all_tmp ) {
+            throw ::cc::Exception("Unable to initialize C locale - nullptr- the request cannot be honored!");
+        }
         const std::string lc_all = c_all_tmp;
         
-	const char* c_numeric_tmp = setlocale(LC_NUMERIC, NULL);
-	if ( nullptr ==  c_numeric_tmp ) {
-	  throw ::cc::Exception("Unable to initialize C numeric - nullptr- the request cannot be honored! ");
-	}
+        const char* c_numeric_tmp = setlocale(LC_NUMERIC, NULL);
+        if ( nullptr ==  c_numeric_tmp ) {
+            throw ::cc::Exception("Unable to initialize C numeric - nullptr- the request cannot be honored! ");
+        }
+        
         const std::string lc_numeric = c_numeric_tmp;
 
-        Log("status", "\n\t⌥ LOCALE\n");
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s - %s \n"     , "LC_ALL"    , lc_all.c_str(), "€ $ £");
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s - " DOUBLE_FMT "\n", "LC_NUMERIC", lc_numeric.c_str(), (double)123.456);
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "LOCALE");
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s - %s \n"     , "LC_ALL"    , lc_all.c_str(), "€ $ £");
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s - " DOUBLE_FMT "\n", "LC_NUMERIC", lc_numeric.c_str(), (double)123.456);
 
         CC_IF_DEBUG(
             //
             // ... *printf function ...
             //
             if ( true == process_->is_master_ ) {
-                Log("status", "\n\t⌥ *printf(...)\n");
-                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "SIZET_FMT" , SIZET_FMT);
-                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INT8_FMT"  , INT8_FMT);
-                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "UINT8_FMT" , UINT8_FMT);
-                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INT16_FMT" , INT16_FMT);
-                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "UINT16_FMT", UINT16_FMT);
-                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INT32_FMT" , INT32_FMT);
-                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "UINT32_FMT", UINT32_FMT);
-                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INT64_FMT" , INT64_FMT);
-                Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "UINT64_FMT", UINT64_FMT);
+                CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ *%s\n", "printf(...)");
+                CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "SIZET_FMT" , SIZET_FMT);
+                CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INT8_FMT"  , INT8_FMT);
+                CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "UINT8_FMT" , UINT8_FMT);
+                CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INT16_FMT" , INT16_FMT);
+                CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "UINT16_FMT", UINT16_FMT);
+                CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INT32_FMT" , INT32_FMT);
+                CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "UINT32_FMT", UINT32_FMT);
+                CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INT64_FMT" , INT64_FMT);
+                CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "UINT64_FMT", UINT64_FMT);
             }
         );
         
@@ -291,38 +320,38 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         //
                 
         // ... LIBEVENT2 ...
-        Log("status", "\n\t⌥ OPENSSL\n");
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION"  , SSLeay_version(SSLEAY_VERSION));
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "FLAGS"    , SSLeay_version(SSLEAY_CFLAGS));
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "BUILT ON" , SSLeay_version(SSLEAY_BUILT_ON));
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "PLATFORM" , SSLeay_version(SSLEAY_PLATFORM));
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DIR"      , SSLeay_version(SSLEAY_DIR));
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "OPENSSL");
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION"  , SSLeay_version(SSLEAY_VERSION));
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "FLAGS"    , SSLeay_version(SSLEAY_CFLAGS));
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "BUILT ON" , SSLeay_version(SSLEAY_BUILT_ON));
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "PLATFORM" , SSLeay_version(SSLEAY_PLATFORM));
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DIR"      , SSLeay_version(SSLEAY_DIR));
 
         // ... LIBEVENT2 ...
-        Log("status", "\n\t⌥ LIBEVENT2\n");
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", event_get_version());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "LIBEVENT2");
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", event_get_version());
         const int evthread_use_pthreads_rv = evthread_use_pthreads();
         if ( 0 == evthread_use_pthreads_rv ) {
-            Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "PTHREADS", "OK");
+            CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "PTHREADS", "OK");
         } else {
             throw ::cc::Exception("Unable to initialize libevent2, error code is %d", (int)evthread_use_pthreads_rv);
         }
 
+    // ... ICU ...
+    #ifdef __APPLE__
+        const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + CC_IF_DEBUG_ELSE("icu/debug/icudtl.dat", "icu/icudtl.dat");
+    #else
+        const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + "icu/icudtl.dat";
+    #endif
+
     #ifndef CASPER_REQUIRE_GOOGLE_V8
 
-        // ... ICU ...
-        #ifdef __APPLE__
-            const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + CC_IF_DEBUG_ELSE("icu/debug/icudtl.dat", "icu/icudtl.dat");
-        #else
-            const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + "icu/icudtl.dat";
-        #endif
-
-        Log("status", "\n\t⌥ ICU\n");
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", U_ICU_VERSION);
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DATA FILE", icu_dat_file_uri.c_str());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "ICU");
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", U_ICU_VERSION);
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DATA FILE", icu_dat_file_uri.c_str());
         const UErrorCode icu_error_code = ::cc::icu::Initializer::GetInstance().Load(icu_dat_file_uri);
         if ( UErrorCode::U_ZERO_ERROR == icu_error_code ) {
-            Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " OK\n", "INIT");
+            CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " OK\n", "INIT");
         } else {
             throw ::cc::Exception("Unable to initialize ICU, error code is %d : %s", (int)icu_error_code,
                                   ::cc::icu::Initializer::GetInstance().load_error_msg().c_str()
@@ -337,8 +366,8 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
 
         // ... V8 ...
         if ( true == a_v8.required_ ) {
-            Log("status", "\n\t⌥ V8\n");
-            Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", ::v8::V8::GetVersion());
+            CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "V8");
+            CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", ::v8::V8::GetVersion());
             cc::v8::Singleton::GetInstance().Startup(/* a_exec_uri     */ sys::Process::GetExecURI(process_->pid_).c_str(),
                                                      /* a_icu_data_uri */ icu_dat_file_uri.c_str()
             );
@@ -348,9 +377,9 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         }
         
         // ... ICU ...
-        Log("status", "\n\t⌥ ICU\n");
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", U_ICU_VERSION);
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DATA FILE", icu_dat_file_uri.c_str());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "ICU");
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", U_ICU_VERSION);
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DATA FILE", icu_dat_file_uri.c_str());
 
     #endif
             
@@ -376,17 +405,17 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
             throw ::cc::Exception("Error while initializing ICU: unable to rollback to default locale!");
         }
             
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "LOCALE", icu_default_locale.getBaseName());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "LOCALE", icu_default_locale.getBaseName());
         
         //
         // .. cURL ...
         //
         
-        Log("status", "\n\t⌥ cURL\n");
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", curl_version());        
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "cURL");
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", curl_version());
         const CURLcode curl_init_rv = cc::curl::Initializer::GetInstance().Start();
         if ( CURLE_OK == curl_init_rv ) {
-            Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " OK\n", "INIT");
+            CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " OK\n", "INIT");
         } else {
             throw ::cc::Exception("Unable to initialize cURL, error code is %d", (int)curl_init_rv);
         }
@@ -412,37 +441,53 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
             std::map<std::string, std::string> values;
             a_present(title, values);
             if ( values.size() > 0 ) {
-                Log("status", "\n\t⌥ %s\n", title.c_str());
+                CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", title.c_str());
                 for ( const auto& p : values ) {
-                    Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", p.first.c_str(), p.second.c_str());
+                    CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", p.first.c_str(), p.second.c_str());
                 }
             }
         }
-        
+
+        //
+        // ... warm-up signals ...
+        //
         ::ev::Signals::GetInstance().WarmUp(*loggable_data_);
-        
+        // ... tips ...
+        if ( true == process_->is_master_ && true == being_debugged_ ) {
+            const std::string kill_cmd_prefix = std::string(0 == getuid() ? "sudo " : "" );
+            const std::string kill_cmd_suffix = std::to_string(process_->pid_);
+            CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "SIGNALS");
+            for ( auto signal : ::ev::Signals::GetInstance().Supported() ) {
+                CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %-65.65s: %s\n",
+                                          signal.name_.c_str(),
+                                          signal.purpose_.c_str(),
+                                          ( kill_cmd_prefix + "kill -`kill -l " + std::string(signal.name_.c_str()) + "` " +  kill_cmd_suffix ).c_str()
+                );
+            }
+        }
+                
         // ... done ..
-        Log("status", "\n* %s - %s process w/pid %u configured...\n",
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n* %s - %s process w/pid %u configured...\n",
             process_->info_.c_str(), ( true == process_->is_master_ ? "master" : "worker" ), process_->pid_
         );
 
     } catch (const std::overflow_error& a_of_e) {
-        Log("status", "\n* std::overflow_error: %s\n", a_of_e.what());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n* std::overflow_error: %s\n", a_of_e.what());
         exit(-1);
     } catch (const std::bad_alloc& a_bad_alloc) {
-        Log("status", "\n* std::bad_alloc: %s\n", a_bad_alloc.what());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n* std::bad_alloc: %s\n", a_bad_alloc.what());
         exit(-1);
     } catch (const std::runtime_error& a_rt_e) {
-        Log("status", "\n* std::runtime_error: %s\n", a_rt_e.what());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n* std::runtime_error: %s\n", a_rt_e.what());
         exit(-1);
     } catch (const std::exception& a_std_exception) {
-        Log("status", "\n* std::exception: %s\n", a_std_exception.what());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n* std::exception: %s\n", a_std_exception.what());
         exit(-1);
     } catch (...) {
         try {
             ::cc::Exception::Rethrow(/* a_unhandled */ true, __FILE__, __LINE__, __FUNCTION__);
         } catch (::cc::Exception& a_cc_exception) {
-            Log("status", "\n* %s\n", a_cc_exception.what());
+            CC_GLOBAL_INITIALIZER_LOG("cc-status","\n* %s\n", a_cc_exception.what());
         }
         exit(-1);
     }
@@ -459,7 +504,7 @@ void cc::global::Initializer::Startup (const cc::global::Initializer::Signals& a
                                        const cc::global::Initializer::Callbacks& a_callbacks)
 {
     
-    Log("status", "* %s - %s process w/pid %d is starting up...\n",
+    CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s - %s process w/pid %d is starting up...\n",
         process_->info_.c_str(), ( true == process_->is_master_ ? "master" : "worker" ), (int)process_->pid_
     );
 
@@ -488,7 +533,7 @@ void cc::global::Initializer::Startup (const cc::global::Initializer::Signals& a
     // ... mark as initialized ...
     initialized_ = true;
 
-    Log("status", "* %s - %s process w/pid %d is started up...\n",
+    CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s - %s process w/pid %d is started up...\n",
         process_->info_.c_str(), ( true == process_->is_master_ ? "master" : "worker" ), (int)process_->pid_
     );
 }
@@ -500,8 +545,12 @@ void cc::global::Initializer::Startup (const cc::global::Initializer::Signals& a
  */
 void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
 {
-    Log("status", "* %s with pid %d is %s...\n",
-        process_->info_.c_str(), (int)process_->pid_, true == a_for_cleanup_only ? "cleaning" : "shutting down"
+    const std::string log_line_prefix = (
+        process_->info_ + " - " +  ( true == process_->is_master_ ? "master" : "worker" ) + " process w/pid " + std::to_string(process_->pid_) + " is"
+    );
+    
+    CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s %s...\n",
+                              log_line_prefix.c_str(), true == a_for_cleanup_only ? "cleaning" : "shutting down"
     );
 
     // ... release loggable data ...
@@ -549,19 +598,23 @@ void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
         ::ev::Logger::Destroy();
         ::ev::LoggerV2::Destroy();
         
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s %s...\n",
+                                  log_line_prefix.c_str(), "going down"
+        );
+
         // ... debug trace ...
         osal::debug::Trace::Destroy();
 
         // .... signals ...
         ::ev::Signals::Destroy();
+    } else {
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s %s...\n",
+                                  log_line_prefix.c_str(), "cleaned up"
+        );
     }
     
     // ... mark as NOT initialized ...
     initialized_ = false;
-    
-    Log("status", "* %s with pid %d is %s ...\n",
-        process.info_.c_str(), (int)process.pid_, true == a_for_cleanup_only ? "cleaned up" : "down"
-    );
 }
 
 #ifdef __APPLE__
@@ -599,13 +652,13 @@ void cc::global::Initializer::EnableLogsIfRequired (const cc::global::Logs& a_lo
         
         enabled_count++;
         if ( 1 == enabled_count ) {
-            Log("status", "\n\t⌥ LOGS\n");
+            CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "LOGS");
         }
         
         // ... all conditions are met to register token ...
         const std::string uri = ( entry.uri_.length() > 0 ? entry.uri_ : ( directories_->log_ + entry.token_ + ".log" ) ) ;
 
-        Log("status", "\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " [" UINT8_FMT "] %s\n", entry.token_.c_str(), entry.version_, uri.c_str());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " [" UINT8_FMT "] %s\n", entry.token_.c_str(), entry.version_, uri.c_str());
         
         switch(entry.version_) {
             case 0:
@@ -615,36 +668,12 @@ void cc::global::Initializer::EnableLogsIfRequired (const cc::global::Logs& a_lo
                 ::ev::Logger::GetInstance().Register(entry.token_, uri);
                 break;
             case 2:
-                ::ev::LoggerV2::GetInstance().Register(entry.token_, uri);
+                ::ev::LoggerV2::GetInstance().cc::logs::Logger::Register(entry.token_, uri);
                 break;
             default:
                 throw ::cc::Exception("Unsupported logger version %d", entry.version_);
         }
     }
-}
-
-/**
- * @brief Log a message.
- *
- * @param a_token  Previously registered token
- * @param a_format Message format.
- * @param ...
- */
-void cc::global::Initializer::Log (const char* a_token, const char* a_format, ...)
-{
-    // TODO 2.0 - + replace osal::debug::trace
-#if 1
-    va_list args;
-    va_start(args, a_format);
-#ifdef __APPLE__
-    vfprintf(stdout, a_format, args);
-    fflush(stdout);
-#else
-    vfprintf(stderr, a_format, args);
-    fflush(stderr);
-#endif
-    va_end(args);
-#endif
 }
 
 #ifdef __APPLE__
