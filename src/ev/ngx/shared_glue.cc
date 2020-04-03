@@ -22,6 +22,7 @@
 #include "ev/ngx/shared_glue.h"
 
 #include "osal/utf8_string.h"
+#include "osal/debug/trace.h"
 
 #include "cc/logs/basic.h"
 
@@ -33,7 +34,7 @@
 #include <sstream> // std::stringstream
 
 #include <sys/stat.h> // chmod
- #include <unistd.h>  // chown
+#include <unistd.h>  // chown
 
 std::string ev::ngx::SharedGlue::s_service_id_ = "";
 std::string ev::ngx::SharedGlue::s_job_id_key_ = "";
@@ -88,6 +89,8 @@ void ev::ngx::SharedGlue::PreConfigure (const ngx_core_conf_t* a_config, const b
         ev::Logger::GetInstance().EnsureOwnership(a_config->user, a_config->group);
         ev::LoggerV2::GetInstance().EnsureOwnership(a_config->user, a_config->group);
         cc::logs::Basic::GetInstance().EnsureOwnership(a_config->user, a_config->group);
+
+	
         osal::debug::Trace::GetInstance().EnsureOwnership(a_config->user, a_config->group);
         
         const int chown_status = chown(socket_files_dn_.c_str(), a_config->user, a_config->group);

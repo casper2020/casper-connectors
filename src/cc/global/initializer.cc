@@ -52,6 +52,8 @@
 
 #include "cc/logs/basic.h"
 
+#include "osal/debug/trace.h"
+
 #include <map>
 
 #include <openssl/crypto.h> // SSLeay_version // SSLEAY_VERSION
