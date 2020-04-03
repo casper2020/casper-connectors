@@ -52,6 +52,9 @@ CONNECTORS_CC_V8_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/v8/context.cc \
   $(PROJECT_SRC_DIR)/src/cc/v8/singleton.cc
 
+CONNECTORS_CC_LOGS_SRC := \
+  $(PROJECT_SRC_DIR)/src/cc/logs/basic.cc
+
 CONNECTORS_CC_SYS_SRC := \
   $(PROJECT_SRC_DIR)/src/sys/process.cc
 
@@ -65,6 +68,7 @@ CONNECTORS_CC_CURL_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/curl/initializer.cc
 
 CONNECTORS_CC_SRC := \
+  $(CONNECTORS_CC_LOGS_SRC) \
   $(CONNECTORS_CC_GLOBAL_SRC) \
   $(CONNECTORS_CC_THREADING_SRC) \
   $(PROJECT_SRC_DIR)/src/cc/utc_time.cc \

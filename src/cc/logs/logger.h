@@ -22,6 +22,7 @@
 #ifndef NRS_CC_LOGS_LOGGER_H_
 #define NRS_CC_LOGS_LOGGER_H_
 
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h> // chmod
 #include <unistd.h>   // getpid, chown
