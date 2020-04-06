@@ -614,6 +614,9 @@ void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
                                   log_line_prefix.c_str(), "cleaned up"
         );
     }
+
+    // ... mark as NOT warmed-up ...
+    warmed_up_ = false;
     
     // ... mark as NOT initialized ...
     initialized_ = false;
