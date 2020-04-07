@@ -56,6 +56,8 @@
 
 #include <map>
 
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 #include <openssl/crypto.h> // SSLeay_version // SSLEAY_VERSION
 
 #ifdef __APPLE__
@@ -321,7 +323,22 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         // ... ICU / V8 ...
         //
                 
-        // ... LIBEVENT2 ...
+        // ... OPENSSL ...
+        if ( nullptr == strnstr(process_->name_.c_str(), "nginx-", sizeof(char) * 6) ) {
+#if OPENSSL_VERSION_NUMBER < 0x1010000fL
+            OPENSSL_config(NULL);
+            SSL_library_init();
+            SSL_load_error_strings();
+            OpenSSL_add_all_algorithms();
+#else
+            if ( 0 == OPENSSL_init_ssl(OPENSSL_INIT_LOAD_CONFIG, NULL) ) {
+                throw ::cc::Exception("Unable to initialize openssl!");
+            }
+            /*  OPENSSL_init_ssl() may leave errors in the error queue while returning success */
+            ERR_clear_error();
+#endif
+        } // else { /* nginx will take care of openssl initialization */ }
+        
         CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "OPENSSL");
         CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION"  , SSLeay_version(SSLEAY_VERSION));
         CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "FLAGS"    , SSLeay_version(SSLEAY_CFLAGS));
