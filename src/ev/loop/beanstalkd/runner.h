@@ -60,7 +60,9 @@ namespace ev
                     const std::string                  abbr_;
                     const std::string                  name_;
                     const std::string                  version_;
+                    const std::string                  rel_date_;
                     const std::string                  info_;
+                    const std::string                  banner_;
                     const int                          instance_;
                     const std::string                  exec_path_;
                     const std::string                  conf_file_uri_;

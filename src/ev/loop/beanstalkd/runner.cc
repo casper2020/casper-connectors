@@ -165,7 +165,9 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
             /* alt_name_  */ "",
             /* name_      */ a_config.name_,
             /* version_   */ a_config.version_,
+            /* rel_date_  */ a_config.rel_date_,
             /* info_      */ a_config.info_,
+            /* rel_date_  */ a_config.banner_,
             /* pid_       */ process_pid,
             /* is_master_ */ true
         },
