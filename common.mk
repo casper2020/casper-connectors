@@ -145,10 +145,12 @@ ifdef NGX_DIR
 endif
 
 # dependencies
-CONNECTORS_DEPENDENCIES := casper-osal-dep-on lemon-dep-on jsoncpp-dep-on hiredis-dep-on beanstalk-client-dep-on \
-  zlib-dep-on \
-  openssl-dep-on icu-dep-on curl-dep-on \
-  cppcodec-dep-on postgresql-dep-on
+CONNECTORS_DEPENDENCIES := \
+  openssl-dep-on icu-dep-on curl-dep-on postgresql-dep-on zlib-dep-on \
+  casper-osal-dep-on lemon-dep-on jsoncpp-dep-on \
+  cppcodec-dep-on \
+  beanstalk-client-dep-on hiredis-dep-on
+
 ifeq (true, $(V8_DEP_ON))
   CONNECTORS_DEPENDENCIES += v8-dep-on 
 endif
