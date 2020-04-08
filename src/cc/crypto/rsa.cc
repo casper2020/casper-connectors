@@ -330,7 +330,7 @@ std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::stri
     unsigned char* signature_bytes  = nullptr;
     unsigned int   signature_len    = 0;
     
-    const auto cleanup = [&pkey, &private_key_file, &signature_bytes, &ctx, &ctx_initialized] () {
+    const auto cleanup = [&pkey, &private_key_file, &signature_bytes, ctx, &ctx_initialized] () {
         
         if ( nullptr != signature_bytes ) {
             delete [] signature_bytes;
@@ -390,7 +390,7 @@ std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::stri
         // Initializes digest context ctx.
         //
 #if OPENSSL_VERSION_NUMBER < 0x1010000fL
-        EVP_MD_CTX_init(&ctx);
+        EVP_MD_CTX_init(ctx);
 #else
         ctx = EVP_MD_CTX_new();
 #endif
@@ -496,7 +496,7 @@ void cc::crypto::RSA::Verify (const std::string& a_payload, const std::string& a
     size_t         signature_len    = 0;
     int            rv               = -1;
     
-    const auto cleanup = [&pkey, &public_key_file, &signature_bytes, &ctx_initialized, &ctx] () {
+    const auto cleanup = [&pkey, &public_key_file, &signature_bytes, &ctx_initialized, ctx] () {
         
         if ( nullptr != signature_bytes ) {
             delete [] signature_bytes;
@@ -566,7 +566,7 @@ void cc::crypto::RSA::Verify (const std::string& a_payload, const std::string& a
         // Initializes digest context ctx.
         //
 #if OPENSSL_VERSION_NUMBER < 0x1010000fL
-        EVP_MD_CTX_init(&ctx);
+        EVP_MD_CTX_init(ctx);
 #else
         ctx = EVP_MD_CTX_new();
 #endif
