@@ -130,10 +130,6 @@ namespace ev
                 };
                 
                 typedef struct {
-                    std::set<std::string> bypass_methods_;
-                } Bribe;
-                
-                typedef struct {
                     ::ev::Loggable::Data*   data_;
                     ::ev::LoggerV2::Client* client_;
                     size_t                  index_padding_;
@@ -169,7 +165,6 @@ namespace ev
                 std::smatch           tmp_match_;
                 CURLU*                tmp_url_;
                 Status                status_;
-                Bribe                 bribe_;
 
             public: // Method(s) / Functions
 

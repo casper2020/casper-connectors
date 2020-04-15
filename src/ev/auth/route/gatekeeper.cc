@@ -141,8 +141,6 @@ void ev::auth::route::Gatekeeper::Shutdown ()
     delete s_logger_settings_.data_;
     s_logger_settings_.data_ = nullptr;
     
-    bribe_.bypass_methods_.clear();
-
     s_initialized_   = false;
 }
 
@@ -209,21 +207,17 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Allow (c
         const Gatekeeper::Rule* rule = nullptr;
         for ( auto r : rules_ ) {
             if ( true == std::regex_match(tmp_path_, tmp_match_, r->expr_.regex_) ) {
-                rule = r;
-                break;
+                if ( r->methods_.end() != r->methods_.find(a_method) ) {
+                    rule = r;
+                    break;
+                }
             }
         }
         
         // ... if no rule match ...
         if ( nullptr == rule ) {
-            // ... was gatekeeper bribed?
-            if ( bribe_.bypass_methods_.end() != bribe_.bypass_methods_.find(a_method) ) {
-                // ... yes, allow passage because he is not looking ...
-                return SetAllowed(a_method, tmp_path_, /* a_rule */ nullptr);
-            } else {
-                // ... passage denied - 404 - Not Found - no rule found for this path ...
-                return SerializeError(a_method, tmp_path_, 404, /* a_rule */ nullptr, /* a_fields */ {});
-            }
+            // ... passage denied - 404 - Not Found - no rule found for this path ...
+            return SerializeError(a_method, tmp_path_, 404, /* a_rule */ nullptr, /* a_fields */ {});
         }
         
         // ... if method is not supported ...
@@ -338,15 +332,13 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
      *                "methods": [""],
      *                "expr": "",
      *                "role_mask": "0x0",
+     *                "module_mask": "0x0",
      *                "job": {
      *                  "tube": "",
      *                  "methods": [""]
      *                 }
      *             }
      *     ],
-     *   "bribes": {
-     *     "methods": [""]
-     *   },
      *   "options": {
      *     "logs" : {
      *        "log_access_granted" : true
@@ -436,7 +428,7 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
                     if ( false == object.isObject() ) {
                         throw ::ev::Exception("An error ocurred while parsing gatekeeper configuration: element at %d is not a valid object!", idx);
                     } else {
-                        throw ::ev::Exception("An error ocurred while parsing gatekeeper configuration: element at %d is not a valid object - one or more field ( expr, role_mask, module_mask ) os missing or invalid!", idx);
+                        throw ::ev::Exception("An error ocurred while parsing gatekeeper configuration: element at %d is not a valid object - one or more fields ( expr, role_mask, module_mask ) are missing or invalid!", idx);
                     }
                 }
                 json_string_array_to_set(idx, methods, rule_methods);
@@ -471,25 +463,7 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
                 rule_methods.clear();
                 job_methods.clear();
             }
-            
-            // ... load bribes ...
-            const Json::Value bribes = object["bribes"];
-            if  ( false == bribes.isNull() ) {
-                const Json::Value& bribed_methods = bribes ["methods"];
-                if ( false == bribed_methods.isNull() ) {
-                    if ( false == bribed_methods.isArray() ) {
-                        throw ::ev::Exception("An error ocurred while parsing gatekeeper bribe: an array of strings is expected!");
-                    } else {
-                        for ( Json::ArrayIndex idx = 0 ; idx < bribed_methods.size() ; ++idx ) {
-                            if ( false == bribed_methods[idx].isString() ) {
-                                throw ::ev::Exception("An error ocurred while parsing gatekeeper bribe: method at index " + std::to_string(static_cast<size_t>(idx)) + " is not a valid string!");
-                            }
-                            bribe_.bypass_methods_.insert(bribed_methods[idx].asString());
-                        }
-                    }
-                }
-            }
-            
+
             // ... load options ...
             const Json::Value options = object["options"];
             if  ( false == options.isNull() ) {
@@ -900,7 +874,7 @@ void ev::auth::route::Gatekeeper::Log (const std::string& a_method, const std::s
             sstream << ", there are no rules";
         } else {
             sstream << ", " << std::setfill(' ') << std::setw(static_cast<int>(s_logger_settings_.index_padding_)) << -1;
-            sstream << ", gatekeeper was bribed";
+            sstream << ", is gatekeeper drunk???";
         }
     } else if ( 401 == a_status_code || 405 == a_status_code ) { // ... access denied or method not allowed ...
         // ... because rule denied ...

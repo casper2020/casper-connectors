@@ -102,8 +102,10 @@ namespace cc
             
         public: // Method(s) / Function(s)
             
-            bool                IsInitialized () const;
-            ev::Loggable::Data& loggable_data ();
+            bool                IsInitialized   () const;
+            bool                IsBeingDebugged () const;
+            
+            ev::Loggable::Data& loggable_data   ();
             
         private: //
             
@@ -123,6 +125,14 @@ namespace cc
             return initialized_;
         }
     
+        /**
+         * @return True if the process where this singleton is running is being debugged, false otherwise.
+         */
+        inline bool Initializer::IsBeingDebugged () const
+        {
+            return being_debugged_;
+        }
+
         /**
          * @return Global loggable data reference.
          */
