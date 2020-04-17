@@ -439,33 +439,15 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
     //
     
     // ... v1 ...
-    for ( auto token : { "libpq-connections" } ) {
-        if ( shared_config_->log_tokens_.end() != shared_config_->log_tokens_.find(token) ) {
+    for ( auto token : { "libpq-connections", "libpq" } ) {
+        if ( shared_config_->log_tokens_.end() == shared_config_->log_tokens_.find(token) ) {
             continue;
         }
         o_logs.push_back({ /* token_ */ token ,/* uri_ */ shared_config_->directories_.log_ + token + "." + std::to_string(startup_config_->instance_) + ".log", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 1 });
     }
     // ... v2 ...
-    for ( auto token : { "signals", "queue", "stats" } ) {
+    for ( auto token : { "signals", "queue", "stats", "error" } ) {
         o_logs.push_back({ /* token_ */ token ,/* uri_ */ shared_config_->directories_.log_ + token + "." + std::to_string(startup_config_->instance_) + ".log", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 2 });
-    }
-
-    //
-    // ... set OPTIONAL log tokens  ...
-    //
-    // TODO 2.0 MAKE ALL LOGS v2?
-    for ( auto it : shared_config_->log_tokens_ ) {
-        bool already_registered = false;
-        for ( auto token : { "signals", "queue", "stats" } ) {
-            if ( shared_config_->log_tokens_.end() != shared_config_->log_tokens_.find(token) ) {
-                already_registered = true;
-                break;
-            }
-        }
-        if ( true == already_registered ) {
-            continue;
-        }
-        o_logs.push_back({ /* token_ */ it.first, /* uri_ */ it.second, /* conditional_ */ false,  /* enabled_ */ true, /* version_ */ 1 });
     }
     
     //
