@@ -59,8 +59,8 @@ ev::LoggerV2::GetInstance().Log(logger_client_, "queue", \
         "Job #" INT64_FMT_MAX_RA ": " a_format, \
         ID(), __VA_ARGS__ \
     );
-#define EV_LOOP_BEANSTALK_JOB_LOG_JS(a_token, a_format, ...) \
-    ev::LoggerV2::GetInstance().Log(logger_client_, a_token, \
+#define EV_LOOP_BEANSTALK_JOB_LOG_JS(a_client, a_token, a_format, ...) \
+    ev::LoggerV2::GetInstance().Log(a_client, a_token, \
         "Job #" INT64_FMT_MAX_RA ": " a_format, \
         __VA_ARGS__ \
     );
