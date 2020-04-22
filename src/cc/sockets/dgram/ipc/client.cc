@@ -23,6 +23,8 @@
 
 #include "cc/exception.h"
 
+#include "osal/osal_dir.h"
+
 #ifdef __APPLE__
 #pragma mark - ClientInitializer
 #endif
@@ -62,6 +64,11 @@ void cc::sockets::dgram::ipc::Client::Start (const std::string& a_name, const st
         throw ::cc::Exception("Unable to start client communication channel: already running!");
     }
     socket_fn_ = a_runtime_directory + a_name + ".socket";
+    
+    if ( osal::Dir::EStatusOk != osal::Dir::CreatePath(a_runtime_directory.c_str()) ) {
+        throw ::cc::Exception("Unable to create directory %s", a_runtime_directory.c_str());
+    }
+    
     if ( false == socket_.Create(socket_fn_) ) {
         // ... unable to create socket ...
         const auto exception = ::cc::Exception("Unable to start client communication channel: can't open a socket, using '%s' file!",
