@@ -30,7 +30,10 @@
 
 #include <unicode/utypes.h> // u_init
 #include <unicode/uclean.h> // u_cleanup
-#include <unicode/udata.h>  // udata_setCommonData, udata_setFileAccess
+
+#ifndef CASPER_REQUIRE_STANDALONE_ICU
+    #include <unicode/udata.h>  // udata_setCommonData, udata_setFileAccess
+#endif
 
 /**
  * @brief Default constructor.
@@ -62,6 +65,35 @@ cc::icu::OneShot::~OneShot ()
 #pragma mark -
 #endif
 
+#ifdef CASPER_REQUIRE_STANDALONE_ICU
+
+/**
+ * @brief Load ICU data.
+ *
+ * @return \link UErrorCode \link, UErrorCode::U_ZERO_ERROR if no error occurred.
+ */
+const UErrorCode& cc::icu::Initializer::Load ()
+{
+    // ... if already loaded ...
+    if ( true == initialized_ ) {
+        // ... we're done ...
+        return last_error_code_;
+    }
+
+    // ... initialize
+    u_init(&last_error_code_);
+    if ( UErrorCode::U_ZERO_ERROR != last_error_code_ ) {
+        load_error_msg_ = " ~ u_init failed with error " + std::to_string(last_error_code_) + " - " + u_errorName(last_error_code_);
+    }
+    
+    // ... success?
+    initialized_ = ( UErrorCode::U_ZERO_ERROR == last_error_code_ );
+    // .. we're done ...
+    return last_error_code_;
+}
+
+#else
+
 /**
  * @brief Load ICU data.
  *
@@ -71,18 +103,17 @@ cc::icu::OneShot::~OneShot ()
  */
 const UErrorCode& cc::icu::Initializer::Load (const std::string& a_dtl_uri)
 {
-#if 1
-#else
-    struct stat sb;
-    void*       data = nullptr;
-#endif
-
     // ... if already loaded ...
     if ( true == initialized_ ) {
         // ... we're done ...
         return last_error_code_;
     }
 
+#if 1
+#else
+    struct stat sb;
+    void*       data = nullptr;
+#endif
     // ... clear last error ...
     last_error_code_ = U_FILE_ACCESS_ERROR;
     
@@ -172,13 +203,18 @@ leave:
         }
     }
 #else
+    
     // ... close file ...
     if ( -1 != fd ) {
         close(fd);
     }
+    
 #endif
+
     // ... success?
     initialized_ = ( UErrorCode::U_ZERO_ERROR == last_error_code_ );
     // .. we're done ...
     return last_error_code_;
 }
+
+#endif // CASPER_REQUIRE_STANDALONE_ICU

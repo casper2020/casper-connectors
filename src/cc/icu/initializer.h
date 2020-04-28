@@ -60,8 +60,12 @@ namespace cc
             std::string load_error_msg_;
 
         public: // Method(s) / Function(s)
-                
+            
+        #ifdef CASPER_REQUIRE_STANDALONE_ICU
+            const UErrorCode& Load ();
+        #else
             const UErrorCode& Load (const std::string& a_dtl_uri);
+        #endif
             
             const std::string load_error_msg () const;
 

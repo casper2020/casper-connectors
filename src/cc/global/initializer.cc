@@ -21,10 +21,10 @@
 
 #include "cc/global/initializer.h"
 
-#ifndef CASPER_REQUIRE_GOOGLE_V8
-    #include "cc/icu/initializer.h"
-#else
+#ifdef CASPER_REQUIRE_GOOGLE_V8
     #include "cc/v8/singleton.h"
+#else
+    #include "cc/icu/initializer.h"
 #endif
 
 #include "cc/curl/initializer.h"
@@ -358,31 +358,15 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         }
 
     // ... ICU ...
-    #ifdef __APPLE__
-        const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + CC_IF_DEBUG_ELSE("icu/debug/icudtl.dat", "icu/icudtl.dat");
-    #else
-        const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + "icu/icudtl.dat";
+    #ifndef CASPER_REQUIRE_STANDALONE_ICU
+        #ifdef __APPLE__
+            const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + CC_IF_DEBUG_ELSE("icu/debug/icudtl.dat", "icu/icudtl.dat");
+        #else
+            const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + "icu/icudtl.dat";
+        #endif
     #endif
 
-    #ifndef CASPER_REQUIRE_GOOGLE_V8
-
-        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "ICU");
-        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", U_ICU_VERSION);
-        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DATA FILE", icu_dat_file_uri.c_str());
-        const UErrorCode icu_error_code = ::cc::icu::Initializer::GetInstance().Load(icu_dat_file_uri);
-        if ( UErrorCode::U_ZERO_ERROR == icu_error_code ) {
-            CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " OK\n", "INIT");
-        } else {
-            throw ::cc::Exception("Unable to initialize ICU, error code is %d : %s", (int)icu_error_code,
-                                  ::cc::icu::Initializer::GetInstance().load_error_msg().c_str()
-            );
-        }
-
-        if ( true == a_v8.required_ ) {
-            throw ::cc::Exception("V8 is required but initializer was not compiled with V8 support!");
-        }
-        
-    #else
+    #ifdef CASPER_REQUIRE_GOOGLE_V8
 
         // ... V8 ...
         if ( true == a_v8.required_ ) {
@@ -401,6 +385,30 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", U_ICU_VERSION);
         CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DATA FILE", icu_dat_file_uri.c_str());
 
+    #else
+
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "ICU");
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", U_ICU_VERSION);
+        
+        #ifndef CASPER_REQUIRE_STANDALONE_ICU
+            CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DATA FILE", icu_dat_file_uri.c_str());
+            const UErrorCode icu_error_code = ::cc::icu::Initializer::GetInstance().Load(icu_dat_file_uri);
+        #else
+            const UErrorCode icu_error_code = ::cc::icu::Initializer::GetInstance().Load();
+        #endif
+        
+        if ( UErrorCode::U_ZERO_ERROR == icu_error_code ) {
+            CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " OK\n", "INIT");
+        } else {
+            throw ::cc::Exception("Unable to initialize ICU, error code is %d : %s", (int)icu_error_code,
+                                  ::cc::icu::Initializer::GetInstance().load_error_msg().c_str()
+            );
+        }
+
+        if ( true == a_v8.required_ ) {
+            throw ::cc::Exception("V8 is required but initializer was not compiled with V8 support!");
+        }
+        
     #endif
             
         // ... ensure required locale(s) is / are supported ...
@@ -607,12 +615,12 @@ void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
         // ... cURL ...
         cc::curl::Initializer::Destroy();
         // ... ICU // V8 ...
-        #ifndef CASPER_REQUIRE_GOOGLE_V8
-            // ... ICU ...
-            ::cc::icu::Initializer::Destroy();
-        #else
+        #ifdef CASPER_REQUIRE_GOOGLE_V8
             // ... ICU // V8 ...
             cc::v8::Singleton::Destroy();
+        #else
+            // ... ICU ...
+            ::cc::icu::Initializer::Destroy();
         #endif
         // ... logger ...
         ::ev::Logger::Destroy();

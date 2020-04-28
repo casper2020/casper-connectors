@@ -21,7 +21,9 @@
 
 #include "ev/loop/beanstalkd/runner.h"
 
-#include "cc/v8/singleton.h"
+#ifdef CASPER_REQUIRE_GOOGLE_V8
+    #include "cc/v8/singleton.h"
+#endif
 
 #include "ev/redis/device.h"
 #include "ev/redis/subscriptions/manager.h"
@@ -42,6 +44,7 @@
 #include "cc/threading/worker.h"
 
 #include <iterator> // std::advance
+#include <fstream>  // std::ifstream
 
 #ifdef __APPLE__
 #pragma mark -
@@ -159,6 +162,11 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     //
     // ... initialize casper-connectors // third party libraries ...
     //
+    #ifdef CASPER_REQUIRE_GOOGLE_V8
+        const bool v8_required = true;
+    #else
+        const bool v8_required = false;
+    #endif
     ::cc::global::Initializer::GetInstance().WarmUp(
         /* a_process */
         {
@@ -177,9 +185,9 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
         {},
         /* a_v8 */
         {
-            /* required_            */ true,
+            /* required_            */ v8_required,
             /* runs_on_main_thread_ */ false
-        },       
+        },
         /* a_next_step */
         {
             /* function_ */ std::bind(&ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
@@ -197,6 +205,7 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
         CC_IF_DEBUG_ELSE(&debug_tokens, nullptr)
     );
     
+    on_fatal_exception_ = a_fatal_exception_callback;
     
     ::cc::global::Initializer::GetInstance().Startup(
         /* a_signals */
@@ -740,7 +749,9 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop ()
         };
         
         // ... initialize v8 ...
-        ::cc::v8::Singleton::GetInstance().Initialize();
+        #ifdef CASPER_REQUIRE_GOOGLE_V8
+            ::cc::v8::Singleton::GetInstance().Initialize();
+        #endif
         
         consumer_cv_->Wake();
         

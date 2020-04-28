@@ -144,6 +144,10 @@ namespace ev
                 
                 ev::curl::HTTP*          http_;
                 
+            private: // Callbacks
+                
+                ev::loop::beanstalkd::Runner::FatalExceptionCallback on_fatal_exception_;
+                
             public: // Constructor(s) / Destructor
                 
                 Runner ();
