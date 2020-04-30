@@ -116,13 +116,13 @@ int cc::job::easy::Handler::Start (const cc::job::easy::Handler::Arguments& a_ar
     
     try {
 
-        cc::OptArg opt (a_arguments.name_.c_str(), a_arguments.version_.c_str(),
+        cc::OptArg opt (a_arguments.name_.c_str(), a_arguments.version_.c_str(), a_arguments.banner_.c_str(),
             {
                 // NOTES: THIS OBJECTS WILL BE DELETE WHEN cc::OptArg::~OptArg IS CALLED
-                new cc::OptArg::String(/* a_opt */ 'c', /* a_optional */ false , /* a_tag */ "uri"  , /* a_help */ "configuration file"),
-                new cc::OptArg::UInt64(/* a_opt */ 'i', /* a_optional */ false , /* a_tag */ "index", /* a_help */ "index"             ),
-                new cc::OptArg::Switch(/* a_opt */ 'h', /* a_optional */ true  , /* a_tag */          /* a_help */ "show help"         ),
-                new cc::OptArg::Switch(/* a_opt */ 'v', /* a_optional */ true  , /* a_tag */          /* a_help */ "show version"      )
+                new cc::OptArg::String(/* a_long */ "--config" , /* a_short */ 'c', /* a_optional */ false , /* a_tag */ "uri"  , /* a_help */ "configuration file"),
+                new cc::OptArg::UInt64(/* a_long */ "--index"  , /* a_short */ 'i', /* a_optional */ false , /* a_tag */ "index", /* a_help */ "index"             ),
+                new cc::OptArg::Switch(/* a_long */ "--help"   , /* a_short */ 'h', /* a_optional */ true  , /* a_tag */          /* a_help */ "show help"         ),
+                new cc::OptArg::Switch(/* a_long */ "--version", /* a_short */ 'v', /* a_optional */ true  , /* a_tag */          /* a_help */ "show version"      )
             }
         );
         

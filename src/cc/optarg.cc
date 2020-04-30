@@ -23,30 +23,30 @@
 
 #include "cc/types.h"
 
-#include "cc/exception.h"
+#include <unistd.h> // getopt
+#include <getopt.h> // struct option
 
-#include <unistd.h>// getopt
-
-#ifdef __APPLE__
-#pragma mark -
-#endif
+#include <algorithm> // std::max
 
 /**
  * @brief Default constructor.
  *
  * @param a_name    Program name.
  * @param a_version Program version.
+ * @param a_banner  Program banner.
  * @param a_opts
  */
-cc::OptArg::OptArg (const char* const a_name, const char* const a_version,
+cc::OptArg::OptArg (const char* const a_name, const char* const a_version, const char* const a_banner,
                     const std::initializer_list<cc::OptArg::Opt*>& a_opts)
-    : name_(a_name), version_(a_version)
+    : name_(a_name), version_(a_version), banner_(a_banner)
 {
     counters_.optional_  = 0;
     counters_.mandatory_ = 0;
+    counters_.extra_     = 0;
     for ( auto opt : a_opts ) {
         opts_.push_back(std::move(opt));
     }
+    long_ = nullptr;
 }
 
 /**
@@ -58,6 +58,9 @@ cc::OptArg::~OptArg ()
         delete opt;
     }
     opts_.clear();
+    if ( nullptr != long_ ) {
+        delete [] long_;
+    }
 }
 
 #ifdef __APPLE__
@@ -69,57 +72,104 @@ cc::OptArg::~OptArg ()
  *
  * @param a_argc
  * @param a_argv
+ * @param a_unknown_argument_callback
  *
  * @return On success 0, -1 on failure.
  */
-int cc::OptArg::Parse (const int& a_argc, const char** const a_argv)
+int cc::OptArg::Parse (const int& a_argc, const char** const a_argv,
+                       const cc::OptArg::UnknownArgumentCallback& a_unknown_argument_callback)
 {
     counters_.optional_  = 0;
     counters_.mandatory_ = 0;
-
+    counters_.extra_     = 0;
+    
     error_ = "";
+    
+    if ( nullptr != long_ ) {
+        delete [] long_;
+    }
+        
+    // ... allocate long options array - longest case all arguments are switches ...
+    const size_t m = std::max(opts_.size(), static_cast<size_t>(a_argc)) + 1;
+
+    long_ = new struct option[m];
+    for ( size_t idx = 0 ; idx < m ; ++idx ) {
+        long_[idx] = { nullptr, 0, nullptr, 0 };
+    }
 
     // ... set getopt format ...
     fmt_ = "";
-    for ( auto opt : opts_ ) {
-        if ( false == opt->optional_ ) {
+    for ( size_t idx = 0 ; idx < opts_.size() ; ++idx ) {
+        if ( false == opts_[idx]->optional_ ) {
             counters_.mandatory_++;
         } else {
             counters_.optional_++;
         }
-        fmt_ += opt->opt_;
-        if ( cc::OptArg::Opt::Type::Switch != opt->type_ ) {
+        if ( 0 != opts_[idx]->short_ ) {
+            fmt_ += opts_[idx]->short_;
+        }
+        if ( cc::OptArg::Opt::Type::Switch == opts_[idx]->type_ ) {
+            long_[idx] = { opts_[idx]->long_.c_str(), no_argument      , nullptr, opts_[idx]->short_ };
+        } else {
             fmt_ += ':';
+            long_[idx] = { opts_[idx]->long_.c_str(), required_argument, nullptr, opts_[idx]->short_ };
         }
     }
 
-    // ... ensure minimum arguments count ...
-    if ( static_cast<size_t>(a_argc) < counters_.mandatory_ ) {
-        error_ = "Missing or invalid arguments.";
-        return -1;
-    }
+    // ... don't let getopt print errors ...
+    opterr = 0;
+    
+    const auto strip_key = [] (const char* const a_key) -> const char* const {
+        const char* ptr = a_key;
+        while ( '-' == ptr[0] && '\0' != ptr[0] ) {
+            ptr++;
+        }
+        return ptr;
+    };
     
     // ... parse arguments ...
-    char k;
-    while ( -1 != ( k = getopt(a_argc, const_cast<char *const *>(a_argv), fmt_.c_str()) ) ) {
+    char opt;
+    int  idx;
+    while ( -1 != ( opt = getopt_long(a_argc, const_cast<char* const*>(a_argv), fmt_.c_str(), long_, &idx) ) ) {
+        // ... search of option ...
         ssize_t rw = -1;
         for ( size_t idx = 0 ; idx < opts_.size() ; ++idx ) {
-            if ( opts_[idx]->opt_ == k ) {
+            if ( opts_[idx]->short_ == opt ) {
                 rw = idx;
                 break;
             }
         }
+        // ... not found?
         if ( -1 == rw ) {
-            error_ = "Unrecognized option -";
-            error_ += k;
+            // ... extra argument?
+            if ( '?' == opt ) {
+                // ... accepting extra arguments?
+                if ( nullptr != a_unknown_argument_callback && true == a_unknown_argument_callback(strip_key(a_argv[optind-1]), a_argv[optind]) ) {
+                    // ... yes ...
+                    optind++;
+                    // ... keep track of extra arguments count ...
+                    counters_.extra_++;
+                    // ... next argument ...
+                    continue;
+                }
+                // ... not acceptable
+                error_ = "Unacceptable option ";
+            } else {
+                // ... not a valid option ...
+                error_ = "Unrecognized option ";
+            }
+            // ... not accepting extra argument(s) ...
+            error_ += std::string(a_argv[optind-1]);
+            // ... we're done ...
             return -1;
         }
+        // ... found ...
         switch(opts_[rw]->type_) {
             case cc::OptArg::Opt::Type::Switch:
                 dynamic_cast<cc::OptArg::Switch*>(opts_[rw])->Set(1);
                 break;
             case cc::OptArg::Opt::Type::String:
-                dynamic_cast<cc::OptArg::String*>(opts_[rw])->Set(optarg);
+                dynamic_cast<cc::OptArg::String*>(opts_[rw])->Set(std::string(static_cast<const char* const>(optarg)));
                 break;
             case cc::OptArg::Opt::Type::UInt64:
                 dynamic_cast<cc::OptArg::UInt64*>(opts_[rw])->Set(std::stoull(optarg));
@@ -129,11 +179,17 @@ int cc::OptArg::Parse (const int& a_argc, const char** const a_argv)
         }
     }
     
+    // ... ensure minimum arguments count ...
+    if ( static_cast<size_t>(a_argc) < counters_.mandatory_ ) {
+        error_ = "Missing or invalid arguments.";
+        return -1;
+    }
+    
     // ... validate opts ...
     for ( auto opt : opts_ ) {
         if ( false == opt->optional_ && false == opt->IsSet() ) {
             error_ = "Missing or invalid option -";
-            error_ += opt->opt_;
+            error_ += opt->short_;
             error_ += " value!";
             return -1;
         }
@@ -152,7 +208,8 @@ int cc::OptArg::Parse (const int& a_argc, const char** const a_argv)
  */
 void cc::OptArg::ShowVersion ()
 {
-    fprintf(stdout, "%s %s\n", name_.c_str(), version_.c_str());
+    fprintf(stdout, "%s\n", banner_.c_str());
+    fprintf(stdout, "\n%s v%s\n", name_.c_str(), version_.c_str());
     fflush(stdout);
 }
 
@@ -168,23 +225,45 @@ void cc::OptArg::ShowHelp (const char* const a_message)
     fprintf(stderr, "usage: %s ", name_.c_str());
     // ... show non-optional arguments ( if any ) ...
     for ( auto opt : opts_ ) {
-        if ( true == opt->optional_ ) {
-            fprintf(stderr, "-%c <%s> ", opt->opt_, opt->tag_.c_str());
+        if ( false == opt->optional_ ) {
+            fprintf(stderr, "-%c ", opt->short_);
+            if ( cc::OptArg::Opt::Type::Switch != opt->type_ ) {
+                fprintf(stderr, "<%s> ", opt->tag_.c_str());
+            }
         }
     }
     // ... show optional arguments ( if any ) ...
     if ( counters_.optional_ > 0 ) {
         for ( auto opt : opts_ ) {
-            if ( false == opt->optional_ ) {
-                fprintf(stderr, "[-%c] ", opt->opt_);
+            if ( true == opt->optional_ && 0 != opt->short_ ) {
+                fprintf(stderr, "[-%c ", opt->short_);
+                if ( cc::OptArg::Opt::Type::Switch != opt->type_ ) {
+                    fprintf(stderr, "<%s>", opt->tag_.c_str());
+                }
+                fprintf(stderr, "] ");
             }
         }
     }
     fprintf(stderr, "\n");
     fflush(stderr);
-    // ... show detailed arguments info ...
+    // ... max long option size ...
+    size_t mlos = 0;
     for ( auto opt : opts_ ) {
-        fprintf(stderr, "       -%c: %s\n", opt->opt_ , opt->help_.c_str());
+        if ( opt->long_.length() > mlos ) {
+            mlos = opt->long_.length();
+        }
+    }
+    // ... show detailed arguments info ( short options first ) ...
+    for ( auto opt : opts_ ) {
+        if ( 0 != opt->short_ ) {
+            fprintf(stderr, "       -%c, --%--*.*s: %s\n", opt->short_, (int)mlos, (int)mlos, opt->long_.c_str() , opt->help_.c_str());
+        }
+    }
+    // ... show detailed arguments info ( long options last ) ...
+    for ( auto opt : opts_ ) {
+        if ( 0 == opt->short_ ) {
+            fprintf(stderr, "           --%-*.*s: %s\n", (int)mlos, (int)mlos, opt->long_.c_str() , opt->help_.c_str());
+        }
     }
     fflush(stderr);
 }

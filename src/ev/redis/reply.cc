@@ -38,6 +38,15 @@ ev::redis::Reply::Reply (const struct redisReply* a_reply)
 }
 
 /**
+ * @brief Copy constructor.
+*/
+ev::redis::Reply::Reply(const ev::redis::Reply& a_reply)
+ : ev::redis::Object(a_reply)
+{
+    value_ = a_reply.value_;
+}
+
+/**
  * @brief Destructor.
  */
 ev::redis::Reply::~Reply ()
@@ -50,7 +59,7 @@ ev::redis::Reply::~Reply ()
 #endif
 
 /**
- * @brief Insure object is a result object and its data object is a reply object.
+ * @brief Ensure object is a result object and its data object is a reply object.
  *
  * @param a_object
  *
@@ -86,7 +95,7 @@ const ev::redis::Value& ev::redis::Reply::GetCommandReplyValue (const ::ev::Obje
 }
 
 /**
- * @brief Insure object is a result object, its data object is a reply object and it contains a valid 'status' value.
+ * @brief Ensure object is a result object, its data object is a reply object and it contains a valid 'status' value.
  *
  * @param a_object
  * @param a_value
@@ -97,7 +106,7 @@ void ev::redis::Reply::EnsureIsStatusReply (const ::ev::Object* a_object, const 
 }
 
 /**
- * @brief Insure object is a result object, its data object is a reply object and it contains a valid 'string' value.
+ * @brief Ensure object is a result object, its data object is a reply object and it contains a valid 'string' value.
  *
  * @param a_object
  */
@@ -117,7 +126,7 @@ const ev::redis::Value& ev::redis::Reply::EnsureStringReply (const ::ev::Object*
 }
 
 /**
- * @brief Insure object is a result object, its data object is a reply object and it contains a valid 'integer' value.
+ * @brief Ensure object is a result object, its data object is a reply object and it contains a valid 'integer' value.
  *
  * @param a_object
  */
@@ -137,7 +146,7 @@ const ev::redis::Value& ev::redis::Reply::EnsureIntegerReply (const ::ev::Object
 }
 
 /**
- * @brief Insure object is a result object, its data object is a reply object and it contains a valid 'integer' value.
+ * @brief Ensure object is a result object, its data object is a reply object and it contains a valid 'integer' value.
  *
  * @param a_object
  * @param a_value
@@ -148,7 +157,7 @@ void ev::redis::Reply::EnsureIntegerReply (const ::ev::Object* a_object, const l
 }
 
 /**
- * @brief Insure object is a result object, its data object is a reply object and it contains a valid 'integer' value ( greater than ).
+ * @brief Ensure object is a result object, its data object is a reply object and it contains a valid 'integer' value ( greater than ).
  *
  * @param a_object
  * @param a_value
@@ -159,7 +168,7 @@ void ev::redis::Reply::EnsureIntegerReplyGT (const ::ev::Object* a_object, const
 }
 
 /**
- * @brief Insure object is a result object, its data object is a reply object and it contains a valid 'array' value.
+ * @brief Ensure object is a result object, its data object is a reply object and it contains a valid 'array' value.
  *
  * @param a_object
  */
@@ -179,7 +188,7 @@ const ::ev::redis::Value& ev::redis::Reply::EnsureArrayReply (const ::ev::Object
 }
 
 /**
- * @brief Insure object is a result object, its data object is a reply object and it contains a valid 'array' value.
+ * @brief Ensure object is a result object, its data object is a reply object and it contains a valid 'array' value.
  *
  * @param a_object
  * @param a_size
@@ -197,7 +206,7 @@ const ::ev::redis::Value& ev::redis::Reply::EnsureArrayReply (const ::ev::Object
 
 
 /**
- * @brief Insure object is a 'status' object and it has a specific value.
+ * @brief Ensure object is a 'status' object and it has a specific value.
  *
  * @param a_object
  * @param a_value
@@ -221,7 +230,28 @@ void ev::redis::Reply::EnsureStatusValue (const ::ev::redis::Value& a_object, co
 }
 
 /**
- * @brief Insure object is a 'integer' object and it's value is equal to the provided one.
+ * @brief Ensure a reply object and it contains a valid 'integer' value.
+ *
+ * @param a_reply
+ * @param a_value
+ */
+const ev::redis::Value& ev::redis::Reply::EnsureIntegerReply (const ::ev::redis::Reply& a_reply)
+{
+    const ::ev::redis::Value& value = a_reply.value();
+    if ( false == value.IsInteger() ) {
+        if ( true == value.IsError() ) {
+            throw ::ev::Exception(value.Error());
+        } else {
+            throw ::ev::Exception("Unexpected value type - expecting " UINT8_FMT ", got " UINT8_FMT "!",
+                                  static_cast<uint8_t>(::ev::redis::Value::ContentType::Integer), static_cast<uint8_t>(value.content_type())
+            );
+        }
+    }
+    return value;
+}
+
+/**
+ * @brief Ensure object is a 'integer' object and it's value is equal to the provided one.
  *
  * @param a_object
  * @param a_value
@@ -235,7 +265,7 @@ void ev::redis::Reply::EnsureIntegerValueIsEQ (const ::ev::redis::Value& a_objec
 }
 
 /**
- * @brief Insure object is a 'integer' object and it's value is greater than the provided one.
+ * @brief Ensure object is a 'integer' object and it's value is greater than the provided one.
  *
  * @param a_object
  * @param a_value
@@ -249,7 +279,20 @@ void ev::redis::Reply::EnsureIntegerValueIsGT (const ::ev::redis::Value& a_objec
 }
 
 /**
- * @brief Insure object is a 'integer' object and it has a specific value.
+ * @brief Ensure object is a 'integer' object and it has a specific value.
+ *
+ * @param a_object
+ * @param a_value
+ */
+void ev::redis::Reply::EnsureIntegerValue (const ::ev::redis::Value& a_object, const long long a_value)
+{
+    EnsureIntegerValue(a_object, a_value, [] (const long long a_lhs, const long long a_rhs) {
+        return ( a_lhs == a_rhs );
+    });
+}
+
+/**
+ * @brief Ensure object is a 'integer' object and it has a specific value.
  *
  * @param a_object
  * @param a_value

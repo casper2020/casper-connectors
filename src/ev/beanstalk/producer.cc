@@ -36,10 +36,11 @@ ev::beanstalk::Producer::Producer (const ev::beanstalk::Config& a_config)
     } else if ( a_config.tubes_.size() > 1) {
         throw ev::Exception("Producer does not support multiple tubes!");
     }
-    if ( false == client_->use(*a_config.tubes_.begin()) ) {
-        throw ev::Exception("Unable to assign beanstalk tube named '%s'!", (*a_config.tubes_.begin()).c_str());
+    tube_ = ( *a_config.tubes_.begin() );
+    if ( false == client_->use(tube_) ) {
+        throw ev::Exception("Unable to assign beanstalk tube named '%s'!", tube_.c_str());
     }
-    if ( 0 != strcasecmp((*a_config.tubes_.begin()).c_str(), "default") ) {
+    if ( 0 != strcasecmp(tube_.c_str(), "default") ) {
         (void)client_->ignore("default");
     }
 }
@@ -53,10 +54,11 @@ ev::beanstalk::Producer::Producer (const ev::beanstalk::Config& a_config)
 ev::beanstalk::Producer::Producer (const ev::beanstalk::Config& a_config, const std::string& a_tube)
 {
     client_ = new Beanstalk::Client(a_config.host_, a_config.port_, a_config.timeout_);
-    if ( false == client_->use(a_tube) ) {
-        throw ev::Exception("Unable to assign beanstalk tube named '%s'!", a_tube.c_str());
+    tube_   = a_tube;
+    if ( false == client_->use(tube_) ) {
+        throw ev::Exception("Unable to assign beanstalk tube named '%s'!", tube_.c_str());
     }
-    if ( 0 != strcasecmp(a_tube.c_str(), "default") ) {
+    if ( 0 != strcasecmp(tube_.c_str(), "default") ) {
         (void)client_->ignore("default");
     }
 }

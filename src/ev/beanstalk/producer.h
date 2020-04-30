@@ -40,7 +40,8 @@ namespace ev
         private: //
             
             ::Beanstalk::Client* client_;
-            
+            std::string          tube_;
+
         public: // Constructor(s) / Destructor
             
             Producer (const ::ev::beanstalk::Config& a_config);
@@ -54,7 +55,9 @@ namespace ev
             int64_t Put (const char* const a_data, const size_t a_size,
                          const uint32_t a_priority = 0, const uint32_t a_delay = 0, const uint32_t a_ttr = 60);
             
-            inline std::string ErrorCodeToString (const int64_t& a_code) const;
+            std::string ErrorCodeToString (const int64_t& a_code) const;
+            
+            const std::string& tube () const;
 
         }; // end of class 'Producer';
         
@@ -94,6 +97,11 @@ namespace ev
                 default:
                     return "BS_STATUS_???: " + std::to_string(a_code);
             }
+        }
+    
+        inline const std::string& Producer::tube () const
+        {
+            return tube_;
         }
 
     } // end of namespace 'beanstalk'
