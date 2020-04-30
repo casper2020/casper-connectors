@@ -35,6 +35,8 @@ CURL_DEP_ON         ?= true
 OPENSSL_DEP_ON      ?= true
 ifeq (true, $(V8_DEP_ON))
   LIBRARY_NAME := libconnectors-v8.a
+else ifeq (true, $(ICU_STAND_ALONE_DEP_ON))
+  LIBRARY_NAME := libconnectors-icu.a
 else
   LIBRARY_NAME := libconnectors.a
 endif

@@ -47,6 +47,10 @@ CONNECTORS_CC_CRYPTO_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/crypto/hmac.cc \
   $(PROJECT_SRC_DIR)/src/cc/crypto/rsa.cc
 
+CONNECTORS_CC_EASY_SRC:= \
+  $(PROJECT_SRC_DIR)/src/cc/easy/beanstalk.cc \
+  $(PROJECT_SRC_DIR)/src/cc/easy/redis.cc
+
 CONNECTORS_CC_V8_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/v8/script.cc  \
   $(PROJECT_SRC_DIR)/src/cc/v8/context.cc \
@@ -68,13 +72,15 @@ CONNECTORS_CC_CURL_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/curl/initializer.cc
 
 CONNECTORS_CC_SRC := \
-  $(CONNECTORS_CC_LOGS_SRC) \
-  $(CONNECTORS_CC_GLOBAL_SRC) \
-  $(CONNECTORS_CC_THREADING_SRC) \
+  $(CONNECTORS_CC_LOGS_SRC)             \
+  $(CONNECTORS_CC_GLOBAL_SRC)           \
+  $(CONNECTORS_CC_THREADING_SRC)        \
   $(PROJECT_SRC_DIR)/src/cc/utc_time.cc \
+  $(PROJECT_SRC_DIR)/src/cc/optarg.cc   \
   $(CONNECTORS_CC_FS_SRC)               \
   $(CONNECTORS_CC_I18N_SRC)             \
-  $(CONNECTORS_CC_ERRORS_SRC)
+  $(CONNECTORS_CC_ERRORS_SRC)           \
+  $(CONNECTORS_CC_EASY_SRC)
 
 CONNECTORS_EV_LOOP_SRC := \
  $(PROJECT_SRC_DIR)/src/ev/loop/bridge.cc            \
