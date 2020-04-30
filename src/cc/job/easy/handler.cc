@@ -116,7 +116,7 @@ int cc::job::easy::Handler::Start (const cc::job::easy::Handler::Arguments& a_ar
     
     try {
 
-        cc::OptArg opt (a_arguments.name_.c_str(), a_arguments.version_.c_str(), a_arguments.banner_.c_str(),
+        cc::OptArg opt (a_arguments.name_.c_str(), a_arguments.version_.c_str(), a_arguments.rel_date_.c_str(), a_arguments.banner_.c_str(),
             {
                 // NOTES: THIS OBJECTS WILL BE DELETE WHEN cc::OptArg::~OptArg IS CALLED
                 new cc::OptArg::String(/* a_long */ "--config" , /* a_short */ 'c', /* a_optional */ false , /* a_tag */ "uri"  , /* a_help */ "configuration file"),

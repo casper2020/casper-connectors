@@ -31,14 +31,15 @@
 /**
  * @brief Default constructor.
  *
- * @param a_name    Program name.
- * @param a_version Program version.
- * @param a_banner  Program banner.
+ * @param a_name     Name.
+ * @param a_version  Version.
+ * @param a_rel_date Release data.
+ * @param a_banner   Banner.
  * @param a_opts
  */
-cc::OptArg::OptArg (const char* const a_name, const char* const a_version, const char* const a_banner,
+cc::OptArg::OptArg (const char* const a_name, const char* const a_version, const char* const a_rel_date, const char* const a_banner,
                     const std::initializer_list<cc::OptArg::Opt*>& a_opts)
-    : name_(a_name), version_(a_version), banner_(a_banner)
+    : name_(a_name), version_(a_version), rel_date_(a_rel_date), banner_(a_banner)
 {
     counters_.optional_  = 0;
     counters_.mandatory_ = 0;
@@ -73,11 +74,13 @@ cc::OptArg::~OptArg ()
  * @param a_argc
  * @param a_argv
  * @param a_unknown_argument_callback
+ * @param a_special_switch_callback
  *
  * @return On success 0, -1 on failure.
  */
 int cc::OptArg::Parse (const int& a_argc, const char** const a_argv,
-                       const cc::OptArg::UnknownArgumentCallback& a_unknown_argument_callback)
+                       const cc::OptArg::UnknownArgumentCallback& a_unknown_argument_callback,
+                       const cc::OptArg::SpecialSwitchCallback& a_special_switch_callback)
 {
     counters_.optional_  = 0;
     counters_.mandatory_ = 0;
@@ -119,23 +122,17 @@ int cc::OptArg::Parse (const int& a_argc, const char** const a_argv,
     // ... don't let getopt print errors ...
     opterr = 0;
     
-    const auto strip_key = [] (const char* const a_key) -> const char* const {
-        const char* ptr = a_key;
-        while ( '-' == ptr[0] && '\0' != ptr[0] ) {
-            ptr++;
-        }
-        return ptr;
-    };
-    
     // ... parse arguments ...
     char opt;
     int  idx;
     while ( -1 != ( opt = getopt_long(a_argc, const_cast<char* const*>(a_argv), fmt_.c_str(), long_, &idx) ) ) {
         // ... search of option ...
         ssize_t rw = -1;
-        for ( size_t idx = 0 ; idx < opts_.size() ; ++idx ) {
-            if ( opts_[idx]->short_ == opt ) {
-                rw = idx;
+        for ( size_t opt_idx = 0 ; opt_idx < opts_.size() ; ++opt_idx ) {
+            if ( /* short match */ ( 0 != opts_[opt_idx]->short_ && opt == opts_[opt_idx]->short_ ) ||
+                 /* long match */  ( 0 == opts_[opt_idx]->short_ && nullptr != long_[idx].name && 0 == strcmp(opts_[opt_idx]->long_.c_str(), long_[idx].name) )
+            ) {             
+                rw = opt_idx;
                 break;
             }
         }
@@ -164,7 +161,7 @@ int cc::OptArg::Parse (const int& a_argc, const char** const a_argv,
         }
     }
 
-    // ... handle all other non-arguments ...
+    // ... handle all other non-argumenbts .
     if ( nullptr != a_unknown_argument_callback ) {
         for ( ; optind < a_argc ; optind++ ) {
             a_unknown_argument_callback(a_argv[optind], nullptr);
@@ -174,7 +171,6 @@ int cc::OptArg::Parse (const int& a_argc, const char** const a_argv,
     // ... ensure minimum arguments count ...
     if ( static_cast<size_t>(a_argc) < counters_.mandatory_ ) {
         error_ = "Missing or invalid arguments.";
-        return -1;
     }
     
     // ... validate opts ...
@@ -183,8 +179,19 @@ int cc::OptArg::Parse (const int& a_argc, const char** const a_argv,
             error_ = "Missing or invalid option -";
             error_ += opt->short_;
             error_ += " value!";
-            return -1;
+            break;
         }
+    }
+    
+    // ... if an error was detected ...
+    if ( 0 != error_.length() ) {
+        // ... check if a special switch is set ...
+        if ( nullptr != a_special_switch_callback &&true == a_special_switch_callback() ) {
+            // ... it is, won't considere an error ...
+            return 0;
+        }
+        // ... it's an error ...
+        return -1;
     }
 
     // ... success, done ...
@@ -201,7 +208,7 @@ int cc::OptArg::Parse (const int& a_argc, const char** const a_argv,
 void cc::OptArg::ShowVersion ()
 {
     fprintf(stdout, "%s\n", banner_.c_str());
-    fprintf(stdout, "\n%s v%s\n", name_.c_str(), version_.c_str());
+    fprintf(stdout, "\n%s v%s [ %s ]\n", name_.c_str(), version_.c_str(), rel_date_.c_str());
     fflush(stdout);
 }
 

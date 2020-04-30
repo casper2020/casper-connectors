@@ -251,12 +251,14 @@ namespace cc
             }
         };
         
-        typedef std::function<bool(const char* const , const char* const )> UnknownArgumentCallback;
+        typedef std::function<bool(const char* const , const char* const)> UnknownArgumentCallback;
+        typedef std::function<bool()>                                      SpecialSwitchCallback;
         
     private: // Const Data
 
         const std::string name_;
         const std::string version_;
+        const std::string rel_date_;
         const std::string banner_;
         
     private: // Data Type(s)
@@ -278,14 +280,15 @@ namespace cc
     public: // Constructor(s) / Destructor
 
         OptArg () = delete;
-        OptArg (const char* const a_name, const char* const a_version, const char* const a_banner,
+        OptArg (const char* const a_name, const char* const a_version, const char* const a_rel_date, const char* const a_banner,
                 const std::initializer_list<Opt*>& a_opts);
         virtual ~OptArg();
 
     public: // Method(s) / Function(s)
 
         int  Parse         (const int& a_argc, const char** const a_argv,
-                            const UnknownArgumentCallback& a_unknown_argument_callback = nullptr);
+                            const UnknownArgumentCallback& a_unknown_argument_callback = nullptr,
+                            const SpecialSwitchCallback& a_missing_arguments_callback = nullptr);
 
     public: // Method(s) / Function(s)
 
@@ -304,18 +307,35 @@ namespace cc
         const bool&        GetBooleanValueOf (const char a_short) const;
         
         bool               IsSet     (const char a_short) const;
+        bool               IsSet     (const char* const a_long) const;
         const char* const  error     () const;
 
     }; // end of class 'OptArg'
 
     /**
+     * @brief         Check if a short option was set.
      * @param a_short Short option value.
-     * @return        True if a_opt matches a previous set previously defined.
+     * @return        True if so, false otherwise.
      */
     inline bool OptArg::IsSet (const char a_short) const
     {
         for ( auto opt : opts_ ) {
             if ( a_short == opt->short_ ) {
+                return ( opt->IsSet() );
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @brief        Check if a long option was set.
+     * @param a_long Short option value.
+     * @return       True if so, false otherwise.
+     */
+    inline bool OptArg::IsSet (const char* const a_long) const
+    {
+        for ( auto opt : opts_ ) {
+            if ( 0 == strcmp(opt->long_.c_str(), a_long) ) {
                 return ( opt->IsSet() );
             }
         }
