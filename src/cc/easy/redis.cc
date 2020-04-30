@@ -25,6 +25,8 @@
 
 #include "cc/exception.h"
 
+#include <assert.h>
+
 /**
  *
  * @brief Default constructor.
