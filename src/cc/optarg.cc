@@ -141,23 +141,8 @@ int cc::OptArg::Parse (const int& a_argc, const char** const a_argv,
         }
         // ... not found?
         if ( -1 == rw ) {
-            // ... extra argument?
-            if ( '?' == opt ) {
-                // ... accepting extra arguments?
-                if ( nullptr != a_unknown_argument_callback && true == a_unknown_argument_callback(strip_key(a_argv[optind-1]), a_argv[optind]) ) {
-                    // ... yes ...
-                    optind++;
-                    // ... keep track of extra arguments count ...
-                    counters_.extra_++;
-                    // ... next argument ...
-                    continue;
-                }
-                // ... not acceptable
-                error_ = "Unacceptable option ";
-            } else {
-                // ... not a valid option ...
-                error_ = "Unrecognized option ";
-            }
+            // ... not a valid option ...
+            error_ = "Unrecognized option ";
             // ... not accepting extra argument(s) ...
             error_ += std::string(a_argv[optind-1]);
             // ... we're done ...
@@ -176,6 +161,13 @@ int cc::OptArg::Parse (const int& a_argc, const char** const a_argv,
                 break;
             default:
                 throw cc::Exception("Unimplemented type " UINT8_FMT "!", opts_[rw]->type_);
+        }
+    }
+
+    // ... handle all other non-arguments ...
+    if ( nullptr != a_unknown_argument_callback ) {
+        for ( ; optind < a_argc ; optind++ ) {
+            a_unknown_argument_callback(a_argv[optind], nullptr);
         }
     }
     
