@@ -32,6 +32,7 @@
 #include <functional> // std::function
 
 #include <getopt.h> // struct option
+#include <string.h> // strcmp
 
 namespace cc
 {
