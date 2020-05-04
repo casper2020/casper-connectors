@@ -126,6 +126,14 @@ int cc::OptArg::Parse (const int& a_argc, const char** const a_argv,
     char opt;
     int  idx;
     while ( -1 != ( opt = getopt_long(a_argc, const_cast<char* const*>(a_argv), fmt_.c_str(), long_, &idx) ) ) {
+        // ... valid option?
+        if ( '?' == opt ) {
+            // ... not a valid option ...
+            error_ = "Unrecognized option ";
+            error_ += std::string(a_argv[optind-1]);
+            // ... we're done ...
+            return -1;
+        }
         // ... search of option ...
         ssize_t rw = -1;
         for ( size_t opt_idx = 0 ; opt_idx < opts_.size() ; ++opt_idx ) {
@@ -138,9 +146,8 @@ int cc::OptArg::Parse (const int& a_argc, const char** const a_argv,
         }
         // ... not found?
         if ( -1 == rw ) {
-            // ... not a valid option ...
-            error_ = "Unrecognized option ";
-            // ... not accepting extra argument(s) ...
+            // ... option not found ...
+            error_ = "Option not found";
             error_ += std::string(a_argv[optind-1]);
             // ... we're done ...
             return -1;
