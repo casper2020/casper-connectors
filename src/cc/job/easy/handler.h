@@ -26,7 +26,7 @@
 
 #include "ev/loop/beanstalkd/runner.h"
 
-#include "cc/job/easy/runnable.h"
+#include "cc/job/easy/job.h"
 
 namespace cc
 {
@@ -68,8 +68,8 @@ namespace cc
                     const char** const argv_;
                 } Arguments;
                 
-                typedef std::function<cc::job::easy::Runnable*()> Factory;
-                typedef std::map<std::string, Factory>            Factories;
+                typedef std::function<cc::job::easy::Job*(const ev::Loggable::Data&, const cc::job::easy::Job::Config&)> Factory;
+                typedef std::map<std::string, Factory>       Factories;
                 
             private: // Data
                 

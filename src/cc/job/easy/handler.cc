@@ -24,7 +24,7 @@
 #include "cc/optarg.h"
 #include "cc/threading/worker.h"
 
-#include "cc/job/easy/tube.h"
+#include "cc/job/easy/job.h"
 
 #ifdef __APPLE__
 #pragma mark - cc::job::easy::JobInitializer
@@ -68,14 +68,11 @@ void cc::job::easy::Handler::InnerStartup  (const cc::job::easy::Handler::Startu
         if ( factories_->end() != it ) {
             const Json::Value& config  = a_job_config[a_tube.c_str()];
             const Json::Value& options = a_job_config["options"];
-            return new cc::job::easy::Tube(loggable_data(), "document-scanner",
-                                           {
-                                            /* service_id_        */ config.get("service_id"   , "development").asString(),
-                                            /* transient_         */ config.get("transient"    ,         false).asBool(),
-                                            /* min_progress_      */ options.get("min_progress",             3).asInt()
-                                           },
-                                           /* a_runnable */ it->second()
-            );
+            return it->second(loggable_data(), {
+                /* service_id_        */ config.get("service_id"   , "development").asString(),
+                /* transient_         */ config.get("transient"    ,         false).asBool(),
+                /* min_progress_      */ options.get("min_progress",             3).asInt()
+            });
         }
         return nullptr;
     };

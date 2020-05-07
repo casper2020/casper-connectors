@@ -126,6 +126,9 @@ void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callba
         );
     }, /* a_blocking */ false);
     cv.Wait();
+    
+    // ... setup job ...
+    Setup();
 }
 
 /**
@@ -255,7 +258,6 @@ void ev::loop::beanstalkd::Job::ConfigJSONAPI (const Json::Value& a_config)
     json_api_.SetSubentityPrefix(subentity_prefix.asString());
 }
 
-
 /**
  * @brief Fill a 'completed' response.
  *
@@ -263,12 +265,28 @@ void ev::loop::beanstalkd::Job::ConfigJSONAPI (const Json::Value& a_config)
  */
 void ev::loop::beanstalkd::Job::SetCompletedResponse (Json::Value& o_response)
 {
-    o_response                            = Json::Value(Json::ValueType::objectValue);
-    o_response["action"]                  = "response";
-    o_response["content_type"]            = "application/json; charset=utf-8";
-    o_response["response"]                = Json::Value(Json::ValueType::objectValue);
-    o_response["response"]["success"]     = true;
-    o_response["status"]                  = "completed";
+    o_response                        = Json::Value(Json::ValueType::objectValue);
+    o_response["action"]              = "response";
+    o_response["content_type"]        = "application/json; charset=utf-8";
+    o_response["response"]            = Json::Value(Json::ValueType::objectValue);
+    o_response["response"]["success"] = true;
+    o_response["status"]              = "completed";
+}
+
+/**
+ * @brief Fill a 'completed' response.
+ *
+ * @param a_payload
+ * @param o_response
+ */
+void ev::loop::beanstalkd::Job::SetCompletedResponse (const Json::Value& a_payload, Json::Value& o_response)
+{
+    o_response                        = Json::Value(Json::ValueType::objectValue);
+    o_response["action"]              = "response";
+    o_response["content_type"]        = "application/json; charset=utf-8";
+    o_response["response"]            = a_payload;
+    o_response["response"]["success"] = true;
+    o_response["status"]              = "completed";
 }
 
 /**

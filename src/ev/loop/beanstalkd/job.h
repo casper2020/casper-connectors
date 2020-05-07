@@ -232,8 +232,12 @@ namespace ev
                 void Consume (const int64_t& a_id, const Json::Value& a_payload,
                               const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback);
                 
-            protected: // Pure Virtual Method(s) / Function(s)
+            protected: // Optional Virtual Method(s) / Function(s)
                 
+                virtual void Setup () { };
+
+            protected: // Pure Virtual Method(s) / Function(s)
+
                 virtual void Run (const int64_t& a_id, const Json::Value& a_payload,
                                   const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback) = 0;
                 
@@ -242,6 +246,7 @@ namespace ev
                 void ConfigJSONAPI         (const Json::Value& a_config);
                 
                 void SetCompletedResponse  (Json::Value& o_response);
+                void SetCompletedResponse  (const Json::Value& a_payload, Json::Value& o_response);
                 void SetCancelledResponse  (const Json::Value& a_payload, Json::Value& o_response);
                 void SetFailedResponse     (uint16_t a_code, Json::Value& o_response);                
                 void SetFailedResponse     (uint16_t a_code, const Json::Value& a_payload, Json::Value& o_response);

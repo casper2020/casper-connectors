@@ -26,6 +26,9 @@
 #define CC_MACRO_DEFER(M,...) M(__VA_ARGS__)
 #define CC_MACRO_STRINGIFY_ARG(a) #a
 
+#define CC_SILENCE_UNUSED_VARIABLE(a_name) \
+    (void)a_name
+
 #define CC_WARN_UNUSED_RESULT __attribute__((warn_unused_result))
 
 #define CC_WARNING_UNUSED_VARIABLE(a_name) \

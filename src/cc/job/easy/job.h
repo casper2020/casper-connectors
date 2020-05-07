@@ -1,5 +1,5 @@
 /**
- * @file tube.h
+ * @file job.h
  *
  * Copyright (c) 2011-2020 Cloudware S.A. All rights reserved.
  *
@@ -19,12 +19,10 @@
  * along with casper-connectors.  If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
-#ifndef NRS_CC_EASY_JOB_TUBE_H_
-#define NRS_CC_EASY_JOB_TUBE_H_
+#ifndef NRS_CC_JOB_EASY_JOB_H_
+#define NRS_CC_JOB_EASY_JOB_H_
 
 #include "ev/loop/beanstalkd/job.h"
-
-#include "cc/job/easy/runnable.h"
 
 namespace cc
 {
@@ -35,30 +33,33 @@ namespace cc
         namespace easy
         {
         
-            class Tube : public ev::loop::beanstalkd::Job
+            class Job : public ev::loop::beanstalkd::Job
             {
                 
             public: // Data Type(s)
                 
                 typedef ev::loop::beanstalkd::Job::Config Config;
                 
-            protected: //
-                
-                cc::job::easy::Runnable* runnable_; // ONWER WILL BE THIS CLASS
+                typedef struct {
+                    uint16_t    code_;
+                    Json::Value payload_;
+                } Response;
                 
             public: // Constructor(s) / Destructor
                 
-                Tube (const ev::Loggable::Data& a_loggable_data, const std::string& a_tube, const Config& a_config,
-                      cc::job::easy::Runnable* a_runnable);
-                virtual ~Tube ();
+                Job (const ev::Loggable::Data& a_loggable_data, const std::string& a_tube, const Config& a_config);
+                virtual ~Job ();
                 
             protected: // Inherited Virtual Method(s) / Function(s) - from ev::loop::beanstalkd::Job::
                 
                 virtual void Run (const int64_t& a_id, const Json::Value& a_payload,
                                   const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback);
 
+            protected: // Pure Virtual Method(s) / Function(s)
                 
-            }; // end of class 'Tube'
+                virtual void Run (const int64_t& a_id, const Json::Value& a_payload, Response& o_response) = 0;
+                
+            }; // end of class 'Job'
             
         } // end of namespace 'easy'
     
@@ -66,4 +67,4 @@ namespace cc
 
 } // end of namespace 'cc'
         
-#endif // NRS_CC_EASY_JOB_TUBE_H_
+#endif // NRS_CC_JOB_EASY_JOB_H_
