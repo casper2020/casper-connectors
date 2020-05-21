@@ -48,8 +48,10 @@ CONNECTORS_CC_CRYPTO_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/crypto/rsa.cc
 
 CONNECTORS_CC_EASY_SRC:= \
-  $(PROJECT_SRC_DIR)/src/cc/easy/beanstalk.cc \
-  $(PROJECT_SRC_DIR)/src/cc/easy/redis.cc
+  $(PROJECT_SRC_DIR)/src/cc/easy/beanstalk.cc   \
+  $(PROJECT_SRC_DIR)/src/cc/easy/redis.cc       \
+  $(PROJECT_SRC_DIR)/src/cc/job/easy/job.cc     \
+  $(PROJECT_SRC_DIR)/src/cc/job/easy/handler.cc
 
 CONNECTORS_CC_V8_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/v8/script.cc  \
@@ -171,6 +173,8 @@ set-dependencies: $(CONNECTORS_DEPENDENCIES)
   ifeq (true, $(V8_DEP_ON))
     CONNECTORS_CC_SRC += $(CONNECTORS_CC_V8_SRC)
     CONNECTORS_CC_SRC += $(CONNECTORS_CC_SYS_SRC)
+  endif
+  ifeq (true, $(EV_DEP_ON))
     CONNECTORS_EV_SRC += $(CONNECTORS_EV_LOOP_SRC)
   endif
   CC_SRC := \
