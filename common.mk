@@ -166,6 +166,8 @@ endif
 set-dependencies: $(CONNECTORS_DEPENDENCIES)
   ifeq (true, $(ICU_DEP_ON))
     CONNECTORS_CC_SRC += $(CONNECTORS_CC_ICU_SRC)
+  else ifeq (true, $(ICU_STAND_ALONE_DEP_ON))
+    CONNECTORS_CC_SRC += $(CONNECTORS_CC_ICU_SRC)
   endif
   ifeq (true, $(CURL_DEP_ON))
     CONNECTORS_CC_SRC += $(CONNECTORS_CC_CURL_SRC)
