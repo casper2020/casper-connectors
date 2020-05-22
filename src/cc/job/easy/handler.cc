@@ -63,7 +63,7 @@ cc::job::easy::HandlerInitializer::~HandlerInitializer ()
 void cc::job::easy::Handler::InnerStartup  (const cc::job::easy::Handler::StartupConfig& /* a_startup_config */,
                                             const Json::Value& a_job_config, cc::job::easy::Handler::SharedConfig& o_config)
 {
-    o_config.factory_ = [this, &a_job_config] (const std::string& a_tube) -> ev::loop::beanstalkd::Job* {
+    o_config.factory_ = [this, a_job_config] (const std::string& a_tube) -> ev::loop::beanstalkd::Job* {
         const auto it = factories_->find(a_tube);
         if ( factories_->end() != it ) {
             const Json::Value& config  = a_job_config[a_tube.c_str()];
