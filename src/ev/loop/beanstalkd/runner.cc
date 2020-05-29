@@ -721,7 +721,7 @@ void ev::loop::beanstalkd::Runner::ExecuteOnMainThread (std::function<void()> a_
 void ev::loop::beanstalkd::Runner::OnFatalException (const ev::Exception& a_exception)
 {
     ExecuteOnMainThread([this, a_exception]{
-        bridge_->ThrowFatalException(a_exception);
+        on_fatal_exception_(a_exception);
     }, /* a_blocking */ false);
 }
 

@@ -30,6 +30,8 @@
 
 #include <fstream> // std::ifstream
 
+#include "cc/debug/types.h"
+
 /**
  * @brief Default constructor.
  *
@@ -774,8 +776,8 @@ bool ev::loop::beanstalkd::Job::SubmitFollowUpJobs ()
         const Json::Value& entry = follow_up_jobs_[idx];
         const Json::Value& job   = entry["job"];
                 
-        OSALITE_DEBUG_TRACE("job", "Job #" INT64_FMT " ~= submitting follow up job #" SIZET_FMT ":\n%s",
-                            id_, static_cast<size_t>(idx + 1), entry.toStyledString().c_str()
+        CC_DEBUG_LOG_TRACE("job", "Job #" INT64_FMT " ~= submitting follow up job #" SIZET_FMT ":\n%s",
+                           id_, static_cast<size_t>(idx + 1), entry.toStyledString().c_str()
         );
         
         SubmitFollowUpJob(static_cast<size_t>(idx + 1), job);

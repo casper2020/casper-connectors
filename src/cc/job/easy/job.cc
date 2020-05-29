@@ -23,6 +23,8 @@
 
 #include "cc/macros.h"
 
+#include "cc/debug/types.h"
+
 /**
  * @brief Default constructor.
  *
@@ -127,10 +129,10 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
     // ... publish result ...
     Finished(job_response ,
             [this, &job_response , &response_str]() {
-                OSALITE_DEBUG_TRACE("job", "Job #" INT64_FMT " ~> response:\n%s", ID(), response_str.c_str());
+                CC_DEBUG_LOG_TRACE("job", "Job #" INT64_FMT " ~> response:\n%s", ID(), response_str.c_str());
             },
             [this](const ev::Exception& a_ev_exception){
-                OSALITE_DEBUG_TRACE("job", "Job #" INT64_FMT " ~> exception: %s", ID(), a_ev_exception.what());
+                CC_DEBUG_LOG_TRACE("job", "Job #" INT64_FMT " ~> exception: %s", ID(), a_ev_exception.what());
                 (void)(a_ev_exception);
             }
     );

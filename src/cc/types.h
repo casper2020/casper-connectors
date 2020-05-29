@@ -42,6 +42,8 @@
 
 #define UINT64_FMT        "%" PRIu64
 #define UINT64_FMT_ZP(d)  "%0" #d PRIu64
+#define UINT64_FMT_RP(d)  "%-" #d PRIu64
+#define UINT64_FMT_LP(d)  "%" #d PRIu64
 #define UINT64_HEX_FMT    "%" PRIX64
 #define UINT64_hex_FMT    "%" PRIx64
 
