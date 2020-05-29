@@ -53,6 +53,9 @@ CONNECTORS_CC_EASY_SRC:= \
   $(PROJECT_SRC_DIR)/src/cc/job/easy/job.cc     \
   $(PROJECT_SRC_DIR)/src/cc/job/easy/handler.cc
 
+CONNECTORS_CC_DEBUG_SRC:= \
+ $(PROJECT_SRC_DIR)/src/cc/debug/logger.cc
+
 CONNECTORS_CC_V8_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/v8/script.cc  \
   $(PROJECT_SRC_DIR)/src/cc/v8/context.cc \
@@ -82,7 +85,8 @@ CONNECTORS_CC_SRC := \
   $(CONNECTORS_CC_FS_SRC)               \
   $(CONNECTORS_CC_I18N_SRC)             \
   $(CONNECTORS_CC_ERRORS_SRC)           \
-  $(CONNECTORS_CC_EASY_SRC)
+  $(CONNECTORS_CC_EASY_SRC)             \
+  $(CONNECTORS_CC_DEBUG_SRC)
 
 CONNECTORS_EV_LOOP_SRC := \
  $(PROJECT_SRC_DIR)/src/ev/loop/bridge.cc            \
