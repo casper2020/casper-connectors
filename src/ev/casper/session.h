@@ -48,9 +48,14 @@ namespace ev
         public: // Constructor(s) / Destructor
             
             Session (const Loggable::Data& a_loggable_data,
-                     const std::string& a_iss, const std::string& a_token_prefix);
+                     const std::string& a_iss, const std::string& a_sid, const std::string& a_token_prefix,
+                     const bool a_test_maintenance_flag);
             Session (const Session& a_session);
             virtual ~Session ();
+            
+        protected: // Inherited Virtual Method(s) / Function(s)
+            
+            virtual std::string GetMaintenanceKey ();
             
         public: // Inline Method(s) / Function(s)
             
@@ -65,7 +70,6 @@ namespace ev
             
             void                            GetHeaders (const std::set<std::string>& a_fields,
                                                         std::map<std::string, std::string>& a_map) const;
-
         public: // Method(s) / Function(s)
             
             void               Patch           (Json::Value& a_object, const std::string& a_origin_ip_addr) const;

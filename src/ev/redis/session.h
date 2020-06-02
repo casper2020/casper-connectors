@@ -56,6 +56,7 @@ namespace ev
                 int64_t                            expires_in_;     //!< in seconds
                 bool                               verified_;
                 bool                               exists_;
+                bool                               maintenance_;
                 
             public: // Constructor(s) / Destructor
                 
@@ -67,6 +68,7 @@ namespace ev
                     expires_in_     = -1;
                     verified_       = false;
                     exists_         = false;
+                    maintenance_    = false;
                 }
                 
                 /**
@@ -83,6 +85,7 @@ namespace ev
                     expires_in_      = a_data.expires_in_;
                     verified_        = a_data.verified_;
                     exists_          = a_data.exists_;
+                    maintenance_     = a_data.maintenance_;
                 }
                 
                 /**
@@ -110,6 +113,7 @@ namespace ev
                     expires_in_      = a_data.expires_in_;
                     verified_        = a_data.verified_;
                     exists_          = a_data.exists_;
+                    maintenance_     = a_data.maintenance_;
                 }
 
             };
@@ -121,7 +125,9 @@ namespace ev
         protected: // Const Data
             
             const std::string iss_;
+            const std::string sid_;
             const std::string token_prefix_;
+            const bool        test_maintenance_flag_;
             
         protected: // Data
             
@@ -133,7 +139,8 @@ namespace ev
         public: // Constructor(s) / Destructor
             
             Session (const Loggable::Data& a_loggable_data,
-                     const std::string& a_iss, const std::string& a_token_prefix);
+                     const std::string& a_iss, const std::string& a_sid, const std::string& a_token_prefix,
+                     const bool a_test_maintenance_flag);
             Session (const Session& a_session);
             virtual ~Session();
             
@@ -150,15 +157,21 @@ namespace ev
             const DataT& Data         () const;
             void         SetToken     (const std::string& a_token);
             
-            
         public:
             
             static std::string Random (uint8_t a_length);
             static bool        IsRandomValid (const std::string& a_value, uint8_t a_length);
             
+        protected: // Pure Virtual Method(s) / Function(s)
+            
+            virtual std::string GetMaintenanceKey () = 0;
+            
         private: // Method(s) / Function(s)
             
             ::ev::scheduler::Task* NewTask (const EV_TASK_PARAMS& a_callback);
+            
+            const ev::redis::Reply* EnsureReplyObject (const ev::Object* a_object) const;
+            void                    FillSessionData   (const ev::Object* a_object, DataT& o_data) const;
             
         }; // end of class 'Session'
         
@@ -186,6 +199,7 @@ namespace ev
             data_.expires_in_     = -1;
             data_.verified_       = false;
             data_.exists_         = false;
+            data_.maintenance_    = false;
         }
         
     } // end of namespace 'redis'

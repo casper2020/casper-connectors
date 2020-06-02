@@ -29,11 +29,14 @@
  *
  * @param a_loggable_data
  * @param a_iss
+ * @param a_sid
  * @param a_token_prefix
+ * @param a_test_maintenance_flag
  */
 ev::casper::Session::Session (const ::ev::Loggable::Data& a_loggable_data,
-                              const std::string& a_iss, const std::string& a_token_prefix)
-    : ev::redis::Session(a_loggable_data, a_iss, a_token_prefix)
+                              const std::string& a_iss, const std::string& a_sid, const std::string& a_token_prefix,
+                              const bool a_test_maintenance_flag)
+    : ev::redis::Session(a_loggable_data, a_iss, a_sid, a_token_prefix, a_test_maintenance_flag)
 {
     /* empty */
 }
@@ -57,6 +60,18 @@ ev::casper::Session::Session (const ev::casper::Session& a_session)
 ev::casper::Session::~Session()
 {
     /* empty */
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#endif
+
+/**
+ * @return Maintenance key based on provided session data.
+ */
+std::string ev::casper::Session::GetMaintenanceKey ()
+{
+    return sid_ + ":entity:under-maintenance:" + GetValue("entity_id", "<missing_entity_id>");
 }
 
 #ifdef __APPLE__

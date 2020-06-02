@@ -31,11 +31,14 @@
  *
  * @param a_loggable_data
  * @param a_iss
+ * @param a_sid
  * @param a_token_prefix
+ * @param a_test_maintenance_flag
  */
 ev::redis::Session::Session (const ::ev::Loggable::Data& a_loggable_data,
-                             const std::string& a_iss, const std::string& a_token_prefix)
-    : iss_(a_iss), token_prefix_(a_token_prefix), loggable_data_(a_loggable_data)
+                             const std::string& a_iss, const std::string& a_sid, const std::string& a_token_prefix,
+                             const bool a_test_maintenance_flag)
+    : iss_(a_iss), sid_(a_sid), token_prefix_(a_token_prefix), test_maintenance_flag_(a_test_maintenance_flag), loggable_data_(a_loggable_data)
 {
     reverse_track_enabled_ = false;
     ::ev::scheduler::Scheduler::GetInstance().Register(this);
@@ -47,7 +50,7 @@ ev::redis::Session::Session (const ::ev::Loggable::Data& a_loggable_data,
  * @param a_session
  */
 ev::redis::Session::Session (const ev::redis::Session& a_session)
-    : iss_(a_session.iss_), token_prefix_(a_session.token_prefix_), loggable_data_(a_session.loggable_data_)
+: iss_(a_session.iss_), sid_(a_session.sid_), token_prefix_(a_session.token_prefix_), test_maintenance_flag_(a_session.test_maintenance_flag_), loggable_data_(a_session.loggable_data_)
 {
     data_                  = a_session.data_;
     reverse_track_enabled_ = a_session.reverse_track_enabled_;
@@ -390,10 +393,11 @@ void ev::redis::Session::Fetch (const ev::redis::Session::SuccessCallback a_succ
                                 const ev::redis::Session::InvalidCallback a_invalid_session_callback,
                                 const ev::redis::Session::FailureCallback a_failure_callback)
 {
-    data_.verified_ = false;
-    data_.exists_   = false;
+    data_.verified_    = false;
+    data_.exists_      = false;
+    data_.maintenance_ = false;
     
-    NewTask([this] () -> ::ev::Object* {
+    auto task = NewTask([this] () -> ::ev::Object* {
         
         return new ::ev::redis::Request(loggable_data_, "EXISTS", { token_prefix_ + data_.token_ } );
         
@@ -416,58 +420,68 @@ void ev::redis::Session::Fetch (const ev::redis::Session::SuccessCallback a_succ
         }
         
         return new ::ev::redis::Request(loggable_data_, "HGETALL", { token_prefix_ + data_.token_ });
+       
+    });
+            
+    // ... test maintenance flag?
+    if ( true == test_maintenance_flag_ ) {
         
-    })->Finally([a_success_callback, a_invalid_session_callback, this] (::ev::Object* a_object) {
-        
-        const ::ev::Result* result = dynamic_cast<const ::ev::Result*>(a_object);
-        if ( nullptr == result ) {
-            throw ::ev::Exception("Unexpected data object type - expecting " UINT8_FMT " got " UINT8_FMT " !",
-				  static_cast<uint8_t>(a_object->type_), static_cast<uint8_t>(::ev::Object::Type::Result)
-	    );
-        }
-        
-        const ::ev::Object* data_object = result->DataObject();
-        if ( nullptr == data_object ) {
-            throw ::ev::Exception("Unexpected data object - nullptr!");
-        }
-        
-        const ::ev::redis::Reply* reply = dynamic_cast<const ::ev::redis::Reply*>(data_object);
-        if ( nullptr == reply ) {
-            throw ::ev::Exception("Unexpected reply object - nullptr!");
-        }
-        
-        const ::ev::redis::Value& value = reply->value();
-        
-        switch (value.content_type()) {
-            case ::ev::redis::Value::ContentType::Array:
-                data_.token_is_valid_ = value.Size() > 0;
-                value.IterateHash([this](const ::ev::redis::Value* a_key, const ::ev::redis::Value* a_value){
-                    data_.payload_[a_key->String()] = a_value->String();
-                });
-                break;
-            case ::ev::redis::Value::ContentType::Integer:
-                throw ::ev::Exception("Logic error: expecting an hash got an integer!");
-            case ::ev::redis::Value::ContentType::String:
-                throw ::ev::Exception("Logic error: expecting an hash got a string!");
-            case ::ev::redis::Value::ContentType::Status:
-                throw ::ev::Exception("Logic error: expecting an hash got a status!");
-            case ::ev::redis::Value::ContentType::Nil:
-                throw ::ev::Exception("Logic error: expecting an hash got nil!");
-            default:
-                break;
-        }
+        // ... fetch session data ( and test maintenance flag ) ...
+        task->Then([this] (::ev::Object* a_object) -> ::ev::Object* {
+            
+            // ... validate and fill session data ...
+            FillSessionData(a_object, data_);
+            
+            // ... and test maintenance flag ...
+            return new ::ev::redis::Request(loggable_data_, "GET", { GetMaintenanceKey() });
+            
+        })->Finally([a_success_callback, a_invalid_session_callback, this] (::ev::Object* a_object) {
+            
+            const ev::redis::Reply*   reply = EnsureReplyObject(a_object);
+            const ::ev::redis::Value& value = reply->value();
+            
+            // ... maintenance?
+            if ( true == value.IsString() ){
+                // ... possibly ...
+                data_.maintenance_ = ( 0 == strcasecmp(value.String().c_str(), "true") );
+            } else {
+                // ... flag not set, so consider not in maintenance ...
+                data_.maintenance_ = false;
+            }
+                             
+            // ... notify ...
+            if ( true == data_.token_is_valid_ ) {
+                a_success_callback(data_);
+            } else {
+                a_invalid_session_callback(data_);
+            }
 
-        data_.verified_ = true;
+        });
         
-        if ( true == data_.token_is_valid_ ) {
-            data_.exists_ = true;
-            a_success_callback(data_);
-        } else {
-            data_.exists_ = false;
-            a_invalid_session_callback(data_);
-        }
+    } else {
+        
+        // ... fetch session data ( do NOT test maintenance flag ) ...
+        task->Finally([a_success_callback, a_invalid_session_callback, this] (::ev::Object* a_object) {
+            
+            // ... validate and fill session data ...
+            FillSessionData(a_object, data_);
 
-    })->Catch([this, a_failure_callback, a_invalid_session_callback] (const ::ev::Exception& a_ev_exception) {
+            // ... maintenance not tested, so consider not in maintenance ...
+            data_.maintenance_ = false;
+                             
+            // ... notify ...
+            if ( true == data_.token_is_valid_ ) {
+                a_success_callback(data_);
+            } else {
+                a_invalid_session_callback(data_);
+            }
+            
+        });
+        
+    }
+    
+    // ... finalize task set, by catching any possible failures ...
+    task->Catch([this, a_failure_callback, a_invalid_session_callback] (const ::ev::Exception& a_ev_exception) {
                 
         if ( true == data_.verified_ && false == data_.exists_ ) {
             a_invalid_session_callback(data_);
@@ -581,4 +595,66 @@ bool ev::redis::Session::IsRandomValid (const std::string& a_value, uint8_t a_le
                                          ::ev::scheduler::Scheduler::GetInstance().Push(this, a_task);
                                      }
     );
+}
+
+/**
+ * @brief Ensure that we have a valid reply object.
+ *
+ * @param a_object Test subject.
+ *
+ * @return Pointer to reply object.
+ */
+const ev::redis::Reply* ev::redis::Session::EnsureReplyObject (const ev::Object* a_object) const
+{
+    const ::ev::Result* result = dynamic_cast<const ::ev::Result*>(a_object);
+    if ( nullptr == result ) {
+        throw ::ev::Exception("Unexpected data object type - expecting " UINT8_FMT " got " UINT8_FMT " !",
+                              static_cast<uint8_t>(a_object->type_), static_cast<uint8_t>(::ev::Object::Type::Result)
+        );
+    }
+    
+    const ::ev::Object* data_object = result->DataObject();
+    if ( nullptr == data_object ) {
+        throw ::ev::Exception("Unexpected data object - nullptr!");
+    }
+    
+    const ::ev::redis::Reply* reply = dynamic_cast<const ::ev::redis::Reply*>(data_object);
+    if ( nullptr == reply ) {
+        throw ::ev::Exception("Unexpected reply object - nullptr!");
+    }
+    
+    return reply;
+}
+
+/**
+ * @brief Ensure that we have a valid session object.
+ *
+ * @param a_object Test subject.
+ */
+void ev::redis::Session::FillSessionData (const ev::Object* a_object, DataT& o_data) const
+{
+    const ev::redis::Reply*   reply = EnsureReplyObject(a_object);
+    const ::ev::redis::Value& value = reply->value();
+    
+    switch (value.content_type()) {
+        case ::ev::redis::Value::ContentType::Array:
+            o_data.token_is_valid_ = value.Size() > 0;
+            value.IterateHash([&o_data](const ::ev::redis::Value* a_key, const ::ev::redis::Value* a_value){
+                o_data.payload_[a_key->String()] = a_value->String();
+            });
+            break;
+        case ::ev::redis::Value::ContentType::Integer:
+            throw ::ev::Exception("Logic error: expecting an hash got an integer!");
+        case ::ev::redis::Value::ContentType::String:
+            throw ::ev::Exception("Logic error: expecting an hash got a string!");
+        case ::ev::redis::Value::ContentType::Status:
+            throw ::ev::Exception("Logic error: expecting an hash got a status!");
+        case ::ev::redis::Value::ContentType::Nil:
+            throw ::ev::Exception("Logic error: expecting an hash got nil!");
+        default:
+            break;
+    }
+
+    o_data.verified_ = true;
+    o_data.exists_   = ( true == o_data.token_is_valid_ );
 }
