@@ -40,7 +40,7 @@ namespace ev
             
         public: // Constructor(s) / Destructor
             
-            KeepAliveHandler(StepperCallbacks& a_stepper_callbacks, osal::ThreadHelper::ThreadID a_thread_id);
+            KeepAliveHandler(StepperCallbacks& a_stepper_callbacks, cc::debug::Threading::ThreadID a_thread_id);
             virtual ~KeepAliveHandler();
             
         private: // Data

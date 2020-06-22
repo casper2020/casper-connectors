@@ -32,10 +32,10 @@
  * @param a_stepper_callbacks
  * @param a_thread_id
  */
-ev::hub::OneShotHandler::OneShotHandler (ev::hub::StepperCallbacks& a_stepper_callbacks, osal::ThreadHelper::ThreadID a_thread_id)
+ev::hub::OneShotHandler::OneShotHandler (ev::hub::StepperCallbacks& a_stepper_callbacks, cc::debug::Threading::ThreadID a_thread_id)
     : ev::hub::Handler(a_stepper_callbacks, a_thread_id)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     supported_target_ = { ev::Object::Target::Redis, ev::Object::Target::PostgreSQL, ev::Object::Target::CURL };
     for ( auto map : { &cached_devices_, &in_use_devices_ } ) {
         for ( auto target : supported_target_ ) {
@@ -53,7 +53,7 @@ ev::hub::OneShotHandler::OneShotHandler (ev::hub::StepperCallbacks& a_stepper_ca
  */
 ev::hub::OneShotHandler::~OneShotHandler ()
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     // ... get rid of 'zombies' objects ...
     KillZombies();
 
@@ -87,7 +87,7 @@ ev::hub::OneShotHandler::~OneShotHandler ()
  */
 void ev::hub::OneShotHandler::Idle ()
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     // ... push next ...
     Push();
     // ... publish pending ...
@@ -101,7 +101,7 @@ void ev::hub::OneShotHandler::Idle ()
  */
 void ev::hub::OneShotHandler::Push (ev::Request* a_request)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     // ... keep track of it ...
     pending_requests_.push_back(a_request);
     // ... push next ...
@@ -113,7 +113,7 @@ void ev::hub::OneShotHandler::Push (ev::Request* a_request)
  */
 void ev::hub::OneShotHandler::SanityCheck ()
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
 
     std::map<ev::Device*, size_t>  tmp_devices_map;
     std::map<ev::Request*, size_t> tmp_requests_map;
@@ -215,7 +215,7 @@ void ev::hub::OneShotHandler::SanityCheck ()
  */
 void ev::hub::OneShotHandler::OnConnectionStatusChanged (const ev::Device::ConnectionStatus& a_status, ev::Device* a_device)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
 
     std::stringstream ss;
 
@@ -286,11 +286,11 @@ void ev::hub::OneShotHandler::OnConnectionStatusChanged (const ev::Device::Conne
         // ... issue callbacks ...
         stepper_.disconnected_->Call(
                                      [this, payload]() -> void* {
-                                         OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+                                         CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
                                          return payload;
                                      },
                                      [](void* a_payload, ev::hub::DisconnectedStepCallback a_callback) {
-                                         OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+                                         CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
                                          Payload* r_payload = static_cast<Payload*>(a_payload);
                                          a_callback(
                                                     /* a_invoke_id */ r_payload->invoke_id_,
@@ -328,7 +328,7 @@ bool ev::hub::OneShotHandler::OnUnhandledDataObjectReceived (const ev::Device* /
  */
 void ev::hub::OneShotHandler::Push ()
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
 
     // ... get rid of 'zombies' objects ...
     KillZombies();
@@ -430,7 +430,7 @@ void ev::hub::OneShotHandler::Push ()
                         const ev::Device::Status exec_rv = a_device->Execute(
                                                                              [this, current_request, a_device] (const ev::Device::ExecutionStatus& a_exec_status, ev::Result* a_exec_result) {
 
-                                                                                 OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+                                                                                 CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
 
                                                                                  (void)a_exec_status;
 
@@ -601,7 +601,7 @@ void ev::hub::OneShotHandler::Push ()
  */
 void ev::hub::OneShotHandler::Publish ()
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
 
     // ... get rid of 'zombies' objects ...
     KillZombies();
@@ -631,11 +631,11 @@ void ev::hub::OneShotHandler::Publish ()
 
     stepper_.next_->Call(
                          [this, p_requests] () -> void* {
-                             OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+                             CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
                              return p_requests;
                          },
                          [](void* a_payload, ev::hub::NextStepCallback a_callback) {
-                             OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+                             CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
                              // ... for all requests for a specific handler ...
                              std::deque<ev::Request*>* requests = static_cast<std::deque<ev::Request*>*>(a_payload);
                              while ( requests->size() > 0 ) {
@@ -662,7 +662,7 @@ void ev::hub::OneShotHandler::Publish ()
  */
 void ev::hub::OneShotHandler::Link (Request* a_request, Device* a_device)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     request_device_map_[a_request] = a_device;
     device_request_map_[a_device]  = a_request;
     OSALITE_ASSERT(request_device_map_.size() == device_request_map_.size());
@@ -676,7 +676,7 @@ void ev::hub::OneShotHandler::Link (Request* a_request, Device* a_device)
  */
 void ev::hub::OneShotHandler::Unlink (Request* a_request)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     const auto r_it = request_device_map_.find(a_request);
     if ( request_device_map_.end() != r_it ) {
         const auto d_it = device_request_map_.find(r_it->second);

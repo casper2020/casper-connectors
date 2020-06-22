@@ -59,7 +59,7 @@ namespace ev
             
         public: // Constructor(s) / Destructor
             
-            OneShotHandler(StepperCallbacks& a_stepper_callbacks, osal::ThreadHelper::ThreadID a_thread_id);
+            OneShotHandler(StepperCallbacks& a_stepper_callbacks, cc::debug::Threading::ThreadID a_thread_id);
             virtual ~OneShotHandler();
             
         public: // Inherited Pure Virtual Method(s) / Function(s) - from ev::hub::Handler

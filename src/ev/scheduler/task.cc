@@ -23,6 +23,8 @@
 
 #include "osal/osalite.h"
 
+#include "cc/debug/types.h"
+
 #ifdef __APPLE__
 #pragma mark -
 #endif
@@ -72,7 +74,7 @@ ev::scheduler::Task::~Task ()
  */
 bool ev::scheduler::Task::Step (ev::Object* a_object, ev::Request** o_request)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
 
     (*o_request) = nullptr;
 

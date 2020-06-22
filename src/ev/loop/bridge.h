@@ -26,13 +26,14 @@
 
 #include "osal/datagram_socket.h"
 #include "osal/condition_variable.h"
-#include "osal/thread_helper.h"
 
 #include <thread>  // std::thread
 #include <atomic>
 #include <functional>
 
 #include <event2/event.h> // libevent2
+
+#include "cc/debug/types.h"
 
 namespace ev
 {
@@ -141,9 +142,9 @@ namespace ev
 #if 0 // TODO
             std::thread*                 thread_;
 #endif
-            osal::ThreadHelper::ThreadID thread_id_;
-            std::atomic<bool>            aborted_;
-            std::atomic<bool>            running_;
+            cc::debug::Threading::ThreadID thread_id_;
+            std::atomic<bool>              aborted_;
+            std::atomic<bool>              running_;
             
         protected: // Event
             
@@ -196,6 +197,10 @@ namespace ev
 
             void Loop                           ();
             void ScheduleCalbackOnMainThread    (Callback* a_callback, int64_t a_timeout_ms);
+
+        private:
+
+            void ScheduleCalbackOnThisThread    (Callback* a_callback, int64_t a_timeout_ms);
             
         private: // Method(s) / Function(s)
             
@@ -207,8 +212,8 @@ namespace ev
             static void LoopHackEventCallback (evutil_socket_t a_fd, short a_what, void* a_arg);
             static void WatchdogCallback      (evutil_socket_t a_fd, short a_flags, void* a_arg);
             
-            static void DifferedScheduleCallback (evutil_socket_t /* a_fd */, short a_flags, void* a_arg);
-
+            static void DeferredScheduleCallback  (evutil_socket_t /* a_fd */, short a_flags, void* a_arg);
+            
         }; // end of class 'bridge'
         
         inline bool Bridge::IsRunning () const

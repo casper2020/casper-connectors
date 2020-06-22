@@ -28,10 +28,10 @@
 /**
  * @brief Default constructor.
  */
-ev::hub::KeepAliveHandler::KeepAliveHandler (ev::hub::StepperCallbacks& a_stepper_callbacks, osal::ThreadHelper::ThreadID a_thread_id)
+ev::hub::KeepAliveHandler::KeepAliveHandler (ev::hub::StepperCallbacks& a_stepper_callbacks, cc::debug::Threading::ThreadID a_thread_id)
     : ev::hub::Handler(a_stepper_callbacks, a_thread_id)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     supported_target_ = { ev::Object::Target::Redis };
 }
 
@@ -40,7 +40,7 @@ ev::hub::KeepAliveHandler::KeepAliveHandler (ev::hub::StepperCallbacks& a_steppe
  */
 ev::hub::KeepAliveHandler::~KeepAliveHandler ()
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     for ( auto rr_it : running_requests_ ) {
         for ( auto e_it : (*rr_it.second) ) {
             delete e_it;
@@ -66,7 +66,7 @@ ev::hub::KeepAliveHandler::~KeepAliveHandler ()
  */
 void ev::hub::KeepAliveHandler::Idle ()
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     
     // ... nothing to do?
     if ( 0 == running_requests_.size() ) {
@@ -90,7 +90,7 @@ void ev::hub::KeepAliveHandler::Idle ()
  */
 void ev::hub::KeepAliveHandler::Push (ev::Request* a_request)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
 
     ev::Device* device     = nullptr;
     bool        new_device = false;
@@ -170,7 +170,7 @@ void ev::hub::KeepAliveHandler::Push (ev::Request* a_request)
  */
 void ev::hub::KeepAliveHandler::SanityCheck ()
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
 }
 
 #ifdef __APPLE__
@@ -185,7 +185,7 @@ void ev::hub::KeepAliveHandler::SanityCheck ()
  */
 void ev::hub::KeepAliveHandler::OnConnectionStatusChanged (const ev::Device::ConnectionStatus& a_status, ev::Device* a_device)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     // ... if device is connected ...
     if ( ev::Device::ConnectionStatus::Connected == a_status ) {
         // ... ok ...
@@ -263,11 +263,11 @@ void ev::hub::KeepAliveHandler::OnConnectionStatusChanged (const ev::Device::Con
     
     // ... issue callbacks ...
     stepper_.disconnected_->Call([this, payload]() -> void* {
-                                         OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+                                         CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
                                          return payload;
                                      },
                                      [](void* a_payload, ev::hub::DisconnectedStepCallback a_callback) {
-                                         OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+                                         CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
                                          std::vector<Payload*>* r_payload = static_cast<std::vector<Payload*>*>(a_payload);
                                          for ( auto p : *r_payload ) {
                                              a_callback(
@@ -293,7 +293,7 @@ void ev::hub::KeepAliveHandler::OnConnectionStatusChanged (const ev::Device::Con
  */
 bool ev::hub::KeepAliveHandler::OnUnhandledDataObjectReceived (const ev::Device* /* a_device */, const ev::Request* a_request , ev::Result* a_result)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     
     typedef struct {
         const int64_t            invoke_id_;
@@ -305,12 +305,12 @@ bool ev::hub::KeepAliveHandler::OnUnhandledDataObjectReceived (const ev::Device*
     // ... issue callbacks ...
     stepper_.publish_->Call(
                             [this, a_request, a_result] () -> void* {
-                                OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+                                CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
                                 // ... prepare callback payload ...
                                 return new Payload({a_request->GetInvokeID(), a_request->target_, a_request->GetTag(), a_result});
                             },
                             [](void* a_payload, ev::hub::PublishStepCallback a_callback) {
-                                OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+                                CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
                                 Payload* r_payload = static_cast<Payload*>(a_payload);
                                 std::vector<ev::Result*> results = { r_payload->result_ };
                                 a_callback(
@@ -344,7 +344,7 @@ bool ev::hub::KeepAliveHandler::OnUnhandledDataObjectReceived (const ev::Device*
  */
 void ev::hub::KeepAliveHandler::DeviceConnectionCallback (const ev::Device::ConnectionStatus& a_status, ev::Device* a_device)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     
     if ( ev::Device::ConnectionStatus::Connected != a_status ) {
         // ... this error will be handled @ OnConnectionStatusChanged(...) ...

@@ -39,7 +39,6 @@
 #include <event2/event.h> // libevent2
 
 #include "osal/datagram_socket.h"
-#include "osal/thread_helper.h"
 #include "osal/condition_variable.h"
 
 #include "ev/bridge.h"
@@ -169,8 +168,8 @@ namespace ev
             InitializedCallback          initialized_callback_;
             StepperCallbacks             stepper_;
             
-            osal::ThreadHelper::ThreadID thread_id_;
-            osal::ConditionVariable      stop_cv_;
+            cc::debug::Threading::ThreadID thread_id_;
+            osal::ConditionVariable        stop_cv_;
             
             std::atomic<int>&            pending_callbacks_count_;
                         

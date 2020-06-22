@@ -21,6 +21,8 @@
 
 #include "cc/global/initializer.h"
 
+#include "cc/debug/types.h" // CC_DEBUG_SET_MAIN_THREAD_ID
+
 #ifdef CASPER_REQUIRE_GOOGLE_V8
     #include "cc/v8/singleton.h"
 #else
@@ -149,7 +151,7 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
     }
     
     // ... mark as 'main' thread ...
-    OSALITE_DEBUG_SET_MAIN_THREAD_ID();
+    CC_DEBUG_SET_MAIN_THREAD_ID();
     
     process_ = new cc::global::Process(
         {

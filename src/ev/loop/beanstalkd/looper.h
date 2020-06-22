@@ -35,6 +35,8 @@
 
 #include <map>
 #include <string>
+#include <mutex>
+#include <queue>
 
 namespace ev
 {
@@ -69,6 +71,15 @@ namespace ev
                 Json::Reader               json_reader_;
                 Json::Value                job_payload_;
                 
+            private: // Threading
+                
+                typedef struct {
+                    std::mutex                        mutex_;
+                    std::queue<std::function<void()>> queue_;
+                } Callbacks;
+                
+                Callbacks idle_callbacks_;
+                
             public: // Constructor(s) / Destructor
                 
                 Looper (const ev::Loggable::Data& a_loggable_data,
@@ -80,6 +91,12 @@ namespace ev
                 
                 void Run (const ::ev::beanstalk::Config& a_beanstakd_config, const std::string& a_output_directory,
                           volatile bool& a_aborted);
+                
+                void AppendCallback (std::function<void()> a_callback);
+                
+            private: // Method(s) / Function(s)
+                
+                void Idle (const bool a_fake);
                 
             }; // end of class 'Looper'
             

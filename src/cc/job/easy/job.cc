@@ -52,27 +52,24 @@ cc::job::easy::Job::~Job ()
  *
  * @param a_id                  Job ID
  * @param a_payload             Job Payload
- * @param a_callback            Success / Failure callback.
+ * @param a_completed_callback
  * @param a_cancelled_callback
+ * @param a_deferred_callback
  */
 void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
                               const cc::job::easy::Job::CompletedCallback& a_completed_callback,
-                              const cc::job::easy::Job::CancelledCallback& a_cancelled_callback)
+                              const cc::job::easy::Job::CancelledCallback& a_cancelled_callback,
+                              const cc::job::easy::Job::DeferredCallback& a_deferred_callback)
 {
-
-#if 1 // TODO - PRINT TO XCODE CONSOLE - USE SHARED MACRO?
-    fprintf(stdout, "\n%s\n",  a_payload.toStyledString().c_str());
-#endif
-
-    CC_SILENCE_UNUSED_VARIABLE(a_id);
-
     Json::Value                  job_response  = Json::Value::null;
     cc::job::easy::Job::Response run_response { 400, Json::Value::null };
     
     std::string uri_;
     
+    CC_DEBUG_LOG_TRACE("job", "Job #" INT64_FMT " ~> request:\n%s", ID(), a_payload.toStyledString().c_str());
+    
     try {
-                
+
         Run(a_id, a_payload, run_response);
         
         if ( 200 == run_response.code_ ) {
@@ -105,7 +102,7 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
         SetCancelledResponse(/* a_payload*/ Json::Value::null, /* o_response */ job_response );
     } else if ( false == HasErrorsSet() && true == HasFollowUpJobs() ) { // ... has follow up job?
         // ... submit follow up jobs ...
-        if ( false == SubmitFollowUpJobs() ) {
+        if ( false == PushFollowUpJobs() ) {
             SetFailedResponse(/* a_code */ run_response.code_, /* o_response */ job_response );
         }
     } else if ( true == HasErrorsSet() ) { // ... failed?
@@ -113,7 +110,19 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
         SetFailedResponse(/* a_code */ run_response.code_, /* o_response */ job_response );
     }
     
-    const std::string response_str = json_styled_writer_.write(job_response );
+    // ... check if we should finalize now ...
+    if ( not ( true == HasErrorsSet() ||  true == WasCancelled() || true == AlreadyRan() ) && true == Deferred() ) {
+        // ... log ...
+        EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("STATUS", "%s",
+                                        "DEFERRED"
+        );
+        // ... notify deferred ...
+        a_deferred_callback();
+        // ... we're done, for now ...
+        return;
+    }
+    
+    const std::string response_str = json_styled_writer_.write(job_response);
     
     // ... for logging proposes ...
     if ( true == HasErrorsSet() ) {
@@ -125,7 +134,7 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
                                   "response:%s", response_str.c_str()
         );
     }
-    
+                        
     // ... publish result ...
     Finished(job_response ,
             [this, &job_response , &response_str]() {
@@ -137,11 +146,11 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
             }
     );
     
-    //                    //
-    //   Final Callbacks  //
-    //          &         //
-    //     'Logging'      //
-    //                    //
+    //                     //
+    //   Final Callbacks   //
+    //          &          //
+    //     'Logging'       //
+    //                     //
     if ( true == WasCancelled() || true == AlreadyRan() ) {
         EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("STATUS", "%s", WasCancelled() ? "CANCELLED" : "ALREADY RAN");
         a_cancelled_callback(AlreadyRan());
@@ -151,8 +160,4 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
         );
         a_completed_callback("", false == HasErrorsSet(), run_response.code_);
     }
-    
-#if 1 // TODO - PRINT TO XCODE CONSOLE - USE SHARED MACRO?
-    fprintf(stdout, "\n%s\n",  response_str.c_str());
-#endif
 }

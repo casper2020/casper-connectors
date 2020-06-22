@@ -26,6 +26,8 @@
 
 #include "cc/job/easy/job.h"
 
+#include "cc/debug/types.h" //  CC_DEBUG_ON
+
 #ifdef __APPLE__
 #pragma mark - cc::job::easy::JobInitializer
 #endif
@@ -56,26 +58,33 @@ cc::job::easy::HandlerInitializer::~HandlerInitializer ()
 /**
  * @brief Call when this job instance is about to startup.
  *
+ * @param a_process        Process info.
  * @param a_startup_config Startup config.
  * @param a_job_config     Job specific config
  * @param o_config         Merged shared config.
  */
-void cc::job::easy::Handler::InnerStartup  (const cc::job::easy::Handler::StartupConfig& /* a_startup_config */,
+void cc::job::easy::Handler::InnerStartup  (const ::cc::global::Process& a_process,
+                                            const cc::job::easy::Handler::StartupConfig& a_startup_config,
                                             const Json::Value& a_job_config, cc::job::easy::Handler::SharedConfig& o_config)
 {
-    o_config.factory_ = [this, a_job_config] (const std::string& a_tube) -> ev::loop::beanstalkd::Job* {
+    const pid_t    pid      = a_process.pid_;
+    const uint64_t instance = static_cast<uint64_t>(a_startup_config.instance_);
+    
+    o_config.factory_ = [this, a_job_config, pid, instance] (const std::string& a_tube) -> ev::loop::beanstalkd::Job* {
         const auto it = factories_->find(a_tube);
         if ( factories_->end() != it ) {
             const Json::Value& config  = a_job_config[a_tube.c_str()];
             const Json::Value& options = a_job_config["options"];
             return it->second(loggable_data(), {
+                /* pid_               */ pid,
+                /* instance_          */ instance,
                 /* service_id_        */ config.get("service_id"   , "development").asString(),
                 /* transient_         */ config.get("transient"    ,         false).asBool(),
                 /* min_progress_      */ options.get("min_progress",             3).asInt()
             });
         }
         return nullptr;
-    };
+    };    
 }
 
 /**
@@ -116,18 +125,24 @@ int cc::job::easy::Handler::Start (const cc::job::easy::Handler::Arguments& a_ar
         cc::OptArg opt (a_arguments.name_.c_str(), a_arguments.version_.c_str(), a_arguments.rel_date_.c_str(), a_arguments.banner_.c_str(),
             {
                 // NOTES: THIS OBJECTS WILL BE DELETE WHEN cc::OptArg::~OptArg IS CALLED
-                new cc::OptArg::String(/* a_long */ "--config" , /* a_short */ 'c', /* a_optional */ false , /* a_tag */ "uri"  , /* a_help */ "configuration file"),
-                new cc::OptArg::UInt64(/* a_long */ "--index"  , /* a_short */ 'i', /* a_optional */ false , /* a_tag */ "index", /* a_help */ "index"             ),
-                new cc::OptArg::Switch(/* a_long */ "--help"   , /* a_short */ 'h', /* a_optional */ true  , /* a_tag */          /* a_help */ "show help"         ),
-                new cc::OptArg::Switch(/* a_long */ "--version", /* a_short */ 'v', /* a_optional */ true  , /* a_tag */          /* a_help */ "show version"      )
+                new cc::OptArg::String(/* a_long */ "config" , /* a_short */ 'c', /* a_optional */ false , /* a_tag */ "uri"  , /* a_help */ "configuration file"  ),
+                new cc::OptArg::UInt64(/* a_long */ "index"  , /* a_short */ 'i', /* a_optional */ false , /* a_tag */ "index", /* a_help */ "index"               ),
+                new cc::OptArg::Switch(/* a_long */ "help"   , /* a_short */ 'h', /* a_optional */ true  , /* a_tag */          /* a_help */ "show help"           ),
+                new cc::OptArg::Switch(/* a_long */ "version", /* a_short */ 'v', /* a_optional */ true  , /* a_tag */          /* a_help */ "show version"        )
+            #ifdef CC_DEBUG_ON
+              , new cc::OptArg::String(/* a_long */ "debug"  , /* a_short */ 'd', /* a_optional */ true  , /* a_tag */ "token", /* a_help */ "enable a debug token")
+            #endif
             }
         );
-        
+
+        // ... enable debug tokens ...
+        #ifdef CC_DEBUG_ON
+        opt.SetListener('d', [](const cc::OptArg::Opt* a_opt) {
+            CC_DEBUG_LOG_ENABLE(dynamic_cast<const cc::OptArg::String*>(a_opt)->value());
+        });
+        #endif
+
         const int argp = opt.Parse(a_arguments.argc_, a_arguments.argv_);
-        if ( 0 != argp ) {
-            opt.ShowHelp(opt.error());
-            return -1;
-        }
         
         if ( true == opt.IsSet('h') ) {
             opt.ShowHelp();
@@ -137,6 +152,11 @@ int cc::job::easy::Handler::Start (const cc::job::easy::Handler::Arguments& a_ar
         if ( true == opt.IsSet('v') ) {
             opt.ShowVersion();
             return 0;
+        }
+        
+        if ( 0 != argp ) {
+            opt.ShowHelp(opt.error());
+            return -1;
         }
         
         // ... set thread name ...
@@ -175,4 +195,3 @@ int cc::job::easy::Handler::Start (const cc::job::easy::Handler::Arguments& a_ar
     // ... done ...
     return 0;
 }
-

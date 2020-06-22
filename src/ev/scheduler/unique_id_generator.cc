@@ -21,7 +21,7 @@
 
 #include "ev/scheduler/unique_id_generator.h"
 
-#include "osal/osalite.h"
+#include "cc/debug/types.h"
 
 #include "ev/exception.h"
 #include <limits> // std::numeric_limits
@@ -39,7 +39,7 @@ void*                ev::scheduler::UniqueIDGenerator::last_owner_   = nullptr;
  */
 uint64_t ev::scheduler::UniqueIDGenerator::Rent (void* /* a_owner */)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     uint64_t rv;
 //    if ( cached_.size() > 0 ) {
 //        rv = cached_.front();
@@ -69,7 +69,7 @@ uint64_t ev::scheduler::UniqueIDGenerator::Rent (void* /* a_owner */)
  */
 void ev::scheduler::UniqueIDGenerator::Return (void* /* a_owner */, uint64_t /* a_id */)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
 //    const auto it = rented_.find(a_id);
 //    if ( rented_.end() != it ) {
 //        rented_.erase(it);

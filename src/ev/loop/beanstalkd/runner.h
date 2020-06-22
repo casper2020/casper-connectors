@@ -39,6 +39,8 @@
 #include "ev/loop/bridge.h"
 #include "ev/loop/beanstalkd/looper.h"
 
+#include <mutex>
+
 namespace ev
 {
     
@@ -148,6 +150,11 @@ namespace ev
                 
                 ev::loop::beanstalkd::Runner::FatalExceptionCallback on_fatal_exception_;
                 
+            private: // Threading Ptrs
+                
+                std::mutex                    looper_mutex_;
+                ev::loop::beanstalkd::Looper* looper_ptr_;
+                
             public: // Constructor(s) / Destructor
                 
                 Runner ();
@@ -171,14 +178,15 @@ namespace ev
                 
             protected: // Pure Method(s) / Function(s)
                 
-                virtual void InnerStartup  (const StartupConfig& a_startup_config, const Json::Value& a_config, SharedConfig& o_config) = 0;
+                virtual void InnerStartup  (const ::cc::global::Process& a_process, const StartupConfig& a_startup_config, const Json::Value& a_config, SharedConfig& o_config) = 0;
                 virtual void InnerShutdown () = 0;
                 
             protected: // Threading Helper Methods(s) / Function(s)
                 
-                void SubmitJob           (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr);
-                void ExecuteOnMainThread (std::function<void()> a_callback, bool a_blocking);
-                void OnFatalException    (const ev::Exception& a_exception);
+                void PushJob               (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr);
+                void ExecuteOnMainThread   (std::function<void()> a_callback, bool a_blocking);
+                void ExecuteOnLooperThread (std::function<void()> a_callback, bool a_blocking);
+                void OnFatalException      (const ev::Exception& a_exception);
                 
             protected:
                 

@@ -28,6 +28,8 @@
 
 #include <algorithm> // std::max
 
+#include "cc/debug/types.h"
+
 /**
  * @brief Default constructor.
  *
@@ -165,6 +167,11 @@ int cc::OptArg::Parse (const int& a_argc, const char** const a_argv,
                 break;
             default:
                 throw cc::Exception("Unimplemented type " UINT8_FMT "!", opts_[rw]->type_);
+        }
+        // ... notify?
+        const auto it = listener_map_.find(opts_[rw]->short_);
+        if ( listener_map_.end() != it ) {
+            it->second(opts_[rw]);
         }
     }
 

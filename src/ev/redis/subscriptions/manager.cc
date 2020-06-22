@@ -50,7 +50,7 @@ void ev::redis::subscriptions::Manager::Startup (const ::ev::Loggable::Data& a_l
 {
     OSALITE_DEBUG_TRACE("ev_subscriptions", "~> Startup(...)");
     
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     if ( nullptr != redis_subscription_ ) {
         throw ev::Exception("REDIS subscriptions already configured!");
@@ -123,7 +123,7 @@ void ev::redis::subscriptions::Manager::Shutdown ()
  */
 void ev::redis::subscriptions::Manager::Subscribe (ev::redis::subscriptions::Manager::Client* a_client)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     for ( auto channel : default_channels_set_ ) {
         Link(channel, a_client, channel_to_clients_map_);
@@ -140,7 +140,7 @@ void ev::redis::subscriptions::Manager::Subscribe (ev::redis::subscriptions::Man
  */
 void ev::redis::subscriptions::Manager::Unubscribe (ev::redis::subscriptions::Manager::Client* a_client)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... for all maps ...
     for ( auto map : { &channel_to_clients_map_, &pattern_to_clients_map_ } ) {
         // ... for all names in map ...
@@ -338,7 +338,7 @@ void ev::redis::subscriptions::Manager::Subscribe (const std::set<std::string>& 
                                                    ev::redis::subscriptions::Manager::Client* a_client,
                                                    ev::redis::subscriptions::Manager::SubscriptionsToClientMap& a_map)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     if ( nullptr == redis_subscription_ ) {
         throw ev::Exception("REDIS subscriptions NOT configured!");
@@ -392,7 +392,7 @@ void ev::redis::subscriptions::Manager::Unsubscribe (const std::set<std::string>
                                                      ev::redis::subscriptions::Manager::Client* a_client,
                                                      ev::redis::subscriptions::Manager::SubscriptionsToClientMap& a_map)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     // ... not ready?
     if ( nullptr == redis_subscription_ ) {
@@ -470,7 +470,7 @@ void ev::redis::subscriptions::Manager::Unsubscribe (const std::set<std::string>
 void ev::redis::subscriptions::Manager::Link (const std::string& a_name, ev::redis::subscriptions::Manager::Client* a_client,
                                               ev::redis::subscriptions::Manager::SubscriptionsToClientMap& a_map)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     ev::redis::subscriptions::Manager::ClientsVector* clients_vector;
     
@@ -498,7 +498,7 @@ void ev::redis::subscriptions::Manager::Unlink (const std::string& a_name,
                                                 ev::redis::subscriptions::Manager::Client* a_client,
                                                 ev::redis::subscriptions::Manager::SubscriptionsToClientMap& a_map)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     auto it = a_map.find(a_name);
     if ( a_map.end() == it ) {
@@ -524,7 +524,7 @@ void ev::redis::subscriptions::Manager::Notify (const std::string& a_name,
                                                 const ev::redis::subscriptions::Manager::Status& a_status,
                                                 ev::redis::subscriptions::Manager::SubscriptionsToClientMap& a_map)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     // ... still tracking channel or pattern?
     auto it = a_map.find(a_name);
@@ -565,7 +565,7 @@ void ev::redis::subscriptions::Manager::Notify (const std::string& a_name,
 void ev::redis::subscriptions::Manager::Notify (const std::string& a_key , const std::string& a_name, const std::string& a_message,
                                                 ev::redis::subscriptions::Manager::SubscriptionsToClientMap& a_map)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
 
     // ... still tracking channel or pattern?
     auto it = a_map.find(a_key);
@@ -605,7 +605,7 @@ void ev::redis::subscriptions::Manager::Notify (const std::string& a_key , const
  */
 void ev::redis::subscriptions::Manager::OnREDISReplyReceived (const ::ev::redis::subscriptions::Reply* a_reply)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     const char* const channel_or_pattern = a_reply->Channel().length() > 0 ? a_reply->Channel().c_str() : a_reply->Pattern().c_str();
     switch (a_reply->kind()) {
@@ -688,7 +688,7 @@ bool ev::redis::subscriptions::Manager::OnREDISDisconnected (::ev::redis::subscr
     
     bridge_->CallOnMainThread([this]() {
         
-        OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+        CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
 
         OSALITE_DEBUG_TRACE("ev_subscriptions", "~> REDIS Disconnected @ MT...");
 

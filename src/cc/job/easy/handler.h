@@ -77,12 +77,12 @@ namespace cc
                 
             protected: // Inherited Pure Method(s) / Function(s)
                 
-                virtual void InnerStartup  (const StartupConfig& a_startup_config, const Json::Value& a_config, SharedConfig& o_config);
+                virtual void InnerStartup  (const ::cc::global::Process& a_process, const StartupConfig& a_startup_config, const Json::Value& a_config, SharedConfig& o_config);
                 virtual void InnerShutdown ();
-                
+
             public: // Static Method(s) / Function(s)
                 
-                static int Start (const Arguments& a_config, const Factories& a_factories);
+                int Start (const Arguments& a_config, const Factories& a_factories);
                 
             }; // end of class 'Handler'
 

@@ -28,6 +28,8 @@
 
 #include "json/json.h"
 
+#include "cc/macros.h"
+
 /**
  * @brief Default constructor.
  *
@@ -78,6 +80,7 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
     bool           cancelled;
     bool           success;
     bool           already_ran;
+    bool           deferred;
     uint16_t       http_status_code;
     
     // ... write to permanent log ...
@@ -127,6 +130,9 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
         
         // ... test abort flag, every n seconds ...
         if ( false == beanstalk_->Reserve(job, a_beanstakd_config.abort_polling_) ) {
+            // ... idle check ...
+            Idle(/* a_fake */ false);
+            // ... next job ...
             continue;
         }
         
@@ -144,6 +150,7 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
         cancelled    = false;
         success      = false;
         already_ran  = false;
+        deferred     = false;
         
         job_payload_ = Json::Value::null;
         if ( false == json_reader_.parse(job.body(), job_payload_) ) {
@@ -183,6 +190,11 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
                                   cancelled   = true;
                                   already_ran = a_already_ran;
                                   job_cv.Wake();
+                              },
+                              /* a_deferred_callback */
+                              [&deferred, &job_cv] () {
+                                  deferred = true;
+                                  job_cv.Wake();
                               }
             );
             
@@ -204,19 +216,26 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
         loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
 
         // ... check print result ...
-        if ( true == success || true == cancelled || true == already_ran || 404 == http_status_code ) {
+        if ( true == success || true == cancelled || true == already_ran || true == deferred || 404 == http_status_code ) {
             
             // ... write to permanent log ...
-            if ( 404 == http_status_code ) {
+            if ( true == deferred ) {
                 EV_LOOP_BEANSTALK_LOG("queue",
                                       "Job #" INT64_FMT_MAX_RA " ~> %s...",
-                                      job.id(), "NOT FOUND"
+                                      job.id(), "DEFERRED"
                 );
             } else {
-                EV_LOOP_BEANSTALK_LOG("queue",
-                                      "Job #" INT64_FMT_MAX_RA " ~> %s...",
-                                      job.id(), ( true == already_ran ? "Ignored" : true == cancelled ? "Cancelled" : "Done" )
-                );
+                if ( 404 == http_status_code ) {
+                    EV_LOOP_BEANSTALK_LOG("queue",
+                                          "Job #" INT64_FMT_MAX_RA " ~> %s...",
+                                          job.id(), "NOT FOUND"
+                    );
+                } else {
+                    EV_LOOP_BEANSTALK_LOG("queue",
+                                          "Job #" INT64_FMT_MAX_RA " ~> %s...",
+                                          job.id(), ( true == already_ran ? "Ignored" : true == cancelled ? "Cancelled" : "Done" )
+                    );
+                }
             }
             
             // ... we're done with it ...
@@ -235,8 +254,9 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
 
         // ... write to permanent log ...
         EV_LOOP_BEANSTALK_LOG("queue",
-                              "Job #" INT64_FMT_MAX_RA " ~> FINISHED: " UINT64_FMT "ms.",
+                              "Job #" INT64_FMT_MAX_RA " ~> %s: " UINT64_FMT "ms.",
                               job.id(),
+                              ( true == deferred ? "DEFERRED" : "FINISHED" ),
                               static_cast<uint64_t>(elapsed)
         );
         
@@ -250,6 +270,8 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
         // ... set this object to null to free memory now ...
         job_payload_ = Json::Value::null;
         
+        // ... next job ...
+        Idle(/* a_fake */ true);
     }
     
     loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
@@ -274,4 +296,49 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
     }
 
     cache_.clear();
+}
+
+/**
+ * @brief Append a function to be called when loop is free.
+ *
+ * @param a_callback
+ */
+void ev::loop::beanstalkd::Looper::AppendCallback (std::function<void()> a_callback)
+{
+    std::lock_guard<std::mutex>(idle_callbacks_.mutex_);
+    
+    idle_callbacks_.queue_.push(a_callback);
+}
+
+/**
+ * @brief Take an IDLE moment to perform a set of pending callbacks.
+ *
+ * @param a_fake True when it's not a real idle moment.
+*/
+void ev::loop::beanstalkd::Looper::Idle (const bool /* a_fake */)
+{
+    // ... write to permanent log ...
+    EV_LOOP_BEANSTALK_LOG("queue",
+                          "IDLE %19.19s"  "-",
+                          "--"
+    );
+    // ... lock, perform and 'dequeue' pending callbacks ...
+    std::lock_guard<std::mutex>(idle_callbacks_.mutex_);
+    try {
+        while ( idle_callbacks_.queue_.size() > 0 ) {
+            auto callback = std::move(idle_callbacks_.queue_.front());
+            idle_callbacks_.queue_.pop();
+            callback();
+        }
+    } catch (...) {
+        // ... write to permanent log ...
+        try {
+            ::cc::Exception::Rethrow(/* a_unhandled */ true, __FILE__, __LINE__, __FUNCTION__);
+        } catch (const ::cc::Exception& a_cc_exception) {
+           EV_LOOP_BEANSTALK_LOG("queue",
+                                 "ERROR %s",
+                                 a_cc_exception.what()
+           );
+        }
+    }
 }

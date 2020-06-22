@@ -28,6 +28,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 #include <limits> // std::numeric_limits
 #include <functional> // std::function
 
@@ -254,6 +255,7 @@ namespace cc
         
         typedef std::function<bool(const char* const , const char* const)> UnknownArgumentCallback;
         typedef std::function<bool()>                                      SpecialSwitchCallback;
+        typedef std::function<void(const Opt* a_opt)>                      Listener;
         
     private: // Const Data
 
@@ -272,11 +274,12 @@ namespace cc
         
     private: // Data
 
-        Counters          counters_;
-        std::vector<Opt*> opts_;
-        std::string       fmt_;
-        struct option*    long_;
-        std::string       error_;
+        Counters                 counters_;
+        std::vector<Opt*>        opts_;
+        std::string              fmt_;
+        struct option*           long_;
+        std::string              error_;
+        std::map<char, Listener> listener_map_;
 
     public: // Constructor(s) / Destructor
 
@@ -310,6 +313,8 @@ namespace cc
         bool               IsSet     (const char a_short) const;
         bool               IsSet     (const char* const a_long) const;
         const char* const  error     () const;
+        
+        void               SetListener (const char a_short, Listener);
 
     }; // end of class 'OptArg'
 
@@ -460,6 +465,17 @@ namespace cc
     inline const char* const OptArg::error () const
     {
         return ( 0 != error_.length() ? error_.c_str() : nullptr );
+    }
+
+    /**
+     * @brief Set a listener.
+     *
+     * @param a_short    Shot option value.
+     * @param a_listener Function to call once this short option is parsed.
+     */
+    inline void OptArg::SetListener (const char a_short, OptArg::Listener a_listener)
+    {
+        listener_map_[a_short] = a_listener;
     }
 
 } // end of namespace 'cc'

@@ -23,7 +23,7 @@
 
 #include "ev/exception.h"
 
-#include "osal/thread_helper.h"
+#include "cc/debug/types.h"
 
 #include "cc/utc_time.h"
 
@@ -57,7 +57,7 @@ bool        ev::auth::route::Gatekeeper::s_initialized_ = false;
 void ev::auth::route::Gatekeeper::Startup (const Loggable::Data &a_loggable_data_ref,
                                            const std::string& a_uri)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     if ( true == s_initialized_ ) {
         throw ::ev::Exception("Gatekeeper already initialized!");
@@ -121,7 +121,7 @@ bool ev::auth::route::Gatekeeper::Reload (int a_signo)
  */
 void ev::auth::route::Gatekeeper::Shutdown ()
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     if ( false == s_initialized_ ) {
         return;
@@ -177,7 +177,7 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Allow (c
                                                                                ev::auth::route::Gatekeeper::Deflector a_deflector,
                                                                                const Loggable::Data &a_loggable_data)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     try {
 
@@ -323,7 +323,7 @@ const ev::auth::route::Gatekeeper::Status& ev::auth::route::Gatekeeper::Allow (c
  */
 void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a_signo)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
 
     /*
      * {

@@ -28,6 +28,8 @@
 
 #include "osal/osalite.h"
 
+#include "cc/debug/types.h"
+
 #include <signal.h>
 
 #ifdef __APPLE__
@@ -96,7 +98,7 @@ bool ev::redis::subscriptions::Request::Step (ev::Object* a_object, ev::Request*
 {
     std::string log_value;
 
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     // ... for debug proposes only ...
     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
@@ -200,7 +202,7 @@ bool ev::redis::subscriptions::Request::Step (ev::Object* a_object, ev::Request*
  */
 void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_results)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     // ... for debug proposes only ...
     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
@@ -503,7 +505,7 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
  */
 bool ev::redis::subscriptions::Request::Disconnected ()
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     // ... for debug proposes only ...
     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
@@ -715,7 +717,7 @@ void ev::redis::subscriptions::Request::Subscribe (ev::redis::subscriptions::Req
                                                    ev::redis::subscriptions::Request::POCStatusMap& a_status_map,
                                                    const std::set<std::string>& a_names)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... [P]SUBSCRIBE command ...
     if ( 0 == a_names.size() ) {
         // ... requires at least one 'name' or 'pattern' ...
@@ -735,7 +737,7 @@ void ev::redis::subscriptions::Request::Unsubscribe (ev::redis::subscriptions::R
                                                      ev::redis::subscriptions::Request::POCStatusMap& a_status_map,
                                                      const std::set<std::string>& a_names)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... [P]UNSUBSCRIBE command ...
     BuildAndTrackCommand(&a_map == &patterns_ ? "PUNSUBSCRIBE" : "UNSUBSCRIBE", ev::redis::subscriptions::Request::Status::Unsubscribing, a_names, a_map, a_status_map);
 }
@@ -751,7 +753,7 @@ ev::redis::subscriptions::Request::Status ev::redis::subscriptions::Request::Get
                                                                                         const ev::redis::subscriptions::Request::ContextMap& a_context_map,
                                                                                         const ev::redis::subscriptions::Request::POCStatusMap& a_status_map)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     const auto ctx_it = a_context_map.find(a_name);
     if ( a_context_map.end() != ctx_it && ctx_it->second->size() > 0 ) {
@@ -778,7 +780,7 @@ bool ev::redis::subscriptions::Request::IsSubscribedOrPending (const std::string
                                                                const ev::redis::subscriptions::Request::ContextMap& a_context_map,
                                                                const ev::redis::subscriptions::Request::POCStatusMap& a_status_map)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     const auto ctx_it = a_context_map.find(a_name);
     if ( a_context_map.end() != ctx_it && ctx_it->second->size() > 0 ) {
@@ -814,7 +816,7 @@ bool ev::redis::subscriptions::Request::IsSubscribed (const std::string& a_name,
                                                       const ev::redis::subscriptions::Request::ContextMap& a_context_map,
                                                       const ev::redis::subscriptions::Request::POCStatusMap& a_status_map)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     const auto ctx_it = a_context_map.find(a_name);
     if ( a_context_map.end() != ctx_it && ctx_it->second->size() > 0 ) {
@@ -845,7 +847,7 @@ bool ev::redis::subscriptions::Request::IsUnsubscribedOrPending (const std::stri
                                                                  const ev::redis::subscriptions::Request::ContextMap& a_context_map,
                                                                  const ev::redis::subscriptions::Request::POCStatusMap& a_status_map)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     const auto ctx_it = a_context_map.find(a_name);
     if ( a_context_map.end() != ctx_it && ctx_it->second->size() > 0 ) {
@@ -1021,7 +1023,7 @@ void ev::redis::subscriptions::Request::UnmapContext (const ev::redis::subscript
  */
 void ev::redis::subscriptions::Request::CleanUpUnsubscribed ()
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
     if ( 0 == pending_.size() ) {
         for ( auto map : { &channels_status_map_, &patterns_status_map_ } ) {

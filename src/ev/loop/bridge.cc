@@ -28,6 +28,9 @@
 #include <mutex> // std::mutex
 
 #include "cc/threading/worker.h"
+#include "cc/debug/types.h"
+
+#include "cc/macros.h"
 
 /**
  * @brief Default constructor.
@@ -37,7 +40,7 @@ ev::loop::Bridge::Bridge ()
 #if 0 // TODO
     thread_                  = nullptr;
 #endif
-    thread_id_               = osal::ThreadHelper::k_invalid_thread_id_;
+    thread_id_               = cc::debug::Threading::k_invalid_thread_id_;
     aborted_                 = false;
     running_                 = false;
     event_base_              = nullptr;
@@ -283,7 +286,8 @@ void ev::loop::Bridge::Quit ()
  */
 void ev::loop::Bridge::CallOnMainThread (std::function<void(void* a_payload)> a_callback, void* a_payload, int64_t a_timeout_ms)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_WARNING_TODO("TODO URGENT - ev::loop::Bridge CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_)");
+    // TODO URGENT : CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     
     static std::mutex ___mutex;
     std::lock_guard<std::mutex> lock(___mutex);
@@ -299,7 +303,8 @@ void ev::loop::Bridge::CallOnMainThread (std::function<void(void* a_payload)> a_
  */
 void ev::loop::Bridge::CallOnMainThread (std::function<void()> a_callback, int64_t a_timeout_ms)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_WARNING_TODO("TODO URGENT - ev::loop::Bridge CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_)");
+    // TODO URGENT : CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
 
     static std::mutex ___mutex;
     std::lock_guard<std::mutex> lock(___mutex);
@@ -314,7 +319,9 @@ void ev::loop::Bridge::CallOnMainThread (std::function<void()> a_callback, int64
  */
 void ev::loop::Bridge::CallOnMainThread (std::function<void()> a_callback)
 {
-    OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    CC_WARNING_TODO("TODO URGENT - ev::loop::Bridge CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_)");
+    
+    // TODO URGENT : CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
 
     static std::mutex ___mutex;
     std::lock_guard<std::mutex> lock(___mutex);
@@ -342,7 +349,7 @@ void ev::loop::Bridge::ThrowFatalException (const ev::Exception& a_ev_exception)
  */
 void ev::loop::Bridge::Loop ()
 {
-    thread_id_ = osal::ThreadHelper::GetInstance().CurrentThreadID();
+    thread_id_ = cc::debug::Threading::GetInstance().CurrentThreadID();
     
     running_ = true;
     
@@ -423,13 +430,13 @@ void ev::loop::Bridge::ScheduleCalbackOnMainThread (ev::loop::Bridge::Callback* 
         time.tv_sec  = ( a_timeout_ms / 1000 );
         time.tv_usec = ( ( a_timeout_ms % 1000 ) * 1000 );
         
-        a_callback->event_ = evtimer_new(event_base_, ev::loop::Bridge::DifferedScheduleCallback, a_callback);
+        a_callback->event_ = evtimer_new(event_base_, ev::loop::Bridge::DeferredScheduleCallback, a_callback);
         if ( nullptr == a_callback->event_ ) {
-            throw ev::Exception("Unable schedule callback on main thread - can't create 'differed' event!");
+            throw ev::Exception("Unable schedule callback on main thread - can't create 'deferred' event!");
         }
         const int rv = evtimer_add(a_callback->event_, &time);
         if ( rv < 0 ) {
-            throw ev::Exception("Unable schedule callback on main thread - can't add 'differed' event - error code %d !",
+            throw ev::Exception("Unable schedule callback on main thread - can't add 'deferred' event - error code %d !",
                                 rv
             );
         }
@@ -639,10 +646,11 @@ void ev::loop::Bridge::WatchdogCallback (evutil_socket_t /* a_fd */, short /* a_
  * @param a_flags
  * @param a_arg
  */
-void ev::loop::Bridge::DifferedScheduleCallback (evutil_socket_t /* a_fd */, short /* a_flags */, void* a_arg)
+void ev::loop::Bridge::DeferredScheduleCallback (evutil_socket_t /* a_fd */, short /* a_flags */, void* a_arg)
 {
     ev::loop::Bridge::Callback* callback = (ev::loop::Bridge::Callback*)a_arg;
     ev::loop::Bridge*           self     = (ev::loop::Bridge*)callback->parent_ptr_;
     
     self->ScheduleCalbackOnMainThread(callback, /* a_timeout_ms */ 0);
 }
+

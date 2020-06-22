@@ -61,7 +61,7 @@ void ev::hub::Hub::PublishCallback::Call (std::function<void*()> a_background,
 {
     bridge_.CallOnMainThread(
                              [this, a_foreground](void* a_payload) {
-                                 OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+                                 CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
                                  a_foreground(a_payload, callback_);
                              },
                              a_background()
@@ -100,7 +100,7 @@ void ev::hub::Hub::NextCallback::Call (std::function<void*()> a_background,
 {
     bridge_.CallOnMainThread(
                              [this, a_foreground](void* a_payload) {
-                                 OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+                                 CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
                                  a_foreground(a_payload, callback_);
                              },
                              a_background()
@@ -139,7 +139,7 @@ void ev::hub::Hub::DisconnectedCallback::Call (std::function<void*()> a_backgrou
 {
     bridge_.CallOnMainThread(
                              [this, a_foreground](void* a_payload) {
-                                 OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+                                 CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
                                  a_foreground(a_payload, callback_);
                              },
                              a_background()
@@ -176,7 +176,7 @@ ev::hub::Hub::Hub (const std::string& a_name,
     socket_event_                = nullptr;
     socket_buffer_               = nullptr;
     socket_buffer_length_        = 0;
-    thread_id_                   = osal::ThreadHelper::k_invalid_thread_id_;
+    thread_id_                   = cc::debug::Threading::k_invalid_thread_id_;
     one_shot_requests_handler_   = nullptr;
     keep_alive_requests_handler_ = nullptr;
     event_set_fatal_callback(ev::hub::Hub::EventFatalCallback);
@@ -410,7 +410,7 @@ void ev::hub::Hub::Loop ()
 {
     fault_msg_ = "";
     
-    thread_id_ = osal::ThreadHelper::GetInstance().CurrentThreadID();
+    thread_id_ = cc::debug::Threading::GetInstance().CurrentThreadID();
     
     ::cc::threading::Worker::SetName(name_ + "::ev::hub");
     ::cc::threading::Worker::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
@@ -573,7 +573,7 @@ void ev::hub::Hub::SanityCheck ()
 {
     try {
 
-        OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+        CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
 
         if ( nullptr != one_shot_requests_handler_ ) {
             one_shot_requests_handler_->SanityCheck();
@@ -879,11 +879,11 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
 
                     self->stepper_.next_->Call(
                                                [self, p] () -> void* {
-                                                   OSALITE_DEBUG_FAIL_IF_NOT_AT_THREAD(self->thread_id_);
+                                                   CC_DEBUG_FAIL_IF_NOT_AT_THREAD(self->thread_id_);
                                                    return p;
                                                },
                                                [](void* a_payload, ev::hub::NextStepCallback a_callback) {
-                                                   OSALITE_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+                                                   CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
                                                    NextStepPayload* pp = static_cast<NextStepPayload*>(a_payload);
                                                    // ... return is ignore, because we did not transfer the 'result' object ( ownership ) ...
                                                    (void)a_callback(pp->invoke_id_, static_cast<ev::Object::Target>(pp->target_), pp->tag_, nullptr);

@@ -55,6 +55,7 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
     progress_report_.last_tp_        = std::chrono::steady_clock::time_point::max();
     cancelled_                       = false;
     already_ran_                     = false;
+    deferred_                        = false;
 
     progress_                        = Json::Value::null;
     errors_array_                    = Json::Value::null;
@@ -140,9 +141,12 @@ void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callba
  * @param a_payload
  * @param a_completed_callback
  * @param a_cancelled_callback
+ * @param a_deferred_callback
  */
 void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value& a_payload,
-                                         const ev::loop::beanstalkd::Job::CompletedCallback& a_completed_callback, const ev::loop::beanstalkd::Job::CancelledCallback& a_cancelled_callback)
+                                         const ev::loop::beanstalkd::Job::CompletedCallback& a_completed_callback,
+                                         const ev::loop::beanstalkd::Job::CancelledCallback& a_cancelled_callback,
+                                         const ev::loop::beanstalkd::Job::DeferredCallback& a_deferred_callback)
 {
     //
     // JOB Configuration - ID is mandatory
@@ -162,6 +166,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     progress_report_.timeout_in_sec_ = a_payload.get("min_progress", config_.min_progress_).asInt();
     cancelled_                       = false;
     already_ran_                     = false;
+    deferred_                        = false;
     progress_                        = Json::Value(Json::ValueType::objectValue);
     errors_array_                    = Json::Value(Json::ValueType::arrayValue);
     follow_up_jobs_                  = Json::Value::null;
@@ -215,7 +220,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
         cancelled_callback(already_ran_);
     } else {
         // ... execute job ...
-        Run(a_id, a_payload, a_completed_callback, cancelled_callback);
+        Run(a_id, a_payload, a_completed_callback, cancelled_callback, a_deferred_callback);
     }
 
     end_tp_ = std::chrono::steady_clock::now();
@@ -377,14 +382,75 @@ void ev::loop::beanstalkd::Job::AppendError (const char* const a_type, const std
 }
 
 /**
- * @brief Publish a 'job finished' message to 'job-signals' channel.
+ * @brief Publish a 'status' message to 'job-signals' channel.
  *
  * @param a_status
  */
 void ev::loop::beanstalkd::Job::Broadcast (const ev::loop::beanstalkd::Job::Status a_status)
 {
+    Broadcast(id_, channel_, a_status);
+}
+
+/**
+ * @brief Publish a response to the job channel and a 'job finished' message to 'job-signals' channel.
+ *
+ * @param a_response
+ * @param a_success_callback
+ * @param a_failure_callback
+ */
+void ev::loop::beanstalkd::Job::Finished (const Json::Value& a_response,
+                                          const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
+{
+    Finished(id_, channel_, a_response, a_success_callback, a_failure_callback);
+}
+
+/**
+ * @brief Publish a 'message' to a specific channel
+ *
+ * @param a_fq_channel Fully qualified channel.
+ * @param a_object     JSON object to publish.
+ */
+void ev::loop::beanstalkd::Job::Relay (const uint64_t& a_id, const std::string& a_fq_channel, const Json::Value& a_object)
+{
+    // ... reset throttle timer ...
+    progress_report_.last_tp_ = std::chrono::steady_clock::time_point::max();
+
+    // ... publish message ...
+    Publish(a_id, a_fq_channel, a_object);
+}
+
+/**
+ * @brief Publish a response to a specific channel and a 'job finished' message to 'job-signals' channel.
+ *
+ * @param a_fq_channel
+ * @param a_response
+ * @param a_success_callback
+ * @param a_failure_callback
+ */
+void ev::loop::beanstalkd::Job::Finished (const uint64_t& a_id, const std::string& a_fq_channel, const Json::Value& a_response,
+                                          const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
+{
+    // ... publish response ...
+    Publish(a_id, a_fq_channel, a_response, a_success_callback, a_failure_callback);
+    
+    // ... reset throttle timer ...
+    progress_report_.last_tp_ = std::chrono::steady_clock::time_point::max();
+    
+    // ... broadcast job finished ...
+    Broadcast(a_id, a_fq_channel, ev::loop::beanstalkd::Job::Status::Finished);
+}
+
+/**
+ * @brief Publish a 'status' message to 'job-signals' channel for a specific job channel.
+ *
+ * @param a_id
+ * @param a_fq_channel
+ * @param a_status
+ */
+void ev::loop::beanstalkd::Job::Broadcast (const uint64_t& a_id, const std::string& a_fq_channel, const ev::loop::beanstalkd::Job::Status a_status)
+{
     progress_       = Json::Value(Json::ValueType::objectValue);
-    progress_["id"] = id_;
+    progress_["id"] = a_id;
     switch (a_status) {
         case ev::loop::beanstalkd::Job::Status::Finished:
             progress_["status"] = "finished";
@@ -395,29 +461,10 @@ void ev::loop::beanstalkd::Job::Broadcast (const ev::loop::beanstalkd::Job::Stat
         default:
             throw ::ev::Exception("Broadcast status " UINT8_FMT " not implemented!", static_cast<uint8_t>(a_status));
     }
-    progress_["channel"] = channel_;
-    Publish(redis_signal_channel_, progress_);
+    progress_["channel"] = a_fq_channel;
+    Publish(a_id, redis_signal_channel_, progress_);
 }
 
-/**
- * @brief Publish a response to the job channel and a 'job finished' message to 'job-signals' channel.
- *
- * @param a_respomse
- * @param a_success_callback
- * @param a_failure_callback
- */
-void ev::loop::beanstalkd::Job::Finished (const Json::Value& a_response,
-                                          const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
-{
-    // ... publish response ...
-    Publish(a_response, a_success_callback, a_failure_callback);
-    
-    // ... reset throttle timer ...
-    progress_report_.last_tp_ = std::chrono::steady_clock::time_point::max();
-    
-    // ... broadcast job finished ...
-    Broadcast(ev::loop::beanstalkd::Job::Status::Finished);
-}
 
 /**
  * @brief Publish a 'progress' message.
@@ -488,24 +535,26 @@ void ev::loop::beanstalkd::Job::Publish (const std::vector<ev::loop::beanstalkd:
 /**
  * @brief Publish a message using a REDIS channel.
  *
- * @param a_channel
+ * @param a_id
+ * @param a_fq_channel
  * @param a_object
  * @param a_success_callback
  * @param a_failure_callback
  */
-void ev::loop::beanstalkd::Job::Publish (const std::string& a_channel, const Json::Value& a_object,
+void ev::loop::beanstalkd::Job::Publish (const uint64_t& /* a_id */, const std::string& a_fq_channel,
+                                         const Json::Value& a_object,
                                          const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
 {
     const std::string redis_message = json_writer_.write(a_object);
 
     osal::ConditionVariable cv;
 
-    ExecuteOnMainThread([this, &a_channel, &a_success_callback, &a_failure_callback, &cv, &redis_message] {
+    ExecuteOnMainThread([this, &a_fq_channel, &a_success_callback, &a_failure_callback, &cv, &redis_message] {
 
-        NewTask([this, &a_channel, &redis_message] () -> ::ev::Object* {
+        NewTask([this, &a_fq_channel, &redis_message] () -> ::ev::Object* {
 
             return new ev::redis::Request(loggable_data_,
-                                          "PUBLISH", { a_channel, redis_message }
+                                          "PUBLISH", { a_fq_channel, redis_message }
             );
 
         })->Finally([&cv, a_success_callback] (::ev::Object* a_object) {
@@ -539,6 +588,8 @@ void ev::loop::beanstalkd::Job::Publish (const std::string& a_channel, const Jso
 /**
  * @brief Publish a message using a REDIS channel.
  *
+ * @param a_id
+ * @param a_channel
  * @param a_object
  * @param a_success_callback
  * @param a_failure_callback
@@ -765,11 +816,11 @@ Json::Value& ev::loop::beanstalkd::Job::AppendFollowUpJob ()
 }
 
 /**
- * @brief Submit previously appended follow up jobs.
+ * @brief Push previously appended follow up jobs.
  *
  * @return True on success, on failure errors are set.
  */
-bool ev::loop::beanstalkd::Job::SubmitFollowUpJobs ()
+bool ev::loop::beanstalkd::Job::PushFollowUpJobs ()
 {
     for ( Json::ArrayIndex idx = 0 ; idx < follow_up_jobs_.size() ; ++idx ) {
         
@@ -873,7 +924,7 @@ void ev::loop::beanstalkd::Job::SubmitFollowUpJob (const size_t a_number, const 
                 
                 const std::string payload = json_writer_.write(follow_up_payload_);
                 
-                SubmitJob(/* a_tube */ follow_up_tube_.c_str(), /* a_payload */ payload, /* a_ttr */ follow_up_ttr_);
+                PushJob(/* a_tube */ follow_up_tube_.c_str(), /* a_payload */ payload, /* a_ttr */ follow_up_ttr_);
                 
                 EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("SUBMITTED",
                                                 "FOLLOW UP JOB # " SIZET_FMT ": %s",
@@ -927,6 +978,16 @@ void ev::loop::beanstalkd::Job::ExecuteOnMainThread (std::function<void()> a_cal
     callbacks_ptr_->on_main_thread_(a_callback, a_blocking);
 }
 
+/**
+* @brief Execute a callback on 'looper' thread.
+*
+* @param a_callback
+* @param a_blocking
+*/
+void ev::loop::beanstalkd::Job::ExecuteOnLooperThread (std::function<void()> a_callback, bool a_blocking)
+{
+    callbacks_ptr_->on_the_looper_thread_(a_callback, a_blocking);
+}
 
 /**
  * @brief Report a faltal exception.
@@ -944,15 +1005,15 @@ void ev::loop::beanstalkd::Job::OnFatalException (const ev::Exception& a_excepti
 #endif
 
 /**
- * @brief Submit a 'beanstalkd' job.
+ * @brief Push a 'beanstalkd' job.
  *
  * @param a_tube
  * @param a_payload
  * @param a_ttr
  */
-void ev::loop::beanstalkd::Job::SubmitJob (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr)
+void ev::loop::beanstalkd::Job::PushJob (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr)
 {
-    callbacks_ptr_->on_submit_job_(a_tube, a_payload, a_ttr);
+    callbacks_ptr_->on_push_job_(a_tube, a_payload, a_ttr);
 }
 
 #ifdef __APPLE__
@@ -1316,24 +1377,83 @@ const std::string& ev::loop::beanstalkd::Job::EnsureOutputDir (const int64_t a_v
  *
  * @return
  */
-Json::Value ev::loop::beanstalkd::Job::GetJSONObject (const Json::Value& a_parent, const char* const a_key,
-                                                      const Json::ValueType& a_type, const Json::Value* a_default)
+const Json::Value& ev::loop::beanstalkd::Job::GetJSONObject (const Json::Value& a_parent, const char* const a_key, const Json::ValueType& a_type, const Json::Value* a_default) const
 {
-    std::stringstream tmp_ss;
-
-    Json::Value value = a_parent.get(a_key, Json::nullValue);
-    if ( true == value.isNull() ) {
-        if ( nullptr != a_default ) {
-            return *a_default;
-        } else if ( Json::ValueType::nullValue == a_type ) {
+    // ... try to obtain a valid JSON object ..
+    try {
+        const Json::Value& value = a_parent[a_key];
+        if ( true == value.isNull() ) {
+            if ( nullptr != a_default ) {
+                return *a_default;
+            } else if ( Json::ValueType::nullValue == a_type ) {
+                return Json::Value::null;
+            } /* else { } */
+        } else if ( value.type() == a_type || true == value.isConvertibleTo(a_type) ) {
             return value;
-        } /* else { } */
-    } else if ( value.type() == a_type ) {
-        return value;
+        }
+        // ... if it reached here, requested object is not set or has an invalid type ...
+        throw ::ev::Exception("Error while retrieving JSON object named '%s' - type mismatch: got %s, expected %s!",
+                              a_key, JSONValueTypeAsCString(value.type()), JSONValueTypeAsCString(a_type)
+        );
+    } catch (const Json::Exception& a_json_exception ) {
+           throw ::ev::Exception("%s", a_json_exception.what());
     }
+}
 
-    tmp_ss << "Error while retrieving JSON object named '" << a_key <<"' - type mismatch: got " << value.type() << ", expected " << a_type << "!";
-    throw std::runtime_error(tmp_ss.str());
+/**
+ * @brief Serialize a JSON string to a JSON Object.
+ *
+ * @param a_value JSON string to parse.
+ * @param o_value JSON object to fill.
+ */
+void ev::loop::beanstalkd::Job::ParseJSON (const std::string& a_value, Json::Value& o_value) const
+{
+    try {
+        Json::Reader reader;
+        if ( false == reader.parse(a_value, o_value) ) {
+            const auto errors = reader.getStructuredErrors();
+            if ( errors.size() > 0 ) {
+                throw ::ev::Exception("An error ocurred while parsing '%s as JSON': %s!",
+                                      a_value.c_str(), reader.getFormatedErrorMessages().c_str()
+                );
+            } else {
+                throw ::ev::Exception("An error ocurred while parsing '%s' as JSON!",
+                                      a_value.c_str()
+                );
+            }
+        }
+    } catch (const Json::Exception& a_json_exception ) {
+        throw ::ev::Exception("%s", a_json_exception.what());
+    }
+}
+
+/**
+ * @brief Serialize an PostgreSQL value to a JSON Object.
+ *
+ * @param a_valu  PostgreSQL value.
+ * @param o_value JSON object to fill.
+ */
+void ev::loop::beanstalkd::Job::ToJSON (const ev::postgresql::Value& a_value, Json::Value& o_value) const
+{
+    if ( false == o_value.isArray() ) {
+        throw ::ev::Exception("Unexpected object type: got " UINT8_FMT " expected an array", a_value.type_);
+    }
+    try {
+        Json::Reader reader;
+        for ( int row = 0 ; row < a_value.rows_count() ; ++row ) {
+            Json::Value& record = o_value.append(Json::Value(Json::ValueType::objectValue));
+            for ( int column = 0 ; column < a_value.columns_count() ; ++column ) {
+                const char* const raw_value = a_value.raw_value(/* a_row */ row, /* a_column */ column);
+                if ( nullptr == raw_value || 0 == strlen(raw_value) ) {
+                    record[a_value.column_name(column)] = Json::Value::null;
+                } else if ( false == reader.parse(raw_value, record[a_value.column_name(column)]) ) {
+                    record[a_value.column_name(column)] = raw_value;
+                }
+            }
+        }
+    } catch (const Json::Exception& a_json_exception) {
+        throw ev::Exception("%s", a_json_exception.what());
+    }
 }
 
 #ifdef __APPLE__

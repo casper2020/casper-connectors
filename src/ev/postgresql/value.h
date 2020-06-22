@@ -87,6 +87,7 @@ namespace ev
             const bool        is_error      () const;
             const char* const error_message () const;
             ExecStatusType    status        () const;
+            Oid               column_type   (const int a_number) const;
             const char* const column_name   (const int a_number) const;
             const int         columns_count () const;
             const int         rows_count    () const;
@@ -165,6 +166,19 @@ namespace ev
         inline ExecStatusType Value::status () const
         {
             return ( nullptr != pg_result_ ? PQresultStatus(pg_result_) : ExecStatusType::PGRES_NONFATAL_ERROR );
+        }
+    
+    
+        /**
+         * @brief  Retrieve the column type associated with the given column number.
+         *
+         * @param a_number Column number, start at 0.
+         *
+         * @return Returns the column type associated with the given column number.
+         */
+        inline Oid Value::column_type (const int a_number) const
+        {
+            return PQftype(pg_result_, a_number);
         }
     
         /**

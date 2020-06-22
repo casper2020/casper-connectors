@@ -108,7 +108,8 @@ ev::loop::beanstalkd::Runner::Runner ()
         /* device_limits_ */ {},
         /* factory */ nullptr
     });
-    http_ = nullptr;
+    http_       = nullptr;
+    looper_ptr_ = nullptr;
 }
 
 /**
@@ -389,7 +390,7 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
             }
         }
         
-        InnerStartup(*startup_config_, read_config, *shared_config_);
+        InnerStartup(a_process, *startup_config_, read_config, *shared_config_);
 
     } catch (const Json::Exception& a_json_exception) {
         throw ev::Exception("An error occurred while loading configuration: JSON exception %s!", a_json_exception.what());
@@ -670,22 +671,25 @@ void ev::loop::beanstalkd::Runner::Shutdown (int a_sig_no)
 #endif
 
 /**
- * @brief Submit a 'beanstalkd' job.
+ * @brief Push a 'beanstalkd' job queue.
  *
  * @param a_tube
  * @param a_payload
  * @param a_ttr
  */
-void ev::loop::beanstalkd::Runner::SubmitJob (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr)
+void ev::loop::beanstalkd::Runner::PushJob (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr)
 {
+    try {
+        ::ev::beanstalk::Producer producer(shared_config_->beanstalk_, a_tube.c_str());
     
-    ::ev::beanstalk::Producer producer(shared_config_->beanstalk_, a_tube.c_str());
-    
-    const int64_t status = producer.Put(a_payload, /* a_priority = 0 */ 0, /* a_delay = 0 */ 0, a_ttr);
-    if ( status < 0 ) {
-        throw ::ev::Exception("Beanstalk producer returned with error code " INT64_FMT "!",
-                              status
-        );
+        const int64_t status = producer.Put(a_payload, /* a_priority = 0 */ 0, /* a_delay = 0 */ 0, a_ttr);
+        if ( status < 0 ) {
+            throw ::ev::Exception("Beanstalk producer returned with error code " INT64_FMT "!",
+                                  status
+            );
+        }
+    } catch (const ::Beanstalk::ConnectException& a_btc_exception) {
+        throw ::ev::Exception("%s", a_btc_exception.what());
     }
 }
 
@@ -714,6 +718,21 @@ void ev::loop::beanstalkd::Runner::ExecuteOnMainThread (std::function<void()> a_
 }
 
 /**
+ * @brief Execute a callback on 'the other' thread.
+ *
+ * @param a_callback
+ * @param a_blocking
+ */
+void ev::loop::beanstalkd::Runner::ExecuteOnLooperThread (std::function<void()> a_callback, bool a_blocking)
+{
+    std::lock_guard<std::mutex> lock(looper_mutex_);
+    if ( nullptr == looper_ptr_ ) {
+        throw ev::Exception("Illegal call to '%s' - looper not ready!", __PRETTY_FUNCTION__);
+    }
+    looper_ptr_->AppendCallback(a_callback);
+}
+
+/**
  * @brief Report a faltal exception.
  *
  * @param a_exception
@@ -734,8 +753,7 @@ void ev::loop::beanstalkd::Runner::OnFatalException (const ev::Exception& a_exce
  */
 void ev::loop::beanstalkd::Runner::ConsumerLoop ()
 {
-    ev::Exception*                  exception = nullptr;
-    ev::loop::beanstalkd::Looper*   looper    = nullptr;
+    ev::Exception* exception = nullptr;
         
     try {
         
@@ -743,9 +761,10 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop ()
         ::cc::threading::Worker::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
         
         const ev::loop::beanstalkd::Job::MessagePumpCallbacks callbacks = {
-            /* on_fatal_exception_ */ std::bind(&ev::loop::beanstalkd::Runner::OnFatalException   , this, std::placeholders::_1),
-            /* on_main_thread_     */ std::bind(&ev::loop::beanstalkd::Runner::ExecuteOnMainThread, this, std::placeholders::_1, std::placeholders::_2),
-            /* on_submit_job_      */ std::bind(&ev::loop::beanstalkd::Runner::SubmitJob          , this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)
+            /* on_fatal_exception_  */ std::bind(&ev::loop::beanstalkd::Runner::OnFatalException     , this, std::placeholders::_1),
+            /* on_main_thread_      */ std::bind(&ev::loop::beanstalkd::Runner::ExecuteOnMainThread  , this, std::placeholders::_1, std::placeholders::_2),
+            /* on_the_other_thread_ */ std::bind(&ev::loop::beanstalkd::Runner::ExecuteOnLooperThread, this, std::placeholders::_1, std::placeholders::_2),
+            /* on_submit_job_       */ std::bind(&ev::loop::beanstalkd::Runner::PushJob              , this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
         };
         
         // ... initialize v8 ...
@@ -754,13 +773,17 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop ()
         #endif
         
         consumer_cv_->Wake();
+                
         
-        looper = new ev::loop::beanstalkd::Looper(*loggable_data_,
-                                                  shared_config_->factory_,
-                                                  callbacks,
-                                                  shared_config_->default_tube_
+        looper_mutex_.lock();
+        looper_ptr_ = new ev::loop::beanstalkd::Looper(*loggable_data_,
+                                                       shared_config_->factory_,
+                                                       callbacks,
+                                                       shared_config_->default_tube_
         );
-        looper->Run(shared_config_->beanstalk_, shared_config_->directories_.output_, quit_);
+        looper_mutex_.unlock();
+        
+        looper_ptr_->Run(shared_config_->beanstalk_, shared_config_->directories_.output_, quit_);
         
     } catch (const Beanstalk::ConnectException& a_beanstalk_exception) {
         exception = new ::ev::Exception("An error occurred while connecting to Beanstalkd:\n%s\n", a_beanstalk_exception.what());
@@ -778,10 +801,12 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop ()
         exception = new ::ev::Exception(STD_CPP_GENERIC_EXCEPTION_TRACE());
     }
     
-    if ( nullptr != looper ) {
-        delete looper;
-        looper = nullptr;
+    looper_mutex_.lock();
+    if ( nullptr != looper_ptr_ ) {
+        delete looper_ptr_;
+        looper_ptr_ = nullptr;
     }
+    looper_mutex_.unlock();
     
     if ( nullptr != exception ) {
         OnFatalException(*exception);

@@ -41,6 +41,7 @@
 
 #include "ev/curl/http.h"
 #include "ev/postgresql/json_api.h"
+#include "ev/postgresql/value.h"
 
 #include "json/json.h"
 
@@ -75,7 +76,7 @@ namespace ev
         {
             
             class Job : protected ::ev::loop::beanstalkd::Object,
-                        private ev::scheduler::Client, private ev::redis::subscriptions::Manager::Client, public ::cc::NonCopyable, public ::cc::NonMovable
+                        private ev::scheduler::Client, protected ev::redis::subscriptions::Manager::Client, public ::cc::NonCopyable, public ::cc::NonMovable
             {
                 
             public: // Data Type
@@ -85,6 +86,8 @@ namespace ev
                     
                 public: // Const Data
                     
+                    pid_t       pid_;
+                    uint64_t    instance_;
                     std::string service_id_;
                     bool        transient_;
                     int         min_progress_;
@@ -93,22 +96,24 @@ namespace ev
                     
                     Config () = delete;
                     
-                    Config (const std::string& a_service_id, const bool a_transient, const int a_min_progress = 3)
-                        : service_id_(a_service_id), transient_(a_transient), min_progress_(a_min_progress)
+                    Config (const pid_t& a_pid, const uint64_t& a_instance, const std::string& a_service_id, const bool a_transient, const int a_min_progress = 3)
+                        : pid_(a_pid), instance_(a_instance), service_id_(a_service_id), transient_(a_transient), min_progress_(a_min_progress)
                     {
                         /* empty */
                     }
                     
                     Config (const Config& a_config)
-                        : service_id_(a_config.service_id_), transient_(a_config.transient_), min_progress_(a_config.min_progress_)
+                        : pid_(a_config.pid_), instance_(a_config.instance_), service_id_(a_config.service_id_), transient_(a_config.transient_), min_progress_(a_config.min_progress_)
                     {
                         /* empty */
                     }
                     
                     inline Config& operator=(const Config& a_config)
                     {
-                        service_id_ = a_config.service_id_;
-                        transient_  = a_config.transient_;
+                        pid_          = a_config.pid_;
+                        instance_     = a_config.instance_;
+                        service_id_   = a_config.service_id_;
+                        transient_    = a_config.transient_;
                         min_progress_ = a_config.min_progress_;
                         return *this;
                     }
@@ -117,15 +122,17 @@ namespace ev
                 
                 typedef std::function<void(const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code)> CompletedCallback;
                 typedef std::function<void(bool a_already_ran)>                                                                CancelledCallback;
+                typedef std::function<void()>                                                                                  DeferredCallback;
 
                 typedef std::function<void(const ev::Exception&)>                                                              FatalExceptionCallback;
-                typedef std::function<void(std::function<void()> a_callback, bool a_blocking)>                                 DispatchOnMainThread;
-                typedef std::function<void(const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr)>    SubmitJobCallback;
+                typedef std::function<void(std::function<void()> a_callback, bool a_blocking)>                                 DispatchOnThread;
+                typedef std::function<void(const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr)>    PushJobCallback;
                 
                 typedef struct {
                     FatalExceptionCallback on_fatal_exception_;
-                    DispatchOnMainThread   on_main_thread_;
-                    SubmitJobCallback      on_submit_job_;
+                    DispatchOnThread       on_main_thread_;
+                    DispatchOnThread       on_the_looper_thread_;
+                    PushJobCallback        on_push_job_;
                 } MessagePumpCallbacks;
                 
                 typedef std::function<Job*(const std::string& a_tube)> Factory;
@@ -176,6 +183,7 @@ namespace ev
                 ProgressReport            progress_report_;
                 bool                      cancelled_;
                 bool                      already_ran_;
+                bool                      deferred_;
 
                 Json::Value               progress_;
                 Json::Value               errors_array_;
@@ -230,7 +238,7 @@ namespace ev
                 
                 void Setup   (const MessagePumpCallbacks* a_callbacks, const std::string& a_output_directory_prefix);
                 void Consume (const int64_t& a_id, const Json::Value& a_payload,
-                              const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback);
+                              const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback, const DeferredCallback& a_deferred_callback);
                 
             protected: // Optional Virtual Method(s) / Function(s)
                 
@@ -239,7 +247,7 @@ namespace ev
             protected: // Pure Virtual Method(s) / Function(s)
 
                 virtual void Run (const int64_t& a_id, const Json::Value& a_payload,
-                                  const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback) = 0;
+                                  const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback, const DeferredCallback& a_deferred_callback) = 0;
                 
             protected: // Method(s) / Function(s)
                 
@@ -259,6 +267,7 @@ namespace ev
                 void   AppendError       (const char* const a_type, const std::string& a_why, const char *const a_where, const int a_code);
                 bool   HasErrorsSet      () const;
                 size_t ErrorsCount        () const;
+                const Json::Value& LastError () const;
                 
                 void Publish           (const Progress& a_progress);
                 void Publish           (const std::vector<ev::loop::beanstalkd::Job::Progress>& a_progress);
@@ -266,8 +275,15 @@ namespace ev
                 void Finished          (const Json::Value& a_response,
                                         const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback);
 
+                void Relay             (const uint64_t& a_id, const std::string& a_fq_channel, const Json::Value& a_object);
+                void Finished          (const uint64_t& a_id, const std::string& a_fq_channel, const Json::Value& a_response,
+                                        const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback);
+                void Broadcast         (const uint64_t& a_id, const std::string& a_fq_channel, const Status a_status);
+
                 bool           WasCancelled      () const;
                 bool           AlreadyRan        () const;
+                void           SetDeferred       ();
+                bool           Deferred          () const;
                 bool           ShouldCancel      ();
                 bool&          cancellation_flag ();
                 
@@ -276,7 +292,7 @@ namespace ev
                 bool         HasFollowUpJobs         () const;
                 uint64_t     FollowUpJobsCount       () const;
                 Json::Value& AppendFollowUpJob       ();
-                bool         SubmitFollowUpJobs      ();
+                bool         PushFollowUpJobs      ();
                 
             protected: // Stats
                 
@@ -288,7 +304,7 @@ namespace ev
 
             private: // REDIS Helper Method(s) / Function(s)
 
-                void Publish (const std::string& a_channel, const Json::Value& a_object,
+                void Publish (const uint64_t& a_id, const std::string& a_fq_channel, const Json::Value& a_object,
                               const std::function<void()> a_success_callback = nullptr, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr);
                 
                 void Publish (const Json::Value& a_object,
@@ -296,12 +312,13 @@ namespace ev
                 
             protected: // Threading Helper Methods(s) / Function(s)
                 
-                void ExecuteOnMainThread (std::function<void()> a_callback, bool a_blocking);
-                void OnFatalException    (const ev::Exception& a_exception);
+                void ExecuteOnMainThread   (std::function<void()> a_callback, bool a_blocking);
+                void ExecuteOnLooperThread (std::function<void()> a_callback, bool a_blocking);
+                void OnFatalException      (const ev::Exception& a_exception);
                 
             protected: // Beanstalk Helper Method(s) / Function(s)
                 
-                void SubmitJob (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr);
+                void PushJob (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr);
 
             protected: // JSONAPI Method(s) / Function(s)
                 
@@ -332,15 +349,19 @@ namespace ev
                 
             protected: // JsonCPP Helper Methods(s) / Function(s)
                 
-                Json::Value GetJSONObject (const Json::Value& a_parent, const char* const a_key,
-                                           const Json::ValueType& a_type, const Json::Value* a_default);
+                const char* const JSONValueTypeAsCString (const Json::ValueType& a_type) const;
+                
+                const Json::Value& GetJSONObject (const Json::Value& a_parent, const char* const a_key, const Json::ValueType& a_type, const Json::Value* a_default) const;;
+                
+                void        ParseJSON      (const std::string& a_value, Json::Value& o_value)           const;
+                void        ToJSON         (const ev::postgresql::Value& a_value, Json::Value& o_value) const; 
                 
             protected: //
                 
                 ev::scheduler::Task*                             NewTask                (const EV_TASK_PARAMS& a_callback);
                 EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK JobSignalsDataCallback (const std::string& a_name, const std::string& a_message);
                 
-            private: // from ::ev::redis::SubscriptionsManager::Client
+            private: // from ::ev::redis::Subscriptions::Manager::Client
                 
                 virtual void OnREDISConnectionLost ();
                 
@@ -365,7 +386,7 @@ namespace ev
             /**
              * @return True if the job was cancelled, false otherwise.
              */
-            inline bool Job::WasCancelled() const
+            inline bool Job::WasCancelled () const
             {
                 return cancelled_;
             }
@@ -373,11 +394,27 @@ namespace ev
             /**
              * @return True if the job was cancelled, false otherwise.
              */
-            inline bool Job::AlreadyRan() const
+            inline bool Job::AlreadyRan () const
             {
                 return already_ran_;
             }
-            
+        
+            /**
+             * @return Set when response will be deferred.
+             */
+            inline void Job::SetDeferred ()
+            {
+                deferred_ = true;
+            }
+    
+            /**
+             * @return True if the job was deferred, false otherwise.
+             */
+            inline bool Job::Deferred () const
+            {
+                return deferred_;
+            }
+        
             /**
              * @return A reference to the cancellation flag.
              */
@@ -395,6 +432,11 @@ namespace ev
             {
                 return static_cast<size_t>(errors_array_.size());
             }
+        
+            inline const Json::Value& Job::LastError () const
+            {
+                return ( errors_array_.size() > 0 ? errors_array_[errors_array_.size() - 1] : Json::Value::null );
+            }
             
             inline bool Job::HasFollowUpJobs () const
             {
@@ -409,6 +451,32 @@ namespace ev
             inline const std::chrono::steady_clock::time_point& Job::start_tp () const
             {
                 return start_tp_;
+            }
+        
+            inline const char* const Job::JSONValueTypeAsCString (const Json::ValueType& a_type) const
+            {
+                
+                switch (a_type) {
+                    case Json::ValueType::nullValue:
+                        return "null";
+                    case Json::ValueType::intValue:
+                        return "int";
+                    case Json::ValueType::uintValue:
+                        return "uint";
+                    case Json::ValueType::realValue:
+                        return "real";
+                    case Json::ValueType::stringValue:
+                        return "string";
+                    case Json::ValueType::booleanValue:
+                        return "boolean";
+                    case Json::ValueType::arrayValue:
+                        return "array";
+                    case Json::ValueType::objectValue:
+                        return "object";
+                    default:
+                        return "???";
+                }
+            
             }
             
         } // end of namespace 'beanstalkd'

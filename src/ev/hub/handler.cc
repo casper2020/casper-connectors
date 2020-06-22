@@ -24,7 +24,7 @@
 /**
  * @brief Default constructor.
  */
-ev::hub::Handler::Handler (ev::hub::StepperCallbacks& a_stepper, osal::ThreadHelper::ThreadID a_thread_id)
+ev::hub::Handler::Handler (ev::hub::StepperCallbacks& a_stepper, cc::debug::Threading::ThreadID a_thread_id)
     : stepper_(a_stepper)
 {
     stepper_   = a_stepper;

@@ -29,10 +29,10 @@
 
 #include "ev/hub/types.h"
 
+#include "cc/debug/types.h"
+
 #include <set>   // std::set
 #include <deque> // std::deque
-
-#include "osal/thread_helper.h"
 
 namespace ev
 {
@@ -49,12 +49,13 @@ namespace ev
             
         protected: // Data
             
-            std::set<ev::Object::Target> supported_target_;
-            osal::ThreadHelper::ThreadID thread_id_;
+            std::set<ev::Object::Target>   supported_target_;
+            
+            cc::debug::Threading::ThreadID thread_id_;
             
         public: // Constructor(s) / Destructor
             
-            Handler(StepperCallbacks& a_stepper, osal::ThreadHelper::ThreadID a_thread_id);
+            Handler(StepperCallbacks& a_stepper, cc::debug::Threading::ThreadID a_thread_id);
             virtual ~Handler();
             
         public: // Pure Virtual Method(s) / Function(s) - Declaration
