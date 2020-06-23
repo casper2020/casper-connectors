@@ -112,7 +112,8 @@ int cc::job::easy::Handler::Start (const cc::job::easy::Handler::Arguments& a_ar
     };
     
     const auto fatal_shutdown = [&clean_shutdown] (const cc::Exception& a_cc_exception, bool a_clean = true) {
-        fprintf(stderr, "%s\n", a_cc_exception.what());
+        
+        fprintf(stderr, "\n~~~\n\n%s\n~~~\n", a_cc_exception.what());
         fflush(stderr);
         if ( true == a_clean ) {
             clean_shutdown();

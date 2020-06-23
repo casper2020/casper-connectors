@@ -401,7 +401,7 @@ void ev::loop::beanstalkd::Job::Broadcast (const ev::loop::beanstalkd::Job::Stat
 void ev::loop::beanstalkd::Job::Finished (const Json::Value& a_response,
                                           const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
 {
-    Finished(id_, channel_, a_response, a_success_callback, a_failure_callback);
+    Finished(id_, ( redis_channel_prefix_ + channel_ ), a_response, a_success_callback, a_failure_callback);
 }
 
 /**
@@ -451,6 +451,7 @@ void ev::loop::beanstalkd::Job::Broadcast (const uint64_t& a_id, const std::stri
 {
     progress_       = Json::Value(Json::ValueType::objectValue);
     progress_["id"] = a_id;
+    
     switch (a_status) {
         case ev::loop::beanstalkd::Job::Status::Finished:
             progress_["status"] = "finished";
@@ -462,6 +463,7 @@ void ev::loop::beanstalkd::Job::Broadcast (const uint64_t& a_id, const std::stri
             throw ::ev::Exception("Broadcast status " UINT8_FMT " not implemented!", static_cast<uint8_t>(a_status));
     }
     progress_["channel"] = a_fq_channel;
+    
     Publish(a_id, redis_signal_channel_, progress_);
 }
 

@@ -25,6 +25,7 @@
 #include <chrono>
 
 #include <pthread.h>
+#include <assert.h>
 
 #include "cc/singleton.h"
 
