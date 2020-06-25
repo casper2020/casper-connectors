@@ -54,7 +54,8 @@ CONNECTORS_CC_EASY_SRC:= \
   $(PROJECT_SRC_DIR)/src/cc/job/easy/handler.cc
 
 CONNECTORS_CC_DEBUG_SRC:= \
- $(PROJECT_SRC_DIR)/src/cc/debug/logger.cc
+ $(PROJECT_SRC_DIR)/src/cc/debug/logger.cc \
+ $(PROJECT_SRC_DIR)/src/cc/debug/types.cc
 
 CONNECTORS_CC_V8_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/v8/script.cc  \
