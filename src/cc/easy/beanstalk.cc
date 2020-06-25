@@ -69,7 +69,7 @@ void cc::easy::Beanstalk::Connect (const std::string& a_ip, const int a_port, co
                 /* host_              */ a_ip,
                 /* port_              */ a_port,
                 /* timeout_           */ a_timeout,
-                /* abort_polling_     */ static_cast<float>(0),
+                /* abort_polling_     */ 0,
                 /* tubes_             */ a_tubes,
                 /* sessionless_tubes_ */ { },
                 /* action_tubes_      */ { },

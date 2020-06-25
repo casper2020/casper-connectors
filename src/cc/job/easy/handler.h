@@ -82,7 +82,8 @@ namespace cc
 
             public: // Static Method(s) / Function(s)
                 
-                int Start (const Arguments& a_config, const Factories& a_factories);
+                int Start (const Arguments& a_config, const Factories& a_factories,
+                           const float& a_polling_timeout = -1.0);
                 
             }; // end of class 'Handler'
 

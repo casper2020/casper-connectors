@@ -37,7 +37,7 @@ namespace ev
             std::string           host_;             //!< host
             int                   port_;             //!< port number
             float                 timeout_;          //!< in seconds
-            float                 abort_polling_;    //!< in seconds
+            uint32_t              abort_polling_;    //!< in seconds
             std::set<std::string> tubes_;            //!< tubes
             std::set<std::string> sessionless_tubes_;
             std::set<std::string> action_tubes_;

@@ -28,6 +28,8 @@
 #include <string>
 
 #include <libpq-fe.h> // PG*
+#include <server/catalog/pg_type_d.h> // *OID
+
 #include <string.h>   // strlen
 
 #include "ev/object.h"

@@ -100,7 +100,7 @@ ev::loop::beanstalkd::Runner::Runner ()
             /* host_              */ "127.0.0.1",
             /* port_              */ 11300,
             /* timeout_           */ 0.0,
-            /* abort_polling_     */ 3.0,
+            /* abort_polling_     */ 3,
             /* tubes_             */ {} ,
             /* sessionless_tubes_ */ {},
             /* action_tubes_      */ {}
@@ -330,9 +330,10 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
         /* beanstalkd */
         const Json::Value beanstalkd = read_config.get("beanstalkd", Json::Value::null);
         if ( false == beanstalkd.isNull() ) {
-            shared_config_->beanstalk_.host_    = beanstalkd.get("host"   , shared_config_->beanstalk_.host_   ).asString();
-            shared_config_->beanstalk_.port_    = beanstalkd.get("port"   , shared_config_->beanstalk_.port_   ).asInt();
-            shared_config_->beanstalk_.timeout_ = beanstalkd.get("timeout", shared_config_->beanstalk_.timeout_).asFloat();
+            shared_config_->beanstalk_.host_          = beanstalkd.get("host"         , shared_config_->beanstalk_.host_         ).asString();
+            shared_config_->beanstalk_.port_          = beanstalkd.get("port"         , shared_config_->beanstalk_.port_         ).asInt();
+            shared_config_->beanstalk_.timeout_       = beanstalkd.get("timeout"      , shared_config_->beanstalk_.timeout_      ).asFloat();
+            shared_config_->beanstalk_.abort_polling_ = beanstalkd.get("abort_polling", shared_config_->beanstalk_.abort_polling_).asFloat();
             shared_config_->beanstalk_.tubes_.clear();
             const Json::Value& tubes = beanstalkd["tubes"];
             if ( false == tubes.isArray() ) {
@@ -567,11 +568,13 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
 
 /**
  * @brief Run 'bridge' loop.
+ *
+ * @param a_polling_timeout Consumer's loop polling timeout in millseconds, if < 0 will use defaults.
  */
-void ev::loop::beanstalkd::Runner::Run ()
+void ev::loop::beanstalkd::Runner::Run (const float& a_polling_timeout)
 {
     consumer_cv_     = new osal::ConditionVariable();
-    consumer_thread_ = new std::thread(&ev::loop::beanstalkd::Runner::ConsumerLoop, this);
+    consumer_thread_ = new std::thread(&ev::loop::beanstalkd::Runner::ConsumerLoop, this, a_polling_timeout);
     consumer_thread_->detach();
     
     consumer_cv_->Wait();
@@ -750,8 +753,10 @@ void ev::loop::beanstalkd::Runner::OnFatalException (const ev::Exception& a_exce
 
 /**
  * @brief Print queue consumer loop.
+ *
+ * @param a_polling_timeout Consumer's loop polling timeout in millseconds, if < 0 will use defaults.
  */
-void ev::loop::beanstalkd::Runner::ConsumerLoop ()
+void ev::loop::beanstalkd::Runner::ConsumerLoop (const float& a_polling_timeout)
 {
     ev::Exception* exception = nullptr;
         
@@ -773,7 +778,6 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop ()
         #endif
         
         consumer_cv_->Wake();
-                
         
         looper_mutex_.lock();
         looper_ptr_ = new ev::loop::beanstalkd::Looper(*loggable_data_,
@@ -783,6 +787,7 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop ()
         );
         looper_mutex_.unlock();
         
+        looper_ptr_->SetPollingTimeout(a_polling_timeout);
         looper_ptr_->Run(shared_config_->beanstalk_, shared_config_->directories_.output_, quit_);
         
     } catch (const Beanstalk::ConnectException& a_beanstalk_exception) {

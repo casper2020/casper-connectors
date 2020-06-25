@@ -71,6 +71,15 @@ namespace ev
                 Json::Reader               json_reader_;
                 Json::Value                job_payload_;
                 
+            private: // Control Data
+                
+                typedef struct {
+                    float timeout_; //!< in milleseconds
+                    bool  set_;     //!< true if it was set, false otherwise.
+                } Polling;
+                
+                Polling polling_;
+                
             private: // Threading
                 
                 typedef struct {
@@ -94,11 +103,24 @@ namespace ev
                 
                 void AppendCallback (std::function<void()> a_callback);
                 
+                void SetPollingTimeout (const float& a_millseconds);
+                
             private: // Method(s) / Function(s)
                 
                 void Idle (const bool a_fake);
                 
             }; // end of class 'Looper'
+        
+            /**
+             * @brief Set polling timeout, < 0 will default to the one provided in config.
+             *
+             * @param a_millseconds Polling timeout in milliseconds,
+             */
+            inline void Looper::SetPollingTimeout (const float& a_millseconds)
+            {
+                polling_.timeout_ = a_millseconds;
+                polling_.set_     = ( polling_.timeout_ > -1.0 );
+            }
             
         } // end of namespace 'beanstalkd'
             

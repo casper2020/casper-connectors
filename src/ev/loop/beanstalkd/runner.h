@@ -164,7 +164,7 @@ namespace ev
                 
                 void Startup (const StartupConfig& a_config,
                               FatalExceptionCallback a_fatal_exception_callback);
-                void Run      ();
+                void Run      (const float& a_polling_timeout = -1.0f);
                 void Shutdown (int a_sig_no);
                 
             public: // Inline Method(s) / Function(s)
@@ -195,7 +195,7 @@ namespace ev
                 
             private: // Method(s) / Function(s)
                 
-                void ConsumerLoop ();
+                void ConsumerLoop (const float& a_polling_timeout);
 
             }; // end of class 'Runner'
             

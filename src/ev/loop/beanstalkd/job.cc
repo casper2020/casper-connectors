@@ -1448,7 +1448,10 @@ void ev::loop::beanstalkd::Job::ToJSON (const ev::postgresql::Value& a_value, Js
                 const char* const raw_value = a_value.raw_value(/* a_row */ row, /* a_column */ column);
                 if ( nullptr == raw_value || 0 == strlen(raw_value) ) {
                     record[a_value.column_name(column)] = Json::Value::null;
-                } else if ( false == reader.parse(raw_value, record[a_value.column_name(column)]) ) {
+                } else if ( JSONBOID == a_value.column_type(column) ) {
+                    ParseJSON(raw_value, record[a_value.column_name(column)]);
+                } else if ( false == reader.parse(raw_value, record[a_value.column_name(column)]) ) { // ... using reader to try to translate values ...
+                    // ... on failure, keep as it is ...
                     record[a_value.column_name(column)] = raw_value;
                 }
             }

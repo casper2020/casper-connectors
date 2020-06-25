@@ -100,9 +100,11 @@ void cc::job::easy::Handler::InnerShutdown ()
  *
  * @param a_argumenta This job arguments.
  * @param a_factories Tube factories.
+ * @param a_polling_timeout Consumer's loop polling timeout in millseconds, if < 0 will use defaults.
  */
 int cc::job::easy::Handler::Start (const cc::job::easy::Handler::Arguments& a_arguments,
-                                   const cc::job::easy::Handler::Factories& a_factories)
+                                   const cc::job::easy::Handler::Factories& a_factories,
+                                   const float& a_polling_timeout)
 {
     const auto clean_shutdown = [] () {
         
@@ -176,12 +178,11 @@ int cc::job::easy::Handler::Start (const cc::job::easy::Handler::Arguments& a_ar
             /* conf_file_uri_  */  opt.GetString('c')->value(),
         }, fatal_shutdown);
         
-
         // ... set this handler specific configs ...
         cc::job::easy::Handler::GetInstance().factories_ = &a_factories;
 
         // ... run ...
-        cc::job::easy::Handler::GetInstance().Run();
+        cc::job::easy::Handler::GetInstance().Run(a_polling_timeout);
 
     } catch (const ::cc::Exception& a_cc_exception ) {
         fatal_shutdown(a_cc_exception, false);

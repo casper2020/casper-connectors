@@ -49,6 +49,8 @@ ev::loop::beanstalkd::Looper::Looper (const ev::Loggable::Data& a_loggable_data,
     EV_LOOP_BEANSTALK_IF_LOG_ENABLED({
         ev::LoggerV2::GetInstance().Register(logger_client_, { "queue", "stats" });
     });
+    polling_.timeout_ = -1.0;
+    polling_.set_     = false;
 }
 
 /**
@@ -122,6 +124,16 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
                           "WTNG %19.19s"  "-",
                           "--"
     );
+    
+    //
+    // set polling timeout
+    //
+    uint32_t polling_timeout;
+    if ( true == polling_.set_ ) {
+        polling_timeout = 0;
+    } else {
+        polling_timeout = static_cast<uint32_t>(a_beanstakd_config.abort_polling_);
+    }
 
     //
     // consumer loop
@@ -129,9 +141,13 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
     while ( false == a_aborted ) {
         
         // ... test abort flag, every n seconds ...
-        if ( false == beanstalk_->Reserve(job, a_beanstakd_config.abort_polling_) ) {
+        if ( false == beanstalk_->Reserve(job, polling_timeout) ) {
             // ... idle check ...
             Idle(/* a_fake */ false);
+            // ... manual polling override?
+            if ( true == polling_.set_ && 0 == polling_timeout ) {
+                usleep(static_cast<useconds_t>(polling_.timeout_ * 1000));
+            }
             // ... next job ...
             continue;
         }
