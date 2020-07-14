@@ -28,7 +28,11 @@
 #include <string>
 
 #include <libpq-fe.h> // PG*
-#include <catalog/pg_type_d.h> // *OID
+#ifdef __APPLE__
+    #include <server/catalog/pg_type_d.h> // *OID
+#else
+    #include <catalog/pg_type_d.h> // *OID
+#endif
 
 #include <string.h>   // strlen
 
