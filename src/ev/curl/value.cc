@@ -25,13 +25,18 @@
  * @brief Default constructor.
  *
  * @param a_code
+ * @param a_headers
  * @param a_body
  */
-ev::curl::Value::Value (const int a_code, const std::string& a_body)
-    : ev::Object(ev::Object::Type::Value, ev::Object::Target::CURL),
+ev::curl::Value::Value (const int a_code, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body)
+    : curl::Object(ev::Object::Type::Value),
     code_(a_code), body_(a_body), last_modified_(0)
 {
-    /* empty */
+    for ( auto m : a_headers ) {
+        for ( auto p : m.second ) {
+            headers_[m.first].push_back(p);
+        }
+    }
 }
 
 /**

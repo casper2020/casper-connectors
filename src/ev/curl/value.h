@@ -29,7 +29,7 @@
 
 #include <string.h>   // strlen
 
-#include "ev/object.h"
+#include "ev/curl/object.h"
 #include "ev/exception.h"
 
 namespace ev
@@ -37,26 +37,30 @@ namespace ev
     namespace curl
     {
 
-        class Value final : public ev::Object
+        class Value final : public curl::Object
         {
 
         private: // Data
 
-           int         code_;          //!< > 0 HTTP code, < 0 CURL ERROR CODE.
-           std::string body_;          //!< Collected text data, nullptr if none.
-           int64_t     last_modified_; //!< Last modified date.
+           int                  code_;          //!< > 0 HTTP code, < 0 CURL ERROR CODE.
+           EV_CURL_HEADERS_MAP  headers_;       //!< Collected headers.
+           std::string          body_;          //!< Collected text data, nullptr if none.
+           int64_t              last_modified_; //!< Last modified date.
 
         public: // Constructor(s) / Destructor
 
-            Value   (const int a_code, const std::string& a_body);
+            Value   (const int a_code, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body);
             virtual ~Value ();
 
         public: // Method(s) / Function(s)
-
-            int                code              () const;
-            const std::string& body              () const;
-            void               set_last_modified (int64_t a_timestamp);
-            int64_t            last_modified     () const;
+            
+            int                        code              () const;
+            const EV_CURL_HEADERS_MAP& headers           () const;
+            const std::string&         body              () const;
+            void                       set_last_modified (int64_t a_timestamp);
+            int64_t                    last_modified     () const;
+            std::string                header            (const char* const a_name) const;
+            void                       headers_as_map    (std::map<std::string, std::string>& o_map) const;
 
         };
 
@@ -69,13 +73,20 @@ namespace ev
         }
 
         /**
+         * @return Readonly access to received headers.
+         */
+        inline const EV_CURL_HEADERS_MAP& Value::headers () const
+        {
+            return headers_;
+        }
+    
+        /**
          * @return Readonly access to received data.
          */
         inline const std::string& Value::body () const
         {
             return body_;
         }
-
 
         /**
          * @return The last modified timestamp.
@@ -91,6 +102,35 @@ namespace ev
         inline int64_t Value::last_modified () const
         {
             return last_modified_;
+        }
+
+        /**
+         * @brief Rebuild header value.
+         *
+         * @param a_name  Header name.
+         *
+         * @return Rebuilt value.
+         */
+        inline std::string Value::header (const char* const a_name) const
+        {
+            const auto p = headers_.find(a_name);
+            if ( headers_.end() != p ) {
+                return ( p->first + ":" + ( p->second.front().length() > 0 ? " " + p->second.front() : "" ) );
+            } else {
+                return "";
+            }
+        }
+    
+        /**
+         * @brief Rebuild headers map.
+         *
+         * @param o_map Rebuilt value.
+         */
+        inline void Value::headers_as_map (std::map<std::string, std::string>& o_map) const
+        {
+            for ( auto p : headers_ ) {
+                o_map[p.first] = ( p.second.front().length() > 0 ? " " + p.second.front() : "" );
+            }
         }
 
     } // end of namespace 'curl'

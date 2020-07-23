@@ -36,10 +36,27 @@ namespace ev
         class Object : public ev::Object
         {
 
-        public:
+        public: // Data Type(s)
+            
+            typedef struct _HeaderMapKeyComparator {
+                
+                const std::string& value_;
+                
+                _HeaderMapKeyComparator (const std::string& a_value)
+                    : value_(a_value)
+                {
+                    /* empty */
+                }
+                
+                bool operator() (const std::pair<std::string, std::string>& a_value) const
+                {
+                    return ( 0 == strcasecmp(value_.c_str(), a_value.first.c_str()) );
+                }
+                
+            } HeaderMapKeyComparator;            
 
-        #define EV_CURL_HEADERS_MAP std::map<std::string, std::vector<std::string>>
-
+            #define EV_CURL_HEADERS_MAP std::map<std::string, std::vector<std::string>>
+            
         public: // Constructor(s) / Destructor
 
             Object (const Type& a_type);

@@ -433,7 +433,8 @@ void ev::curl::Device::MultiContext::Process (ev::curl::Device::MultiContext* a_
         if ( 0 == device_ptr_->last_error_msg_.length() ) {
             // ... result ...
             result->AttachDataObject(new ev::curl::Reply(static_cast<int>(last_http_status_code_),
-                                                         it->second.request_ptr_->AsString(), it->second.request_ptr_->rx_headers())
+                                                         it->second.request_ptr_->rx_headers(),
+                                                         it->second.request_ptr_->AsString())
             );
         } else {
             // ... error ...

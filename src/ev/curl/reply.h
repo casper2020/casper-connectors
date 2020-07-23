@@ -42,7 +42,7 @@ namespace ev
 
         public: // Constructor(s) / Destructor
 
-            Reply (int a_code, const std::string& a_body, const EV_CURL_HEADERS_MAP& a_headers);
+            Reply (int a_code, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body);
             virtual ~Reply();
 
         public: // Method(s) / Function(s)
