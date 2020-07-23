@@ -27,6 +27,8 @@
 #include <string>
 #include <map>
 
+#include <strings.h> // strcasecmp
+
 namespace ev
 {
 
