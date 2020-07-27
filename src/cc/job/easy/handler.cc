@@ -67,13 +67,20 @@ void cc::job::easy::Handler::InnerStartup  (const ::cc::global::Process& a_proce
                                             const cc::job::easy::Handler::StartupConfig& a_startup_config,
                                             const Json::Value& a_job_config, cc::job::easy::Handler::SharedConfig& o_config)
 {
-    const pid_t    pid      = a_process.pid_;
-    const uint64_t instance = static_cast<uint64_t>(a_startup_config.instance_);
+    const pid_t       pid      = a_process.pid_;
+    const std::string pname    = a_process.name_;
+    const uint64_t    instance = static_cast<uint64_t>(a_startup_config.instance_);
+    const std::string logs_dir = o_config.directories_.log_;
     
-    o_config.factory_ = [this, a_job_config, pid, instance] (const std::string& a_tube) -> ev::loop::beanstalkd::Job* {
+    o_config.factory_ = [this, a_job_config, pid, instance, logs_dir, pname] (const std::string& a_tube) -> ev::loop::beanstalkd::Job* {
         const auto it = factories_->find(a_tube);
         if ( factories_->end() != it ) {
-            const Json::Value& config  = a_job_config[a_tube.c_str()];
+            
+            const std::string uri = logs_dir + a_tube + "." + std::to_string(instance) + ".log";
+            
+            CC_JOB_LOG_ENABLE(a_tube, uri);
+            
+            const Json::Value& config  = a_job_config[pname.c_str()];
             const Json::Value& options = a_job_config["options"];
             return it->second(loggable_data(), {
                 /* pid_               */ pid,

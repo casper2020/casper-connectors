@@ -234,13 +234,9 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
         // ... check print result ...
         if ( true == success || true == cancelled || true == already_ran || true == deferred || 404 == http_status_code ) {
             
-            // ... write to permanent log ...
-            if ( true == deferred ) {
-                EV_LOOP_BEANSTALK_LOG("queue",
-                                      "Job #" INT64_FMT_MAX_RA " ~> %s...",
-                                      job.id(), "DEFERRED"
-                );
-            } else {
+            // ... write to permanent log?
+            if ( false == deferred ) {
+                // ... write it ...
                 if ( 404 == http_status_code ) {
                     EV_LOOP_BEANSTALK_LOG("queue",
                                           "Job #" INT64_FMT_MAX_RA " ~> %s...",
@@ -269,12 +265,13 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
         }
 
         // ... write to permanent log ...
-        EV_LOOP_BEANSTALK_LOG("queue",
-                              "Job #" INT64_FMT_MAX_RA " ~> %s: " UINT64_FMT "ms.",
-                              job.id(),
-                              ( true == deferred ? "DEFERRED" : "FINISHED" ),
-                              static_cast<uint64_t>(elapsed)
-        );
+        if ( false == deferred ) {
+            EV_LOOP_BEANSTALK_LOG("queue",
+                                  "Job #" INT64_FMT_MAX_RA " ~> FINISHED: " UINT64_FMT "ms.",
+                                  job.id(),
+                                  static_cast<uint64_t>(elapsed)
+            );
+        }
         
         // ... write to permanent log ...
         EV_LOOP_BEANSTALK_LOG("queue",
@@ -333,11 +330,6 @@ void ev::loop::beanstalkd::Looper::AppendCallback (std::function<void()> a_callb
 */
 void ev::loop::beanstalkd::Looper::Idle (const bool /* a_fake */)
 {
-    // ... write to permanent log ...
-    EV_LOOP_BEANSTALK_LOG("queue",
-                          "IDLE %19.19s"  "-",
-                          "--"
-    );
     // ... lock, perform and 'dequeue' pending callbacks ...
     std::lock_guard<std::mutex>(idle_callbacks_.mutex_);
     try {

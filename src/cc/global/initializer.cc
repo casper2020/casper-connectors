@@ -155,6 +155,7 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
     
     process_ = new cc::global::Process(
         {
+            /* abbr_      */ a_process.abbr_,
             /* alt_name_  */ a_process.alt_name_,
             /* name_      */ a_process.name_,
             /* version_   */ a_process.version_,

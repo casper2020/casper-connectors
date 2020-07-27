@@ -24,6 +24,28 @@
 
 #include "ev/loop/beanstalkd/job.h"
 
+#include "cc/debug/types.h"
+
+#include "ev/logger_v2.h"
+
+#define CC_JOB_DEBUG_LOG_TRACE(a_format, ...) \
+    ::ev::LoggerV2::GetInstance().Log(logger_client_, tube_.c_str(), a_format, __VA_ARGS__);
+
+#define CC_JOB_LOG_ENABLE(a_tube, a_uri) \
+    ::ev::LoggerV2::GetInstance().cc::logs::Logger::Register(a_tube, a_uri);
+
+#define CC_JOB_LOG_REGISTER() \
+    if ( true == ::ev::LoggerV2::GetInstance().cc::logs::Logger::IsRegistered(tube_.c_str()) ) { \
+        ::ev::LoggerV2::GetInstance().Register(logger_client_, { tube_.c_str() }); \
+    }
+
+#define CC_JOB_LOG_UNREGISTER() \
+    if ( true == ::ev::LoggerV2::GetInstance().cc::logs::Logger::IsRegistered(tube_.c_str()) ) { \
+        ::ev::LoggerV2::GetInstance().Unregister(logger_client_); \
+    }
+
+#define CC_JOB_LOG(a_format, ...)
+
 namespace cc
 {
 

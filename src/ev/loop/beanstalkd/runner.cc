@@ -171,6 +171,7 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::
     ::cc::global::Initializer::GetInstance().WarmUp(
         /* a_process */
         {
+            /* abbr_      */ a_config.abbr_,
             /* alt_name_  */ "",
             /* name_      */ a_config.name_,
             /* version_   */ a_config.version_,

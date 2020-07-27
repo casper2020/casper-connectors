@@ -57,6 +57,7 @@
 #define U_LONG_LONG_FMT "%" "%llu"
 
 #define DOUBLE_FMT "%lf"
+#define DOUBLE_FMT_D(d) "%." #d "lf"
 
 #define SIZET_FMT "%zd"
 #define SIZET_FMT_BP(d)   "%" #d "zu"

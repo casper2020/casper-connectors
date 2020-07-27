@@ -92,6 +92,18 @@ namespace ev
         public: // Method(s) / Function(s)
             
             /**
+             * @brief Enable new tokens for this client.
+             *
+             * @param a_tokens Enabled tokens.
+             */
+            inline void Append (const std::set<std::string>& a_tokens)
+            {
+                for ( auto token : a_tokens ) {
+                    tokens_.insert(token);
+                }
+            }
+            
+            /**
              * @brief Set this client logger prefix and enabled tokens.
              *
              * @param a_tokens Enabled tokens.
@@ -240,20 +252,21 @@ namespace ev
         std::lock_guard<std::mutex> lock(mutex_);
         // ... already tracked?
         if ( clients_.end() != clients_.find(a_client) ) {
-            // ... we're done ...
-            return;
-        }
-        // ... keep track of client ...
-        clients_.insert(a_client);
-        // ... update counters ...
-        const auto c_it = counter_.find(a_client->loggable_data_ref_.module());
-        if ( counter_.end() == c_it ) {
-            counter_[a_client->loggable_data_ref_.module()] = 1;
+            // ... set tokens ...
+            a_client->Append(a_tokens);
         } else {
-            counter_[a_client->loggable_data_ref_.module()] = c_it->second + 1;
+            // ... keep track of client ...
+            clients_.insert(a_client);
+            // ... update counters ...
+            const auto c_it = counter_.find(a_client->loggable_data_ref_.module());
+            if ( counter_.end() == c_it ) {
+                counter_[a_client->loggable_data_ref_.module()] = 1;
+            } else {
+                counter_[a_client->loggable_data_ref_.module()] = c_it->second + 1;
+            }
+            // ... set tokens ...
+            a_client->SetLoggerPrefix(a_tokens);
         }
-        // ... set tokens ...
-        a_client->SetLoggerPrefix(a_tokens);
     }
     
     /**

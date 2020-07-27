@@ -187,7 +187,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     //
     // Configure Log
     //
-    loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), redis_key_prefix_ + channel_);
+    loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), tube_ + ':' + channel_);
     
     //
     // Check for job cancellation
