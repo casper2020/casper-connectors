@@ -318,14 +318,19 @@ std::string cc::crypto::RSA::PrivateKeyDecrypt (const std::string& a_payload, co
 std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::string& a_pem, const EVP_MD* a_evp_md)
 {
     bool           ctx_initialized  = false;
-    EVP_MD_CTX     ctx;
+#if OPENSSL_VERSION_NUMBER < 0x1010000fL
+    EVP_MD_CTX    _ctx;
+    EVP_MD_CTX*    ctx = &_ctx;
+#else
+    EVP_MD_CTX*    ctx = nullptr;
+#endif
     EVP_PKEY*      pkey             = nullptr;
     struct rsa_st* rsa_pkey         = nullptr;
     FILE*          private_key_file = nullptr;
     unsigned char* signature_bytes  = nullptr;
     unsigned int   signature_len    = 0;
     
-    const auto cleanup = [&pkey, &private_key_file, &signature_bytes, &ctx, &ctx_initialized] () {
+    const auto cleanup = [&pkey, &private_key_file, &signature_bytes, ctx, &ctx_initialized] () {
         
         if ( nullptr != signature_bytes ) {
             delete [] signature_bytes;
@@ -340,7 +345,11 @@ std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::stri
         }
         
         if ( true == ctx_initialized ) {
-            EVP_MD_CTX_cleanup(&ctx);
+#if OPENSSL_VERSION_NUMBER < 0x1010000fL
+            EVP_MD_CTX_cleanup(ctx);
+#else
+            EVP_MD_CTX_free(ctx);
+#endif
             ctx_initialized = false;
         }
         
@@ -380,7 +389,11 @@ std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::stri
         //
         // Initializes digest context ctx.
         //
-        EVP_MD_CTX_init(&ctx);
+#if OPENSSL_VERSION_NUMBER < 0x1010000fL
+        EVP_MD_CTX_init(ctx);
+#else
+        ctx = EVP_MD_CTX_new();
+#endif
         ctx_initialized = true;
         
         //
@@ -391,7 +404,7 @@ std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::stri
         //
         // Returns 1 for success and 0 for failure.
         //
-        if ( 1 != EVP_SignInit(&ctx, a_evp_md) ) {
+        if ( 1 != EVP_SignInit(ctx, a_evp_md) ) {
             throw ::cc::crypto::Exception("Error while setting up signing context!");
         }
         
@@ -402,7 +415,7 @@ std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::stri
         //
         // Returns 1 for success and 0 for failure.
         //
-        if ( 1 != EVP_SignUpdate(&ctx, a_payload.c_str(), a_payload.length() ) ) {
+        if ( 1 != EVP_SignUpdate(ctx, a_payload.c_str(), a_payload.length() ) ) {
             throw ::cc::crypto::Exception("Error while updating signing context");
         }
         
@@ -414,7 +427,7 @@ std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::stri
         // Returns 1 for success and 0 for failure.
         //
         signature_bytes = new unsigned char[EVP_PKEY_size(pkey)];
-        if ( 1 != EVP_SignFinal(&ctx, signature_bytes, &signature_len, pkey) ) {
+        if ( 1 != EVP_SignFinal(ctx, signature_bytes, &signature_len, pkey) ) {
             throw ::cc::crypto::Exception("Error while finalizing signing context!");
         }
         
@@ -470,7 +483,12 @@ std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::stri
 void cc::crypto::RSA::Verify (const std::string& a_payload, const std::string& a_signature, const std::string& a_pem, const EVP_MD* a_evp_md)
 {
     bool           ctx_initialized  = false;
-    EVP_MD_CTX     ctx;
+    #if OPENSSL_VERSION_NUMBER < 0x1010000fL
+        EVP_MD_CTX    _ctx;
+        EVP_MD_CTX*    ctx = &_ctx;
+    #else
+        EVP_MD_CTX*    ctx = nullptr;
+    #endif
     EVP_PKEY*      pkey             = nullptr;
     struct rsa_st* rsa_pkey         = nullptr;
     FILE*          public_key_file  = nullptr;
@@ -478,7 +496,7 @@ void cc::crypto::RSA::Verify (const std::string& a_payload, const std::string& a
     size_t         signature_len    = 0;
     int            rv               = -1;
     
-    const auto cleanup = [&pkey, &public_key_file, &signature_bytes, &ctx_initialized, &ctx] () {
+    const auto cleanup = [&pkey, &public_key_file, &signature_bytes, &ctx_initialized, ctx] () {
         
         if ( nullptr != signature_bytes ) {
             delete [] signature_bytes;
@@ -493,7 +511,11 @@ void cc::crypto::RSA::Verify (const std::string& a_payload, const std::string& a
         }
         
         if ( true == ctx_initialized ) {
-            EVP_MD_CTX_cleanup(&ctx);
+#if OPENSSL_VERSION_NUMBER < 0x1010000fL
+            EVP_MD_CTX_cleanup(ctx);
+#else
+            EVP_MD_CTX_free(ctx);
+#endif
             ctx_initialized = false;
         }
         
@@ -543,7 +565,11 @@ void cc::crypto::RSA::Verify (const std::string& a_payload, const std::string& a
         //
         // Initializes digest context ctx.
         //
-        EVP_MD_CTX_init(&ctx);
+#if OPENSSL_VERSION_NUMBER < 0x1010000fL
+        EVP_MD_CTX_init(ctx);
+#else
+        ctx = EVP_MD_CTX_new();
+#endif
         ctx_initialized = true;
         
         //
@@ -554,7 +580,7 @@ void cc::crypto::RSA::Verify (const std::string& a_payload, const std::string& a
         //
         // Returns 1 for success and 0 for failure.
         //
-        if ( 1 != EVP_VerifyInit_ex(&ctx, a_evp_md, NULL) ) {
+        if ( 1 != EVP_VerifyInit_ex(ctx, a_evp_md, NULL) ) {
             throw ::cc::crypto::Exception("Error while setting up signing context!");
         }
         
@@ -568,7 +594,7 @@ void cc::crypto::RSA::Verify (const std::string& a_payload, const std::string& a
         //
         const void* data = a_payload.c_str();
         unsigned int cnt = static_cast<unsigned int>(a_payload.length());
-        if ( 1 != ( rv = EVP_VerifyUpdate(&ctx, data, cnt) ) ) {
+        if ( 1 != ( rv = EVP_VerifyUpdate(ctx, data, cnt) ) ) {
             throw ::cc::crypto::Exception("Error while verifying data!");
         }
         
@@ -580,7 +606,7 @@ void cc::crypto::RSA::Verify (const std::string& a_payload, const std::string& a
         //
         //  Returns 1 for a correct signature, 0 for failure and -1 if some other error occurred.
         //
-        if ( 1 != ( rv = EVP_VerifyFinal(&ctx, signature_bytes, static_cast<unsigned int>(signature_len), pkey) ) ) {
+        if ( 1 != ( rv = EVP_VerifyFinal(ctx, signature_bytes, static_cast<unsigned int>(signature_len), pkey) ) ) {
             throw ::cc::crypto::Exception("Error while verifying signature!");
         }
         
