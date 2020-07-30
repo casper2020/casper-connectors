@@ -91,19 +91,23 @@ namespace ev
                     std::string service_id_;
                     bool        transient_;
                     int         min_progress_;
+                    int         log_level_;
+
                     
                 public: // Constructor(s) / Destructor
                     
                     Config () = delete;
                     
-                    Config (const pid_t& a_pid, const uint64_t& a_instance, const std::string& a_service_id, const bool a_transient, const int a_min_progress = 3)
-                        : pid_(a_pid), instance_(a_instance), service_id_(a_service_id), transient_(a_transient), min_progress_(a_min_progress)
+                    Config (const pid_t& a_pid, const uint64_t& a_instance, const std::string& a_service_id, const bool a_transient,
+                            const int a_min_progress = 3,
+                            const int a_log_level = -1)
+                        : pid_(a_pid), instance_(a_instance), service_id_(a_service_id), transient_(a_transient), min_progress_(a_min_progress), log_level_(a_log_level)
                     {
                         /* empty */
                     }
                     
                     Config (const Config& a_config)
-                        : pid_(a_config.pid_), instance_(a_config.instance_), service_id_(a_config.service_id_), transient_(a_config.transient_), min_progress_(a_config.min_progress_)
+                    : pid_(a_config.pid_), instance_(a_config.instance_), service_id_(a_config.service_id_), transient_(a_config.transient_),   min_progress_(a_config.min_progress_), log_level_(a_config.log_level_)
                     {
                         /* empty */
                     }
@@ -115,6 +119,7 @@ namespace ev
                         service_id_   = a_config.service_id_;
                         transient_    = a_config.transient_;
                         min_progress_ = a_config.min_progress_;
+                        log_level_    = a_config.log_level_;
                         return *this;
                     }
                     
@@ -222,6 +227,10 @@ namespace ev
                 
                 std::chrono::steady_clock::time_point start_tp_;
                 std::chrono::steady_clock::time_point end_tp_;
+                
+            protected: // callbacks
+                
+                std::function<void(const char* const a_tube, const char* const a_key, const std::string& a_value)> owner_log_callback_;
 
             public: // Constructor(s) / Destructor
                 
@@ -239,7 +248,11 @@ namespace ev
                 void Setup   (const MessagePumpCallbacks* a_callbacks, const std::string& a_output_directory_prefix);
                 void Consume (const int64_t& a_id, const Json::Value& a_payload,
                               const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback, const DeferredCallback& a_deferred_callback);
-                
+
+            public: // Other API Virtual Method(s) / Function(s)
+                    
+                void SetOwnerLogCallback (std::function<void(const char* const a_tube, const char* const a_key, const std::string& a_value)> a_callback);
+
             protected: // Optional Virtual Method(s) / Function(s)
                 
                 virtual void Setup () { };
@@ -477,6 +490,11 @@ namespace ev
                         return "???";
                 }
             
+            }
+        
+            inline void Job::SetOwnerLogCallback (std::function<void(const char* const a_tube, const char* const a_key, const std::string& a_value)> a_callback)
+            {
+                owner_log_callback_ = a_callback;
             }
             
         } // end of namespace 'beanstalkd'

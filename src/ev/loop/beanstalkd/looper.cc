@@ -179,7 +179,23 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
         // check if consumer is already loaded
         const auto cached_it = cache_.find(tube);
         if ( cache_.end() == cached_it ) {
+            
             job_ptr_ = factory_(tube);
+            
+           // ... git current job an oportunity to write a message as if it was the consumer ...
+           job_ptr_->SetOwnerLogCallback([this] (const char* const a_tube, const char* const a_key, const std::string& a_value) {
+               // ... temporarly set tube as tag ...
+               loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), a_tube);
+               // ... write to permanent log ...
+               EV_LOOP_BEANSTALK_LOG("queue",
+                                     "--- %-16.16s ---: %12.12s: %s",
+                                     " ",
+                                     a_key, a_value.c_str()
+               );
+               // ... restore ...
+               loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
+           });
+            
             cache_[tube] = job_ptr_;
             job_ptr_->Setup(&callbacks_, a_output_directory);
         } else {
@@ -275,8 +291,8 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
         
         // ... write to permanent log ...
         EV_LOOP_BEANSTALK_LOG("queue",
-                              "WTNG %19.19s"  "-",
-                              "--"
+                              "WTNG %15.15s ---:",
+                              " "
         );
         
         // ... since a call to asString() can allocate dynamic memory ...

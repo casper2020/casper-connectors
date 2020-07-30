@@ -28,8 +28,7 @@
 
 #include "ev/logger_v2.h"
 
-#define CC_JOB_DEBUG_LOG_TRACE(a_format, ...) \
-    ::ev::LoggerV2::GetInstance().Log(logger_client_, tube_.c_str(), a_format, __VA_ARGS__);
+#define CC_JOB_LOG_COLOR(a_name) CC_LOGS_LOGGER_COLOR(a_name)
 
 #define CC_JOB_LOG_ENABLE(a_tube, a_uri) \
     ::ev::LoggerV2::GetInstance().cc::logs::Logger::Register(a_tube, a_uri);
@@ -44,7 +43,35 @@
         ::ev::LoggerV2::GetInstance().Unregister(logger_client_); \
     }
 
-#define CC_JOB_LOG(a_format, ...)
+#define CC_JOB_LOG_LEVEL_CRT 1 // CRITICAL
+#define CC_JOB_LOG_LEVEL_ERR 2 // ERROR
+#define CC_JOB_LOG_LEVEL_WRN 3 // WARNING
+#define CC_JOB_LOG_LEVEL_INF 4 // MESSAGE
+#define CC_JOB_LOG_LEVEL_VBS 5 // VERBOSE
+#define CC_JOB_LOG_LEVEL_DBG 6 // DEBUG
+
+//                                   ------
+#define CC_JOB_LOG_STEP_IN          "IN"
+#define CC_JOB_LOG_STEP_OUT         "OUT"
+#define CC_JOB_LOG_STEP_REDIS       "REDIS"
+#define CC_JOB_LOG_STEP_POSGRESQL   "PGSQL"
+#define CC_JOB_LOG_STEP_BEANSTALK   "BT"
+#define CC_JOB_LOG_STEP_CURL        "CURL"
+#define CC_JOB_LOG_STEP_STEP        "STEP"
+#define CC_JOB_LOG_STEP_STATUS      "STATUS"
+#define CC_JOB_LOG_STEP_STATS       "STATS"
+#define CC_JOB_LOG_STEP_RELAY       "RELAY"
+#define CC_JOB_LOG_STEP_RTT         "RTT"
+#define CC_JOB_LOG_STEP_EXCEPTION   "EXCP"
+#define CC_JOB_LOG_STEP_V8          "V8"
+
+#define CC_JOB_LOG(a_level, a_id, a_format, ...) \
+    if ( a_level <= log_level_ ) \
+        ::ev::LoggerV2::GetInstance().Log(logger_client_, tube_.c_str(), "Job #" INT64_FMT ", " a_format, a_id, __VA_ARGS__)
+
+#define CC_JOB_LOG_TRACE(a_level, a_format, ...) \
+    if ( a_level <= log_level_ ) \
+        ::ev::LoggerV2::GetInstance().Log(logger_client_, tube_.c_str(), "\n[%s] @ %-4s:%4d\n\n\t* " a_format "\n",  tube_.c_str(), __PRETTY_FUNCTION__, __LINE__, __VA_ARGS__)
 
 namespace cc
 {
@@ -66,6 +93,10 @@ namespace cc
                     uint16_t    code_;
                     Json::Value payload_;
                 } Response;
+                
+            protected:
+                
+                size_t log_level_;
                 
             public: // Constructor(s) / Destructor
                 

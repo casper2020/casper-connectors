@@ -78,9 +78,9 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
     start_tp_      = std::chrono::steady_clock::time_point::min();
     end_tp_        = std::chrono::steady_clock::time_point::min();
     
+    owner_log_callback_ = nullptr;
     
-    ev::LoggerV2::GetInstance().Register(logger_client_, { "queue", "stats", "error" });
-    
+    ev::LoggerV2::GetInstance().Register(logger_client_, { "queue", "stats", "error" });    
 }
 
 /**

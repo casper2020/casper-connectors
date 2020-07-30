@@ -85,9 +85,10 @@ void cc::job::easy::Handler::InnerStartup  (const ::cc::global::Process& a_proce
             return it->second(loggable_data(), {
                 /* pid_               */ pid,
                 /* instance_          */ instance,
-                /* service_id_        */ config.get("service_id"   , "development").asString(),
-                /* transient_         */ config.get("transient"    ,         false).asBool(),
-                /* min_progress_      */ options.get("min_progress",             3).asInt()
+                /* service_id_        */ config.get("service_id"   ,        "development").asString(),
+                /* transient_         */ config.get("transient"    ,                false).asBool(),
+                /* min_progress_      */ options.get("min_progress",                    3).asInt(),
+                /* log_level_         */ config.get("log_level"    , CC_JOB_LOG_LEVEL_INF).asInt()
             });
         }
         return nullptr;
