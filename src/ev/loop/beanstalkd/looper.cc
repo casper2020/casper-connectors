@@ -44,6 +44,7 @@ ev::loop::beanstalkd::Looper::Looper (const ev::Loggable::Data& a_loggable_data,
     : ::ev::loop::beanstalkd::Object(a_loggable_data),
        factory_(a_factory), callbacks_(a_callbacks), default_tube_(a_default_tube)
 {
+    logger_client_->Unset(ev::LoggerV2::Client::LoggableFlags::IPAddress | ev::LoggerV2::Client::LoggableFlags::OwnerPTR);
     beanstalk_ = nullptr;
     job_ptr_   = nullptr;
     EV_LOOP_BEANSTALK_IF_LOG_ENABLED({

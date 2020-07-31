@@ -24,6 +24,8 @@
 
 #include "cc/logs/logger.h"
 
+#include "cc/bitwise_enum.h"
+
 #include "cc/utc_time.h"
 
 #include <limits.h>
@@ -44,7 +46,7 @@
 #include "osal/osal_singleton.h"
 
 #ifndef EV_LOGGER_KEY_FMT
-#define EV_LOGGER_KEY_FMT "%-28.28s"
+    #define EV_LOGGER_KEY_FMT "%-28.28s"
 #endif
 
 namespace ev
@@ -58,6 +60,19 @@ namespace ev
         class Client
         {
             
+        public: // Enum(s)
+            
+            enum class LoggableFlags : uint8_t {
+                NotSet     = 0,
+                DateTime   = 1 << 0,
+                PID        = 1 << 1,
+                IPAddress  = 1 << 2,
+                Module     = 1 << 3,
+                Tag        = 1 << 4,
+                OwnerPTR   = 1 << 5,
+                Default    = 0x3F
+            };
+            
         public: // Const Refs
             
             const ev::Loggable::Data& loggable_data_ref_;
@@ -68,17 +83,23 @@ namespace ev
             size_t                prefix_changes_count_;
             std::set<std::string> tokens_;
             
+        private:
+            
+            LoggableFlags         prefix_format_flags_;
+
         public: // Constructor / Destructor
             
             /**
              * @brief Default constructor.
              *
              * @param a_loggable_data_ref
+             * @param a_prefix_format_flags
              */
-            Client (const ev::Loggable::Data& a_loggable_data_ref)
+            Client (const ev::Loggable::Data& a_loggable_data_ref, const LoggableFlags& a_prefix_format_flags = LoggableFlags::Default)
                 : loggable_data_ref_(a_loggable_data_ref)
             {
                 prefix_changes_count_ = 0;
+                prefix_format_flags_  = a_prefix_format_flags;
             }
             
             /**
@@ -117,38 +138,7 @@ namespace ev
                 }
             }
             
-            /**
-             * @brief Update this client logger prefix and enabled tokens.
-             */
-             inline void UpdateLoggerPrefix ()
-            {
-                std::string module_name;
-                if ( strlen(loggable_data_ref_.module()) > 22 ) {
-                    module_name = "..." + std::string(loggable_data_ref_.module() + ( strlen(loggable_data_ref_.module()) + 3 - 22));
-                } else {
-                    module_name = loggable_data_ref_.module();
-                }
-                std::string tag;
-                if ( strlen(loggable_data_ref_.tag()) > 30 ) {
-                    tag = "..." + std::string(loggable_data_ref_.tag() + ( strlen(loggable_data_ref_.tag()) + 3 - 30));
-                } else {
-                    tag = loggable_data_ref_.tag();
-                }
-                // ... logger ...
-                char prefix [256] = { 0 };
-                snprintf(prefix, sizeof(prefix) / sizeof(prefix[0]),
-                         "%8u, %15.15s, %22.22s, %32.32s, %p, ",
-                         static_cast<unsigned>(getpid()),
-                         loggable_data_ref_.ip_addr(),
-                         module_name.c_str(),
-                         tag.c_str(),
-                         loggable_data_ref_.owner_ptr()
-                );
-                prefix_ = prefix;
-                if ( true == prefix_changed() ) {
-                    prefix_changes_count_ += 1;
-                }
-            }
+            void UpdateLoggerPrefix ();
             
             /**
              * @return Read-only access to prefix.
@@ -186,8 +176,11 @@ namespace ev
                 return tokens_.end() != tokens_.find(a_token);
             }
             
-        }; // end of class 'Client'           
-
+            void Set   (const LoggableFlags& a_flag);
+            void Unset (const LoggableFlags& a_flag);
+                      
+        }; // end of class 'Client'
+                
     private: // Data
         
         std::set<Client*>              clients_;
@@ -450,7 +443,29 @@ namespace ev
             fflush(file);
         }
     }
-    
+
+    DEFINE_ENUM_WITH_BITWISE_OPERATORS(LoggerV2::Client::LoggableFlags);
+
+    /**
+     * @brief Set a loggable flag.
+     *
+     * @param a_flag One of \link LoggableFlags \link.
+     */
+    inline void LoggerV2::Client::Set (const LoggerV2::Client::LoggableFlags& a_flag)
+    {
+        prefix_format_flags_ |= a_flag;
+    }
+
+    /**
+     * @brief Clear a loggable flag.
+     *
+     * @param a_flag One of \link LoggableFlags \link.
+     */
+    inline void LoggerV2::Client::Unset (const LoggerV2::Client::LoggableFlags& a_flag)
+    {
+        prefix_format_flags_ &= ~(a_flag);
+    }
+        
 } // end of namespace 'ev'
 
 #endif // NRS_EV_LOGGER_V2_H_

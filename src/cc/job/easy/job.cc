@@ -37,6 +37,7 @@ cc::job::easy::Job::Job (const ev::Loggable::Data& a_loggable_data, const std::s
     : ev::loop::beanstalkd::Job(a_loggable_data, a_tube, a_config),
       log_level_(CC_JOB_LOG_LEVEL_INF)
 {
+    logger_client_->Unset(ev::LoggerV2::Client::LoggableFlags::IPAddress | ev::LoggerV2::Client::LoggableFlags::OwnerPTR);
     CC_JOB_LOG_REGISTER();
 }
 
