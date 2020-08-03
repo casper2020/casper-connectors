@@ -629,7 +629,7 @@ void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
         }
     #else
         // ... ICU ...
-        ::cc::icu::Initializer::GetInstance().Shutdown(a_for_cleanup_only);
+        ::cc::icu::Initializer::GetInstance().Unload();
     #endif
 
     //

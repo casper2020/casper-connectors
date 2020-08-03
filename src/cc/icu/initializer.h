@@ -67,6 +67,8 @@ namespace cc
             const UErrorCode& Load (const std::string& a_dtl_uri);
         #endif
             
+            void Unload ();
+            
             const std::string load_error_msg () const;
 
         }; // end of class 'Initializer'

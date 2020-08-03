@@ -218,3 +218,19 @@ leave:
 }
 
 #endif // CASPER_REQUIRE_STANDALONE_ICU
+
+/**
+ * @brief Unload ICU data.
+ */
+void cc::icu::Initializer::Unload ()
+{
+    if ( false == initialized_ ) {
+        return;
+    }
+    u_cleanup();
+    if ( nullptr != icu_data_ ) {
+        delete [] icu_data_;
+        icu_data_ = nullptr;
+    }
+    initialized_ = false;
+}
