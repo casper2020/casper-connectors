@@ -90,6 +90,8 @@ namespace cc
             bool                  warmed_up_;
             bool                  initialized_;
             bool                  being_debugged_;
+            
+            V8*                   v8_config_;
 
         public: // Method(s) / Function(s)
             

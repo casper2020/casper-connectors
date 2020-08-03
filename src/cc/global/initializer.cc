@@ -103,6 +103,7 @@ cc::global::OneShot::OneShot (cc::global::Initializer& a_instance)
 #else
     instance_.being_debugged_ = false;
 #endif
+    instance_.v8_config_ = nullptr;
 }
 
 /**
@@ -118,6 +119,9 @@ cc::global::OneShot::~OneShot ()
     }
     if ( nullptr != instance_.process_ ) {
         delete instance_.process_;
+    }
+    if ( nullptr != instance_.v8_config_ ) {
+        delete instance_.v8_config_;
     }
 }
 
@@ -371,15 +375,17 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
 
     #ifdef CASPER_REQUIRE_GOOGLE_V8
 
+        v8_config_ = new cc::global::Initializer::V8({/* required_ */ a_v8.required_, /* runs_on_main_thread_ */ a_v8.runs_on_main_thread_});
+
         // ... V8 ...
-        if ( true == a_v8.required_ ) {
+        if ( true == v8_config_->required_ ) {
             CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "V8");
             CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", ::v8::V8::GetVersion());
             cc::v8::Singleton::GetInstance().Startup(/* a_exec_uri     */ sys::Process::GetExecURI(process_->pid_).c_str(),
                                                      /* a_icu_data_uri */ icu_dat_file_uri.c_str()
             );
         }
-        if ( true == a_v8.runs_on_main_thread_ ) {
+        if ( true == v8_config_->runs_on_main_thread_ ) {
             ::cc::v8::Singleton::GetInstance().Initialize();
         }
         
@@ -610,6 +616,21 @@ void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
 
     // ... debug trace ...
     osal::debug::Trace::GetInstance().Shutdown();
+    
+    // ... ICU // V8 ...
+    #ifdef CASPER_REQUIRE_GOOGLE_V8
+        // ... ICU // V8 ...
+        if ( nullptr != v8_config_ ) {
+            if ( true == v8_config_->runs_on_main_thread_ ) {
+                cc::v8::Singleton::GetInstance().Shutdown();
+            }
+            delete v8_config_;
+            v8_config_ = nullptr;
+        }
+    #else
+        // ... ICU ...
+        ::cc::icu::Initializer::GetInstance().Shutdown(a_for_cleanup_only);
+    #endif
 
     //
     // ... destroy singletons?
