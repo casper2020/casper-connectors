@@ -111,6 +111,10 @@ void cc::v8::Singleton::Shutdown ()
         isolate_->Dispose();
         isolate_ = nullptr;
     }
+    ::v8::V8::Dispose();
+    // platform_ will be deleted by call to
+    platform_ = nullptr;
+    ::v8::V8::ShutdownPlatform();
     if ( nullptr != create_params_.array_buffer_allocator ) {
         delete create_params_.array_buffer_allocator;
         create_params_.array_buffer_allocator = nullptr;
