@@ -47,6 +47,7 @@ cc::v8::Initializer::~Initializer ()
     ::v8::V8::Dispose();
     // platform_ will be deleted by call to
     ::v8::V8::ShutdownPlatform();
+    instance_.platform_ = nullptr;
     if ( nullptr != instance_.create_params_.array_buffer_allocator ) {
         delete instance_.create_params_.array_buffer_allocator;
     }
@@ -113,8 +114,8 @@ void cc::v8::Singleton::Shutdown ()
     }
     ::v8::V8::Dispose();
     // platform_ will be deleted by call to
-    platform_ = nullptr;
     ::v8::V8::ShutdownPlatform();
+    platform_ = nullptr;
     if ( nullptr != create_params_.array_buffer_allocator ) {
         delete create_params_.array_buffer_allocator;
         create_params_.array_buffer_allocator = nullptr;
