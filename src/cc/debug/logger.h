@@ -57,7 +57,7 @@ namespace cc
        public: // Method(s) / Function(s)
            
            void Register (const std::string& a_token);
-           void Log      (const char* const a_token, const char* a_format, ...) __attribute__((format(printf, 3, 4)));;
+           void Log      (const char* const a_token, const char* a_format, ...) __attribute__((format(printf, 3, 4)));
            
        }; // end of class 'Basic'
     
