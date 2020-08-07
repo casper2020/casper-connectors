@@ -55,6 +55,7 @@
 #include "cc/logs/basic.h"
 
 #include "osal/debug/trace.h"
+#include "osal/osal_file.h"
 
 #include <map>
 
@@ -159,15 +160,16 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
     
     process_ = new cc::global::Process(
         {
-            /* name_      */ a_process.name_,
-            /* alt_name_  */ a_process.alt_name_,
-            /* abbr_      */ a_process.abbr_,
-            /* version_   */ a_process.version_,
-            /* rel_date_  */ a_process.rel_date_,
-            /* info_      */ a_process.info_,
-            /* banner_    */ a_process.banner_,
-            /* pid_       */ getpid(),
-            /* is_master_ */ a_process.is_master_
+            /* name_       */ a_process.name_,
+            /* alt_name_   */ a_process.alt_name_,
+            /* abbr_       */ a_process.abbr_,
+            /* version_    */ a_process.version_,
+            /* rel_date_   */ a_process.rel_date_,
+            /* info_       */ a_process.info_,
+            /* banner_     */ a_process.banner_,
+            /* pid_        */ getpid(),
+            /* standalone_ */ a_process.standalone_,
+            /* is_master_  */ a_process.is_master_
         }
     );
         
@@ -230,8 +232,12 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
             }
         }
         
+        
+        // ... delete
+        (void)osal::File::Delete(directories_->log_.c_str(), "cc-status*.log", nullptr);
+        
         // .. global status ...
-        CC_GLOBAL_INITIALIZER_LOGGER_REGISTER("cc-status", directories_->log_ + "cc-status.log");
+        CC_GLOBAL_INITIALIZER_LOGGER_REGISTER("cc-status", directories_->log_ + "cc-status." + std::to_string(process_->pid_) + ".log");
         if ( true == process_->is_master_ && process_->banner_.length() > 0 ) {
             CC_GLOBAL_INITIALIZER_LOG("cc-status", "\n%s\n", process_->banner_.c_str());
         }
@@ -375,24 +381,39 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
 
     #ifdef CASPER_REQUIRE_GOOGLE_V8
 
-        v8_config_ = new cc::global::Initializer::V8({/* required_ */ a_v8.required_, /* runs_on_main_thread_ */ a_v8.runs_on_main_thread_});
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "V8");
 
-        // ... V8 ...
-        if ( true == v8_config_->required_ ) {
-            CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "V8");
+        // ... if v8 is required ...
+        if ( ( true == a_v8.required_ ) && ( false == process_->is_master_ || ( true == process_->is_master_ && true == process_->standalone_ ) ) ) {
+            // ... keep track of V8 config ...
+            v8_config_ = new cc::global::Initializer::V8({/* required_ */ a_v8.required_, /* runs_on_main_thread_ */ a_v8.runs_on_main_thread_});
+            // ... V8 ...
             CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", ::v8::V8::GetVersion());
             cc::v8::Singleton::GetInstance().Startup(/* a_exec_uri     */ sys::Process::GetExecURI(process_->pid_).c_str(),
                                                      /* a_icu_data_uri */ icu_dat_file_uri.c_str()
             );
+            // ... initialize V8 now?
+            if ( true == v8_config_->runs_on_main_thread_ ) {
+                ::cc::v8::Singleton::GetInstance().Initialize();
+            }
+            // ... ICU ...
+            CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "ICU");
+            CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", U_ICU_VERSION);
+            CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DATA FILE", icu_dat_file_uri.c_str());
+        } else {
+            const char* const process_type = ( false == process_->is_master_ ? "worker" : "master" );
+            // ... if required ...
+            if ( true == a_v8.required_ ) {
+                // ... V8 - deferred ...
+                CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT "%s process\n", "DEFERRED", process_type);
+                // ... ICU - deferred ...
+                CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "ICU");
+                CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT "%s\n process", "DEFERRED", process_type);
+            } else {
+                // ... avoid V8 ICU vs standalone ICU conflicts ...
+                throw ::cc::Exception("%s was compiled with V8 support, but it is not required!", process_->name_.c_str());
+            }
         }
-        if ( true == v8_config_->runs_on_main_thread_ ) {
-            ::cc::v8::Singleton::GetInstance().Initialize();
-        }
-        
-        // ... ICU ...
-        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "ICU");
-        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", U_ICU_VERSION);
-        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DATA FILE", icu_dat_file_uri.c_str());
 
     #else
 

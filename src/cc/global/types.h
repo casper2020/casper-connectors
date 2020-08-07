@@ -40,6 +40,7 @@ namespace cc
             const std::string info_;
             const std::string banner_;
             const pid_t       pid_;
+            const bool        standalone_;
             const bool        is_master_;
         } Process;
     
