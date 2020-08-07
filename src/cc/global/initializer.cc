@@ -241,8 +241,11 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         }
         
         
-        // ... delete
-        (void)osal::File::Delete(directories_->log_.c_str(), "cc-status*.log", nullptr);
+        // ... forget previous logs?
+        if ( true == process_->is_master_ ) {
+            // ... only if we're the master process ...
+            (void)osal::File::Delete(directories_->log_.c_str(), "cc-status*.log", nullptr);
+        }
         
         // .. global status ...
         CC_GLOBAL_INITIALIZER_LOGGER_REGISTER("cc-status", directories_->log_ + "cc-status." + std::to_string(process_->pid_) + ".log");
@@ -704,7 +707,7 @@ void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
 
     // ... shutdown logger ...
     cc::logs::Basic::GetInstance().Shutdown();
-    if ( false == a_for_cleanup_only ) {        
+    if ( false == a_for_cleanup_only ) {
         cc::logs::Basic::Destroy();
     }
 
