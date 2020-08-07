@@ -75,6 +75,14 @@
         cc::logs::Basic::GetInstance().Register(a_token, a_where); \
     }
 
+#ifdef CC_GLOBAL_INITIALIZER_LOGGER_UNREGISTER
+    #undef CC_GLOBAL_INITIALIZER_LOGGER_UNREGISTER
+#endif
+#define CC_GLOBAL_INITIALIZER_LOGGER_UNREGISTER(a_token) \
+    if ( false == being_debugged_ ) { \
+        cc::logs::Basic::GetInstance().Unregister(a_token); \
+    }
+
 #ifdef CC_GLOBAL_INITIALIZER_LOG
     #undef CC_GLOBAL_INITIALIZER_LOG
 #endif
@@ -684,6 +692,20 @@ void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
         CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s %s...\n",
                                   log_line_prefix.c_str(), "cleaned up"
         );
+    }
+    
+    // ... log final step ...
+    CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s %s...\n",
+                              log_line_prefix.c_str(), "end of log"
+    );
+    
+    // ... forget 'cc-status' logger ...
+    CC_GLOBAL_INITIALIZER_LOGGER_UNREGISTER("cc-status");
+
+    // ... shutdown logger ...
+    cc::logs::Basic::GetInstance().Shutdown();
+    if ( false == a_for_cleanup_only ) {        
+        cc::logs::Basic::Destroy();
     }
 
     // ... mark as NOT warmed-up ...

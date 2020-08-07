@@ -160,8 +160,13 @@ namespace cc
                  */
                 virtual ~Token ()
                 {
-                    if ( nullptr != fp_ && stderr != fp_ && stdout != fp_ ) {
-                        fclose(fp_);
+                    if ( nullptr != fp_ ) {
+                        // ... flush it ...
+                        fflush(fp_);
+                        // ... and close it ...
+                        if ( stderr != fp_ && stdout != fp_ ) {
+                            fclose(fp_);
+                        }
                     }
                 }
                 
@@ -211,6 +216,8 @@ namespace cc
 
             void Register     (const std::string& a_token, const std::string& a_file);
             bool IsRegistered (const std::string& a_token);
+            
+            void Unregister   (const std::string& a_token);
                         
             bool EnsureOwnership (uid_t a_user_id, gid_t a_group_id);
             void Recycle         ();
@@ -287,6 +294,32 @@ namespace cc
             std::lock_guard<std::mutex> lock(mutex_);
             // ... exists?
             return ( tokens_.end() != tokens_.find(a_token) );
+        }
+    
+        /**
+         * @brief Call this method to unregister a token.
+         *
+         * @param a_token
+         */
+        inline void Logger::Unregister (const std::string& a_token)
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            // ... registered? ...
+            const auto it = tokens_.find(a_token);
+            if ( tokens_.end() == it ) {
+                // ... no ...
+                return;
+            }
+            // ... still open?
+            if ( nullptr != it->second->fp_ ) {
+                // ... flush it ...
+                fflush(it->second->fp_);
+                // ... let close be done by delete ...
+            }
+            // ... delete it ..
+            delete it->second;
+            // ... forget it ...
+            tokens_.erase(it);
         }
     
         /**
