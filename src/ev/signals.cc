@@ -222,15 +222,22 @@ void ev::Signals::Unregister ()
  */
 bool ev::Signals::OnSignal (const int a_sig_no)
 {
-    const char* const name = strsignal(a_sig_no);
-    
+    bool rv = false;
+
+    // ... if not ready to log ...
+    if ( loggable_data_ == nullptr ) {
+      // ... not ready to handle signals ...
+      return rv;
+    }
+
     loggable_data_->Update(loggable_data_->module(), loggable_data_->ip_addr(), __FUNCTION__);
-    
+
+    const char* const name = strsignal(a_sig_no);
+
     ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
                                     "Signal %s received...",
                                     ( nullptr != name ? name : std::to_string(a_sig_no).c_str() )
     );
-    bool rv = false;
     
     // ... handle signal ...
     switch(a_sig_no) {
