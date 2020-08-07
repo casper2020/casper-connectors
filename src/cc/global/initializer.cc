@@ -5,18 +5,18 @@
 *
 * This file is part of casper-connectors..
 *
-* casper-connectors. is free software: you can redistribute it and/or modify
+* casper-connectors is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License as published by
 * the Free Software Foundation, either version 3 of the License, or
 * (at your option) any later version.
 *
-* casper-connectors.  is distributed in the hope that it will be useful,
+* casper-connectors is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 * GNU General Public License for more details.
 *
 * You should have received a copy of the GNU Affero General Public License
-* along with casper-connectors..  If not, see <http://www.gnu.org/licenses/>.
+* along with casper-connectors.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "cc/global/initializer.h"
@@ -419,7 +419,7 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
                 CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT "%s process\n", "DEFERRED", process_type);
                 // ... ICU - deferred ...
                 CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "ICU");
-                CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT "%s\n process", "DEFERRED", process_type);
+                CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT "%s process\n", "DEFERRED", process_type);
             } else {
                 // ... avoid V8 ICU vs standalone ICU conflicts ...
                 throw ::cc::Exception("%s was compiled with V8 support, but it is not required!", process_->name_.c_str());
@@ -703,7 +703,9 @@ void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
     );
     
     // ... forget 'cc-status' logger ...
-    CC_GLOBAL_INITIALIZER_LOGGER_UNREGISTER("cc-status");
+    if ( false == process.is_master_ ) {
+        CC_GLOBAL_INITIALIZER_LOGGER_UNREGISTER("cc-status");
+    }
 
     // ... shutdown logger ...
     cc::logs::Basic::GetInstance().Shutdown();
