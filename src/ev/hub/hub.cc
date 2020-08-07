@@ -322,6 +322,7 @@ void ev::hub::Hub::Stop (int a_sig_no)
 
     aborted_ = true;
 
+    // TODO 2.0 - review -1 == a_sig_no - SHOULD ALWAYS WAIT FOR THREAD EXIT!
     if ( -1 == a_sig_no && true == running_ ) {
         //
         // SIGKILL || SIGTERM

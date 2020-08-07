@@ -53,7 +53,7 @@ ev::hub::OneShotHandler::OneShotHandler (ev::hub::StepperCallbacks& a_stepper_ca
  */
 ev::hub::OneShotHandler::~OneShotHandler ()
 {
-    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    // TODO URGENT CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     // ... get rid of 'zombies' objects ...
     KillZombies();
 

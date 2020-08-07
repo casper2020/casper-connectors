@@ -40,7 +40,7 @@ ev::hub::KeepAliveHandler::KeepAliveHandler (ev::hub::StepperCallbacks& a_steppe
  */
 ev::hub::KeepAliveHandler::~KeepAliveHandler ()
 {
-    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    // TODO URGENT CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     for ( auto rr_it : running_requests_ ) {
         for ( auto e_it : (*rr_it.second) ) {
             delete e_it;

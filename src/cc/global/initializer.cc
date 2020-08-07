@@ -703,7 +703,7 @@ void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
     );
     
     // ... forget 'cc-status' logger ...
-    if ( false == process.is_master_ ) {
+    if ( false == process.is_master_ || ( true == process.is_master_ && true == process.standalone_) ) {
         CC_GLOBAL_INITIALIZER_LOGGER_UNREGISTER("cc-status");
     }
 

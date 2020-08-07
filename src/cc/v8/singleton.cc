@@ -46,8 +46,9 @@ cc::v8::Initializer::~Initializer ()
     }
     ::v8::V8::Dispose();
     // platform_ will be deleted by call to
-    ::v8::V8::ShutdownPlatform();
-    instance_.platform_ = nullptr;
+    if ( NULL != instance_.platform_ ) {
+        ::v8::V8::ShutdownPlatform();
+    }
     if ( nullptr != instance_.create_params_.array_buffer_allocator ) {
         delete instance_.create_params_.array_buffer_allocator;
     }
@@ -65,17 +66,23 @@ cc::v8::Initializer::~Initializer ()
  */
 void cc::v8::Singleton::Startup (const char* const a_exec_uri, const char* const a_icu_data_uri)
 {
+    // ... if already initialized ...
     if ( true == initialized_ ) {
+        // ... can't be initialized twice ...
         throw std::runtime_error("v8 singleton already initialized!");
     }
+    // ... try to initialize ICU ...
     if ( false == ::v8::V8::InitializeICUDefaultLocation(a_exec_uri, a_icu_data_uri) ) {
         throw std::runtime_error("v8 ICU initialization failure!");
     }
+    // ... initialize V8 ...
     ::v8::V8::InitializeExternalStartupData(a_exec_uri);
+    // ... create new platform ..
     platform_ = ::v8::platform::NewDefaultPlatform();
     if ( nullptr == platform_ ) {
         throw std::runtime_error("v8 default platform creation failure!");
     }
+    // ... initialize platform ...
     ::v8::V8::InitializePlatform(platform_.get());
     if ( false == ::v8::V8::Initialize() ) {
         throw std::runtime_error("v8 ICU default platform initialization failure!");
@@ -89,13 +96,15 @@ void cc::v8::Singleton::Startup (const char* const a_exec_uri, const char* const
  */
 void cc::v8::Singleton::Initialize ()
 {
+    // ... if NOT initialized ...
     if ( false == initialized_ ) {
         throw std::runtime_error("v8 singleton not initialized!");
     }
+    // ... if already isolated ...
     if ( nullptr != isolate_ ) {
         throw std::runtime_error("v8 already isolated!");
     }
-    
+    // ... create new isolate instance ...
     create_params_.array_buffer_allocator = ::v8::ArrayBuffer::Allocator::NewDefaultAllocator();
     isolate_                              = ::v8::Isolate::New(create_params_);
 }
@@ -105,20 +114,28 @@ void cc::v8::Singleton::Initialize ()
  */
 void cc::v8::Singleton::Shutdown ()
 {
+    // ... if not initialized ...
     if ( false == initialized_ ) {
+        // ... nothing to shutdown ...
         return;
     }
+    // ... release isolate ...
     if ( nullptr != isolate_ ) {
         isolate_->Dispose();
         isolate_ = nullptr;
     }
+    // ... dispose v8 engine ...
     ::v8::V8::Dispose();
     // platform_ will be deleted by call to
-    ::v8::V8::ShutdownPlatform();
-    platform_ = nullptr;
+    if ( NULL != platform_ ) {
+        ::v8::V8::ShutdownPlatform();
+        platform_ = nullptr;
+    }
+    // ... release buffer allocator ...
     if ( nullptr != create_params_.array_buffer_allocator ) {
         delete create_params_.array_buffer_allocator;
         create_params_.array_buffer_allocator = nullptr;
     }
+    // ... can be reused ...
     initialized_ = false;
 }
