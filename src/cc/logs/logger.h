@@ -313,7 +313,9 @@ namespace cc
             // ... still open?
             if ( nullptr != it->second->fp_ ) {
                 // ... flush it ...
-                fflush(it->second->fp_);
+                if ( stdout != it->second->fp_ && stderr != it->second->fp_ ) {
+                    fflush(it->second->fp_);
+                }
                 // ... let close be done by delete ...
             }
             // ... delete it ..
