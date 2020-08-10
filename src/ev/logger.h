@@ -98,7 +98,7 @@ namespace ev
             
             va_list args;
             va_start(args, a_format);
-            aux = vsnprintf(buffer_, buffer_capacity_ - 1, a_format, args);
+            aux = vsnprintf(buffer_, buffer_capacity_, a_format, args);
             va_end(args);
             
             if ( aux < 0 ) {
@@ -106,7 +106,7 @@ namespace ev
                 break;
             } else if ( aux > static_cast<int>(buffer_capacity_) ) {
                 // ... realloc buffer ...
-                if ( true == EnsureBufferCapacity(static_cast<size_t>(aux + 1)) ) {
+                if ( true == EnsureBufferCapacity(static_cast<size_t>(aux + sizeof(char))) ) {
                     // ... last attempt to write to buffer ...
                     continue;
                 } else {
