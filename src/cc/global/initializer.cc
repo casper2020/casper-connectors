@@ -614,10 +614,18 @@ void cc::global::Initializer::Startup (const cc::global::Initializer::Signals& a
  */
 void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
 {
-    const std::string log_line_prefix = (
-        process_->info_ + " - " +  ( true == process_->is_master_ ? "master" : "worker" ) + " process w/pid " + std::to_string(process_->pid_) + " is"
-    );
-    
+    const cc::global::Process process = *process_;
+    const pid_t               c_pid   = getpid();
+    const bool                forked  = ( c_pid != process.pid_ );
+
+    std::string log_line_prefix = process_->info_ + " -";
+    if ( true == forked ) {
+      log_line_prefix += " worker process w/pid " + std::to_string(c_pid) + " ( forked from " + std::to_string(process_->pid_)  + " )";
+    } else {
+      log_line_prefix += std::string(( true == process_->is_master_ ? "master" : "worker" )) + " process w/pid " + std::to_string(process_->pid_);
+    }
+    log_line_prefix += " is";
+
     CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s %s...\n",
                               log_line_prefix.c_str(), true == a_for_cleanup_only ? "cleaning" : "shutting down"
     );
@@ -628,7 +636,6 @@ void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
         loggable_data_ = nullptr;
     }
     
-    const cc::global::Process process = *process_;
     // ... release process data ...
     if ( nullptr != process_ ) {
         delete process_;
@@ -698,9 +705,11 @@ void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
     }
     
     // ... log final step ...
-    CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s %s...\n",
-                              log_line_prefix.c_str(), "end of log"
-    );
+    if ( false == forked ) {
+      CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s %s...\n",
+				log_line_prefix.c_str(), "end of log"
+      );
+    }
     
     // ... forget 'cc-status' logger ...
     if ( false == process.is_master_ || ( true == process.is_master_ && true == process.standalone_) ) {
