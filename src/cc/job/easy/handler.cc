@@ -77,19 +77,41 @@ void cc::job::easy::Handler::InnerStartup  (const ::cc::global::Process& a_proce
         if ( factories_->end() != it ) {
             
             const std::string uri = logs_dir + a_tube + "." + std::to_string(instance) + ".log";
-            
             CC_JOB_LOG_ENABLE(a_tube, uri);
             
-            const Json::Value& config  = a_job_config[pname.c_str()];
-            const Json::Value& options = a_job_config["options"];
+            Json::Value tube_cfg = Json::Value::null;
+            
+            // ... grab <tube> specific config override ...
+            if ( true == a_job_config.isMember("tubes") ) {
+                // ... load <tube> config ...
+                Json::Value tube_cfg = a_job_config[a_tube.c_str()];
+                // ... if available ...
+                if ( false == tube_cfg.isNull() && true == tube_cfg.isObject() ) {
+                    // ... exclude members that cannot be overridden ...
+                    for ( auto k : { "service_id" } ) {
+                        if ( true == tube_cfg.isMember(k) ) {
+                            tube_cfg.removeMember(k);
+                        }
+                    }
+                }
+            }
+
+            // ... copy 'process' config ...
+            Json::Value config = a_job_config[pname.c_str()];
+            // ... merge with 'tube' config ...
+            MergeJSONValue(config, tube_cfg);
+
+            // ... create new tube instance and we're done ...
             return it->second(loggable_data(), {
                 /* pid_               */ pid,
                 /* instance_          */ instance,
                 /* service_id_        */ config.get("service_id"   ,        "development").asString(),
                 /* transient_         */ config.get("transient"    ,                false).asBool(),
-                /* min_progress_      */ options.get("min_progress",                    3).asInt(),
-                /* log_level_         */ config.get("log_level"    , CC_JOB_LOG_LEVEL_INF).asInt()
+                /* min_progress_      */ config.get("min_progress",                     3).asInt(),
+                /* log_level_         */ config.get("log_level"    , CC_JOB_LOG_LEVEL_INF).asInt(),
+                /* other_             */ config
             });
+
         }
         return nullptr;
     };    
@@ -204,4 +226,24 @@ int cc::job::easy::Handler::Start (const cc::job::easy::Handler::Arguments& a_ar
     
     // ... done ...
     return 0;
+}
+
+/**
+ * @brief Merge JSON Value.
+ *
+ * @param a_lhs Primary value.
+ * @param a_rhs Override value.
+ */
+void cc::job::easy::Handler::MergeJSONValue (Json::Value& a_lhs, const Json::Value& a_rhs)
+{
+    if ( false == a_lhs.isObject() || false == a_rhs.isObject() ) {
+        return;
+    }
+    for ( const auto& k : a_rhs.getMemberNames() ) {
+        if ( true == a_lhs[k].isObject() && true == a_rhs[k].isObject() ) {
+            MergeJSONValue(a_lhs[k], a_rhs[k]);
+        } else {
+            a_lhs[k] = a_rhs[k];
+        }
+    }
 }

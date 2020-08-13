@@ -84,7 +84,7 @@ namespace ev
                 class Config : public ::cc::NonMovable
                 {
                     
-                public: // Const Data
+                protected: // Data
                     
                     pid_t       pid_;
                     uint64_t    instance_;
@@ -92,26 +92,51 @@ namespace ev
                     bool        transient_;
                     int         min_progress_;
                     int         log_level_;
-
+                    Json::Value other_;
                     
                 public: // Constructor(s) / Destructor
                     
                     Config () = delete;
                     
+                    /**
+                     * @brief Default constructor.
+                     *
+                     * @param a_pid
+                     * @param a_instance
+                     * @param a_service_id
+                     * @param a_transient
+                     * @param a_min_progress
+                     * @param a_log_level
+                     * @param a_other
+                     */
                     Config (const pid_t& a_pid, const uint64_t& a_instance, const std::string& a_service_id, const bool a_transient,
                             const int a_min_progress = 3,
-                            const int a_log_level = -1)
-                        : pid_(a_pid), instance_(a_instance), service_id_(a_service_id), transient_(a_transient), min_progress_(a_min_progress), log_level_(a_log_level)
+                            const int a_log_level = -1,
+                            const Json::Value& a_other = Json::Value::null)
+                        : pid_(a_pid), instance_(a_instance), service_id_(a_service_id), transient_(a_transient), min_progress_(a_min_progress), log_level_(a_log_level),
+                          other_(a_other)
                     {
                         /* empty */
                     }
                     
+                    /**
+                     * @brief Copy constructor.
+                     *
+                     * @param a_config Object to copy.
+                     */
                     Config (const Config& a_config)
-                    : pid_(a_config.pid_), instance_(a_config.instance_), service_id_(a_config.service_id_), transient_(a_config.transient_),   min_progress_(a_config.min_progress_), log_level_(a_config.log_level_)
+                    : pid_(a_config.pid_), instance_(a_config.instance_), service_id_(a_config.service_id_), transient_(a_config.transient_),   min_progress_(a_config.min_progress_), log_level_(a_config.log_level_), other_(a_config.other_)
                     {
                         /* empty */
                     }
                     
+                    /**
+                     * @brief Assigment operator overload.
+                     *
+                     * @param a_config Object to copy.
+                     *
+                     * @return Ref to this object.
+                     */
                     inline Config& operator=(const Config& a_config)
                     {
                         pid_          = a_config.pid_;
@@ -120,7 +145,104 @@ namespace ev
                         transient_    = a_config.transient_;
                         min_progress_ = a_config.min_progress_;
                         log_level_    = a_config.log_level_;
+                        other_        = a_config.other_;
                         return *this;
+                    }
+                    
+                    /**
+                     * @return R/O Access to \link pid_ \link.
+                     */
+                    inline const pid_t& pid() const
+                    {
+                        return pid_;
+                    }
+                    
+                    /**
+                     * @return R/O Access to \link instance_ \link.
+                     */
+                    inline const uint64_t& instance () const
+                    {
+                        return instance_;
+                    }
+                    
+                    /**
+                     * @return R/O Access to \link service_id_ \link.
+                     */
+                    inline const std::string& service_id () const
+                    {
+                        return service_id_;
+                    }
+                    
+                    /**
+                     * @return R/O Access to \link transient_ \link.
+                     */
+                    inline const bool& transient () const
+                    {
+                        return transient_;
+                    }
+                    
+                    /**
+                     * @return R/O Access to \link min_progress_ \link.
+                     */
+                    inline const int& min_progress () const
+                    {
+                        return min_progress_;
+                    }
+                    
+                    /**
+                     * @return R/O Access to \link log_level_ \link.
+                     */
+                    inline const int& log_level () const
+                    {
+                        return log_level_;
+                    }
+                    
+                    /**
+                     * @return R/O Access to \link other_ \link.
+                     */
+                    inline const Json::Value& other ()  const
+                    {
+                        return other_;
+                    }
+                    
+                    /**
+                     * @brief Set PID and instance.
+                     *
+                     * @param a_pid Process identifier.
+                     */
+                    inline void SetPID (const pid_t& a_pid)
+                    {
+                        pid_ = a_pid;
+                    }
+                    
+                    /**
+                     * @brief Set instance.
+                     *
+                     * @param a_instance Instance number.
+                     */
+                    inline void SetInstance (const uint64_t& a_instance)
+                    {
+                        instance_ = a_instance;
+                    }
+                    
+                    /**
+                     * @brief Set service ID.
+                     *
+                     * @param Service ID value.
+                     */
+                    inline void SetServiceID (const std::string& a_service_id)
+                    {
+                        service_id_ = a_service_id;
+                    }
+                    
+                    /**
+                     * @brief Set if it's transient or not.
+                     *
+                     * @param a_transient Bool value.
+                     */
+                    inline void SetTransient (const bool& a_transient)
+                    {
+                        transient_ = a_transient;
                     }
                     
                 }; // end of class 'Config';
@@ -129,15 +251,18 @@ namespace ev
                 typedef std::function<void(bool a_already_ran)>                                                                CancelledCallback;
                 typedef std::function<void()>                                                                                  DeferredCallback;
 
-                typedef std::function<void(const ev::Exception&)>                                                              FatalExceptionCallback;
-                typedef std::function<void(std::function<void()> a_callback, bool a_blocking)>                                 DispatchOnThread;
-                typedef std::function<void(const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr)>    PushJobCallback;
+                typedef std::function<void(const ev::Exception&)>                                                                                                         FatalExceptionCallback;
+                typedef std::function<void(std::function<void()> a_callback, bool a_blocking)>                                                                            DispatchOnThread;
+                typedef std::function<void(const std::string& a_id, std::function<void(const std::string&)> a_callback, const size_t a_deferred, const bool a_recurrent)> DispatchOnThreadDeferred;
+                typedef std::function<void(const std::string& a_id)>                                                                                                      CancelDispatchOnThread;
+                typedef std::function<void(const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr)>                                               PushJobCallback;
                 
                 typedef struct {
-                    FatalExceptionCallback on_fatal_exception_;
-                    DispatchOnThread       on_main_thread_;
-                    DispatchOnThread       on_the_looper_thread_;
-                    PushJobCallback        on_push_job_;
+                    FatalExceptionCallback   on_fatal_exception_;
+                    DispatchOnThread         on_main_thread_;
+                    DispatchOnThreadDeferred schedule_callback_on_the_looper_thread_;
+                    CancelDispatchOnThread   try_cancel_callback_on_the_looper_thread_;
+                    PushJobCallback          on_push_job_;
                 } MessagePumpCallbacks;
                 
                 typedef std::function<Job*(const std::string& a_tube)> Factory;
@@ -163,6 +288,8 @@ namespace ev
                     int                                   timeout_in_sec_;
                     std::chrono::steady_clock::time_point last_tp_;
                 } ProgressReport;
+                
+                typedef std::function<void(const std::string&)> LooperThreadCallback;
                 
             protected: // Const Static Data
                 
@@ -207,6 +334,7 @@ namespace ev
                 char                       hrt_buffer_[27];
                 std::string                output_directory_prefix_;
                 std::string                output_directory_;
+                std::string                logs_directory_;
                 
             private: // Helpers
                 
@@ -245,7 +373,7 @@ namespace ev
                 
             public: // Method(s) / Function(s)
                 
-                void Setup   (const MessagePumpCallbacks* a_callbacks, const std::string& a_output_directory_prefix);
+                void Setup   (const MessagePumpCallbacks* a_callbacks, const std::string& a_output_directory_prefix, const std::string& a_logs_directory);
                 void Consume (const int64_t& a_id, const Json::Value& a_payload,
                               const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback, const DeferredCallback& a_deferred_callback);
 
@@ -269,9 +397,11 @@ namespace ev
                 void SetCompletedResponse  (Json::Value& o_response);
                 void SetCompletedResponse  (const Json::Value& a_payload, Json::Value& o_response);
                 void SetCancelledResponse  (const Json::Value& a_payload, Json::Value& o_response);
-                void SetFailedResponse     (uint16_t a_code, Json::Value& o_response);                
+                void SetFailedResponse     (uint16_t a_code, Json::Value& o_response);
                 void SetFailedResponse     (uint16_t a_code, const Json::Value& a_payload, Json::Value& o_response);
-                
+
+                void SetTimeoutResponse    (const Json::Value& a_payload, Json::Value& o_response);
+
             protected: // REDIS Helper Method(s) / Function(s)
                                 
                 void PublishProgress  (const Json::Value& a_payload); // TODO CHECK USAGE and remove it ?
@@ -293,19 +423,23 @@ namespace ev
                                         const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback);
                 void Broadcast         (const uint64_t& a_id, const std::string& a_fq_channel, const Status a_status);
 
-                bool           WasCancelled      () const;
-                bool           AlreadyRan        () const;
-                void           SetDeferred       ();
-                bool           Deferred          () const;
-                bool           ShouldCancel      ();
-                bool&          cancellation_flag ();
-                
+                bool  WasCancelled      () const;
+                bool  AlreadyRan        () const;
+                void  SetDeferred       ();
+                bool  Deferred          () const;
+                bool  ShouldCancel      ();
+                bool& cancellation_flag ();
+                                
             protected: // REDIS / BEANSTALK Helper Method(s) / Function(s)
                 
-                bool         HasFollowUpJobs         () const;
-                uint64_t     FollowUpJobsCount       () const;
-                Json::Value& AppendFollowUpJob       ();
-                bool         PushFollowUpJobs      ();
+                bool         HasFollowUpJobs   () const;
+                uint64_t     FollowUpJobsCount () const;
+                Json::Value& AppendFollowUpJob ();
+                bool         PushFollowUpJobs  ();
+                
+            protected: // Other Settings
+                
+                const std::string& logs_directory () const;
                 
             protected: // Stats
                 
@@ -325,9 +459,19 @@ namespace ev
                 
             protected: // Threading Helper Methods(s) / Function(s)
                 
-                void ExecuteOnMainThread   (std::function<void()> a_callback, bool a_blocking);
-                void ExecuteOnLooperThread (std::function<void()> a_callback, bool a_blocking);
-                void OnFatalException      (const ev::Exception& a_exception);
+                void ExecuteOnMainThread    (std::function<void()> a_callback, bool a_blocking);
+                
+            protected: // Threading Helper Methods(s) / Function(s)
+                                
+                void ScheduleCallbackOnLooperThread (const std::string& a_id, LooperThreadCallback a_callback,
+                                                     const size_t a_deferred = 0, const bool a_recurrent = false);
+                
+                void TryCancelCallbackOnLooperThread (const std::string& a_id);
+
+            protected: // Other Methods(s) / Function(s)
+
+                void OnFatalException       (const ev::Exception& a_exception);
+
                 
             protected: // Beanstalk Helper Method(s) / Function(s)
                 
@@ -364,7 +508,8 @@ namespace ev
                 
                 const char* const JSONValueTypeAsCString (const Json::ValueType& a_type) const;
                 
-                const Json::Value& GetJSONObject (const Json::Value& a_parent, const char* const a_key, const Json::ValueType& a_type, const Json::Value* a_default) const;;
+                const Json::Value& GetJSONObject (const Json::Value& a_parent, const char* const a_key, const Json::ValueType& a_type, const Json::Value* a_default,
+                                                  const char* const a_error_prefix_msg = "Invalid or missing ") const;
                 
                 void        ParseJSON      (const std::string& a_value, Json::Value& o_value)           const;
                 void        ToJSON         (const ev::postgresql::Value& a_value, Json::Value& o_value) const; 
@@ -464,6 +609,14 @@ namespace ev
             inline const std::chrono::steady_clock::time_point& Job::start_tp () const
             {
                 return start_tp_;
+            }
+        
+            /*
+             * @return R/O access to logs directory.
+             */
+            inline const std::string& Job::logs_directory () const
+            {
+                return logs_directory_;
             }
         
             inline const char* const Job::JSONValueTypeAsCString (const Json::ValueType& a_type) const

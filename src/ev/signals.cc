@@ -92,7 +92,8 @@ void ev::Signals::WarmUp (const ev::Loggable::Data& a_loggable_data_ref)
     
     loggable_data_ = new ev::Loggable::Data(a_loggable_data_ref);
     logger_client_ = new ev::LoggerV2::Client(*loggable_data_);
-
+    
+    logger_client_->Unset(LoggerV2::Client::LoggableFlags::IPAddress | LoggerV2::Client::LoggableFlags::OwnerPTR);
     loggable_data_->Update(loggable_data_->module(), loggable_data_->ip_addr(), __FUNCTION__);
 
     ev::LoggerV2::GetInstance().Register(logger_client_, { "signals"} );

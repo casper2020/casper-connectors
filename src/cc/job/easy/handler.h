@@ -85,6 +85,10 @@ namespace cc
                 int Start (const Arguments& a_config, const Factories& a_factories,
                            const float& a_polling_timeout = -1.0);
                 
+            private: // Method(s) / Function(s)
+                
+                void MergeJSONValue (Json::Value& a_lhs, const Json::Value& a_rhs);
+                
             }; // end of class 'Handler'
 
         } // end of namespace 'easy'

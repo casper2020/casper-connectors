@@ -363,31 +363,35 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
             shared_config_->redis_.limits_.min_queries_per_conn_ = static_cast<ssize_t>(redis.get("min_queries_per_conn", static_cast<int>(shared_config_->redis_.limits_.min_queries_per_conn_)).asInt());
         }
         
-        /* logs */
-        const Json::Value logs = read_config.get("logs", Json::Value::null);
-        if ( false == logs.isNull() ) {
-            shared_config_->directories_.log_ = logs.get("directory", shared_config_->directories_.log_).asString();
-            if ( shared_config_->directories_.log_.length() > 0 ) {
-                const osal::Dir::Status mkdir_status = osal::Dir::CreateDir(shared_config_->directories_.log_.c_str());
-                if ( osal::Dir::EStatusOk != mkdir_status ) {
-                    throw ev::Exception("An error occurred while creating logs directory: %s!", shared_config_->directories_.log_.c_str());
-                }
-                // ... normalize ...
-                if ( shared_config_->directories_.log_[shared_config_->directories_.log_.length() - 1] != '/' ) {
-                    shared_config_->directories_.log_ += '/';
-                }
-
-                const Json::Value tokens = logs.get("tokens", Json::Value::null);
-                if ( false == tokens.isNull() ) {
-                    if ( false == tokens.isArray() ) {
-                        throw ev::Exception("An error occurred while creating preparing log tokens: expecting an JSON array of strings!");
+        /* process specific config */
+        const Json::Value&  p_cfg = read_config[a_process.name_];
+        if ( false == p_cfg.isNull() ) {
+            /* logs */
+            const Json::Value logs = p_cfg.get("logs", Json::Value::null);
+            if ( false == logs.isNull() ) {
+                shared_config_->directories_.log_ = logs.get("directory", shared_config_->directories_.log_).asString();
+                if ( shared_config_->directories_.log_.length() > 0 ) {
+                    const osal::Dir::Status mkdir_status = osal::Dir::CreateDir(shared_config_->directories_.log_.c_str());
+                    if ( osal::Dir::EStatusOk != mkdir_status ) {
+                        throw ev::Exception("An error occurred while creating logs directory: %s!", shared_config_->directories_.log_.c_str());
                     }
-                    for ( Json::ArrayIndex idx = 0 ; idx < tokens.size() ; ++idx ) {
-                        const std::string token = tokens[idx].asString();
-                        if ( 0 == token.length() ) {
-                            continue;
+                    // ... normalize ...
+                    if ( shared_config_->directories_.log_[shared_config_->directories_.log_.length() - 1] != '/' ) {
+                        shared_config_->directories_.log_ += '/';
+                    }
+
+                    const Json::Value tokens = logs.get("tokens", Json::Value::null);
+                    if ( false == tokens.isNull() ) {
+                        if ( false == tokens.isArray() ) {
+                            throw ev::Exception("An error occurred while creating preparing log tokens: expecting an JSON array of strings!");
                         }
-                        shared_config_->log_tokens_[token] = shared_config_->directories_.log_ + token + "." + std::to_string(startup_config_->instance_) + ".log";
+                        for ( Json::ArrayIndex idx = 0 ; idx < tokens.size() ; ++idx ) {
+                            const std::string token = tokens[idx].asString();
+                            if ( 0 == token.length() ) {
+                                continue;
+                            }
+                            shared_config_->log_tokens_[token] = shared_config_->directories_.log_ + token + "." + std::to_string(startup_config_->instance_) + ".log";
+                        }
                     }
                 }
             }
@@ -459,7 +463,7 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
         o_logs.push_back({ /* token_ */ token ,/* uri_ */ shared_config_->directories_.log_ + token + "." + std::to_string(startup_config_->instance_) + ".log", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 1 });
     }
     // ... v2 ...
-    for ( auto token : { "signals", "queue", "stats", "error" } ) {
+    for ( auto token : { "signals", "queue" } ) {
         o_logs.push_back({ /* token_ */ token ,/* uri_ */ shared_config_->directories_.log_ + token + "." + std::to_string(startup_config_->instance_) + ".log", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 2 });
     }
     
@@ -689,8 +693,8 @@ void ev::loop::beanstalkd::Runner::PushJob (const std::string& a_tube, const std
     
         const int64_t status = producer.Put(a_payload, /* a_priority = 0 */ 0, /* a_delay = 0 */ 0, a_ttr);
         if ( status < 0 ) {
-            throw ::ev::Exception("Beanstalk producer returned with error code " INT64_FMT "!",
-                                  status
+            throw ::ev::Exception("Beanstalk producer returned with error code " INT64_FMT " - %s!",
+                                  status, producer.ErrorCodeToString(status)
             );
         }
     } catch (const ::Beanstalk::ConnectException& a_btc_exception) {
@@ -723,18 +727,35 @@ void ev::loop::beanstalkd::Runner::ExecuteOnMainThread (std::function<void()> a_
 }
 
 /**
- * @brief Execute a callback on 'the other' thread.
+ * @brief Schedule a callback on 'the other' thread.
  *
+ * @param a_id
  * @param a_callback
- * @param a_blocking
+ * @param a_deferred
+ * @param a_recurrent
  */
-void ev::loop::beanstalkd::Runner::ExecuteOnLooperThread (std::function<void()> a_callback, bool a_blocking)
+void ev::loop::beanstalkd::Runner::ScheduleCallbackOnLooperThread (const std::string& a_id, ev::loop::beanstalkd::Looper::IdleCallback a_callback,
+                                                                   const size_t a_deferred, const bool a_recurrent)
 {
     std::lock_guard<std::mutex> lock(looper_mutex_);
     if ( nullptr == looper_ptr_ ) {
         throw ev::Exception("Illegal call to '%s' - looper not ready!", __PRETTY_FUNCTION__);
     }
-    looper_ptr_->AppendCallback(a_callback);
+    looper_ptr_->AppendCallback(a_id, a_callback, a_deferred, a_recurrent);
+}
+
+/**
+ * @brief Try to cancel a previously scheduled callback on 'the other' thread.
+ *
+ * @param a_id
+ */
+void ev::loop::beanstalkd::Runner::TryCancelCallbackOnLooperThread (const std::string& a_id)
+{
+    std::lock_guard<std::mutex> lock(looper_mutex_);
+    if ( nullptr == looper_ptr_ ) {
+        throw ev::Exception("Illegal call to '%s' - looper not ready!", __PRETTY_FUNCTION__);
+    }
+    looper_ptr_->RemoveCallback(a_id);
 }
 
 /**
@@ -768,10 +789,16 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop (const float& a_polling_timeout)
         ::cc::threading::Worker::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
         
         const ev::loop::beanstalkd::Job::MessagePumpCallbacks callbacks = {
-            /* on_fatal_exception_  */ std::bind(&ev::loop::beanstalkd::Runner::OnFatalException     , this, std::placeholders::_1),
-            /* on_main_thread_      */ std::bind(&ev::loop::beanstalkd::Runner::ExecuteOnMainThread  , this, std::placeholders::_1, std::placeholders::_2),
-            /* on_the_other_thread_ */ std::bind(&ev::loop::beanstalkd::Runner::ExecuteOnLooperThread, this, std::placeholders::_1, std::placeholders::_2),
-            /* on_submit_job_       */ std::bind(&ev::loop::beanstalkd::Runner::PushJob              , this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+            /* on_fatal_exception_                       */ std::bind(&ev::loop::beanstalkd::Runner::OnFatalException,
+                                                                      this, std::placeholders::_1),
+            /* on_main_thread_                           */ std::bind(&ev::loop::beanstalkd::Runner::ExecuteOnMainThread,
+                                                                      this, std::placeholders::_1, std::placeholders::_2),
+            /* schedule_callback_on_the_looper_thread_   */ std::bind(&ev::loop::beanstalkd::Runner::ScheduleCallbackOnLooperThread,
+                                                                      this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
+            /* try_cancel_callback_on_the_looper_thread_ */ std::bind(&ev::loop::beanstalkd::Runner::TryCancelCallbackOnLooperThread,
+                                                                      this, std::placeholders::_1),
+            /* on_push_job_                              */ std::bind(&ev::loop::beanstalkd::Runner::PushJob,
+                                                                      this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
         };
         
         // ... initialize v8 ...
@@ -790,7 +817,7 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop (const float& a_polling_timeout)
         looper_mutex_.unlock();
         
         looper_ptr_->SetPollingTimeout(a_polling_timeout);
-        looper_ptr_->Run(shared_config_->beanstalk_, shared_config_->directories_.output_, quit_);
+        looper_ptr_->Run(shared_config_->beanstalk_, shared_config_->directories_.output_, shared_config_->directories_.log_, quit_);
         
     } catch (const Beanstalk::ConnectException& a_beanstalk_exception) {
         exception = new ::ev::Exception("An error occurred while connecting to Beanstalkd:\n%s\n", a_beanstalk_exception.what());

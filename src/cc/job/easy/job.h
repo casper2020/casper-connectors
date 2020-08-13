@@ -28,7 +28,11 @@
 
 #include "ev/logger_v2.h"
 
-#define CC_JOB_LOG_COLOR(a_name) CC_LOGS_LOGGER_COLOR(a_name)
+#ifdef CC_LOGS_LOGGER_COLOR
+    #define CC_JOB_LOG_COLOR(a_name) CC_LOGS_LOGGER_COLOR(a_name)
+#else
+    #define CC_JOB_LOG_COLOR(a_name) ""
+#endif
 
 #define CC_JOB_LOG_ENABLE(a_tube, a_uri) \
     ::ev::LoggerV2::GetInstance().cc::logs::Logger::Register(a_tube, a_uri);
@@ -62,8 +66,9 @@
 #define CC_JOB_LOG_STEP_STATS       "STATS"
 #define CC_JOB_LOG_STEP_RELAY       "RELAY"
 #define CC_JOB_LOG_STEP_RTT         "RTT"
-#define CC_JOB_LOG_STEP_EXCEPTION   "EXCP"
+#define CC_JOB_LOG_STEP_ERROR       "ERROR"
 #define CC_JOB_LOG_STEP_V8          "V8"
+#define CC_JOB_LOG_STEP_DUMP        "DUMP"
 
 #define CC_JOB_LOG(a_level, a_id, a_format, ...) \
     if ( a_level <= log_level_ ) \

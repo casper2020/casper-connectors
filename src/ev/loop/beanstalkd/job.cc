@@ -19,7 +19,6 @@
  * along with casper.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #include "ev/loop/beanstalkd/job.h"
 
 #include "ev/postgresql/request.h"
@@ -42,16 +41,16 @@
 ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const std::string& a_tube, const Config& a_config)
     : ::ev::loop::beanstalkd::Object(a_loggable_data),
     tube_(a_tube), config_(a_config),
-    redis_signal_channel_(config_.service_id_ + ":job-signal"),
-    redis_key_prefix_(config_.service_id_ + ":jobs:" + tube_ + ':'),
-    redis_channel_prefix_(config_.service_id_ + ':' + tube_ + ':'),
+    redis_signal_channel_(config_.service_id() + ":job-signal"),
+    redis_key_prefix_(config_.service_id() + ":jobs:" + tube_ + ':'),
+    redis_channel_prefix_(config_.service_id() + ':' + tube_ + ':'),
     default_validity_(3600),
     json_api_(loggable_data_, /* a_enable_task_cancellation */ false)
 {
     id_                              = 0;
     validity_                        = -1;
-    transient_                       = config_.transient_;
-    progress_report_.timeout_in_sec_ = config_.min_progress_;
+    transient_                       = config_.transient();
+    progress_report_.timeout_in_sec_ = config_.min_progress();
     progress_report_.last_tp_        = std::chrono::steady_clock::time_point::max();
     cancelled_                       = false;
     already_ran_                     = false;
@@ -80,7 +79,7 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
     
     owner_log_callback_ = nullptr;
     
-    ev::LoggerV2::GetInstance().Register(logger_client_, { "queue", "stats", "error" });    
+    ev::LoggerV2::GetInstance().Register(logger_client_, { "queue" });
 }
 
 /**
@@ -103,14 +102,17 @@ ev::loop::beanstalkd::Job::~Job ()
  *
  * @param a_callbacks
  * @param a_output_directory_prefix
+ * @param a_logs_directory
  */
-void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callbacks, const std::string& a_output_directory_prefix)
+void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callbacks,
+                                       const std::string& a_output_directory_prefix, const std::string& a_logs_directory)
 {
     osal::ConditionVariable cv;
     
     callbacks_ptr_           = a_callbacks;
     output_directory_prefix_ = a_output_directory_prefix;
     output_directory_        = a_output_directory_prefix;
+    logs_directory_          = a_logs_directory;
 
     ExecuteOnMainThread([this, &cv] {
         ::ev::redis::subscriptions::Manager::GetInstance().SubscribeChannels({ redis_signal_channel_ },
@@ -162,8 +164,8 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     id_                              = a_id; // beanstalkd number id
     channel_                         = redis_channel.asString();
     validity_                        = a_payload.get("validity" , default_validity_).asInt64();
-    transient_                       = a_payload.get("transient", config_.transient_).asBool();
-    progress_report_.timeout_in_sec_ = a_payload.get("min_progress", config_.min_progress_).asInt();
+    transient_                       = a_payload.get("transient", config_.transient()).asBool();
+    progress_report_.timeout_in_sec_ = a_payload.get("min_progress", config_.min_progress()).asInt();
     cancelled_                       = false;
     already_ran_                     = false;
     deferred_                        = false;
@@ -209,6 +211,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     start_tp_ = std::chrono::steady_clock::now();
     end_tp_   = start_tp_;
 
+    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("PAYLOAD", "%s", json_writer_.write(a_payload).c_str());
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("TUBE"   , "%s", tube_.c_str());
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ID"     , "%s", a_payload.get("id"  , "???").asCString());
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("CHANNEL", "%s", ( redis_channel_prefix_ + channel_ ).c_str());
@@ -337,6 +340,23 @@ void ev::loop::beanstalkd::Job::SetFailedResponse (uint16_t a_code, const Json::
     o_response["response"]     = a_payload;
     o_response["status"]       = "failed";
     o_response["status_code"]  = a_code;
+}
+
+/**
+ * @brief Fill a 'timeout' response ( 408 - Request Timeout ).
+ *
+ * @param a_payload
+ * @param o_response
+ */
+void ev::loop::beanstalkd::Job::SetTimeoutResponse (const Json::Value& a_payload, Json::Value& o_response)
+{
+    o_response                        = Json::Value(Json::ValueType::objectValue);
+    o_response["action"]              = "response";
+    o_response["content_type"]        = "application/json; charset=utf-8";
+    o_response["response"]            = a_payload;
+    o_response["response"]["success"] = false;
+    o_response["status"]              = "failed";
+    o_response["status_code"]         = 408;
 }
 
 #ifdef __APPLE__
@@ -787,11 +807,10 @@ bool ev::loop::beanstalkd::Job::ShouldCancel ()
         })->Catch([this, &cancellation_cv] (const ::ev::Exception& a_ev_exception) {
             
             // ... log error ...
-            EV_LOOP_BEANSTALK_JOB_LOG("error",
-                                      "HGET failed: %s",
-                                      a_ev_exception.what()
-                                      );
-            
+            EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ERROR", "HGET failed: %s",
+                                            a_ev_exception.what()
+            );
+            // ... unlock ...
             cancellation_cv.Wake();
             
         });
@@ -829,8 +848,8 @@ bool ev::loop::beanstalkd::Job::PushFollowUpJobs ()
         const Json::Value& entry = follow_up_jobs_[idx];
         const Json::Value& job   = entry["job"];
                 
-        CC_DEBUG_LOG_TRACE("job", "Job #" INT64_FMT " ~= submitting follow up job #" SIZET_FMT ":\n%s",
-                           id_, static_cast<size_t>(idx + 1), entry.toStyledString().c_str()
+        CC_DEBUG_LOG_MSG("job", "Job #" INT64_FMT " ~= submitting follow up job #" SIZET_FMT ":\n%s",
+                         id_, static_cast<size_t>(idx + 1), entry.toStyledString().c_str()
         );
         
         SubmitFollowUpJob(static_cast<size_t>(idx + 1), job);
@@ -853,9 +872,9 @@ void ev::loop::beanstalkd::Job::SubmitFollowUpJob (const size_t a_number, const 
 {
     // ... first check cancellation flag ...
     follow_up_payload_    = a_job;
-    follow_up_id_key_     = config_.service_id_ + ":jobs:sequential_id";
+    follow_up_id_key_     = config_.service_id() + ":jobs:sequential_id";
     follow_up_tube_       = follow_up_payload_["tube"].asString();
-    follow_up_key_        = ( config_.service_id_ + ":jobs:" + follow_up_tube_ + ':' );
+    follow_up_key_        = ( config_.service_id() + ":jobs:" + follow_up_tube_ + ':' );
     follow_up_expires_in_ = follow_up_payload_.get("validity", 3600).asInt64();
     follow_up_ttr_        = follow_up_payload_.get("ttr", 300).asUInt();
     
@@ -981,14 +1000,27 @@ void ev::loop::beanstalkd::Job::ExecuteOnMainThread (std::function<void()> a_cal
 }
 
 /**
-* @brief Execute a callback on 'looper' thread.
-*
-* @param a_callback
-* @param a_blocking
-*/
-void ev::loop::beanstalkd::Job::ExecuteOnLooperThread (std::function<void()> a_callback, bool a_blocking)
+ * @brief Schedule a callback on 'looper' thread.
+ *
+ * @param a_id
+ * @param a_callback
+ * @param a_deferred
+ * @param a_recurrent
+ */
+void ev::loop::beanstalkd::Job::ScheduleCallbackOnLooperThread (const std::string& a_id, Job::LooperThreadCallback a_callback,
+                                                                const size_t a_deferred, const bool a_recurrent)
 {
-    callbacks_ptr_->on_the_looper_thread_(a_callback, a_blocking);
+    callbacks_ptr_->schedule_callback_on_the_looper_thread_(a_id, a_callback, a_deferred, a_recurrent);
+}
+
+/**
+ * @brief Try to cancel a previously scheduled callback on 'looper' thread.
+ *
+ * @param a_id
+ */
+void ev::loop::beanstalkd::Job::TryCancelCallbackOnLooperThread (const std::string& a_id)
+{
+    callbacks_ptr_->try_cancel_callback_on_the_looper_thread_(a_id);
 }
 
 /**
@@ -1379,7 +1411,8 @@ const std::string& ev::loop::beanstalkd::Job::EnsureOutputDir (const int64_t a_v
  *
  * @return
  */
-const Json::Value& ev::loop::beanstalkd::Job::GetJSONObject (const Json::Value& a_parent, const char* const a_key, const Json::ValueType& a_type, const Json::Value* a_default) const
+const Json::Value& ev::loop::beanstalkd::Job::GetJSONObject (const Json::Value& a_parent, const char* const a_key, const Json::ValueType& a_type, const Json::Value* a_default,
+                                                             const char* const a_error_prefix_msg) const
 {
     // ... try to obtain a valid JSON object ..
     try {
@@ -1394,7 +1427,8 @@ const Json::Value& ev::loop::beanstalkd::Job::GetJSONObject (const Json::Value& 
             return value;
         }
         // ... if it reached here, requested object is not set or has an invalid type ...
-        throw ::ev::Exception("Error while retrieving JSON object named '%s' - type mismatch: got %s, expected %s!",
+        throw ::ev::Exception("%sJSON value for key '%s' - type mismatch: got %s, expected %s!",
+                              a_error_prefix_msg,
                               a_key, JSONValueTypeAsCString(value.type()), JSONValueTypeAsCString(a_type)
         );
     } catch (const Json::Exception& a_json_exception ) {

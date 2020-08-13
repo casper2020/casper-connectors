@@ -55,7 +55,7 @@ namespace ev
             int64_t Put (const char* const a_data, const size_t a_size,
                          const uint32_t a_priority = 0, const uint32_t a_delay = 0, const uint32_t a_ttr = 60);
             
-            std::string ErrorCodeToString (const int64_t& a_code) const;
+            const char* const ErrorCodeToString (const int64_t& a_code) const;
             
             const std::string& tube () const;
 
@@ -73,7 +73,7 @@ namespace ev
             return client_->put(a_data, a_size, a_priority, a_delay, a_ttr);
         }
     
-        inline std::string Producer::ErrorCodeToString (const int64_t& a_code) const
+        inline const char* const Producer::ErrorCodeToString (const int64_t& a_code) const
         {
             switch (a_code) {
                 case BS_STATUS_FAIL:          // -1
@@ -95,7 +95,7 @@ namespace ev
                 case BS_STATUS_NOT_IGNORED:   // -9
                     return "BS_STATUS_NOT_IGNORED";
                 default:
-                    return "BS_STATUS_???: " + std::to_string(a_code);
+                    return "BS_STATUS_???";
             }
         }
     

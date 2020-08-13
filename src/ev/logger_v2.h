@@ -176,8 +176,10 @@ namespace ev
                 return tokens_.end() != tokens_.find(a_token);
             }
             
-            void Set   (const LoggableFlags& a_flag);
-            void Unset (const LoggableFlags& a_flag);
+            void                 Reset (const LoggableFlags& a_flag);
+            void                 Set   (const LoggableFlags& a_flag);
+            void                 Unset (const LoggableFlags& a_flag);
+            const LoggableFlags& flags () const;
                       
         }; // end of class 'Client'
                 
@@ -447,9 +449,19 @@ namespace ev
     DEFINE_ENUM_WITH_BITWISE_OPERATORS(LoggerV2::Client::LoggableFlags);
 
     /**
+     * @brief Reset the loggable flag value.
+     *
+     * @param a_flag Initial value of \link LoggableFlags \link.
+     */
+    inline void LoggerV2::Client::Reset (const LoggerV2::Client::LoggableFlags& a_flag)
+    {
+        prefix_format_flags_ = a_flag;
+    }
+
+    /**
      * @brief Set a loggable flag.
      *
-     * @param a_flag One of \link LoggableFlags \link.
+     * @param a_flag \link LoggableFlags \link.
      */
     inline void LoggerV2::Client::Set (const LoggerV2::Client::LoggableFlags& a_flag)
     {
@@ -459,11 +471,19 @@ namespace ev
     /**
      * @brief Clear a loggable flag.
      *
-     * @param a_flag One of \link LoggableFlags \link.
+     * @param a_flag \link LoggableFlags \link.
      */
     inline void LoggerV2::Client::Unset (const LoggerV2::Client::LoggableFlags& a_flag)
     {
         prefix_format_flags_ &= ~(a_flag);
+    }
+
+    /**
+     * @return R/O access to flags.
+     */
+    inline const LoggerV2::Client::LoggableFlags& LoggerV2::Client::flags () const
+    {
+        return prefix_format_flags_;
     }
         
 } // end of namespace 'ev'

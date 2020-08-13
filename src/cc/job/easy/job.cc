@@ -68,7 +68,9 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
     
     std::string uri_;
     
-    CC_DEBUG_LOG_TRACE("job", "Job #" INT64_FMT " ~> request:\n%s", ID(), a_payload.toStyledString().c_str());
+    CC_DEBUG_LOG_MSG("job", "Job #" INT64_FMT " ~> request:\n%s",
+                     ID(), a_payload.toStyledString().c_str()
+    );
     
     try {
 
@@ -124,26 +126,24 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
         return;
     }
     
-    const std::string response_str = json_styled_writer_.write(job_response);
-    
-    // ... for logging proposes ...
-    if ( true == HasErrorsSet() ) {
-        // ... log data ...
-        EV_LOOP_BEANSTALK_JOB_LOG("error",
-                                  "payload:%s", json_writer_.write(a_payload).c_str()
-        );
-        EV_LOOP_BEANSTALK_JOB_LOG("error",
-                                  "response:%s", response_str.c_str()
-        );
-    }
+    // ... log ...
+    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("RESPONSE", "%s", json_writer_.write(job_response).c_str());
                         
     // ... publish result ...
     Finished(job_response ,
-            [this, &job_response , &response_str]() {
-                CC_DEBUG_LOG_TRACE("job", "Job #" INT64_FMT " ~> response:\n%s", ID(), response_str.c_str());
+            [this, &job_response]() {
+                // ... log ...
+                CC_DEBUG_LOG_MSG("job", "Job #" INT64_FMT " ~> response:\n%s",
+                                 ID(), json_styled_writer_.write(job_response).c_str()
+                );
             },
             [this](const ev::Exception& a_ev_exception){
-                CC_DEBUG_LOG_TRACE("job", "Job #" INT64_FMT " ~> exception: %s", ID(), a_ev_exception.what());
+                // ... log ...
+                EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("EXCEPTION", "%s", a_ev_exception.what());
+                // ... for debug proposes only ...
+                CC_DEBUG_LOG_TRACE("job", "Job #" INT64_FMT " ~> exception: %s",
+                                   ID(), a_ev_exception.what()
+                );
                 (void)(a_ev_exception);
             }
     );
@@ -154,12 +154,16 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
     //     'Logging'       //
     //                     //
     if ( true == WasCancelled() || true == AlreadyRan() ) {
+        // ... log ...
         EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("STATUS", "%s", WasCancelled() ? "CANCELLED" : "ALREADY RAN");
+        // ... notify ...
         a_cancelled_callback(AlreadyRan());
     } else {
+        // ... log ...
         EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("STATUS", "%s",
                                         job_response ["status"].asCString()
         );
+        // ... notify ...
         a_completed_callback("", false == HasErrorsSet(), run_response.code_);
     }
 }

@@ -44,4 +44,6 @@
     function \
     _Pragma("clang diagnostic pop")\
 
+#define CC_ASSERT(a_condition) assert(a_condition)
+
 #endif // NRS_CC_MACROS_H_

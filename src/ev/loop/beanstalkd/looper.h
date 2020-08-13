@@ -80,11 +80,33 @@ namespace ev
                 
                 Polling polling_;
                 
+            public: // Data Type(s)
+                
+                typedef std::function<void(const std::string&)> IdleCallback;
+                
             private: // Threading
                 
+                typedef struct _IdleCallbackData {
+                    
+                    const std::string                     id_;
+                    const size_t                          timeout_;
+                    bool                                  recurrent_;
+                    IdleCallback                          function_;
+                    std::chrono::steady_clock::time_point end_tp_;
+            
+                } IdleCallbackData;
+                
+                struct IdleCallbackComparator{
+                    bool operator()(const IdleCallbackData* a_lhs, const IdleCallbackData* a_rhs)
+                    {
+                        return a_lhs->end_tp_ > a_rhs->end_tp_;
+                    }
+                };
+                
                 typedef struct {
-                    std::mutex                        mutex_;
-                    std::queue<std::function<void()>> queue_;
+                    std::mutex                                                                                     mutex_;
+                    std::priority_queue<IdleCallbackData*, std::vector<IdleCallbackData*>, IdleCallbackComparator> queue_;
+                    std::set<std::string>                                                                          cancelled_;
                 } Callbacks;
                 
                 Callbacks idle_callbacks_;
@@ -98,10 +120,15 @@ namespace ev
                 
             public: // Method(s) / Function(s)
                 
-                void Run (const ::ev::beanstalk::Config& a_beanstakd_config, const std::string& a_output_directory,
+                void Run (const ::ev::beanstalk::Config& a_beanstakd_config,
+                          const std::string& a_output_directory, const std::string& a_logs_directory,
                           volatile bool& a_aborted);
                 
-                void AppendCallback (std::function<void()> a_callback);
+                void AppendCallback (const std::string& a_id, IdleCallback a_callback,
+                                     const size_t a_timeout = 0, const bool a_recurrent = false);
+                
+                void RemoveCallback (const std::string& a_id);
+                
                 
                 void SetPollingTimeout (const float& a_millseconds);
                 

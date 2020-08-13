@@ -48,7 +48,7 @@ ev::loop::beanstalkd::Looper::Looper (const ev::Loggable::Data& a_loggable_data,
     beanstalk_ = nullptr;
     job_ptr_   = nullptr;
     EV_LOOP_BEANSTALK_IF_LOG_ENABLED({
-        ev::LoggerV2::GetInstance().Register(logger_client_, { "queue", "stats" });
+        ev::LoggerV2::GetInstance().Register(logger_client_, { "queue" });
     });
     polling_.timeout_ = -1.0;
     polling_.set_     = false;
@@ -66,6 +66,10 @@ ev::loop::beanstalkd::Looper::~Looper ()
         delete it.second;
     }
     job_ptr_ = nullptr;
+    while ( idle_callbacks_.queue_.size() > 0 ) {
+        delete idle_callbacks_.queue_.top();
+    }
+    idle_callbacks_.cancelled_.clear();
 }
 
 /**
@@ -73,9 +77,11 @@ ev::loop::beanstalkd::Looper::~Looper ()
  *
  * @param a_beanstakd_config
  * @param a_output_directory
+ * @param a_logs_directory
  * @param a_aborted
  */
-void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beanstakd_config, const std::string& a_output_directory,
+void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beanstakd_config,
+                                        const std::string& a_output_directory, const std::string& a_logs_directory,
                                         volatile bool& a_aborted)
 {   
     Beanstalk::Job job;
@@ -151,6 +157,8 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
             }
             // ... next job ...
             continue;
+        } else {
+            Idle(/* a_fake */ true);
         }
         
         loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
@@ -198,7 +206,7 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
            });
             
             cache_[tube] = job_ptr_;
-            job_ptr_->Setup(&callbacks_, a_output_directory);
+            job_ptr_->Setup(&callbacks_, a_output_directory, a_logs_directory);
         } else {
             job_ptr_ = cached_it->second;
         }
@@ -331,13 +339,33 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
 /**
  * @brief Append a function to be called when loop is free.
  *
- * @param a_callback
+ * @param a_id        Callback ID.
+ * @param a_callback  Function to call.
+ * @param a_timeout   Timeout in milliseconds.
+ * @param a_recurrent When true end_tp_ will be reset after callback.
  */
-void ev::loop::beanstalkd::Looper::AppendCallback (std::function<void()> a_callback)
+void ev::loop::beanstalkd::Looper::AppendCallback (const std::string& a_id, Looper::IdleCallback a_callback,
+                                                   const size_t a_timeout, const bool a_recurrent)
 {
     std::lock_guard<std::mutex>(idle_callbacks_.mutex_);
-    
-    idle_callbacks_.queue_.push(a_callback);
+    idle_callbacks_.queue_.push(new Looper::IdleCallbackData ({
+        /* a_id       */ a_id,
+        /* timeout_   */ a_timeout,
+        /* recurrent_ */ a_recurrent,
+        /* function_  */ a_callback,
+        /* end_tp_    */ std::chrono::steady_clock::now() + std::chrono::milliseconds(a_timeout)
+    }));
+}
+
+/**
+ * @brief Remove a callback,
+ *
+ * @param a_id Callback ID.
+ */
+void ev::loop::beanstalkd::Looper::RemoveCallback (const std::string& a_id)
+{
+    std::lock_guard<std::mutex>(idle_callbacks_.mutex_);
+    idle_callbacks_.cancelled_.insert(a_id);
 }
 
 /**
@@ -345,15 +373,59 @@ void ev::loop::beanstalkd::Looper::AppendCallback (std::function<void()> a_callb
  *
  * @param a_fake True when it's not a real idle moment.
 */
-void ev::loop::beanstalkd::Looper::Idle (const bool /* a_fake */)
+void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
 {
     // ... lock, perform and 'dequeue' pending callbacks ...
     std::lock_guard<std::mutex>(idle_callbacks_.mutex_);
+    
     try {
+        // ... nothing to do?
+        if ( 0 == idle_callbacks_.queue_.size() ) {
+            // ... ⚠️ since we're only expecting to cancel previously registered callbacks ...
+            // ... and we're under a mutex, we can safely forget all cancellations ...
+            idle_callbacks_.cancelled_.clear();
+            // ... we're done ...
+            return;
+        }
+        // ... process as many as we can ...
+        const auto   start         = std::chrono::steady_clock::now();
+        const size_t exec_timeout = ( a_fake ? 100 : 50 );
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
         while ( idle_callbacks_.queue_.size() > 0 ) {
-            auto callback = std::move(idle_callbacks_.queue_.front());
-            idle_callbacks_.queue_.pop();
-            callback();
+            // ... pick next callback ...
+            auto callback = idle_callbacks_.queue_.top();
+            // ... check if it was cancelled ...
+            const auto it = idle_callbacks_.cancelled_.find(callback->id_);
+            if ( idle_callbacks_.cancelled_.end() != it ) {
+                // ... no, forget it ( it doesn't matter if it's a recurrent or not ) ...
+                idle_callbacks_.queue_.pop();
+                delete callback;
+                // ... foreget cancellation order ...
+                idle_callbacks_.cancelled_.erase(it);
+            } else {
+                // ... we're done ..
+                if ( callback->end_tp_ > start ) {
+                    // ... because any other callback in queue has lower prority ...
+                    break;
+                }
+                // ... perform it ...
+                callback->function_(callback->id_);
+                // ... recurrent?
+                if ( true == callback->recurrent_ ) {
+                    // ... yes, reschedule it ...
+                    callback->end_tp_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(callback->timeout_);
+                } else {
+                    // ... no, forget it ...
+                    idle_callbacks_.queue_.pop();
+                    delete callback;
+                }
+            }
+            // ... check if we've time for more ...
+            elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+            if ( elapsed >= exec_timeout ) {
+                // ... we don't ...
+                break;
+            }
         }
     } catch (...) {
         // ... write to permanent log ...
