@@ -256,7 +256,7 @@ namespace ev
                 typedef std::function<void(const std::string& a_id, std::function<void(const std::string&)> a_callback, const size_t a_deferred, const bool a_recurrent)> DispatchOnThreadDeferred;
                 typedef std::function<void(const std::string& a_id)>                                                                                                      CancelDispatchOnThread;
                 typedef std::function<void(const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr)>                                               PushJobCallback;
-                
+                                
                 typedef struct {
                     FatalExceptionCallback   on_fatal_exception_;
                     DispatchOnThread         on_main_thread_;
@@ -308,8 +308,8 @@ namespace ev
                 
             private: // Data
                 
-                int64_t                   id_;
-                std::string               channel_;
+                int64_t                   bjid_;                //!< BEANSTALKD job id.
+                std::string               rjnr_;                //!< REDIS job id.
                 int64_t                   validity_;
                 bool                      transient_;
                 ProgressReport            progress_report_;
@@ -358,7 +358,11 @@ namespace ev
                 
             protected: // callbacks
                 
-                std::function<void(const char* const a_tube, const char* const a_key, const std::string& a_value)> owner_log_callback_;
+                typedef std::function<void(const char* const, const char* const, const std::string&)> OwnerLogCallback;
+                typedef std::function<void(const uint64_t&, const std::string&, const Json::Value&)>  SignalsChannelListerer;
+
+                SignalsChannelListerer signals_channel_listener_;
+                OwnerLogCallback       owner_log_callback_;
 
             public: // Constructor(s) / Destructor
                 
@@ -377,13 +381,14 @@ namespace ev
                 void Consume (const int64_t& a_id, const Json::Value& a_payload,
                               const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback, const DeferredCallback& a_deferred_callback);
 
-            public: // Other API Virtual Method(s) / Function(s)
+            public: // Callbacks / Listeners -  Method(s) / Function(s)
                     
-                void SetOwnerLogCallback (std::function<void(const char* const a_tube, const char* const a_key, const std::string& a_value)> a_callback);
+                void SetOwnerLogCallback       (OwnerLogCallback a_callback);
+                void SetSignalsChannelListerer (SignalsChannelListerer a_listener);
 
             protected: // Optional Virtual Method(s) / Function(s)
                 
-                virtual void Setup () { };
+                virtual void Setup () { }
 
             protected: // Pure Virtual Method(s) / Function(s)
 
@@ -414,7 +419,6 @@ namespace ev
                 
                 void Publish           (const Progress& a_progress);
                 void Publish           (const std::vector<ev::loop::beanstalkd::Job::Progress>& a_progress);
-                void Broadcast         (const Status a_status);
                 void Finished          (const Json::Value& a_response,
                                         const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback);
 
@@ -422,6 +426,9 @@ namespace ev
                 void Finished          (const uint64_t& a_id, const std::string& a_fq_channel, const Json::Value& a_response,
                                         const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback);
                 void Broadcast         (const uint64_t& a_id, const std::string& a_fq_channel, const Status a_status);
+                
+                void Cancel            (const uint64_t& a_id, const std::string& a_fq_channel,
+                                        const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr);
 
                 bool  WasCancelled      () const;
                 bool  AlreadyRan        () const;
@@ -517,7 +524,10 @@ namespace ev
             protected: //
                 
                 ev::scheduler::Task*                             NewTask                (const EV_TASK_PARAMS& a_callback);
-                EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK JobSignalsDataCallback (const std::string& a_name, const std::string& a_message);
+
+            private: // ::ev::redis::Subscriptions Callbacks
+
+                EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK OnSignalsChannelMessageReceived (const std::string& a_id, const std::string& a_message);
                 
             private: // from ::ev::redis::Subscriptions::Manager::Client
                 
@@ -530,7 +540,7 @@ namespace ev
              */
             inline int64_t Job::ID () const
             {
-                return id_;
+                return bjid_;
             }            
 
             /**
@@ -644,12 +654,17 @@ namespace ev
                 }
             
             }
-        
-            inline void Job::SetOwnerLogCallback (std::function<void(const char* const a_tube, const char* const a_key, const std::string& a_value)> a_callback)
+
+            inline void Job::SetSignalsChannelListerer (Job::SignalsChannelListerer a_listener)
+            {
+                signals_channel_listener_ = a_listener;
+            }
+
+            inline void Job::SetOwnerLogCallback (Job::OwnerLogCallback a_callback)
             {
                 owner_log_callback_ = a_callback;
             }
-            
+
         } // end of namespace 'beanstalkd'
         
     } // end of namespace 'loop'

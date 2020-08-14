@@ -93,7 +93,7 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
      }
     
     // ... was job cancelled?
-    if ( true == WasCancelled() ) {
+    if ( true == WasCancelled() && false == Deferred() ) { // deferred jobs just must handle with cancellation themselves ...
         // ... yes, publish notification ...
         Publish({
             /* key_    */ nullptr,
@@ -115,7 +115,7 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
     }
     
     // ... check if we should finalize now ...
-    if ( not ( true == HasErrorsSet() ||  true == WasCancelled() || true == AlreadyRan() ) && true == Deferred() ) {
+    if ( not ( true == HasErrorsSet() || true == AlreadyRan() ) && true == Deferred() ) {
         // ... log ...
         EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("STATUS", "%s",
                                         "DEFERRED"

@@ -47,7 +47,7 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
     default_validity_(3600),
     json_api_(loggable_data_, /* a_enable_task_cancellation */ false)
 {
-    id_                              = 0;
+    bjid_                            = 0;
     validity_                        = -1;
     transient_                       = config_.transient();
     progress_report_.timeout_in_sec_ = config_.min_progress();
@@ -77,7 +77,8 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
     start_tp_      = std::chrono::steady_clock::time_point::min();
     end_tp_        = std::chrono::steady_clock::time_point::min();
     
-    owner_log_callback_ = nullptr;
+    signals_channel_listener_ = nullptr;
+    owner_log_callback_       = nullptr;
     
     ev::LoggerV2::GetInstance().Register(logger_client_, { "queue" });
 }
@@ -125,7 +126,7 @@ void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callba
                                                                                  return nullptr;
                                                                              },
                                                                              /* a_data_callback */
-                                                                             std::bind(&ev::loop::beanstalkd::Job::JobSignalsDataCallback, this, std::placeholders::_1, std::placeholders::_2),
+                                                                             std::bind(&ev::loop::beanstalkd::Job::OnSignalsChannelMessageReceived, this, std::placeholders::_1, std::placeholders::_2),
                                                                              /* a_client */
                                                                              this
         );
@@ -153,7 +154,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     //
     // JOB Configuration - ID is mandatory
     //
-    const Json::Value redis_channel = a_payload.get("id", Json::nullValue); // id: a.k.a. redis <beanstalkd_tube_name>:<redis_job_id>
+    const Json::Value redis_channel = a_payload.get("id", Json::nullValue); // id: a.k.a. REDIS JOB ID ( numeric id )
     if ( true == redis_channel.isNull() || false == redis_channel.isString() ||  0 == redis_channel.asString().length() ) {
         throw ev::Exception("Missing or invalid 'id' object!");
     }
@@ -161,8 +162,8 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     //
     // RESET 'job' variables
     //
-    id_                              = a_id; // beanstalkd number id
-    channel_                         = redis_channel.asString();
+    bjid_                            = a_id; // beanstalkd number id
+    rjnr_                            = redis_channel.asString(); // <name>:<redis numeric id>
     validity_                        = a_payload.get("validity" , default_validity_).asInt64();
     transient_                       = a_payload.get("transient", config_.transient()).asBool();
     progress_report_.timeout_in_sec_ = a_payload.get("min_progress", config_.min_progress()).asInt();
@@ -189,7 +190,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     //
     // Configure Log
     //
-    loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), tube_ + ':' + channel_);
+    loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), tube_ + ':' + rjnr_);
     
     //
     // Check for job cancellation
@@ -214,12 +215,12 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("PAYLOAD", "%s", json_writer_.write(a_payload).c_str());
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("TUBE"   , "%s", tube_.c_str());
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ID"     , "%s", a_payload.get("id"  , "???").asCString());
-    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("CHANNEL", "%s", ( redis_channel_prefix_ + channel_ ).c_str());
-    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("KEY"    , "%s", ( redis_key_prefix_     + channel_ ).c_str());
+    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("CHANNEL", "%s", ( redis_channel_prefix_ + rjnr_ ).c_str());
+    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("KEY"    , "%s", ( redis_key_prefix_     + rjnr_ ).c_str());
 
     // ... first check if job as cancelled ...
     if ( true == ShouldCancel() ) {
-        // ... notify ...
+        // ... notify caller ...
         cancelled_callback(already_ran_);
     } else {
         // ... execute job ...
@@ -233,7 +234,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("DONE", "" UINT64_FMT "ms", static_cast<uint64_t>(elapsed));
 
     // ... prevent from REDIS cancellation messages to be logged ...
-    channel_  = "";
+    rjnr_  = "";
 }
 
 #ifdef __APPLE__
@@ -402,16 +403,6 @@ void ev::loop::beanstalkd::Job::AppendError (const char* const a_type, const std
 }
 
 /**
- * @brief Publish a 'status' message to 'job-signals' channel.
- *
- * @param a_status
- */
-void ev::loop::beanstalkd::Job::Broadcast (const ev::loop::beanstalkd::Job::Status a_status)
-{
-    Broadcast(id_, channel_, a_status);
-}
-
-/**
  * @brief Publish a response to the job channel and a 'job finished' message to 'job-signals' channel.
  *
  * @param a_response
@@ -420,8 +411,12 @@ void ev::loop::beanstalkd::Job::Broadcast (const ev::loop::beanstalkd::Job::Stat
  */
 void ev::loop::beanstalkd::Job::Finished (const Json::Value& a_response,
                                           const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
-{
-    Finished(id_, ( redis_channel_prefix_ + channel_ ), a_response, a_success_callback, a_failure_callback);
+{    
+    uint64_t rjnr = 0;
+    if ( 1 != sscanf(rjnr_.c_str(), UINT64_FMT, &rjnr) ) {
+        throw ::ev::Exception("Unable to extract numeric ID from string '%s'!", rjnr_.c_str());
+    }
+    Finished(rjnr, ( redis_channel_prefix_ + rjnr_ ), a_response, a_success_callback, a_failure_callback);
 }
 
 /**
@@ -442,6 +437,7 @@ void ev::loop::beanstalkd::Job::Relay (const uint64_t& a_id, const std::string& 
 /**
  * @brief Publish a response to a specific channel and a 'job finished' message to 'job-signals' channel.
  *
+ * @param a_id
  * @param a_fq_channel
  * @param a_response
  * @param a_success_callback
@@ -487,6 +483,85 @@ void ev::loop::beanstalkd::Job::Broadcast (const uint64_t& a_id, const std::stri
     Publish(a_id, redis_signal_channel_, progress_);
 }
 
+/**
+ * @brief Publish a 'cancelled' message to 'job-signals' channel for a specific job channel.
+ *
+ * @param a_id                BEANSTALKD job ID.
+ * @param a_fq_channel        REDIS fully qualifiled channel ( <tube>:<id> ).
+ * @param a_failure_callback
+ */
+void ev::loop::beanstalkd::Job::Cancel (const uint64_t& a_id, const std::string& a_fq_channel,
+                                        const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
+{
+    osal::ConditionVariable cv;
+    
+    ::ev::Exception* exception = nullptr;
+    
+    ExecuteOnMainThread([this, &a_id, &a_fq_channel, &cv, &exception] () {
+        NewTask([this, &a_fq_channel] () -> ::ev::Object* {
+                        
+            // ... save cancellation flag ...
+            return new ::ev::redis::Request(loggable_data_, "HSET", {
+                      /* key   */ a_fq_channel,
+                      /* field */ "cancelled", "true"
+            });
+        })->Then([this, &a_id, &a_fq_channel] (::ev::Object* a_object) -> ::ev::Object* {
+            //
+            // HSET:
+            //
+            // - Integer reply is expected:
+            //
+            //  - 1 if field is a new field in the hash and value was set.
+            //  - 0 if field already exists in the hash and the value was updated.
+            //
+            (void)ev::redis::Reply::EnsureIntegerReply(a_object);
+            // ... broadcast message ...
+            return new ::ev::redis::Request(loggable_data_, "PUBLISH", {
+                /* channel */ redis_signal_channel_,
+                /* message */ "{\"id\":" + std::to_string(a_id) + ",\"status\":\"cancelled\",\"channel\":\"" + a_fq_channel + "\"}"
+            });
+        })->Finally([this, &cv] (::ev::Object* a_object) {
+            //
+            // PUBLISH:
+            //
+            // - Integer reply is expected:
+            //
+            //  - the number of clients that received the message.
+            //
+            (void)ev::redis::Reply::EnsureIntegerReply(a_object);
+            // ... WAKE from REDIS operations ...
+            cv.Wake();
+        })->Catch([this, &cv, &exception] (const ::ev::Exception& a_ev_exception) {
+            // ... copy exception ...
+            exception = new ::ev::Exception(a_ev_exception);
+            // ... WAKE from REDIS operations ...
+            cv.Wake();
+        });
+    }, /* a_blocking */ false);
+
+    // ... WAIT until REDIS operations are completed ...
+    cv.Wait();
+    
+    // ... an exception ocurred?
+    if ( nullptr != exception ) {
+        // ... notify?
+        if ( nullptr != a_failure_callback ) {
+            // ... copy ...
+            const ::ev::Exception copy = ::ev::Exception(*exception);
+            // ... release it ...
+            delete exception;
+            // ... notify ...
+            a_failure_callback(copy);
+        } else {
+            // ... log it ...
+            EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ERROR", "CANCEL FAILED: %s",
+                                            exception->what()
+            );
+            // ... release it ...
+            delete exception;
+        }
+    }
+}
 
 /**
  * @brief Publish a 'progress' message.
@@ -570,41 +645,60 @@ void ev::loop::beanstalkd::Job::Publish (const uint64_t& /* a_id */, const std::
     const std::string redis_message = json_writer_.write(a_object);
 
     osal::ConditionVariable cv;
+    ev::Exception*          exception = nullptr;
 
-    ExecuteOnMainThread([this, &a_fq_channel, &a_success_callback, &a_failure_callback, &cv, &redis_message] {
+    ExecuteOnMainThread([this, &a_fq_channel, &cv, &redis_message, &exception] {
 
         NewTask([this, &a_fq_channel, &redis_message] () -> ::ev::Object* {
-
+            // ... broadcast message ...
             return new ev::redis::Request(loggable_data_,
                                           "PUBLISH", { a_fq_channel, redis_message }
             );
-
-        })->Finally([&cv, a_success_callback] (::ev::Object* a_object) {
-
-            // ... an integer reply is expected ...
+        })->Finally([&cv, &exception] (::ev::Object* a_object) {
+            //
+            // PUBLISH:
+            //
+            // - Integer reply is expected:
+            //
+            //  - the number of clients that received the message.
+            //
             ev::redis::Reply::EnsureIntegerReply(a_object);
-
-            // ... notify ...
-            if ( nullptr != a_success_callback ) {
-                a_success_callback();
-            }
-
+            // ... WAKE from REDIS operations ...
             cv.Wake();
-
-        })->Catch([&cv, a_failure_callback] (const ::ev::Exception& a_ev_exception) {
-
-            // ... notify ...
-            if ( nullptr != a_failure_callback ) {
-                a_failure_callback(a_ev_exception);
-            }
-
+        })->Catch([&cv, &exception] (const ::ev::Exception& a_ev_exception) {
+            // ... copy exception ...
+            exception = new ev::Exception(a_ev_exception);
+            // ... WAKE from REDIS operations ...
             cv.Wake();
-
         });
 
     }, /* a_blocking */ false);
 
+    // ... WAIT until REDIS operations are completed ...
     cv.Wait();
+    
+    // ... an exception ocurred?
+    if ( nullptr != exception ) {
+        // ... notify?
+        if ( nullptr != a_failure_callback ) {
+            // ... copy ...
+            const ::ev::Exception copy = ::ev::Exception(*exception);
+            // ... release it ...
+            delete exception;
+            // ... notify ...
+            a_failure_callback(copy);
+        } else {
+            // ... log it ...
+            EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ERROR", "PUBLISH FAILED: %s",
+                                            exception->what()
+            );
+            // ... release it ...
+            delete exception;
+        }
+    } else if ( nullptr != a_success_callback ) {
+        // ... notify ...
+        a_success_callback();
+    }
 }
 
 /**
@@ -621,15 +715,16 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
                                          const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
 {
     osal::ConditionVariable cv;
+    ev::Exception*          exception = nullptr;
 
-    const std::string redis_channel = redis_channel_prefix_ + channel_;
-    const std::string redis_key     = redis_key_prefix_     + channel_;
+    const std::string redis_channel = ( redis_channel_prefix_ + rjnr_ );
+    const std::string redis_key     = ( redis_key_prefix_     + rjnr_ );
     const std::string redis_message = json_writer_.write(a_object);
 
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("PUBLISH", "%s", redis_message.c_str());
     
-    ExecuteOnMainThread([this, a_success_callback, a_failure_callback, &cv, &redis_channel, &redis_key, &redis_message] {
-
+    ExecuteOnMainThread([this, &cv, &redis_channel, &redis_key, &redis_message, &exception] {
+        // ... srtart by publishing a message ....
         ev::scheduler::Task* t = NewTask([this, &redis_channel, redis_message] () -> ::ev::Object* {
 
             return new ev::redis::Request(loggable_data_,
@@ -637,14 +732,12 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
             );
 
         });
-
+        // ... and if NOT transient ...
         if ( false == transient_ ) {
-
+            // ... ser a permantent key ...
             t->Then([this, redis_key, redis_message] (::ev::Object* a_object) -> ::ev::Object* {
-
                 // ... an integer reply is expected ...
                 ev::redis::Reply::EnsureIntegerReply(a_object);
-
                 // ... make it permanent ...
                 return new ev::redis::Request(loggable_data_,
                                               "HSET",
@@ -653,25 +746,20 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
                                                   /* field */ "status", redis_message
                                               }
                 );
-
             });
-
+            // ... set expiration ...
             if ( -1 != validity_ ) {
-
+                // ... if acceptable ...
                 if ( validity_ > 0 ) {
-
+                    // ... set expiration ...
                     t->Then([this, redis_key] (::ev::Object* a_object) -> ::ev::Object* {
-
                         // ... a string 'OK' is expected ...
                         ev::redis::Reply::EnsureIntegerReply(a_object);
-
                         // ... set expiration date ...
                         return new ::ev::redis::Request(loggable_data_,
                                                         "EXPIRE", { redis_key, std::to_string(validity_) }
                         );
-
-                    })->Finally([&cv, a_success_callback] (::ev::Object* a_object) {
-
+                    })->Finally([&cv] (::ev::Object* a_object) {
                         //
                         // EXPIRE:
                         //
@@ -680,91 +768,70 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
                         // - 0 if key does not exist or the timeout could not be set.
                         //
                         ev::redis::Reply::EnsureIntegerReply(a_object, 1);
-
-                        // ... notify ...
-                        if ( nullptr != a_success_callback ) {
-                            a_success_callback();
-                        }
-
+                        // ... WAKE from REDIS operations ...
                         cv.Wake();
-
                     });
-
                 } else {
-
-                    t->Finally([&cv, a_success_callback] (::ev::Object* a_object) {
-
+                    // ... no expiration is required ....
+                    t->Finally([&cv] (::ev::Object* a_object) {
                         // ... a string 'OK' is expected ...
                         ev::redis::Reply::EnsureIsStatusReply(a_object, "OK");
-
-                        // ... notify ...
-                        if ( nullptr != a_success_callback ) {
-                            a_success_callback();
-                        }
-
+                        // ... WAKE from REDIS operations ...
                         cv.Wake();
-
                     });
-
                 }
-
-
             } else {
-
-                // ... no validity set, validate 'SET' response ...
-                t->Finally([&cv, a_success_callback] (::ev::Object* a_object) {
-
+                // ... no expiration set, validate 'SET' response ...
+                t->Finally([&cv] (::ev::Object* a_object) {
                     // ... an integer reply is expected ...
                     ev::redis::Reply::EnsureIntegerReply(a_object);
-
-                    // ... notify ...
-                    if ( nullptr != a_success_callback ) {
-                        a_success_callback();
-                    }
-
+                    // ... WAKE from REDIS operations ...
                     cv.Wake();
-
                 });
-
             }
-
         } else {
-
             // ... transient, validate 'PUBLISH' response ...
-            t->Finally([&cv, a_success_callback] (::ev::Object* a_object) {
-
+            t->Finally([&cv] (::ev::Object* a_object) {
                 // ... an integer reply is expected ...
                 ev::redis::Reply::EnsureIntegerReply(a_object);
-
-                // ... notify ...
-                if ( nullptr != a_success_callback ) {
-                    a_success_callback();
-                }
-
+                // ... WAKE from REDIS operations ...
                 cv.Wake();
-
             });
-
         }
-
-        t->Catch([this, &cv, a_failure_callback] (const ::ev::Exception& a_ev_exception) {
-
-            EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ERROR", "PUBLISH FAILED: %s",
-                                            a_ev_exception.what()
-            );
-
-            // ... notify ...
-            if ( nullptr != a_failure_callback ) {
-                a_failure_callback(a_ev_exception);
-            }
-
+        // ... catch all exceptions ....
+        t->Catch([this, &cv, &exception] (const ::ev::Exception& a_ev_exception) {
+            // ... copy it ...
+            exception = new ev::Exception(a_ev_exception);
+            // ... WAKE from REDIS operations ...
             cv.Wake();
-
         });
-
     }, /* a_blocking */ false);
 
+    // ... WAIT until REDIS operations are completed ...
     cv.Wait();
+    
+    // ... an exception ocurred?
+    if ( nullptr != exception ) {
+        // ... notify?
+        if ( nullptr != a_failure_callback ) {
+            // ... copy ...
+            const ::ev::Exception copy = ::ev::Exception(*exception);
+            // ... release it ...
+            delete exception;
+            // ... notify ...
+            a_failure_callback(copy);
+        } else {
+            // ... log it ...
+            EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ERROR", "PUBLISH FAILED: %s",
+                                            exception->what()
+            );
+            // ... release it ...
+            delete exception;
+        }
+    } else if ( nullptr != a_success_callback ) {
+        // ... notify ...
+        a_success_callback();
+    }
 }
 
 
@@ -774,7 +841,7 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
 bool ev::loop::beanstalkd::Job::ShouldCancel ()
 {
     // ... first check cancellation flag ...
-    const std::string redis_key = redis_key_prefix_ + channel_;
+    const std::string redis_key = ( redis_key_prefix_ + rjnr_ );
     
     osal::ConditionVariable cancellation_cv;
     
@@ -805,7 +872,7 @@ bool ev::loop::beanstalkd::Job::ShouldCancel ()
             cancellation_cv.Wake();
             
         })->Catch([this, &cancellation_cv] (const ::ev::Exception& a_ev_exception) {
-            
+
             // ... log error ...
             EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ERROR", "HGET failed: %s",
                                             a_ev_exception.what()
@@ -849,7 +916,7 @@ bool ev::loop::beanstalkd::Job::PushFollowUpJobs ()
         const Json::Value& job   = entry["job"];
                 
         CC_DEBUG_LOG_MSG("job", "Job #" INT64_FMT " ~= submitting follow up job #" SIZET_FMT ":\n%s",
-                         id_, static_cast<size_t>(idx + 1), entry.toStyledString().c_str()
+                         ID(), static_cast<size_t>(idx + 1), entry.toStyledString().c_str()
         );
         
         SubmitFollowUpJob(static_cast<size_t>(idx + 1), job);
@@ -1520,29 +1587,40 @@ ev::scheduler::Task* ev::loop::beanstalkd::Job::NewTask (const EV_TASK_PARAMS& a
 #endif
 
 /**
- * @brief Called by REDIS subscriptions manager.
- *
- * @param a_name
- * @param a_message
- */
-EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK ev::loop::beanstalkd::Job::JobSignalsDataCallback (const std::string& a_name, const std::string& a_message)
+* @brief Called by REDIS subscriptions manager.
+*
+* @param a_id      REDIS channel id.
+* @param a_message Channel's message.
+*/
+EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK ev::loop::beanstalkd::Job::OnSignalsChannelMessageReceived (const std::string& a_name, const std::string& a_message)
 {
     ExecuteOnMainThread([this, a_name, a_message] () {
 
         Json::Value  object;
         Json::Reader reader;
         try {
+            // ... if message is a valid JSON ...
             if ( true == reader.parse(a_message, object, false) ) {
+                // ... and it has the 'id' and 'status' field set ...
                 if ( true ==  object.isMember("id") && true == object.isMember("status") ) {
-                    const Json::Value id = object.get("id", -1);
-                    if ( 0 == channel_.compare(std::to_string(static_cast<int64_t>(id.asInt64()))) ) {
-                        const Json::Value value = object.get("status", Json::Value::null);
-                        if ( true == value.isString() && 0 == strcasecmp(value.asCString(), "cancelled") ) {
+                    // ...grab fields ...
+                    const Json::Value& id     = object.get("id", -1);
+                    const Json::Value& status = object.get("status", Json::Value::null);
+                    // ... if it's for the current job ...
+                    if ( 0 == rjnr_.compare(std::to_string(static_cast<int64_t>(id.asInt64()))) ) {
+                        // ... and it was cancelled ...
+                        if ( true == status.isString() && 0 == strcasecmp(status.asCString(), "cancelled") ) {
+                            // ... log ...
                             EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("CANCELLED", "%s: %s",
                                                             a_name.c_str(), a_message.c_str()
                             );
+                            // ... and mark as cancelled ...
                             cancelled_ = true;
                         }
+                    }
+                    // ... notify listener?
+                    if ( nullptr != signals_channel_listener_ ) {
+                        signals_channel_listener_(id.asUInt64(), status.asString(), object);
                     }
                 }
             }
@@ -1554,6 +1632,11 @@ EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK ev::loop::beanstalkd::Job::JobS
 
     return nullptr;
 }
+
+#ifdef __APPLE__
+#pragma mark -
+#pragma mark [Private] - REDIS Callback
+#endif
 
 #ifdef __APPLE__
 #pragma mark -
