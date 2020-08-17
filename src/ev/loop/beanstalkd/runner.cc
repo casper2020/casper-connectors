@@ -495,7 +495,7 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
     ::ev::scheduler::Scheduler::GetInstance().Start(startup_config_->abbr_,
                                                     scheduler_socket_fn,
                                                     *bridge_,
-                                                    [this, &scheduler_cv]() {
+                                                    [&scheduler_cv]() {
                                                         scheduler_cv.Wake();
                                                     },
                                                     [this] (const ::ev::Object* a_object) -> ::ev::Device* {

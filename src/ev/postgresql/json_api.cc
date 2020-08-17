@@ -286,7 +286,7 @@ void ::ev::postgresql::JSONAPI::AsyncQuery (const ::ev::Loggable::Data& a_loggab
         (*o_query) = query;
     }
     
-    NewTask([this, query, a_loggable_data] () -> ::ev::Object* {
+    NewTask([query, a_loggable_data] () -> ::ev::Object* {
         
         return new ::ev::postgresql::Request(a_loggable_data, query);
         

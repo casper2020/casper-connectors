@@ -118,7 +118,7 @@ void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callba
     ExecuteOnMainThread([this, &cv] {
         ::ev::redis::subscriptions::Manager::GetInstance().SubscribeChannels({ redis_signal_channel_ },
                                                                              /* a_status_callback */
-                                                                             [this, &cv](const std::string& a_name_or_pattern,
+                                                                             [&cv](const std::string& a_name_or_pattern,
                                                                                          const ::ev::redis::subscriptions::Manager::Status& a_status) -> EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK {
                                                                                  if ( ::ev::redis::subscriptions::Manager::Status::Subscribed == a_status ) {
                                                                                      cv.Wake();
@@ -520,7 +520,7 @@ void ev::loop::beanstalkd::Job::Cancel (const uint64_t& a_id, const std::string&
                 /* channel */ redis_signal_channel_,
                 /* message */ "{\"id\":" + std::to_string(a_id) + ",\"status\":\"cancelled\",\"channel\":\"" + a_fq_channel + "\"}"
             });
-        })->Finally([this, &cv] (::ev::Object* a_object) {
+        })->Finally([&cv] (::ev::Object* a_object) {
             //
             // PUBLISH:
             //
@@ -531,7 +531,7 @@ void ev::loop::beanstalkd::Job::Cancel (const uint64_t& a_id, const std::string&
             (void)ev::redis::Reply::EnsureIntegerReply(a_object);
             // ... WAKE from REDIS operations ...
             cv.Wake();
-        })->Catch([this, &cv, &exception] (const ::ev::Exception& a_ev_exception) {
+        })->Catch([&cv, &exception] (const ::ev::Exception& a_ev_exception) {
             // ... copy exception ...
             exception = new ::ev::Exception(a_ev_exception);
             // ... WAKE from REDIS operations ...
@@ -654,7 +654,7 @@ void ev::loop::beanstalkd::Job::Publish (const uint64_t& /* a_id */, const std::
             return new ev::redis::Request(loggable_data_,
                                           "PUBLISH", { a_fq_channel, redis_message }
             );
-        })->Finally([&cv, &exception] (::ev::Object* a_object) {
+        })->Finally([&cv] (::ev::Object* a_object) {
             //
             // PUBLISH:
             //
@@ -799,7 +799,7 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
             });
         }
         // ... catch all exceptions ....
-        t->Catch([this, &cv, &exception] (const ::ev::Exception& a_ev_exception) {
+        t->Catch([&cv, &exception] (const ::ev::Exception& a_ev_exception) {
             // ... copy it ...
             exception = new ev::Exception(a_ev_exception);
             // ... WAKE from REDIS operations ...
@@ -1174,7 +1174,7 @@ void ev::loop::beanstalkd::Job::JSONAPIGet (const Json::Value& a_urn,
                       /* url */
                       url,
                       /* a_callback */
-                      [this, &o_code, &o_data, &o_query, &o_elapsed, &cv] (const char* /* a_uri */, const char* a_json, const char* /* a_error */, uint16_t a_status, uint64_t a_elapsed) {
+                      [&o_code, &o_data, &o_elapsed, &cv] (const char* /* a_uri */, const char* a_json, const char* /* a_error */, uint16_t a_status, uint64_t a_elapsed) {
                           o_code    = a_status;
                           o_data    = ( nullptr != a_json ? a_json : "" );
                           o_elapsed = a_elapsed;
@@ -1213,7 +1213,7 @@ void ev::loop::beanstalkd::Job::HTTPGet (const Json::Value& a_url,
     o_data = "";
     o_code = 500;
 
-    ExecuteOnMainThread([this, &cv, &o_url, &o_code, &o_data, &o_elapsed, &dlsp] {
+    ExecuteOnMainThread([this, &cv, &o_url, &o_code, &o_data] {
         
         http_.GET(
                   loggable_data_,
@@ -1222,13 +1222,13 @@ void ev::loop::beanstalkd::Job::HTTPGet (const Json::Value& a_url,
                   /* a_headers */
                   nullptr,
                   /* a_success_callback */
-                  [this, &o_code, &o_data, &o_elapsed, &cv](const ::ev::curl::Value& a_value) {
+                  [&o_code, &o_data, &cv](const ::ev::curl::Value& a_value) {
                       o_code    = a_value.code();
                       o_data    = a_value.body();
                       cv.Wake();
                   },
                   /* a_failure_callback */
-                  [this, &o_code, &o_data, &o_elapsed, &cv](const ::ev::Exception& a_exception) {
+                  [&o_code, &o_data, &cv](const ::ev::Exception& a_exception) {
                       o_code    = 500;
                       o_data    = a_exception.what();
                       cv.Wake();

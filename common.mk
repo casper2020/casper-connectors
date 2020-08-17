@@ -68,6 +68,11 @@ CONNECTORS_CC_LOGS_SRC := \
 CONNECTORS_CC_SYS_SRC := \
   $(PROJECT_SRC_DIR)/src/sys/process.cc
 
+ifeq (Darwin, $(PLATFORM))
+CONNECTORS_CC_SYS_SRC += \
+  $(PROJECT_SRC_DIR)/src/sys/bsd/process.cc
+endif
+
 CONNECTORS_CC_GLOBAL_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/global/initializer.cc
 
@@ -179,7 +184,6 @@ set-dependencies: $(CONNECTORS_DEPENDENCIES)
   endif
   ifeq (true, $(V8_DEP_ON))
     CONNECTORS_CC_SRC += $(CONNECTORS_CC_V8_SRC)
-    CONNECTORS_CC_SRC += $(CONNECTORS_CC_SYS_SRC)
   endif
   ifeq (true, $(EV_DEP_ON))
     CONNECTORS_EV_SRC += $(CONNECTORS_EV_LOOP_SRC)
@@ -189,4 +193,5 @@ set-dependencies: $(CONNECTORS_DEPENDENCIES)
     $(CONNECTORS_CC_SRC)        \
     $(CONNECTORS_CC_CRYPTO_SRC) \
     $(CONNECTORS_CC_HASH_SRC)   \
-    $(CONNECTORS_CC_AUTH_SRC)
+    $(CONNECTORS_CC_AUTH_SRC)   \
+    $(CONNECTORS_CC_SYS_SRC)
