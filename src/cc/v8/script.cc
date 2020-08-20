@@ -27,6 +27,8 @@
 
 #include "cc/utc_time.h"
 
+#include "json/json.h"
+
 /**
  * @brief Constructor.
  *
@@ -126,6 +128,36 @@ void cc::v8::Script::TranslateFromV8Value (::v8::Isolate* a_isolate, const ::v8:
             o_value = value->NumberValue(a_isolate->GetCurrentContext()).FromMaybe(0.0);
         } else {
             o_value = value->NumberValue(a_isolate->GetCurrentContext()).FromMaybe(0.0);
+        }
+    } else if ( true == value->IsObject() ) {
+        // TODO: check if there is better way to do this ...
+        // ... convert an object
+        ::v8::Local<::v8::String> local_string;
+        if ( false == ::v8::JSON::Stringify(a_isolate->GetCurrentContext(), value).ToLocal(&local_string) ) {
+            throw cc::v8::Exception("An error ocurred while translating a V8 object to a JSON object': %s!",
+                                    "can't convert to a 'local' string"
+            );
+        }
+        // ... parse it as JSON ...
+        const ::v8::String::Utf8Value& utf8_string = ::v8::String::Utf8Value(a_isolate, local_string);
+        try {
+            Json::Reader reader;            
+            Json::Value  value;
+            if ( false == reader.parse((*utf8_string), value) ) {
+                const auto errors = reader.getStructuredErrors();
+                if ( errors.size() > 0 ) {
+                    throw cc::v8::Exception("An error ocurred while translating a V8 object to a JSON object': %s!",
+                                            reader.getFormatedErrorMessages().c_str()
+                    );
+                } else {
+                    throw cc::v8::Exception("%s",
+                                            "An error ocurred while translating a V8 object to a JSON object!"
+                    );
+                }
+            }
+            o_value = value;
+        } catch (const Json::Exception& a_json_exception ) {
+            throw cc::v8::Exception("%s", a_json_exception.what());
         }
     } else { // true == value->IsNull() || true == value->IsUndefined() || ...
         o_value.SetNull();

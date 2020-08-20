@@ -70,6 +70,7 @@ namespace cc
                 Double,
                 String,
                 Boolean,
+                Object,
                 Null
             };
             
@@ -87,6 +88,7 @@ namespace cc
             ValueU       value_;
             std::string  string_;
             bool         set_;
+            Json::Value  object_;
             
         public: // Constructor(s) / Destructor
             
@@ -116,6 +118,8 @@ namespace cc
                     case Type::String:
                         string_ = a_value.string_;
                         break;
+                    case Type::Object:
+                        object_ = a_value.object_;
                     default:
                         set_  = false;
                         type_ = Type::Undefined;
@@ -171,6 +175,13 @@ namespace cc
                 string_ = a_value;
             }
             
+            Value (const Json::Value& a_value)
+            : term_type_(TermType::Undefined), type_(Type::Object)
+            {
+                set_    = true;
+                object_ = a_value;
+            }
+            
             virtual ~Value ()
             {
                 /* empty */
@@ -211,6 +222,11 @@ namespace cc
                         );
             }
             
+            inline bool IsObject () const
+            {
+                return ( true == IsSet() && Type::Object == type_ );
+            }
+            
             inline void operator = (const Value& a_value)
             {
                 set_  = a_value.set_;
@@ -230,6 +246,9 @@ namespace cc
                         break;
                     case Type::String:
                         string_ = a_value.string_;
+                        break;
+                    case Type::Object:
+                        object_ = a_value.object_;
                         break;
                     default:
                         set_  = false;
@@ -354,6 +373,22 @@ namespace cc
                 }
                 // TODO 2.0 v8 throw?
                 return false;
+            }
+            
+            inline void operator = (const Json::Value& a_value)
+            {
+                set_    = true;
+                object_ = a_value;
+                type_   = Type::Object;
+            }
+            
+            inline operator const Json::Value& () const
+            {
+                if ( Type::Object == type_ ) {
+                    return object_;
+                }
+                // TODO 2.0 v8 throw?
+                return Json::Value::null;
             }
             
             inline std::string AsString () const
