@@ -79,7 +79,11 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
         if ( 200 == run_response.code_ ) {
             SetCompletedResponse(run_response.payload_, job_response);
         } else {
-            SetFailedResponse(run_response.code_, job_response);
+            if ( false == run_response.payload_.isNull() ) {
+                SetFailedResponse(run_response.code_, run_response.payload_, job_response);
+            } else {
+                SetFailedResponse(run_response.code_, job_response);
+            }
         }
         
     } catch (const ::cc::Exception& a_cc_exception) {

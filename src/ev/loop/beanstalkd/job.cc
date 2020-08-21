@@ -30,6 +30,7 @@
 #include <fstream> // std::ifstream
 
 #include "cc/debug/types.h"
+#include "cc/macros.h"
 
 /**
  * @brief Default constructor.
@@ -112,7 +113,7 @@ void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callba
     
     callbacks_ptr_           = a_callbacks;
     output_directory_prefix_ = a_output_directory_prefix;
-    output_directory_        = a_output_directory_prefix;
+    output_directory_        = "";
     logs_directory_          = a_logs_directory;
 
     ExecuteOnMainThread([this, &cv] {
@@ -348,8 +349,10 @@ void ev::loop::beanstalkd::Job::SetFailedResponse (uint16_t a_code, const Json::
  *
  * @param a_payload
  * @param o_response
+ *
+ * @return HTTP status code.
  */
-void ev::loop::beanstalkd::Job::SetTimeoutResponse (const Json::Value& a_payload, Json::Value& o_response)
+uint16_t ev::loop::beanstalkd::Job::SetTimeoutResponse (const Json::Value& a_payload, Json::Value& o_response)
 {
     o_response                        = Json::Value(Json::ValueType::objectValue);
     o_response["action"]              = "response";
@@ -358,6 +361,67 @@ void ev::loop::beanstalkd::Job::SetTimeoutResponse (const Json::Value& a_payload
     o_response["response"]["success"] = false;
     o_response["status"]              = "failed";
     o_response["status_code"]         = 408;
+    return 408;
+}
+
+/**
+ * @brief Fill a 'not implemented' response ( 501 - Not Implemented ).
+ *
+ * @param a_payload
+ * @param o_response
+ *
+ * @return HTTP status code.
+ */
+uint16_t ev::loop::beanstalkd::Job::SetNotImplementedResponse (const Json::Value& a_payload, Json::Value& o_response)
+{
+    o_response                        = Json::Value(Json::ValueType::objectValue);
+    o_response["action"]              = "response";
+    o_response["content_type"]        = "application/json; charset=utf-8";
+    o_response["response"]            = a_payload;
+    o_response["response"]["success"] = false;
+    o_response["status"]              = "failed";
+    o_response["status_code"]         = 501;
+    return 501;
+}
+
+/**
+ * @brief Fill a 'bad request' response ( 400 - Bad Request ).
+ *
+ * @param a_why
+ * @param o_response
+ *
+ * @return HTTP status code.
+ */
+uint16_t ev::loop::beanstalkd::Job::SetBadRequestResponse (const std::string& a_why, Json::Value& o_response)
+{
+    CC_WARNING_TODO("CC-JOBS: a_why");
+    o_response                        = Json::Value(Json::ValueType::objectValue);
+    o_response["action"]              = "response";
+    o_response["content_type"]        = "application/json; charset=utf-8";
+    o_response["response"]["success"] = false;
+    o_response["status"]              = "failed";
+    o_response["status_code"]         = 400;
+    return 400;
+}
+
+/**
+ * @brief Fill a 'internal server error' response ( 500 - Internal Server Error ).
+ *
+ * @param a_why
+ * @param o_response
+ *
+ * @return HTTP status code.
+ */
+uint16_t ev::loop::beanstalkd::Job::SetInternalServerErrorResponse (const std::string& a_why, Json::Value& o_response)
+{
+    CC_WARNING_TODO("CC-JOBS: a_why");
+    o_response                        = Json::Value(Json::ValueType::objectValue);
+    o_response["action"]              = "response";
+    o_response["content_type"]        = "application/json; charset=utf-8";
+    o_response["response"]["success"] = false;
+    o_response["status"]              = "failed";
+    o_response["status_code"]         = 500;
+    return 500;
 }
 
 #ifdef __APPLE__
@@ -394,12 +458,11 @@ void ev::loop::beanstalkd::Job::AppendError (const Json::Value& a_error)
  */
 void ev::loop::beanstalkd::Job::AppendError (const char* const a_type, const std::string& a_why, const char *const a_where, const int a_code)
 {
-    Json::Value error_object = Json::Value(Json::ValueType::objectValue);
-    error_object["type"]     = a_type;
-    error_object["why"]      = a_why;
-    error_object["where"]    = a_where;
-    error_object["code"]     = a_code;
-    errors_array_.append(error_object);
+    Json::Value& object = errors_array_.append(Json::Value(Json::ValueType::objectValue));
+    object["type"]     = a_type;
+    object["why"]      = a_why;
+    object["where"]    = a_where;
+    object["code"]     = a_code;
 }
 
 /**
@@ -1194,52 +1257,100 @@ void ev::loop::beanstalkd::Job::JSONAPIGet (const Json::Value& a_urn,
 #endif
 
 /**
- * @brief Perform an HTTP request.
+ * @brief Perform an HTTP GET request.
  *
- * @param a_url
- * @param o_code
- * @param o_data
- * @param o_elapsed
- * @param o_url
+ * param a_url
+ * param a_headers
+ * param a_success_callback
+ * param a_failure_callback
  */
-void ev::loop::beanstalkd::Job::HTTPGet (const Json::Value& a_url,
-                                         uint16_t& o_code, std::string& o_data, uint64_t& o_elapsed, std::string& o_url)
+void ev::loop::beanstalkd::Job::HTTPGet (const std::string& a_url, const EV_CURL_HEADERS_MAP& a_headers,
+                                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
 {
-    osal::ConditionVariable cv;
-    
-    const auto dlsp = std::chrono::steady_clock::now();
-    
-    o_url  = a_url.asString();
-    o_data = "";
-    o_code = 500;
+    HTTPSyncExec([this, &a_url, &a_headers] (EV_CURL_HTTP_SUCCESS_CALLBACK a_a, EV_CURL_HTTP_FAILURE_CALLBACK a_b) {
+        http_.GET(
+                  loggable_data_,
+                  /* a_url */
+                  a_url,
+                  /* a_headers */
+                  &a_headers,
+                  /* a_success_callback */
+                  a_a,
+                  /* a_failure_callback */
+                  a_b
+        );
+    }, a_success_callback, a_failure_callback);
+}
 
-    ExecuteOnMainThread([this, &cv, &o_url, &o_code, &o_data] {
+
+/**
+ * @brief Perform an HTTP request and write the file to the temporary directory.
+ *
+ * param a_url
+ * param a_headers
+ * param a_validity
+ * param a_prefix
+ * param a_extension
+ * param a_success_callback
+ * param a_failure_callback
+ */
+void ev::loop::beanstalkd::Job::HTTPGetFile (const std::string& a_url, const EV_CURL_HEADERS_MAP& a_headers,
+                                             const uint64_t& a_validity, const std::string& a_prefix, const std::string& a_extension,
+                                             EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+{
+    std::string local_uri;
+    if ( osal::File::Status::EStatusOk != osal::File::UniqueFileName(EnsureOutputDir(a_validity), ( 0 != a_prefix.length() ? a_prefix : tube_ ), a_extension, local_uri) ) {
+        throw ::ev::Exception("%s",  "Unable to create an unique file name for the HTTP request response!");
+    }
+
+    HTTPSyncExec([this, &a_url, &a_headers, &local_uri] (EV_CURL_HTTP_SUCCESS_CALLBACK a_a, EV_CURL_HTTP_FAILURE_CALLBACK a_b) {
         
         http_.GET(
                   loggable_data_,
                   /* a_url */
-                  o_url,
+                  a_url,
                   /* a_headers */
-                  nullptr,
+                  &a_headers,
                   /* a_success_callback */
-                  [&o_code, &o_data, &cv](const ::ev::curl::Value& a_value) {
-                      o_code    = a_value.code();
-                      o_data    = a_value.body();
-                      cv.Wake();
-                  },
+                  a_a,
                   /* a_failure_callback */
-                  [&o_code, &o_data, &cv](const ::ev::Exception& a_exception) {
-                      o_code    = 500;
-                      o_data    = a_exception.what();
-                      cv.Wake();
-                  }
+                  a_b,
+                  /* o_uri */
+                  local_uri
         );
         
-    }, /* a_blocking */ false);
+    }, a_success_callback, a_failure_callback);
+}
 
-    o_elapsed = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - dlsp).count());
-
-    cv.Wait();
+/**
+ * @brief Perform an HTTP request and write the file to the temporary directory.
+ *
+ * param a_uri
+ * param a_url
+ * param a_headers
+ * param a_success_callback
+ * param a_failure_callback
+ */
+void ev::loop::beanstalkd::Job::HTTPPostFile (const std::string& a_uri, const std::string& a_url,
+                                              const EV_CURL_HEADERS_MAP& a_headers,
+                                              EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+{    
+    HTTPSyncExec([this, &a_uri, &a_url, &a_headers] (EV_CURL_HTTP_SUCCESS_CALLBACK a_a, EV_CURL_HTTP_FAILURE_CALLBACK a_b) {
+        
+        http_.POST(loggable_data_,
+                   /* a_uri */
+                   a_uri,
+                   /* a_url */
+                   a_url,
+                   /* a_headers */
+                   &a_headers,
+                   /* a_success_callback */
+                   a_a,
+                   /* a_failure_callback */
+                   a_b
+        );
+        
+    }, a_success_callback, a_failure_callback);
 }
 
 #ifdef __APPLE__
@@ -1562,6 +1673,23 @@ void ev::loop::beanstalkd::Job::ToJSON (const ev::postgresql::Value& a_value, Js
     }
 }
 
+/**
+ * @brief Serialize an cURL value to a JSON Object.
+ *
+ * @param a_valu  cURL value.
+ * @param o_value JSON object to fill.
+ */
+void ev::loop::beanstalkd::Job::ToJSON (const ev::curl::Value& a_value, Json::Value& o_value) const
+{
+    const auto it = a_value.headers().find("content-type");
+    // ... ensure Content-Type header is set ...
+    if ( a_value.headers().end() == it || 0 != strncasecmp("application/json", it->second[0].c_str(), sizeof(char)* 16) ) {
+        throw ::ev::Exception("%s", "Invalid or missing 'Content-Type' header!");
+    }
+    // ... ensure body has valid json ...
+    ParseJSON(a_value.body(), o_value);
+}
+
 #ifdef __APPLE__
 #pragma mark -
 #pragma mark [Protected] - Scheduler
@@ -1638,14 +1766,89 @@ EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK ev::loop::beanstalkd::Job::OnSi
 #pragma mark [Private] - REDIS Callback
 #endif
 
-#ifdef __APPLE__
-#pragma mark -
-#endif
-
 /**
  * @brief Called when a REDIS connection has been lost.
  */
 void ev::loop::beanstalkd::Job::OnREDISConnectionLost ()
 {
     OnFatalException(ev::Exception("REDIS connection lost:\n unable to reconnect to REDIS!"));
+}
+
+#ifdef __APPLE__
+#pragma mark -
+#endif
+
+/**
+ * @brief Execute an HTTP request synchronously on 'main' thread..
+ *
+ * @param a_block Execution block
+ * @param a_success_callback Function to call on success to deliver result.
+ * @param a_failure_callback Function to call on failure due to an exception.
+ */
+void ev::loop::beanstalkd::Job::HTTPSyncExec (std::function<void(EV_CURL_HTTP_SUCCESS_CALLBACK, EV_CURL_HTTP_FAILURE_CALLBACK)> a_block,
+                                              EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+{
+    osal::ConditionVariable cv;
+    
+    ::ev::curl::Value* value     = nullptr;
+    ::ev::Exception*   exception = nullptr;
+
+    ExecuteOnMainThread([&a_block, &value, &exception, &cv] {
+        
+        a_block(/* a_success_callback */
+                [&value, &cv](const ::ev::curl::Value& a_value) {
+                  // ... copy value ...
+                  value = new ::ev::curl::Value(a_value);
+                  // ... WAKE from REDIS operations ...
+                  cv.Wake();
+                },
+                /* a_failure_callback */
+                [&exception, &cv](const ::ev::Exception& a_ev_exception) {
+                  // ... copy exception ...
+                  exception = new ::ev::Exception(a_ev_exception);
+                  // ... WAKE from REDIS operations ...
+                  cv.Wake();
+                }
+        );
+    }, /* a_blocking */ false);
+    
+    // ... WAIT until REDIS operations are completed ...
+    cv.Wait();
+
+    // ... an exception ocurred?
+    if ( nullptr != exception ) {
+        // ... release value ...
+        if ( nullptr != value ) {
+            delete value;
+        }
+        // ... notify?
+        if ( nullptr != a_failure_callback ) {
+            // ... copy ...
+            const ::ev::Exception copy = ::ev::Exception(*exception);
+            // ... release it ...
+            delete exception;
+            // ... notify ...
+            a_failure_callback(copy);
+        } else {
+            // ... log it ...
+            EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ERROR", "HTTP GET FILE FAILED: %s",
+                                            exception->what()
+            );
+            // ... release it ...
+            delete exception;
+        }
+    } else {
+        // ... value must exist!
+        CC_ASSERT(nullptr != value);
+        // ... notify?
+        if ( nullptr != a_success_callback ) {
+            try {
+                a_success_callback(*value);
+            } catch (...) {
+                ::cc::Exception::Rethrow(/* a_unhandled */ true, __FILE__, __LINE__, __FUNCTION__);
+            }
+        }
+        // ... release value ...
+        delete value;
+    }
 }

@@ -391,10 +391,11 @@ namespace ev
                 void Consume (const int64_t& a_id, const Json::Value& a_payload,
                               const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback, const DeferredCallback& a_deferred_callback);
 
-            public: // Callbacks / Listeners -  Method(s) / Function(s)
+            public: // Method(s) / Function(s)
                     
                 void SetOwnerLogCallback       (OwnerLogCallback a_callback);
                 void SetSignalsChannelListerer (SignalsChannelListerer a_listener);
+                void SetOutputDirectoryPrefix  (const std::string& a_prefix);
 
             protected: // Optional Virtual Method(s) / Function(s)
                 
@@ -415,7 +416,10 @@ namespace ev
                 void SetFailedResponse     (uint16_t a_code, Json::Value& o_response);
                 void SetFailedResponse     (uint16_t a_code, const Json::Value& a_payload, Json::Value& o_response);
 
-                void SetTimeoutResponse    (const Json::Value& a_payload, Json::Value& o_response);
+                uint16_t SetTimeoutResponse             (const Json::Value& a_payload, Json::Value& o_response);
+                uint16_t SetNotImplementedResponse      (const Json::Value& a_payload, Json::Value& o_response);
+                uint16_t SetBadRequestResponse          (const std::string& a_why, Json::Value& o_response);
+                uint16_t SetInternalServerErrorResponse (const std::string& a_why, Json::Value& o_response);
 
             protected: // REDIS Helper Method(s) / Function(s)
                                 
@@ -456,7 +460,8 @@ namespace ev
                 
             protected: // Other Settings
                 
-                const std::string& logs_directory () const;
+                const std::string& logs_directory   () const;
+                const std::string& output_dir_prefix() const;
                 
             protected: // Stats
                 
@@ -502,9 +507,17 @@ namespace ev
                 );
 
             protected: // HTTP Method(s) / Function(s)
+
+                void HTTPGet (const std::string& a_url, const EV_CURL_HEADERS_MAP& a_headers,
+                              EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback);
+
+                void HTTPGetFile (const std::string& a_url, const EV_CURL_HEADERS_MAP& a_headers,
+                                  const uint64_t& a_validity, const std::string& a_prefix, const std::string& a_extension,
+                                  EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback);
                 
-                void HTTPGet (const Json::Value& a_url,
-                              uint16_t& o_code, std::string& o_data, uint64_t& o_elapsed, std::string& o_url);
+                void HTTPPostFile (const std::string& a_uri, const std::string& a_url,
+                                   const EV_CURL_HEADERS_MAP& a_headers,
+                                   EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback);
 
             protected: // FILE Method(s) / Function(s)
                 
@@ -529,7 +542,8 @@ namespace ev
                                                   const char* const a_error_prefix_msg = "Invalid or missing ") const;
                 
                 void        ParseJSON      (const std::string& a_value, Json::Value& o_value)           const;
-                void        ToJSON         (const ev::postgresql::Value& a_value, Json::Value& o_value) const; 
+                void        ToJSON         (const ev::postgresql::Value& a_value, Json::Value& o_value) const;
+                void        ToJSON         (const ev::curl::Value& a_value, Json::Value& o_value)       const;
                 
             protected: //
                 
@@ -538,11 +552,16 @@ namespace ev
             private: // ::ev::redis::Subscriptions Callbacks
 
                 EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK OnSignalsChannelMessageReceived (const std::string& a_id, const std::string& a_message);
-                
+                                
             private: // from ::ev::redis::Subscriptions::Manager::Client
                 
                 virtual void OnREDISConnectionLost ();
                 
+            private: // Methods(s) / Function(s)
+                
+                void HTTPSyncExec (std::function<void(EV_CURL_HTTP_SUCCESS_CALLBACK, EV_CURL_HTTP_FAILURE_CALLBACK)> a_block,
+                                   EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback);
+
             }; // end of class 'Job'
             
             /**
@@ -639,6 +658,14 @@ namespace ev
                 return logs_directory_;
             }
         
+            /**
+             * @return R/O access to outpur directory prefix.
+             */
+            inline const std::string& Job::output_dir_prefix () const
+            {
+                return output_directory_prefix_;
+            }
+        
             inline const char* const Job::JSONValueTypeAsCString (const Json::ValueType& a_type) const
             {
                 
@@ -673,6 +700,12 @@ namespace ev
             inline void Job::SetOwnerLogCallback (Job::OwnerLogCallback a_callback)
             {
                 owner_log_callback_ = a_callback;
+            }
+        
+            inline void Job::SetOutputDirectoryPrefix (const std::string& a_prefix)
+            {
+                output_directory_        = "";
+                output_directory_prefix_ = a_prefix;
             }
 
         } // end of namespace 'beanstalkd'
