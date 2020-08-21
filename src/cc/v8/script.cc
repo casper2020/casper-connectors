@@ -123,9 +123,9 @@ void cc::v8::Script::TranslateFromV8Value (::v8::Isolate* a_isolate, const ::v8:
         o_value = value->BooleanValue(a_isolate);
     } else if ( true == value->IsNumber() ) {
         if ( true == value->IsInt32() ) {
-            o_value = value->NumberValue(a_isolate->GetCurrentContext()).FromMaybe(0.0);
+            o_value = value->Int32Value(a_isolate->GetCurrentContext()).FromMaybe(0.0);
         } else if ( true == value->IsUint32() ) {
-            o_value = value->NumberValue(a_isolate->GetCurrentContext()).FromMaybe(0.0);
+            o_value = value->Uint32Value(a_isolate->GetCurrentContext()).FromMaybe(0.0);
         } else {
             o_value = value->NumberValue(a_isolate->GetCurrentContext()).FromMaybe(0.0);
         }
