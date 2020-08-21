@@ -40,3 +40,23 @@ cc::fs::file::Writer::~Writer ()
 {
     /* empty */
 }
+
+#ifdef __APPLE__
+#pragma mark - Reader
+#endif
+
+/**
+ * @brief Default constructor.
+ */
+cc::fs::file::Reader::Reader ()
+{
+   /* empty */
+}
+
+/**
+ * @brief Destructor.
+ */
+cc::fs::file::Reader::~Reader ()
+{
+    /* empty */
+}

@@ -60,6 +60,19 @@ namespace cc
                 
             }; // end of class 'Writer'
 
+            //               //
+            // 'Reader' class //
+            //               //
+            class Reader final : public File
+            {
+                
+            public: // Constructor(s) / Destructor
+                
+                Reader ();
+                virtual ~Reader();
+                
+            }; // end of class 'Reader'
+
         } // end of namespace 'file'
         
     } // end of namespace 'fs'
