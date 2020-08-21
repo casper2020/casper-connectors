@@ -32,6 +32,9 @@
 
 #include <curl/curl.h>
 
+#include "cc/fs/file.h"
+#include "cc/fs/exception.h"
+
 namespace ev
 {
     namespace curl
@@ -85,6 +88,14 @@ namespace ev
             std::string                        rx_body_;              //!<
             std::string                        tx_body_;              //!<
             size_t                             tx_count_;             //!<
+            
+            ::cc::fs::file::Writer             rx_fw_;                //!< Response file writer.
+            std::string                        rx_uri_;               //!< FILE URI where the received response will be written to.
+            ::cc::fs::Exception*               rx_exp_;               //!< Set if an exception ocurred while writing data to file.
+
+            ::cc::fs::file::Reader             tx_fr_;                //!< Request file reader.
+            std::string                        tx_uri_;               //!< FILE URI where the sending body will be read from.
+            ::cc::fs::Exception*               tx_exp_;               //!< Set if an exception ocurred while reading data from file.
 
         private: // Const Data
 
@@ -107,6 +118,13 @@ namespace ev
             CURL*                      easy_handle ();
             const std::string&         url         () const;
             const EV_CURL_HEADERS_MAP& rx_headers  () const;
+            
+            const ::cc::fs::Exception* rx_exp      () const;
+            const ::cc::fs::Exception* tx_exp      () const;
+            
+            void                       SetReadBodyFrom        (const std::string& a_uri);
+            void                       SetWriteResponseBodyTo (const std::string& a_uri);
+            void                       Close                  ();
 
         protected:
 
@@ -147,6 +165,58 @@ namespace ev
         inline const EV_CURL_HEADERS_MAP& Request::rx_headers() const
         {
             return rx_headers_;
+        }
+        
+        /**
+         * @return R/O access to an exception occurred while writing incomming data to a file .
+         */
+        inline const ::cc::fs::Exception* Request::rx_exp () const
+        {
+            return rx_exp_;
+        }
+        
+        /**
+         * @return R/O access to an exception occurred while writing reading data from a file .
+         */
+        inline const ::cc::fs::Exception* Request::tx_exp () const
+        {
+            return tx_exp_;
+        }    
+
+        /**
+         * @brief Send body from a file.
+         *
+         * @param a_uri Local file uri.
+         */
+        inline void Request::SetReadBodyFrom (const std::string& a_uri)
+        {
+            tx_uri_ = a_uri;
+            tx_fr_.Open(tx_uri_, ::cc::fs::file::Reader::Mode::Read);
+        }
+
+        /**
+         * @brief Write response body to a file.
+         *
+         * @param a_uri Local file uri.
+         */
+        inline void Request::SetWriteResponseBodyTo (const std::string& a_uri)
+        {
+            rx_uri_ = a_uri;
+            rx_fw_.Open(rx_uri_, ::cc::fs::file::Writer::Mode::Write);
+        }
+    
+        /**
+         * @brief Close all open files ( if any ).
+         */
+        inline void Request::Close ()
+        {
+            if ( true == rx_fw_.IsOpen() ) {
+                rx_fw_.Flush();
+                rx_fw_.Close();
+            }
+            if ( true == tx_fr_.IsOpen() ) {
+                tx_fr_.Close();
+            }
         }
 
     } // end of namespace 'curl'

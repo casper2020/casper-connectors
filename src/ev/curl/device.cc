@@ -429,6 +429,8 @@ void ev::curl::Device::MultiContext::Process (ev::curl::Device::MultiContext* a_
                 device_ptr_->last_error_msg_ = "CURLE : " + std::to_string(last_exec_code_);
                 break;
         }
+        // ... flush ...
+        it->second.request_ptr_->Close();
         // ... attach result or error ...
         if ( 0 == device_ptr_->last_error_msg_.length() ) {
             // ... result ...
@@ -439,6 +441,14 @@ void ev::curl::Device::MultiContext::Process (ev::curl::Device::MultiContext* a_
         } else {
             // ... error ...
             result->AttachDataObject(device_ptr_->DetachLastError());
+            // ... rx exception ...
+            if ( nullptr != it->second.request_ptr_->rx_exp() ) {
+                result->AttachDataObject(new ev::curl::Error("%s", it->second.request_ptr_->rx_exp()->what()));
+            }
+            // ... tx exception ...
+            if ( nullptr != it->second.request_ptr_->tx_exp() ) {
+                result->AttachDataObject(new ev::curl::Error("%s", it->second.request_ptr_->tx_exp()->what()));
+            }
         }
         // ... notify ...
         it->second.exec_callback_(

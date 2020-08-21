@@ -58,14 +58,27 @@ namespace ev
             void GET    (const Loggable::Data& a_loggable_data,
                          const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                          EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback);
+            
+            void GET    (const Loggable::Data& a_loggable_data,
+                         const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
+                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                         const std::string& a_uri);
+
             void PUT    (const Loggable::Data& a_loggable_data,
                          const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                          const std::string* a_body,
                          EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback);
+
             void POST   (const Loggable::Data& a_loggable_data,
                          const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                          const std::string* a_body,
                          EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback);
+
+            void POST   (const Loggable::Data& a_loggable_data,
+                         const std::string& a_uri,
+                         const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
+                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback);
+
             void PATCH  (const Loggable::Data& a_loggable_data,
                          const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                          const std::string* a_body,

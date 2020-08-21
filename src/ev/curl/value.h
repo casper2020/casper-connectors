@@ -50,6 +50,7 @@ namespace ev
         public: // Constructor(s) / Destructor
 
             Value   (const int a_code, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body);
+            Value   (const Value& a_value);
             virtual ~Value ();
 
         public: // Method(s) / Function(s)
@@ -62,6 +63,10 @@ namespace ev
             std::string                header            (const char* const a_name) const;
             void                       headers_as_map    (std::map<std::string, std::string>& o_map) const;
 
+        public:
+            
+            inline Value& operator=(const Value&) = delete;
+            
         };
 
         /**

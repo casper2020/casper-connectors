@@ -171,6 +171,9 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
         tx_body_ = "";
         throw ev::Exception("Unable to initializer CURL handle - error code %d!", initialization_error_);
     }
+    
+    rx_exp_ = nullptr;
+    tx_exp_ = nullptr;
 }
 
 /**
@@ -184,6 +187,12 @@ ev::curl::Request::~Request ()
     if ( nullptr != handle_ ) {
         curl_easy_cleanup(handle_);
     }
+    if ( nullptr != rx_exp_ ) {
+        delete rx_exp_;
+    }
+    if ( nullptr != tx_exp_ ) {
+        delete tx_exp_;
+    }
 }
 
 #ifdef __APPLE__
@@ -195,12 +204,7 @@ ev::curl::Request::~Request ()
  */
 const char* ev::curl::Request::AsCString () const
 {
-    if ( ev::curl::Request::Step::ReadingBody == step_ ) {
-        return rx_body_.c_str();
-    } else if ( ev::curl::Request::Step::WritingBody == step_ ) {
-        return tx_body_.c_str();
-    }
-    return dummy_.c_str();
+    return AsString().c_str();
 }
 
 /**
@@ -209,9 +213,17 @@ const char* ev::curl::Request::AsCString () const
 const std::string& ev::curl::Request::AsString () const
 {
     if ( ev::curl::Request::Step::ReadingBody == step_ ) {
-        return rx_body_;
+        if ( 0 != rx_uri_.length() ) {
+            return rx_uri_;
+        } else {
+            return rx_body_;
+        }
     } else if ( ev::curl::Request::Step::WritingBody == step_ ) {
-        return tx_body_;
+        if ( 0 != tx_uri_.length() ) {
+            return tx_uri_;
+        } else {
+            return tx_body_;
+        }
     }
     return dummy_;
 }
@@ -320,7 +332,17 @@ size_t ev::curl::Request::OnBodyReceived (char* a_buffer, size_t a_size, size_t 
     }
 
     if ( 0 != bytes_received ) {
-        rx_body_ += std::string(a_buffer, bytes_received);
+        if ( 0 != rx_uri_.length() ) {
+            try {
+                rx_fw_.Write((const unsigned char *)(a_buffer), bytes_received);
+                rx_fw_.Flush();
+            } catch (const ::cc::fs::Exception& a_fs_exception) {
+                rx_exp_  = new ::cc::fs::Exception(a_fs_exception);
+                aborted_ = true;
+            }
+        } else {
+            rx_body_ += std::string(a_buffer, bytes_received);
+        }
     }
 
     return ( false == aborted_ ? rv : ( rv + 1 ) );
@@ -354,13 +376,42 @@ size_t ev::curl::Request::OnSendBody (char* o_buffer, size_t a_size, size_t a_nm
         return CURL_READFUNC_ABORT;
     }
 
-    const size_t bytes_to_send = std::min(max_bytes_to_send, std::min(tx_body_.length() - tx_count_, max_bytes_to_send));
-    if ( 0 != bytes_to_send ) {
-        memcpy(o_buffer, tx_body_.c_str() + tx_count_, bytes_to_send);
-        tx_count_ += bytes_to_send;
+    size_t bytes_to_send;
+    
+    // ... read data ...
+    if ( 0 != tx_uri_.length() ) {
+        // ... from file ...
+        try {
+            // ... bytes to send is the maximum available to read and that fix the provided buffer ...
+            bytes_to_send = std::min(max_bytes_to_send, std::min(static_cast<size_t>(tx_fr_.Size()) - tx_count_, max_bytes_to_send));
+            if ( 0 != bytes_to_send ) {
+                // ... prepare ...
+                bool eof = false;
+                unsigned char* buffer = reinterpret_cast<unsigned char*>(o_buffer);
+                // ... read from file ...
+                const size_t bytes_read = tx_fr_.Read(buffer, bytes_to_send, eof);
+                // ... adjust number of bytes to send ...
+                if ( bytes_read != bytes_to_send ) {
+                    bytes_to_send = bytes_read;
+                }
+                // ... keep track of the number of bytes sent ...
+                tx_count_ += bytes_to_send;
+            }
+        } catch (const ::cc::fs::Exception& a_fs_exception) {
+            tx_exp_  = new ::cc::fs::Exception(a_fs_exception);
+            aborted_ = true;
+        }
+    } else {
+        // ... from memory ...
+        bytes_to_send = std::min(max_bytes_to_send, std::min(tx_body_.length() - tx_count_, max_bytes_to_send));
+        if ( 0 != bytes_to_send ) {
+            memcpy(o_buffer, tx_body_.c_str() + tx_count_, bytes_to_send);
+            tx_count_ += bytes_to_send;
+        }
     }
-
-    return bytes_to_send;
+    
+    // ... we're done ...
+    return  ( true == aborted_ ? CURL_READFUNC_ABORT : bytes_to_send );
 }
 
 #ifdef __APPLE__

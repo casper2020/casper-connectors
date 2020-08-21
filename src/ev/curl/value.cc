@@ -40,6 +40,22 @@ ev::curl::Value::Value (const int a_code, const EV_CURL_HEADERS_MAP& a_headers, 
 }
 
 /**
+ * @brief Copy constructor.
+ *
+ * @param a_value Object to copy.
+ */
+ev::curl::Value::Value (const ev::curl::Value& a_value)
+: curl::Object(a_value.type_),
+    code_(a_value.code_), body_(a_value.body_), last_modified_(a_value.last_modified_)
+{
+    for ( auto m : a_value.headers_ ) {
+        for ( auto p : m.second ) {
+            headers_[m.first].push_back(p);
+        }
+    }
+}
+
+/**
  * @brief Destructor.
  */
 ev::curl::Value::~Value ()
