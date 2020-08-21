@@ -200,7 +200,7 @@ namespace ev
                     /**
                      * @return R/O Access to \link other_ \link.
                      */
-                    inline const Json::Value& other ()  const
+                    inline const Json::Value& other () const
                     {
                         return other_;
                     }
@@ -243,6 +243,16 @@ namespace ev
                     inline void SetTransient (const bool& a_transient)
                     {
                         transient_ = a_transient;
+                    }
+                                        
+                    /**
+                     * @brief Set min progress value.
+                     *
+                     * @param a_value Int value.
+                     */
+                    inline void SetMinProgress (const int& a_value)
+                    {
+                        min_progress_ = a_value;
                     }
                     
                 }; // end of class 'Config';
