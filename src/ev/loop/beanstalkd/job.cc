@@ -275,7 +275,7 @@ void ev::loop::beanstalkd::Job::ConfigJSONAPI (const Json::Value& a_config)
  *
  * @param o_response
  */
-void ev::loop::beanstalkd::Job::SetCompletedResponse (Json::Value& o_response)
+uint16_t ev::loop::beanstalkd::Job::SetCompletedResponse (Json::Value& o_response)
 {
     o_response                        = Json::Value(Json::ValueType::objectValue);
     o_response["action"]              = "response";
@@ -283,6 +283,7 @@ void ev::loop::beanstalkd::Job::SetCompletedResponse (Json::Value& o_response)
     o_response["response"]            = Json::Value(Json::ValueType::objectValue);
     o_response["response"]["success"] = true;
     o_response["status"]              = "completed";
+    return 200;
 }
 
 /**
@@ -291,7 +292,7 @@ void ev::loop::beanstalkd::Job::SetCompletedResponse (Json::Value& o_response)
  * @param a_payload
  * @param o_response
  */
-void ev::loop::beanstalkd::Job::SetCompletedResponse (const Json::Value& a_payload, Json::Value& o_response)
+uint16_t ev::loop::beanstalkd::Job::SetCompletedResponse (const Json::Value& a_payload, Json::Value& o_response)
 {
     o_response                        = Json::Value(Json::ValueType::objectValue);
     o_response["action"]              = "response";
@@ -299,6 +300,7 @@ void ev::loop::beanstalkd::Job::SetCompletedResponse (const Json::Value& a_paylo
     o_response["response"]            = a_payload;
     o_response["response"]["success"] = true;
     o_response["status"]              = "completed";
+    return 200;
 }
 
 /**
@@ -322,9 +324,9 @@ void ev::loop::beanstalkd::Job::SetCancelledResponse (const Json::Value& a_paylo
  * @param a_code
  * @param o_response
  */
-void ev::loop::beanstalkd::Job::SetFailedResponse (uint16_t a_code, Json::Value& o_response)
+uint16_t ev::loop::beanstalkd::Job::SetFailedResponse (uint16_t a_code, Json::Value& o_response)
 {
-    SetFailedResponse(a_code, errors_array_, o_response);
+    return SetFailedResponse(a_code, errors_array_, o_response);
 }
 
 /**
@@ -334,7 +336,7 @@ void ev::loop::beanstalkd::Job::SetFailedResponse (uint16_t a_code, Json::Value&
  * @param a_payload
  * @param o_response
  */
-void ev::loop::beanstalkd::Job::SetFailedResponse (uint16_t a_code, const Json::Value& a_payload, Json::Value& o_response)
+uint16_t ev::loop::beanstalkd::Job::SetFailedResponse (uint16_t a_code, const Json::Value& a_payload, Json::Value& o_response)
 {
     o_response                 = Json::Value(Json::ValueType::objectValue);
     o_response["action"]       = "response";
@@ -342,6 +344,7 @@ void ev::loop::beanstalkd::Job::SetFailedResponse (uint16_t a_code, const Json::
     o_response["response"]     = a_payload;
     o_response["status"]       = "failed";
     o_response["status_code"]  = a_code;
+    return a_code;
 }
 
 /**
@@ -1435,14 +1438,14 @@ void ev::loop::beanstalkd::Job::LoadFile (const Json::Value& a_uri,
  * @param o_result
  * @param a_use_column_name
  */
-void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::Value& o_result, const bool a_use_column_name = false)
+void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::Value& o_result, const bool a_dont_auto_parse = false)
 {
     o_result = Json::Value(Json::ValueType::objectValue);
     o_result["status_code"] = 500;
 
     osal::ConditionVariable cv;
 
-    ExecuteOnMainThread([this, &a_query, &o_result, &cv, &a_use_column_name] () {
+    ExecuteOnMainThread([this, &a_query, &o_result, &cv, &a_dont_auto_parse] () {
 
         NewTask([this, a_query] () -> ::ev::Object* {
 
@@ -1478,7 +1481,7 @@ void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::
             // ... same as reply, but it was detached ...
             return result->DetachDataObject();
 
-        })->Finally([a_query, &o_result, &cv, &a_use_column_name] (::ev::Object* a_object) {
+        })->Finally([this, a_query, &o_result, &cv, &a_dont_auto_parse] (::ev::Object* a_object) {
 
             const ::ev::postgresql::Reply* reply = dynamic_cast<const ::ev::postgresql::Reply*>(a_object);
             if ( nullptr == reply ) {
@@ -1496,21 +1499,23 @@ void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::
                 throw ::ev::Exception("Unexpected PostgreSQL unexpected data object : null!");
             }
 
-            const int rows_count    = value.rows_count();
-            const int columns_count = value.columns_count();
-
             o_result["table"] = Json::Value(Json::ValueType::arrayValue);
-            for ( int row_idx = 0 ; row_idx < rows_count ; ++row_idx ) {
-                Json::Value& line = o_result["table"].append(Json::Value(Json::ValueType::objectValue));
-                for ( int column_idx = 0 ; column_idx < columns_count ; ++column_idx ) {
-                    if ( true == a_use_column_name ) {
+            
+            if (a_dont_auto_parse) {
+                const int rows_count    = value.rows_count();
+                const int columns_count = value.columns_count();
+                Json::Reader reader;
+
+                for ( int row_idx = 0 ; row_idx < rows_count ; ++row_idx ) {
+                    Json::Value& line = o_result["table"].append(Json::Value(Json::ValueType::objectValue));
+                    for ( int column_idx = 0 ; column_idx < columns_count ; ++column_idx ) {
                         line[value.column_name(column_idx)] = value.raw_value(row_idx, column_idx);
-                    } else {
-                        line[std::to_string(column_idx)] = value.raw_value(row_idx, column_idx);
                     }
                 }
+            } else {
+                ToJSON(value, o_result["table"]);
             }
-
+            
             o_result["status_code"] = 200;
 
             cv.Wake();
@@ -1695,6 +1700,8 @@ void ev::loop::beanstalkd::Job::ToJSON (const ev::postgresql::Value& a_value, Js
                     record[a_value.column_name(column)] = Json::Value::null;
                 } else if ( JSONBOID == a_value.column_type(column) ) {
                     ParseJSON(raw_value, record[a_value.column_name(column)]);
+                } else if ( DATEOID == a_value.column_type(column) || TIMEOID == a_value.column_type(column) || TIMESTAMPOID == a_value.column_type(column) ) {
+                    record[a_value.column_name(column)] = raw_value;
                 } else if ( false == reader.parse(raw_value, record[a_value.column_name(column)]) ) { // ... using reader to try to translate values ...
                     // ... on failure, keep as it is ...
                     record[a_value.column_name(column)] = raw_value;

@@ -410,11 +410,11 @@ namespace ev
                 
                 void ConfigJSONAPI         (const Json::Value& a_config);
                 
-                void SetCompletedResponse  (Json::Value& o_response);
-                void SetCompletedResponse  (const Json::Value& a_payload, Json::Value& o_response);
-                void SetCancelledResponse  (const Json::Value& a_payload, Json::Value& o_response);
-                void SetFailedResponse     (uint16_t a_code, Json::Value& o_response);
-                void SetFailedResponse     (uint16_t a_code, const Json::Value& a_payload, Json::Value& o_response);
+                uint16_t SetCompletedResponse  (Json::Value& o_response);
+                uint16_t SetCompletedResponse  (const Json::Value& a_payload, Json::Value& o_response);
+                void     SetCancelledResponse  (const Json::Value& a_payload, Json::Value& o_response);
+                uint16_t SetFailedResponse     (uint16_t a_code, Json::Value& o_response);
+                uint16_t SetFailedResponse     (uint16_t a_code, const Json::Value& a_payload, Json::Value& o_response);
 
                 uint16_t SetTimeoutResponse             (const Json::Value& a_payload, Json::Value& o_response);
                 uint16_t SetNotImplementedResponse      (const Json::Value& a_payload, Json::Value& o_response);
@@ -530,7 +530,7 @@ namespace ev
             protected: // PostgreSQL Helper Methods(s) / Function(s)
                 
                 virtual void ExecuteQuery            (const std::string& a_query, Json::Value& o_result,
-                                                      const bool a_use_column_name);
+                                                      const bool a_dont_auto_parse);
                 virtual void ExecuteQueryWithJSONAPI (const std::string& a_query, Json::Value& o_result);
                 
             protected: // Output Helper Methods(s) / Function(s)
