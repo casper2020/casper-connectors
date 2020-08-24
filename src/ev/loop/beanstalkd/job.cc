@@ -1260,6 +1260,39 @@ void ev::loop::beanstalkd::Job::JSONAPIGet (const Json::Value& a_urn,
  * @brief Perform an HTTP GET request.
  *
  * param a_url
+ * param o_code
+ * param o_data
+ * param o_elapsed
+ * param o_url
+ */
+void ev::loop::beanstalkd::Job::HTTPGet (const Json::Value& a_url,
+                                         uint16_t& o_code, std::string& o_data, uint64_t& o_elapsed, std::string& o_url)
+{
+    o_url =  a_url.asString();
+
+    const auto dlsp = std::chrono::steady_clock::now();
+    
+    HTTPGet(/* a_url */o_url,
+            /* a_headers */ {},
+            /* a_success_callback */
+            [&o_code, &o_data] (const ::ev::curl::Value& a_value) {
+                o_code = a_value.code();
+                o_data = a_value.body();
+            },
+            /* a_failure_callback */
+            [&o_code, &o_data] (const ::ev::Exception& a_ev_exception) {
+                o_code = 500;
+                o_data = a_ev_exception.what();
+            }
+    );
+    
+    o_elapsed = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - dlsp).count());
+}
+
+/**
+ * @brief Perform an HTTP GET request.
+ *
+ * param a_url
  * param a_headers
  * param a_success_callback
  * param a_failure_callback
