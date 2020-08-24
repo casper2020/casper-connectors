@@ -78,10 +78,11 @@ ev::loop::beanstalkd::Looper::~Looper ()
  * @param a_beanstakd_config
  * @param a_output_directory
  * @param a_logs_directory
+ * @param a_shared_directory
  * @param a_aborted
  */
 void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beanstakd_config,
-                                        const std::string& a_output_directory, const std::string& a_logs_directory,
+                                        const std::string& a_output_directory, const std::string& a_logs_directory, const std::string& a_shared_directory,
                                         volatile bool& a_aborted)
 {   
     Beanstalk::Job job;
@@ -206,7 +207,7 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
            });
             
             cache_[tube] = job_ptr_;
-            job_ptr_->Setup(&callbacks_, a_output_directory, a_logs_directory);
+            job_ptr_->Setup(&callbacks_, a_output_directory, a_logs_directory, a_shared_directory);
         } else {
             job_ptr_ = cached_it->second;
         }

@@ -105,9 +105,11 @@ ev::loop::beanstalkd::Job::~Job ()
  * @param a_callbacks
  * @param a_output_directory_prefix
  * @param a_logs_directory
+ * @param a_shared_directory
  */
 void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callbacks,
-                                       const std::string& a_output_directory_prefix, const std::string& a_logs_directory)
+                                       const std::string& a_output_directory_prefix, const std::string& a_logs_directory,
+                                       const std::string& a_shared_directory)
 {
     osal::ConditionVariable cv;
     
@@ -115,6 +117,7 @@ void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callba
     output_directory_prefix_ = a_output_directory_prefix;
     output_directory_        = "";
     logs_directory_          = a_logs_directory;
+    shared_directory_        = a_shared_directory;
 
     ExecuteOnMainThread([this, &cv] {
         ::ev::redis::subscriptions::Manager::GetInstance().SubscribeChannels({ redis_signal_channel_ },
@@ -270,6 +273,10 @@ void ev::loop::beanstalkd::Job::ConfigJSONAPI (const Json::Value& a_config)
     json_api_.SetSubentityPrefix(subentity_prefix.asString());
 }
 
+#ifdef __APPLE__
+#pragma mark -
+#endif
+
 /**
  * @brief Fill a 'completed' response.
  *
@@ -346,6 +353,8 @@ uint16_t ev::loop::beanstalkd::Job::SetFailedResponse (uint16_t a_code, const Js
     o_response["status_code"]  = a_code;
     return a_code;
 }
+
+// MARK: -
 
 /**
  * @brief Fill a 'timeout' response ( 408 - Request Timeout ).
@@ -427,9 +436,62 @@ uint16_t ev::loop::beanstalkd::Job::SetInternalServerErrorResponse (const std::s
     return 500;
 }
 
-#ifdef __APPLE__
-#pragma mark -
-#endif
+/**
+ * @brief Fill a 'timeout' payload ( 408 - Request Timeout ).
+ *
+ * @param o_payload
+ *
+ * @return HTTP status code.
+ */
+uint16_t ev::loop::beanstalkd::Job::SetTimeout (Json::Value& o_payload)
+{
+    o_payload = "Timeout";
+    return 408;
+}
+
+/**
+ * @brief Fill a 'not implemented' payload ( 501 - Not Implemented ).
+ *
+ * @param a_what
+ * @param o_payload
+ *
+ * @return HTTP status code.
+ */
+uint16_t ev::loop::beanstalkd::Job::SetNotImplemented (const std::string& a_what, Json::Value& o_payload)
+{
+    o_payload = ( a_what.length() > 0 ? a_what :  "Not Implemented" );
+    return 501;
+}
+
+/**
+ * @brief Fill a 'bad request' payload ( 400 - Bad Request ).
+ *
+ * @param a_why
+ * @param o_payload
+ *
+ * @return HTTP status code.
+ */
+uint16_t ev::loop::beanstalkd::Job::SetBadRequest (const std::string& a_why, Json::Value& o_payload)
+{
+    o_payload  = ( a_why.length() > 0 ? a_why : "Bad Request" );
+    return 400;
+}
+
+/**
+ * @brief Fill a 'internal server error' payload ( 500 - Internal Server Error ).
+ *
+ * @param a_why
+ * @param o_payload
+ *
+ * @return HTTP status code.
+ */
+uint16_t ev::loop::beanstalkd::Job::SetInternalServerError (const std::string& a_why, Json::Value& o_payload)
+{
+    o_payload = ( a_why.length() > 0 ? a_why : "Internal Server Error" );
+    return 500;
+}
+
+// MARK: -
 
 /**
  * @brief Publish a 'job progress' message.

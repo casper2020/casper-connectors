@@ -817,7 +817,7 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop (const float& a_polling_timeout)
         looper_mutex_.unlock();
         
         looper_ptr_->SetPollingTimeout(a_polling_timeout);
-        looper_ptr_->Run(shared_config_->beanstalk_, shared_config_->directories_.output_, shared_config_->directories_.log_, quit_);
+        looper_ptr_->Run(shared_config_->beanstalk_, shared_config_->directories_.output_, shared_config_->directories_.log_, shared_config_->directories_.shared_, quit_);
         
     } catch (const Beanstalk::ConnectException& a_beanstalk_exception) {
         exception = new ::ev::Exception("An error occurred while connecting to Beanstalkd:\n%s\n", a_beanstalk_exception.what());

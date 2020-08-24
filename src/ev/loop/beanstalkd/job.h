@@ -345,6 +345,7 @@ namespace ev
                 std::string                output_directory_prefix_;
                 std::string                output_directory_;
                 std::string                logs_directory_;
+                std::string                shared_directory_;
                 
             private: // Helpers
                 
@@ -387,7 +388,8 @@ namespace ev
                 
             public: // Method(s) / Function(s)
                 
-                void Setup   (const MessagePumpCallbacks* a_callbacks, const std::string& a_output_directory_prefix, const std::string& a_logs_directory);
+                void Setup   (const MessagePumpCallbacks* a_callbacks,
+                              const std::string& a_output_directory_prefix, const std::string& a_logs_directory, const std::string& a_shared_directory);
                 void Consume (const int64_t& a_id, const Json::Value& a_payload,
                               const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback, const DeferredCallback& a_deferred_callback);
 
@@ -420,6 +422,11 @@ namespace ev
                 uint16_t SetNotImplementedResponse      (const Json::Value& a_payload, Json::Value& o_response);
                 uint16_t SetBadRequestResponse          (const std::string& a_why, Json::Value& o_response);
                 uint16_t SetInternalServerErrorResponse (const std::string& a_why, Json::Value& o_response);
+
+                uint16_t SetTimeout                     (Json::Value& o_payload);
+                uint16_t SetNotImplemented              (const std::string& a_what, Json::Value& o_payload);
+                uint16_t SetBadRequest                  (const std::string& a_why, Json::Value& o_payload);
+                uint16_t SetInternalServerError         (const std::string& a_why, Json::Value& o_payload);
 
             protected: // REDIS Helper Method(s) / Function(s)
                                 
@@ -460,8 +467,9 @@ namespace ev
                 
             protected: // Other Settings
                 
-                const std::string& logs_directory   () const;
-                const std::string& output_dir_prefix() const;
+                const std::string& logs_directory    () const;
+                const std::string& shared_directory  () const;
+                const std::string& output_dir_prefix () const;
                 
             protected: // Stats
                 
@@ -659,6 +667,14 @@ namespace ev
             inline const std::string& Job::logs_directory () const
             {
                 return logs_directory_;
+            }
+                   
+            /*
+             * @return R/O access to shared directory.
+             */
+            inline const std::string& Job::shared_directory () const
+            {
+                return shared_directory_;
             }
         
             /**
