@@ -77,12 +77,12 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
         Run(a_id, a_payload, run_response);
         
         if ( 200 == run_response.code_ ) {
-            SetCompletedResponse(run_response.payload_, job_response);
+            (void)SetCompletedResponse(run_response.payload_, job_response);
         } else {
             if ( false == run_response.payload_.isNull() ) {
-                SetFailedResponse(run_response.code_, run_response.payload_, job_response);
+                (void)SetFailedResponse(run_response.code_, run_response.payload_, job_response);
             } else {
-                SetFailedResponse(run_response.code_, job_response);
+                (void)SetFailedResponse(run_response.code_, job_response);
             }
         }
         
@@ -170,4 +170,165 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
         // ... notify ...
         a_completed_callback("", false == HasErrorsSet(), run_response.code_);
     }
+}
+
+/**
+ * @brief Create a 'message' object.
+ *
+ * @param a_i18n    I18 message.
+ * @param o_payload Payload object to create.
+ *
+ * @return HTTP status code.
+ */
+uint16_t cc::job::easy::Job::SetMessage (const uint16_t& a_code, const easy::Job::I18N& a_i18n, Json::Value& o_payload)
+{
+    o_payload            = Json::Value(Json::ValueType::objectValue);
+    o_payload["message"] = Json::Value(Json::ValueType::arrayValue);
+    if ( nullptr != a_i18n.key_ ) {
+        o_payload["message"].append(a_i18n.key_);
+        for ( auto arg : a_i18n.arguments_ ) {
+            o_payload["message"].append(Json::Value(Json::ValueType::objectValue))[arg.first] = arg.second;
+        }
+    } else {
+        o_payload["message"].append("i18n_not_implemented");
+    }
+    return a_code;
+}
+
+/**
+ * @brief Fill a 'ok' payload ( 200 - Ok ).
+ *
+ * @param a_i18n    I18 message.
+ * @param o_payload Payload object to create.
+ *
+ * @return HTTP status code.
+ */
+uint16_t cc::job::easy::Job::SetOk (const easy::Job::I18N* a_i18n, Json::Value& o_payload)
+{
+    if ( nullptr != a_i18n ) {
+        return SetMessage(200, *a_i18n, o_payload);
+    }
+    return SetMessage(200, /* a_i18n */ { /* a_key*/ "i18n_completed", /* a_args */ {} }, o_payload);
+}
+
+/**
+ * @brief Fill a 'timeout' payload ( 408 - Request Timeout ).
+ *
+ * @param a_i18n    I18 message.
+ * @param o_payload Payload object to create.
+ *
+ * @return HTTP status code.
+ */
+uint16_t cc::job::easy::Job::SetTimeout (const easy::Job::I18N* a_i18n, Json::Value& o_payload)
+{
+    if ( nullptr != a_i18n ) {
+        return SetMessage(408, *a_i18n, o_payload);
+    }
+    return SetMessage(408, /* a_i18n */ { /* a_key*/ "i18n_timeout", /* a_args */ {} }, o_payload);
+}
+
+/**
+ * @brief Fill a 'bad request' payload ( 400 - Bad Request ).
+ *
+ * @param a_i18n    I18 message.
+ * @param o_payload Payload object to create.
+ *
+ * @return HTTP status code.
+ */
+uint16_t cc::job::easy::Job::SetBadRequest (const easy::Job::I18N* a_i18n, Json::Value& o_payload)
+{
+    if ( nullptr != a_i18n ) {
+        return SetMessage(400, *a_i18n, o_payload);
+    }
+    return SetMessage(400, /* a_i18n */ { /* a_key*/ "i18n_bad_request", /* a_args */ {} }, o_payload);
+}
+
+/**
+ * @brief Fill a 'internal server error' payload ( 500 - Internal Server Error ).
+ *
+ * @param a_i18n    I18 message.
+ * @param o_payload Payload object to create.
+ *
+ * @return HTTP status code.
+ */
+uint16_t cc::job::easy::Job::SetInternalServerError (const easy::Job::I18N* a_i18n, Json::Value& o_payload)
+{
+    if ( nullptr != a_i18n ) {
+        return SetMessage(400, *a_i18n, o_payload);
+    }
+    return SetMessage(400, /* a_i18n */ { /* a_key*/ "i18n_internal_server_error", /* a_args */ {} }, o_payload);
+}
+
+/**
+ * @brief Fill a 'internal server error' payload ( 500 - Internal Server Error ).
+ *
+ * @param a_i18n    I18 message.
+ * @param o_payload Payload object to create.
+ * @param a_error   Internal error.
+ *
+ * @return HTTP status code.
+ */
+uint16_t cc::job::easy::Job::SetInternalServerError (const easy::Job::I18N* a_i18n, const easy::Job::InternalError& a_error, Json::Value& o_payload)
+{
+    (void)SetInternalServerError(a_i18n, o_payload);
+    o_payload["meta"]["internal"] = Json::Value(Json::ValueType::objectValue);
+    if ( nullptr != a_error.code_ ) {
+        o_payload["meta"]["internal-error"]["code"] = a_error.code_;
+    } else {
+        o_payload["meta"]["internal-error"]["code"] = "500 - Internal Server Error";
+    }
+    o_payload["meta"]["internal-error"]["why"]   = a_error.why_;
+    return 500;
+}
+
+/**
+ * @brief Fill a 'internal server error' payload ( 500 - Internal Server Error ).
+ *
+ * @param a_i18n      I18 message.
+ * @param o_payload   Payload object to create.
+ * @param a_exception Internal exception.
+ *
+ * @return HTTP status code.
+ */
+uint16_t cc::job::easy::Job::SetInternalServerError (const easy::Job::I18N* a_i18n, const easy::Job::InternalException& a_exception, Json::Value& o_payload)
+{
+    return SetInternalServerError(a_i18n, /* a_error */ InternalError({ /* code_ */ a_exception.code_, /* why_ */ a_exception.excpt_.what() }), o_payload);
+}
+
+/**
+ * @brief Fill a 'not implemented' payload ( 501 - Not Implemented ).
+ *
+ * @param a_i18n    I18 message.
+ * @param o_payload Payload object to create.
+*
+ * @return HTTP status code.
+ */
+uint16_t cc::job::easy::Job::SetNotImplemented (const easy::Job::I18N* a_i18n, Json::Value& o_payload)
+{
+    if ( nullptr != a_i18n ) {
+        return SetMessage(501, *a_i18n, o_payload);
+    }
+    return SetMessage(501, /* a_i18n */ { /* a_key*/ "i18n_not_implemented", /* a_args */ {} }, o_payload);
+}
+
+/**
+ * @brief Fill a 'not implemented' payload ( 501 - Not Implemented ).
+ *
+ * @param a_i18n    I18 message.
+ * @param o_payload Payload object to create.
+ * @param a_error   Internal error.
+ *
+ * @return HTTP status code.
+ */
+uint16_t cc::job::easy::Job::SetNotImplemented (const easy::Job::I18N* a_i18n, const easy::Job::InternalError& a_error, Json::Value& o_payload)
+{
+    (void)SetNotImplemented(a_i18n, o_payload);
+    o_payload["meta"]["internal"] = Json::Value(Json::ValueType::objectValue);
+    if ( nullptr != a_error.code_ ) {
+        o_payload["meta"]["internal-error"]["code"] = a_error.code_;
+    } else {
+        o_payload["meta"]["internal-error"]["code"] = "501 - Not Implemented";
+    }
+    o_payload["meta"]["internal-error"]["why"]   = a_error.why_;
+    return 501;
 }

@@ -278,19 +278,49 @@ void ev::loop::beanstalkd::Job::ConfigJSONAPI (const Json::Value& a_config)
 #endif
 
 /**
+* @brief Fill a 'response' object.
+*
+* @param o_response
+*/
+uint16_t ev::loop::beanstalkd::Job::FillResponseObject (const uint16_t& a_code, const char* const a_status, const Json::Value& a_response,
+                                                        Json::Value& o_object)  const
+{
+    o_object = Json::Value(Json::ValueType::objectValue);
+    o_object["response"] = Json::Value(Json::ValueType::objectValue);
+
+    // ... merge?
+    if ( true == a_response.isObject() ) {
+        // ... yes ...
+        MergeJSONValue(o_object["response"], a_response);
+        if ( true == o_object["response"].isMember("message") ) {
+            o_object["message"] = o_object["response"].removeMember("message");
+        }
+    } else if ( false == a_response.isNull() ) {
+        // ... 'response' is direct copy ...
+        throw ::ev::Exception("%s", "Response must be a valid JSON object!");
+    }
+    
+    // ... set / override mandatory fields ...
+    if ( true == o_object.isMember("response") && true == o_object.isObject() ) {
+        o_object["response"]["success"] = ( 200 == a_code );
+    }
+    
+    o_object["action"]       = "response";
+    o_object["content_type"] = "application/json; charset=utf-8";
+    o_object["status"]       = a_status;
+    o_object["status_code"]  = a_code;
+    // ... done ..
+    return a_code;
+}
+
+/**
  * @brief Fill a 'completed' response.
  *
  * @param o_response
  */
-uint16_t ev::loop::beanstalkd::Job::SetCompletedResponse (Json::Value& o_response)
+uint16_t ev::loop::beanstalkd::Job::SetCompletedResponse (Json::Value& o_response)  const
 {
-    o_response                        = Json::Value(Json::ValueType::objectValue);
-    o_response["action"]              = "response";
-    o_response["content_type"]        = "application/json; charset=utf-8";
-    o_response["response"]            = Json::Value(Json::ValueType::objectValue);
-    o_response["response"]["success"] = true;
-    o_response["status"]              = "completed";
-    return 200;
+    return FillResponseObject(200, "completed",  Json::Value::null, o_response);
 }
 
 /**
@@ -299,15 +329,9 @@ uint16_t ev::loop::beanstalkd::Job::SetCompletedResponse (Json::Value& o_respons
  * @param a_payload
  * @param o_response
  */
-uint16_t ev::loop::beanstalkd::Job::SetCompletedResponse (const Json::Value& a_payload, Json::Value& o_response)
+uint16_t ev::loop::beanstalkd::Job::SetCompletedResponse (const Json::Value& a_payload, Json::Value& o_response)  const
 {
-    o_response                        = Json::Value(Json::ValueType::objectValue);
-    o_response["action"]              = "response";
-    o_response["content_type"]        = "application/json; charset=utf-8";
-    o_response["response"]            = a_payload;
-    o_response["response"]["success"] = true;
-    o_response["status"]              = "completed";
-    return 200;
+    return FillResponseObject(200, "completed",  a_payload, o_response);
 }
 
 /**
@@ -316,84 +340,9 @@ uint16_t ev::loop::beanstalkd::Job::SetCompletedResponse (const Json::Value& a_p
  * @param a_payload
  * @param o_response
  */
-void ev::loop::beanstalkd::Job::SetCancelledResponse (const Json::Value& a_payload, Json::Value& o_response)
+void ev::loop::beanstalkd::Job::SetCancelledResponse (const Json::Value& a_payload, Json::Value& o_response)  const
 {
-    o_response                 = Json::Value(Json::ValueType::objectValue);
-    o_response["action"]       = "response";
-    o_response["content_type"] = "application/json; charset=utf-8";
-    o_response["response"]     = a_payload;
-    o_response["status"]       = "cancelled";
-}
-
-/**
- * @brief Fill a 'failed' response.
- *
- * @param a_code
- * @param o_response
- */
-uint16_t ev::loop::beanstalkd::Job::SetFailedResponse (uint16_t a_code, Json::Value& o_response)
-{
-    return SetFailedResponse(a_code, errors_array_, o_response);
-}
-
-/**
- * @brief Fill a 'failed' response.
- *
- * @param a_code
- * @param a_payload
- * @param o_response
- */
-uint16_t ev::loop::beanstalkd::Job::SetFailedResponse (uint16_t a_code, const Json::Value& a_payload, Json::Value& o_response)
-{
-    o_response                 = Json::Value(Json::ValueType::objectValue);
-    o_response["action"]       = "response";
-    o_response["content_type"] = "application/json; charset=utf-8";
-    o_response["response"]     = a_payload;
-    o_response["status"]       = "failed";
-    o_response["status_code"]  = a_code;
-    return a_code;
-}
-
-// MARK: -
-
-/**
- * @brief Fill a 'timeout' response ( 408 - Request Timeout ).
- *
- * @param a_payload
- * @param o_response
- *
- * @return HTTP status code.
- */
-uint16_t ev::loop::beanstalkd::Job::SetTimeoutResponse (const Json::Value& a_payload, Json::Value& o_response)
-{
-    o_response                        = Json::Value(Json::ValueType::objectValue);
-    o_response["action"]              = "response";
-    o_response["content_type"]        = "application/json; charset=utf-8";
-    o_response["response"]            = a_payload;
-    o_response["response"]["success"] = false;
-    o_response["status"]              = "failed";
-    o_response["status_code"]         = 408;
-    return 408;
-}
-
-/**
- * @brief Fill a 'not implemented' response ( 501 - Not Implemented ).
- *
- * @param a_payload
- * @param o_response
- *
- * @return HTTP status code.
- */
-uint16_t ev::loop::beanstalkd::Job::SetNotImplementedResponse (const Json::Value& a_payload, Json::Value& o_response)
-{
-    o_response                        = Json::Value(Json::ValueType::objectValue);
-    o_response["action"]              = "response";
-    o_response["content_type"]        = "application/json; charset=utf-8";
-    o_response["response"]            = a_payload;
-    o_response["response"]["success"] = false;
-    o_response["status"]              = "failed";
-    o_response["status_code"]         = 501;
-    return 501;
+    (void)FillResponseObject(200, "cancelled",  a_payload, o_response);
 }
 
 /**
@@ -404,16 +353,22 @@ uint16_t ev::loop::beanstalkd::Job::SetNotImplementedResponse (const Json::Value
  *
  * @return HTTP status code.
  */
-uint16_t ev::loop::beanstalkd::Job::SetBadRequestResponse (const std::string& a_why, Json::Value& o_response)
+uint16_t ev::loop::beanstalkd::Job::SetBadRequestResponse (const std::string& a_why, Json::Value& o_response)  const
 {
-    CC_WARNING_TODO("CC-JOBS: a_why");
-    o_response                        = Json::Value(Json::ValueType::objectValue);
-    o_response["action"]              = "response";
-    o_response["content_type"]        = "application/json; charset=utf-8";
-    o_response["response"]["success"] = false;
-    o_response["status"]              = "failed";
-    o_response["status_code"]         = 400;
-    return 400;
+    return SetFailedResponse(400, Json::Value::null, o_response);
+}
+
+/**
+ * @brief Fill a 'timeout' response ( 408 - Request Timeout ).
+ *
+ * @param a_payload
+ * @param o_response
+ *
+ * @return HTTP status code.
+ */
+uint16_t ev::loop::beanstalkd::Job::SetTimeoutResponse (const Json::Value& a_payload, Json::Value& o_response) const
+{
+    return SetFailedResponse(408, a_payload, o_response);
 }
 
 /**
@@ -424,72 +379,47 @@ uint16_t ev::loop::beanstalkd::Job::SetBadRequestResponse (const std::string& a_
  *
  * @return HTTP status code.
  */
-uint16_t ev::loop::beanstalkd::Job::SetInternalServerErrorResponse (const std::string& a_why, Json::Value& o_response)
+uint16_t ev::loop::beanstalkd::Job::SetInternalServerErrorResponse (const std::string& a_why, Json::Value& o_response) const
 {
-    CC_WARNING_TODO("CC-JOBS: a_why");
-    o_response                        = Json::Value(Json::ValueType::objectValue);
-    o_response["action"]              = "response";
-    o_response["content_type"]        = "application/json; charset=utf-8";
-    o_response["response"]["success"] = false;
-    o_response["status"]              = "failed";
-    o_response["status_code"]         = 500;
-    return 500;
+    return SetFailedResponse(500, Json::Value::null, o_response);
 }
 
 /**
- * @brief Fill a 'timeout' payload ( 408 - Request Timeout ).
+ * @brief Fill a 'not implemented' response ( 501 - Not Implemented ).
  *
- * @param o_payload
+ * @param a_payload
+ * @param o_response
  *
  * @return HTTP status code.
  */
-uint16_t ev::loop::beanstalkd::Job::SetTimeout (Json::Value& o_payload)
+uint16_t ev::loop::beanstalkd::Job::SetNotImplementedResponse (const Json::Value& a_payload, Json::Value& o_response) const
 {
-    o_payload = "Timeout";
-    return 408;
+    return SetFailedResponse(501, a_payload, o_response);
 }
 
 /**
- * @brief Fill a 'not implemented' payload ( 501 - Not Implemented ).
+ * @brief Fill a 'failed' response.
  *
- * @param a_what
- * @param o_payload
- *
- * @return HTTP status code.
+ * @param a_code
+ * @param a_payload
+ * @param o_response
  */
-uint16_t ev::loop::beanstalkd::Job::SetNotImplemented (const std::string& a_what, Json::Value& o_payload)
+uint16_t ev::loop::beanstalkd::Job::SetFailedResponse (const uint16_t& a_code, const Json::Value& a_payload, Json::Value& o_response) const
 {
-    o_payload = ( a_what.length() > 0 ? a_what :  "Not Implemented" );
-    return 501;
+    return FillResponseObject(a_code, "failed",  a_payload, o_response);
 }
 
 /**
- * @brief Fill a 'bad request' payload ( 400 - Bad Request ).
+ * @brief Fill a 'failed' response.
  *
- * @param a_why
- * @param o_payload
- *
- * @return HTTP status code.
+ * @param a_code
+ * @param o_response
  */
-uint16_t ev::loop::beanstalkd::Job::SetBadRequest (const std::string& a_why, Json::Value& o_payload)
+uint16_t ev::loop::beanstalkd::Job::SetFailedResponse (const uint16_t&  a_code, Json::Value& o_response) const
 {
-    o_payload  = ( a_why.length() > 0 ? a_why : "Bad Request" );
-    return 400;
+    return SetFailedResponse(a_code, errors_array_, o_response);
 }
 
-/**
- * @brief Fill a 'internal server error' payload ( 500 - Internal Server Error ).
- *
- * @param a_why
- * @param o_payload
- *
- * @return HTTP status code.
- */
-uint16_t ev::loop::beanstalkd::Job::SetInternalServerError (const std::string& a_why, Json::Value& o_payload)
-{
-    o_payload = ( a_why.length() > 0 ? a_why : "Internal Server Error" );
-    return 500;
-}
 
 // MARK: -
 
@@ -1711,6 +1641,26 @@ const Json::Value& ev::loop::beanstalkd::Job::GetJSONObject (const Json::Value& 
         );
     } catch (const Json::Exception& a_json_exception ) {
            throw ::ev::Exception("%s", a_json_exception.what());
+    }
+}
+
+/**
+ * @brief Merge JSON Value.
+ *
+ * @param a_lhs Primary value.
+ * @param a_rhs Override value.
+ */
+void ev::loop::beanstalkd::Job::MergeJSONValue (Json::Value& a_lhs, const Json::Value& a_rhs) const
+{
+    if ( false == a_lhs.isObject() || false == a_rhs.isObject() ) {
+        return;
+    }
+    for ( const auto& k : a_rhs.getMemberNames() ) {
+        if ( true == a_lhs[k].isObject() && true == a_rhs[k].isObject() ) {
+            MergeJSONValue(a_lhs[k], a_rhs[k]);
+        } else {
+            a_lhs[k] = a_rhs[k];
+        }
     }
 }
 

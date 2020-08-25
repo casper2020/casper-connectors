@@ -117,6 +117,40 @@ namespace cc
                 
                 virtual void Run (const int64_t& a_id, const Json::Value& a_payload, Response& o_response) = 0;
                 
+            protected: // Method(s) / Function(s)
+                
+                typedef struct {
+                    const char* const                        key_;
+                    const std::map<std::string, Json::Value> arguments_;
+                } I18N;
+
+                typedef struct {
+                    const char* const code_;
+                    const std::string why_;
+                } InternalError;
+
+                typedef struct {
+                    const char* const     code_;
+                    const std::exception& excpt_;
+                } InternalException;
+
+            private: // Method(s) / Function(s)
+                
+                uint16_t SetMessage                     (const uint16_t& a_code, const easy::Job::I18N& a_i18n, Json::Value& o_payload);
+                
+            protected: // Method(s) / Function(s)
+                
+                uint16_t SetOk                          (const I18N* a_i18n, Json::Value& o_payload);
+                uint16_t SetTimeout                     (const I18N* a_i18n, Json::Value& o_payload);
+                uint16_t SetBadRequest                  (const I18N* a_i18n, Json::Value& o_payload);
+
+                uint16_t SetInternalServerError         (const I18N* a_i18n, Json::Value& o_payload);
+                uint16_t SetInternalServerError         (const I18N* a_i18n, const InternalError& a_error        , Json::Value& o_payload);
+                uint16_t SetInternalServerError         (const I18N* a_i18n, const InternalException& a_exception, Json::Value& o_payload);
+
+                uint16_t SetNotImplemented              (const I18N* a_i18n, Json::Value& o_payload);
+                uint16_t SetNotImplemented              (const I18N* a_i18n, const InternalError& a_error, Json::Value& o_payload);
+
             }; // end of class 'Job'
             
         } // end of namespace 'easy'

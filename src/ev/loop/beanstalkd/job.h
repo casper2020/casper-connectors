@@ -276,7 +276,7 @@ namespace ev
                 } MessagePumpCallbacks;
                 
                 typedef std::function<Job*(const std::string& a_tube)> Factory;
-                
+                                
             protected: // Data Type(s)
                 
                 enum class Status : uint8_t {
@@ -412,21 +412,29 @@ namespace ev
                 
                 void ConfigJSONAPI         (const Json::Value& a_config);
                 
-                uint16_t SetCompletedResponse  (Json::Value& o_response);
-                uint16_t SetCompletedResponse  (const Json::Value& a_payload, Json::Value& o_response);
-                void     SetCancelledResponse  (const Json::Value& a_payload, Json::Value& o_response);
-                uint16_t SetFailedResponse     (uint16_t a_code, Json::Value& o_response);
-                uint16_t SetFailedResponse     (uint16_t a_code, const Json::Value& a_payload, Json::Value& o_response);
+            private: // Method(s) / Function(s)
+                
+                uint16_t FillResponseObject (const uint16_t& a_code, const char* const a_status, const Json::Value& a_response,
+                                             Json::Value& o_object)  const;
+                
+            protected: // Method(s) / Function(s)
+                
+                // 2xx
+                uint16_t SetCompletedResponse  (Json::Value& o_response) const;
+                uint16_t SetCompletedResponse  (const Json::Value& a_payload, Json::Value& o_response) const;
+                void     SetCancelledResponse  (const Json::Value& a_payload, Json::Value& o_response) const;
+                                
+                // 4xx
+                uint16_t SetBadRequestResponse           (const std::string& a_why, Json::Value& o_response) const;
+                uint16_t SetTimeoutResponse              (const Json::Value& a_payload, Json::Value& o_response) const;
+                
+                // 5xx
+                uint16_t SetInternalServerErrorResponse  (const std::string& a_why, Json::Value& o_response) const;
+                uint16_t SetNotImplementedResponse       (const Json::Value& a_payload, Json::Value& o_response) const;
 
-                uint16_t SetTimeoutResponse             (const Json::Value& a_payload, Json::Value& o_response);
-                uint16_t SetNotImplementedResponse      (const Json::Value& a_payload, Json::Value& o_response);
-                uint16_t SetBadRequestResponse          (const std::string& a_why, Json::Value& o_response);
-                uint16_t SetInternalServerErrorResponse (const std::string& a_why, Json::Value& o_response);
-
-                uint16_t SetTimeout                     (Json::Value& o_payload);
-                uint16_t SetNotImplemented              (const std::string& a_what, Json::Value& o_payload);
-                uint16_t SetBadRequest                  (const std::string& a_why, Json::Value& o_payload);
-                uint16_t SetInternalServerError         (const std::string& a_why, Json::Value& o_payload);
+                // 4xx, 50xx
+                uint16_t SetFailedResponse               (const uint16_t& a_code, Json::Value& o_response) const;
+                uint16_t SetFailedResponse               (const uint16_t& a_code, const Json::Value& a_payload, Json::Value& o_response) const;
 
             protected: // REDIS Helper Method(s) / Function(s)
                                 
@@ -551,6 +559,8 @@ namespace ev
                 
                 const Json::Value& GetJSONObject (const Json::Value& a_parent, const char* const a_key, const Json::ValueType& a_type, const Json::Value* a_default,
                                                   const char* const a_error_prefix_msg = "Invalid or missing ") const;
+                
+                void MergeJSONValue (Json::Value& a_lhs, const Json::Value& a_rhs) const;
                 
                 void        ParseJSON      (const std::string& a_value, Json::Value& o_value)           const;
                 void        ToJSON         (const ev::postgresql::Value& a_value, Json::Value& o_value) const;
