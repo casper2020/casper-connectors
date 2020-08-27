@@ -38,8 +38,10 @@
  * @param a_loggable_data
  * @param a_tube
  * @param a_config
+ * @param a_response_flags
  */
-ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const std::string& a_tube, const Config& a_config)
+ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const std::string& a_tube, const Job::Config& a_config,
+                                const Job::ResponseFlags& a_response_flags)
     : ::ev::loop::beanstalkd::Object(a_loggable_data),
     tube_(a_tube), config_(a_config),
     redis_signal_channel_(config_.service_id() + ":job-signal"),
@@ -80,6 +82,8 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
     
     signals_channel_listener_ = nullptr;
     owner_log_callback_       = nullptr;
+    
+    response_flags_           = a_response_flags;
     
     ev::LoggerV2::GetInstance().Register(logger_client_, { "queue" });
 }
@@ -295,16 +299,23 @@ uint16_t ev::loop::beanstalkd::Job::FillResponseObject (const uint16_t& a_code, 
         if ( true == o_object["response"].isMember("message") ) {
             o_object["message"] = o_object["response"].removeMember("message");
         }
+    } else if ( true == a_response.isArray() && ( &errors_array_ == &a_response ) ) {
+        // ... errors array ...
+        o_object["response"]["errors"] = Json::Value(Json::ValueType::arrayValue);
+        for ( Json::ArrayIndex idx = 0 ; idx < a_response.size() ; ++idx ) {
+            (void)o_object["response"]["errors"].append(a_response[idx]);
+        }
     } else if ( false == a_response.isNull() ) {
         // ... 'response' is direct copy ...
         throw ::ev::Exception("%s", "Response must be a valid JSON object!");
     }
     
     // ... set / override mandatory fields ...
-    if ( true == o_object.isMember("response") && true == o_object.isObject() ) {
+    if ( true == o_object.isMember("response") && true == o_object.isObject()
+        && Job::ResponseFlags::SuccessFlag == ( response_flags_ & Job::ResponseFlags::SuccessFlag )
+    ) {
         o_object["response"]["success"] = ( 200 == a_code );
-    }
-    
+    }    
     o_object["action"]       = "response";
     o_object["content_type"] = "application/json; charset=utf-8";
     o_object["status"]       = a_status;
@@ -471,8 +482,15 @@ void ev::loop::beanstalkd::Job::Finished (const Json::Value& a_response,
                                           const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
 {    
     uint64_t rjnr = 0;
-    if ( 1 != sscanf(rjnr_.c_str(), UINT64_FMT, &rjnr) ) {
-        throw ::ev::Exception("Unable to extract numeric ID from string '%s'!", rjnr_.c_str());
+    const char* ptr = strrchr(rjnr_.c_str(), ':');
+    if ( nullptr != ptr ) {
+        if ( 1 != sscanf(ptr + sizeof(char), UINT64_FMT, &rjnr) ) {
+            throw ::ev::Exception("Unable to extract numeric ID from string '%s'!", rjnr_.c_str());
+        }
+    } else {
+        if ( 1 != sscanf(rjnr_.c_str(), UINT64_FMT, &rjnr)  ) {
+            throw ::ev::Exception("Unable to extract numeric ID from string '%s'!", rjnr_.c_str());
+        }
     }
     Finished(rjnr, ( redis_channel_prefix_ + rjnr_ ), a_response, a_success_callback, a_failure_callback);
 }

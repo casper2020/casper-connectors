@@ -38,6 +38,9 @@
 #define CC_WARNING_TODO(a_name) \
    _Pragma(CC_MACRO_STRINGIFY_ARG(GCC warning("" #a_name)))
 
+#define CC_DEPRECATED \
+    [[deprecated]]
+
 #define CC_MARK_INTENDED_VIRTUAL_OVERRIDING(function) \
     _Pragma("clang diagnostic push") \
     _Pragma("clang diagnostic ignored \"-Woverloaded-virtual\"") \

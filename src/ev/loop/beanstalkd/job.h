@@ -66,6 +66,10 @@ ev::LoggerV2::GetInstance().Log(logger_client_, "queue", \
         __VA_ARGS__ \
     );
 
+#include "cc/bitwise_enum.h"
+
+#include "cc/macros.h"
+
 namespace ev
 {
     
@@ -301,6 +305,12 @@ namespace ev
                 
                 typedef std::function<void(const std::string&)> LooperThreadCallback;
                 
+                enum class ResponseFlags : uint8_t {
+                    None        = 0,
+                    SuccessFlag = 1 << 0,
+                    All         = 0xFF
+                };
+                
             protected: // Const Static Data
                 
                 constexpr static const int k_exception_rc_ = -3;
@@ -346,6 +356,7 @@ namespace ev
                 std::string                output_directory_;
                 std::string                logs_directory_;
                 std::string                shared_directory_;
+                ResponseFlags              response_flags_;
                 
             private: // Helpers
                 
@@ -374,11 +385,12 @@ namespace ev
 
                 SignalsChannelListerer signals_channel_listener_;
                 OwnerLogCallback       owner_log_callback_;
-
+                
             public: // Constructor(s) / Destructor
                 
                 Job () = delete;
-                Job (const ev::Loggable::Data& a_loggable_data, const std::string& a_tube, const Config& a_config);
+                Job (const ev::Loggable::Data& a_loggable_data, const std::string& a_tube, const Config& a_config,
+                     const ResponseFlags& a_response_flags = ResponseFlags::All);
                 virtual ~Job ();
                 
             public:
@@ -440,10 +452,15 @@ namespace ev
                                 
                 void PublishProgress  (const Json::Value& a_payload); // TODO CHECK USAGE and remove it ?
                 
+                CC_DEPRECATED
                 void   AppendError       (const Json::Value& a_error);
+                CC_DEPRECATED
                 void   AppendError       (const char* const a_type, const std::string& a_why, const char *const a_where, const int a_code);
+                CC_DEPRECATED
                 bool   HasErrorsSet      () const;
+                CC_DEPRECATED
                 size_t ErrorsCount        () const;
+                CC_DEPRECATED
                 const Json::Value& LastError () const;
                 
                 void Publish           (const Progress& a_progress);
@@ -478,6 +495,12 @@ namespace ev
                 const std::string& logs_directory    () const;
                 const std::string& shared_directory  () const;
                 const std::string& output_dir_prefix () const;
+            
+            protected: // Response Options
+                
+                void Reset (const ResponseFlags& a_flag);
+                void Set   (const ResponseFlags& a_flag);
+                void Unset (const ResponseFlags& a_flag);
                 
             protected: // Stats
                 
@@ -736,7 +759,39 @@ namespace ev
                 output_directory_        = "";
                 output_directory_prefix_ = a_prefix;
             }
+        
+            DEFINE_ENUM_WITH_BITWISE_OPERATORS(Job::ResponseFlags);
 
+            /**
+             * @brief Reset the response flag value.
+             *
+             * @param a_flag Initial value of \link Job::ResponseFlags \link.
+             */
+            inline void Job::Reset (const Job::ResponseFlags& a_flag)
+            {
+                response_flags_ = a_flag;
+            }
+
+            /**
+             * @brief Set a response option flag.
+             *
+             * @param a_flag \link Job::ResponseFlags \link.
+             */
+            inline void Job::Set (const Job::ResponseFlags& a_flag)
+            {
+                response_flags_ |= a_flag;
+            }
+
+            /**
+             * @brief Clear a response option flag.
+             *
+             * @param a_flag \link Job::ResponseFlags \link.
+             */
+            inline void Job::Unset (const Job::ResponseFlags& a_flag)
+            {
+                response_flags_ &= ~(a_flag);
+            }
+        
         } // end of namespace 'beanstalkd'
         
     } // end of namespace 'loop'

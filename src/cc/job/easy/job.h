@@ -133,17 +133,24 @@ namespace cc
                     const char* const     code_;
                     const std::exception& excpt_;
                 } InternalException;
-
-            private: // Method(s) / Function(s)
                 
-                uint16_t SetMessage                     (const uint16_t& a_code, const easy::Job::I18N& a_i18n, Json::Value& o_payload);
                 
             protected: // Method(s) / Function(s)
-                
-                uint16_t SetOk                          (const I18N* a_i18n, Json::Value& o_payload);
-                uint16_t SetTimeout                     (const I18N* a_i18n, Json::Value& o_payload);
-                uint16_t SetBadRequest                  (const I18N* a_i18n, Json::Value& o_payload);
 
+                // 1 ~ 5 xxx
+                uint16_t SetI18NMessage                (const uint16_t& a_code, const easy::Job::I18N& a_i18n, Json::Value& o_payload);
+                uint16_t SetI18NError                  (const uint16_t& a_code, const easy::Job::I18N& a_i18n, const InternalError& a_error,
+                                                        Json::Value& o_payload);
+
+                // 2xx
+                uint16_t SetOk                          (const I18N* a_i18n, Json::Value& o_payload);
+                
+                // 4xx
+                uint16_t SetBadRequest                  (const I18N* a_i18n, Json::Value& o_payload);
+                uint16_t SetTimeout                     (const I18N* a_i18n, Json::Value& o_payload);
+                uint16_t SetNotFound                    (const I18N* a_i18n, Json::Value& o_payload);
+                
+                // 5xx
                 uint16_t SetInternalServerError         (const I18N* a_i18n, Json::Value& o_payload);
                 uint16_t SetInternalServerError         (const I18N* a_i18n, const InternalError& a_error        , Json::Value& o_payload);
                 uint16_t SetInternalServerError         (const I18N* a_i18n, const InternalException& a_exception, Json::Value& o_payload);

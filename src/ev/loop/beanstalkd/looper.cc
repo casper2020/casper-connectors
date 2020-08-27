@@ -189,72 +189,139 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
         // check if consumer is already loaded
         const auto cached_it = cache_.find(tube);
         if ( cache_.end() == cached_it ) {
-            
-            job_ptr_ = factory_(tube);
-            
-           // ... git current job an oportunity to write a message as if it was the consumer ...
-           job_ptr_->SetOwnerLogCallback([this] (const char* const a_tube, const char* const a_key, const std::string& a_value) {
-               // ... temporarly set tube as tag ...
-               loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), a_tube);
-               // ... write to permanent log ...
-               EV_LOOP_BEANSTALK_LOG("queue",
-                                     "--- %-16.16s ---: %12.12s: %s",
-                                     " ",
-                                     a_key, a_value.c_str()
-               );
-               // ... restore ...
-               loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
-           });
-            
-            cache_[tube] = job_ptr_;
-            job_ptr_->Setup(&callbacks_, a_output_directory, a_logs_directory, a_shared_directory);
+            // ... new job handler is required ...
+            try {
+                // ... create a new instance ..
+                job_ptr_ = factory_(tube);
+               // ... give current job an oportunity to write a message as if it was the consumer ...
+               job_ptr_->SetOwnerLogCallback([this] (const char* const a_tube, const char* const a_key, const std::string& a_value) {
+                   // ... temporarly set tube as tag ...
+                   loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), a_tube);
+                   // ... write to permanent log ...
+                   EV_LOOP_BEANSTALK_LOG("queue",
+                                         "--- %-16.16s ---: %12.12s: %s",
+                                         " ",
+                                         a_key, a_value.c_str()
+                   );
+                   // ... restore ...
+                   loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
+               });
+                // ... one-shot setup ...
+                job_ptr_->Setup(&callbacks_, a_output_directory, a_logs_directory, a_shared_directory);
+                // ... keep track of it ...
+                cache_[tube] = job_ptr_;
+            } catch (...) {
+                // .. CRITICAL FAILURE ...
+                try {
+                    ::cc::Exception::Rethrow(/* a_unhandled */ true, __FILE__, __LINE__, __FUNCTION__);
+                } catch (const ::cc::Exception& a_cc_exception) {
+                    // ... write to permanent log ...
+                    EV_LOOP_BEANSTALK_LOG("queue",
+                                          "Job #" INT64_FMT_MAX_RA ": %12.12s: %s",
+                                          job.id(),
+                                          "TUBE",
+                                          tube.c_str()
+                    );
+                    EV_LOOP_BEANSTALK_LOG("queue",
+                                          "Job #" INT64_FMT_MAX_RA ": %12.12s: %s",
+                                          job.id(),
+                                          "FAILURE",
+                                          "CAN'T CREATE A NEW JOB HANDLER INSTANCE"
+                    );
+                    EV_LOOP_BEANSTALK_LOG("queue",
+                                          "Job #" INT64_FMT_MAX_RA ": %12.12s: %s",
+                                          job.id(),
+                                          "EXCEPTION",
+                                          a_cc_exception.what()
+                    );
+                }
+                // ... forget it  ...
+                const auto it = cache_.find(tube);
+                if ( cache_.end() != it ) {
+                    cache_.erase(it);
+                }
+                if ( nullptr != job_ptr_ ) {
+                    delete job_ptr_;
+                    job_ptr_ = nullptr;
+                }
+            }
         } else {
             job_ptr_ = cached_it->second;
         }
         
-        // ... process job ...
-        osal::ConditionVariable job_cv;
-        
         const std::chrono::steady_clock::time_point start_tp = std::chrono::steady_clock::now();
         
-        try {
-            
-            job_ptr_->Consume(/* a_id */ job.id(), /* a_body */ job_payload_,
-                              /* on_completed_           */
-                              [&uri, &http_status_code, &success, &job_cv](const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code) {
-                                  uri              = a_uri;
-                                  http_status_code = a_http_status_code;
-                                  success          = a_success;
-                                  job_cv.Wake();
-                              },
-                              /* on_cancelled_           */
-                              [&cancelled, &already_ran, &job_cv] (bool a_already_ran) {
-                                  cancelled   = true;
-                                  already_ran = a_already_ran;
-                                  job_cv.Wake();
-                              },
-                              /* a_deferred_callback */
-                              [&deferred, &job_cv] () {
-                                  deferred = true;
-                                  job_cv.Wake();
-                              }
-            );
-            
-            job_cv.Wait();
-
-        } catch (...) {
-            
-            delete job_ptr_;
-            cache_.erase(cache_.find(tube));
-
-            job_cv.Wake();
-
+        // ... ready?
+        if ( nullptr != job_ptr_ ) {
+            osal::ConditionVariable job_cv;
+            // ... yes, process job ...
+            try {
+                // ... run it ...
+                job_ptr_->Consume(/* a_id */ job.id(), /* a_body */ job_payload_,
+                                  /* on_completed_           */
+                                  [&uri, &http_status_code, &success, &job_cv](const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code) {
+                                      uri              = a_uri;
+                                      http_status_code = a_http_status_code;
+                                      success          = a_success;
+                                      job_cv.Wake();
+                                  },
+                                  /* on_cancelled_           */
+                                  [&cancelled, &already_ran, &job_cv] (bool a_already_ran) {
+                                      cancelled   = true;
+                                      already_ran = a_already_ran;
+                                      job_cv.Wake();
+                                  },
+                                  /* a_deferred_callback */
+                                  [&deferred, &job_cv] () {
+                                      deferred = true;
+                                      job_cv.Wake();
+                                  }
+                );
+                // ... WAIT for job completion ...
+                job_cv.Wait();
+            } catch (...) {
+                // .. FAILURE ...
+                try {
+                    ::cc::Exception::Rethrow(/* a_unhandled */ true, __FILE__, __LINE__, __FUNCTION__);
+                } catch (const ::cc::Exception& a_cc_exception) {
+                    EV_LOOP_BEANSTALK_LOG("queue",
+                                          "Job #" INT64_FMT_MAX_RA ": %12.12s: %s",
+                                          job.id(),
+                                          "ERROR",
+                                          "UNHANDLED EXCEPTION WHILE EXECUTING JOB"
+                    );
+                    EV_LOOP_BEANSTALK_LOG("queue",
+                                          "Job #" INT64_FMT_MAX_RA ": %12.12s: %s",
+                                          job.id(),
+                                          "EXCEPTION",
+                                          a_cc_exception.what()
+                    );
+                }
+                // ... error - already logged ...
+                success          = false;
+                cancelled        = false;
+                already_ran      = false;
+                deferred         = false;
+                http_status_code = 500;
+                // ... forget it  ...
+                delete job_ptr_;
+                cache_.erase(cache_.find(tube));
+                // ... WAKE from job execution ...
+                job_cv.Wake();
+            }
+            // ... reset ptr ...
+            job_ptr_ = nullptr;
+        } else {
+            // ... no, critical error - already logged ...
+            success          = false;
+            cancelled        = false;
+            already_ran      = false;
+            deferred         = false;
+            http_status_code = 500;
         }
 
         const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_tp).count();
         
-        job_ptr_ = nullptr;
-
         loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
 
         // ... check print result ...
@@ -330,10 +397,10 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
         beanstalk_ = nullptr;
     }
     
+    // ... release job handlers cache ...
     for ( auto it : cache_ ) {
         delete it.second;
     }
-
     cache_.clear();
 }
 
