@@ -63,7 +63,6 @@ ev::loop::beanstalkd::Runner::Runner ()
     consumer_cv_              = nullptr;
     loggable_data_            = nullptr;
     shared_config_            = new ev::loop::beanstalkd::Runner::SharedConfig({
-        /* default_tube_ */ "",
         /* ip_addr_ */ "",
         /* directories_ */ {
             /* log_  */ "",
@@ -811,8 +810,7 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop (const float& a_polling_timeout)
         looper_mutex_.lock();
         looper_ptr_ = new ev::loop::beanstalkd::Looper(*loggable_data_,
                                                        shared_config_->factory_,
-                                                       callbacks,
-                                                       shared_config_->default_tube_
+                                                       callbacks
         );
         looper_mutex_.unlock();
         

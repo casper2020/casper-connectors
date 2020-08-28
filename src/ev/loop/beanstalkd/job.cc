@@ -61,7 +61,6 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
 
     progress_                        = Json::Value::null;
     errors_array_                    = Json::Value::null;
-    follow_up_jobs_                  = Json::Value::null;
 
     chdir_hrt_.seconds_              = static_cast<uint8_t>(0);
     chdir_hrt_.minutes_              = static_cast<uint8_t>(0);
@@ -146,6 +145,16 @@ void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callba
 }
 
 /**
+* @brief One-shot dismantling.
+*
+* @param a_cc_exception
+*/
+void ev::loop::beanstalkd::Job::Dismantle (const ::cc::Exception* /* a_cc_exception */)
+{
+    Dismantle();
+}
+
+/**
  * @brief Prepare a job to run.
  *
  * @param a_id
@@ -180,13 +189,6 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     deferred_                        = false;
     progress_                        = Json::Value(Json::ValueType::objectValue);
     errors_array_                    = Json::Value(Json::ValueType::arrayValue);
-    follow_up_jobs_                  = Json::Value::null;
-    follow_up_payload_               = Json::Value::null;
-    follow_up_id_key_                = "";
-    follow_up_key_                   = "";
-    follow_up_tube_                  = "";
-    follow_up_expires_in_            = -1;
-    follow_up_ttr_                   = 0;
     
     //
     // JSONAPI Configuration - optional
@@ -282,28 +284,32 @@ void ev::loop::beanstalkd::Job::ConfigJSONAPI (const Json::Value& a_config)
 #endif
 
 /**
-* @brief Fill a 'response' object.
-*
-* @param o_response
+ * @brief Fill a 'response' object.
+ *
+ * param a_code
+ * param a_status
+ * param a_response
+ * param o_object
+ * param a_action
 */
 uint16_t ev::loop::beanstalkd::Job::FillResponseObject (const uint16_t& a_code, const char* const a_status, const Json::Value& a_response,
-                                                        Json::Value& o_object)  const
+                                                        Json::Value& o_object,
+                                                        const char* const a_action)  const
 {
-    o_object = Json::Value(Json::ValueType::objectValue);
-    o_object["response"] = Json::Value(Json::ValueType::objectValue);
-
+    o_object           = Json::Value(Json::ValueType::objectValue);
+    o_object[a_action] = Json::Value(Json::ValueType::objectValue);
     // ... merge?
     if ( true == a_response.isObject() ) {
         // ... yes ...
-        MergeJSONValue(o_object["response"], a_response);
-        if ( true == o_object["response"].isMember("message") ) {
-            o_object["message"] = o_object["response"].removeMember("message");
+        MergeJSONValue(o_object[a_action], a_response);
+        if ( true == o_object[a_action].isMember("message") ) {
+            o_object["message"] = o_object[a_action].removeMember("message");
         }
     } else if ( true == a_response.isArray() && ( &errors_array_ == &a_response ) ) {
         // ... errors array ...
-        o_object["response"]["errors"] = Json::Value(Json::ValueType::arrayValue);
+        o_object[a_action]["errors"] = Json::Value(Json::ValueType::arrayValue);
         for ( Json::ArrayIndex idx = 0 ; idx < a_response.size() ; ++idx ) {
-            (void)o_object["response"]["errors"].append(a_response[idx]);
+            (void)o_object[a_action]["errors"].append(a_response[idx]);
         }
     } else if ( false == a_response.isNull() ) {
         // ... 'response' is direct copy ...
@@ -311,12 +317,12 @@ uint16_t ev::loop::beanstalkd::Job::FillResponseObject (const uint16_t& a_code, 
     }
     
     // ... set / override mandatory fields ...
-    if ( true == o_object.isMember("response") && true == o_object.isObject()
+    if ( true == o_object.isMember(a_action) && true == o_object.isObject()
         && Job::ResponseFlags::SuccessFlag == ( response_flags_ & Job::ResponseFlags::SuccessFlag )
     ) {
-        o_object["response"]["success"] = ( 200 == a_code );
+        o_object[a_action]["success"] = ( 200 == a_code );
     }    
-    o_object["action"]       = "response";
+    o_object["action"]       = a_action;
     o_object["content_type"] = "application/json; charset=utf-8";
     o_object["status"]       = a_status;
     o_object["status_code"]  = a_code;
@@ -354,6 +360,18 @@ uint16_t ev::loop::beanstalkd::Job::SetCompletedResponse (const Json::Value& a_p
 void ev::loop::beanstalkd::Job::SetCancelledResponse (const Json::Value& a_payload, Json::Value& o_response)  const
 {
     (void)FillResponseObject(200, "cancelled",  a_payload, o_response);
+}
+
+/**
+ * @brief Fill a 'redirect' response.
+ *
+ * @param a_payload
+ * @param o_response
+ * @param o_code Alternative 30x code.
+*/
+uint16_t ev::loop::beanstalkd::Job::SetRedirectResponse (const Json::Value& a_payload, Json::Value& o_response, const uint16_t a_code) const
+{
+    return FillResponseObject(a_code, "completed",  a_payload, o_response, "redirect");
 }
 
 /**
@@ -964,166 +982,6 @@ bool ev::loop::beanstalkd::Job::ShouldCancel ()
     
     // ... done ...
     return cancelled_;
-}
-
-#ifdef __APPLE__
-#pragma mark -
-#pragma mark Follow up job
-#endif
-
-/**
- * @brief Append a 'follow up' job.
- */
-Json::Value& ev::loop::beanstalkd::Job::AppendFollowUpJob ()
-{
-    return follow_up_jobs_.append(Json::Value(Json::ValueType::objectValue));
-}
-
-/**
- * @brief Push previously appended follow up jobs.
- *
- * @return True on success, on failure errors are set.
- */
-bool ev::loop::beanstalkd::Job::PushFollowUpJobs ()
-{
-    for ( Json::ArrayIndex idx = 0 ; idx < follow_up_jobs_.size() ; ++idx ) {
-        
-        const Json::Value& entry = follow_up_jobs_[idx];
-        const Json::Value& job   = entry["job"];
-                
-        CC_DEBUG_LOG_MSG("job", "Job #" INT64_FMT " ~= submitting follow up job #" SIZET_FMT ":\n%s",
-                         ID(), static_cast<size_t>(idx + 1), entry.toStyledString().c_str()
-        );
-        
-        SubmitFollowUpJob(static_cast<size_t>(idx + 1), job);
-        
-        if ( true == HasErrorsSet() ) {
-            break;
-        }
-        
-    }
-    return ( false == HasErrorsSet() );
-}
-
-/**
- * @brief Submit a 'follow up' job.
- *
- * @param a_number
- * @param a_job
- */
-void ev::loop::beanstalkd::Job::SubmitFollowUpJob (const size_t a_number, const Json::Value& a_job)
-{
-    // ... first check cancellation flag ...
-    follow_up_payload_    = a_job;
-    follow_up_id_key_     = config_.service_id() + ":jobs:sequential_id";
-    follow_up_tube_       = follow_up_payload_["tube"].asString();
-    follow_up_key_        = ( config_.service_id() + ":jobs:" + follow_up_tube_ + ':' );
-    follow_up_expires_in_ = follow_up_payload_.get("validity", 3600).asInt64();
-    follow_up_ttr_        = follow_up_payload_.get("ttr", 300).asUInt();
-    
-    osal::ConditionVariable cancellation_cv;
-    
-    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("SUBMIT",
-                                    "FOLLOW UP JOB # " SIZET_FMT ": %s, ttr set to " UINT32_FMT ", expires in " INT64_FMT,
-                                    a_number, follow_up_tube_.c_str(), follow_up_ttr_, follow_up_expires_in_
-    );
-    
-    ExecuteOnMainThread([this, a_number, &cancellation_cv] {
-        
-        NewTask([this] () -> ::ev::Object* {
-            
-            // ...  get new job id ...
-            return new ::ev::redis::Request(loggable_data_, "INCR", {
-                /* key   */ follow_up_id_key_
-            });
-            
-        })->Then([this] (::ev::Object* a_object) -> ::ev::Object* {
-            
-            //
-            // INCR:
-            //
-            // - An integer reply is expected:
-            //
-            //  - the value of key after the increment
-            //
-            const ::ev::redis::Value& value = ::ev::redis::Reply::EnsureIntegerReply(a_object);
-            
-            follow_up_payload_["id"] = std::to_string(value.Integer());
-            
-            // ... set job key ...
-            follow_up_key_ += follow_up_payload_["id"].asString();
-            
-            // ... first, set queued status ...
-            return new ::ev::redis::Request(loggable_data_, "HSET", {
-                /* key   */ follow_up_key_,
-                /* field */ "status", "{\"status\":\"queued\"}"
-            });
-            
-        })->Then([this] (::ev::Object* a_object) -> ::ev::Object* {
-            
-            //
-            // HSET:
-            //
-            // - An integer reply is expected:
-            //
-            //  - 1 if field is a new field in the hash and value was set.
-            //  - 0 if field already exists in the hash and the value was updated.
-            //
-            (void)::ev::redis::Reply::EnsureIntegerReply(a_object);
-            
-            return new ::ev::redis::Request(loggable_data_, "EXPIRE", { follow_up_key_, std::to_string(follow_up_expires_in_) });
-            
-        })->Finally([this, a_number, &cancellation_cv] (::ev::Object* a_object) {
-            
-            //
-            // EXPIRE:
-            //
-            // Integer reply, specifically:
-            // - 1 if the timeout was set.
-            // - 0 if key does not exist or the timeout could not be set.
-            //
-            ::ev::redis::Reply::EnsureIntegerReply(a_object, 1);
-            
-            try {
-                
-                const std::string payload = json_writer_.write(follow_up_payload_);
-                
-                PushJob(/* a_tube */ follow_up_tube_.c_str(), /* a_payload */ payload, /* a_ttr */ follow_up_ttr_);
-                
-                EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("SUBMITTED",
-                                                "FOLLOW UP JOB # " SIZET_FMT ": %s",
-                                                static_cast<size_t>(a_number),
-                                                payload.c_str()
-                );
-
-            } catch (const ::Beanstalk::ConnectException& a_btc_exception) {
-                throw ::ev::Exception("%s", a_btc_exception.what());
-            }
-            
-            cancellation_cv.Wake();
-            
-        })->Catch([this, a_number, &cancellation_cv] (const ::ev::Exception& a_ev_exception) {
-            
-            const std::string prefix = "rror while submitting follow up job # " + std::to_string(a_number) + " to tube " + follow_up_tube_;
-            
-            // ... log error ...
-            EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ERROR", "SUBMIT FAILED: e%s: %s",
-                                            prefix.c_str(), a_ev_exception.what()
-            );
-            
-            AppendError(/* a_type  */ "Beanstalk Error",
-                        /* a_why   */ ( 'E'+ prefix + ": " + a_ev_exception.what() ).c_str(),
-                        /* a_where */__FUNCTION__,
-                        /* a_code */ ev::loop::beanstalkd::Job::k_exception_rc_
-            );
-            
-            cancellation_cv.Wake();
-            
-        });
-        
-    }, /* a_blocking */ false);
-    
-    cancellation_cv.Wait();
 }
 
 #ifdef __APPLE__

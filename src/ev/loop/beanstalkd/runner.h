@@ -72,7 +72,6 @@ namespace ev
 
                 typedef struct _SharedConfig {
                     
-                    std::string                        default_tube_;
                     std::string                        ip_addr_;
                     ev::Directories                    directories_;
                     std::map<std::string, std::string> log_tokens_;
@@ -82,12 +81,11 @@ namespace ev
                     DeviceLimitsMap                    device_limits_;
                     Factory                            factory_;
                     
-                    _SharedConfig(const std::string& a_default_tube, const std::string& a_ip_addr,
+                    _SharedConfig(const std::string& a_ip_addr,
                                   const ev::Directories& a_directories, const std::map<std::string, std::string>& a_log_tokens,
                                   const ev::redis::Config& a_redis, const ev::postgresql::Config& a_postgres, const ev::beanstalk::Config& a_beanstalk, const DeviceLimitsMap& a_device_limits,
                                   const Factory& a_factory)
                     {
-                        default_tube_  = a_default_tube;
                         ip_addr_       = a_ip_addr;
                         directories_   = a_directories;
                         
@@ -109,7 +107,6 @@ namespace ev
 
                     inline void operator=(const _SharedConfig& a_config)
                     {
-                        default_tube_  = a_config.default_tube_;
                         ip_addr_       = a_config.ip_addr_;
                         directories_   = a_config.directories_;
                         

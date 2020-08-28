@@ -39,10 +39,9 @@
  * @param a_default_tube
  */
 ev::loop::beanstalkd::Looper::Looper (const ev::Loggable::Data& a_loggable_data,
-                                      const ev::loop::beanstalkd::Job::Factory& a_factory, const ev::loop::beanstalkd::Job::MessagePumpCallbacks& a_callbacks,
-                                      const std::string a_default_tube)
+                                      const ev::loop::beanstalkd::Job::Factory& a_factory, const ev::loop::beanstalkd::Job::MessagePumpCallbacks& a_callbacks)
     : ::ev::loop::beanstalkd::Object(a_loggable_data),
-       factory_(a_factory), callbacks_(a_callbacks), default_tube_(a_default_tube)
+       factory_(a_factory), callbacks_(a_callbacks)
 {
     logger_client_->Unset(ev::LoggerV2::Client::LoggableFlags::IPAddress | ev::LoggerV2::Client::LoggableFlags::OwnerPTR);
     beanstalk_ = nullptr;
@@ -63,6 +62,7 @@ ev::loop::beanstalkd::Looper::~Looper ()
         delete beanstalk_;
     }
     for ( auto it : cache_ ) {
+        it.second->Dismantle(nullptr);
         delete it.second;
     }
     job_ptr_ = nullptr;
@@ -184,7 +184,7 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
             throw ev::Exception("An error occurred while loading job payload: JSON parsing error - %s\n", json_reader_.getFormattedErrorMessages().c_str());
         }
         
-        const std::string tube = job_payload_.get("tube", default_tube_).asString();
+        const std::string tube = job_payload_.get("tube", "").asString();
 
         // check if consumer is already loaded
         const auto cached_it = cache_.find(tube);
@@ -193,6 +193,9 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
             try {
                 // ... create a new instance ..
                 job_ptr_ = factory_(tube);
+                if ( nullptr == job_ptr_ ) {
+                    throw ev::Exception("Unknown tube named '%s'!", tube.c_str());
+                }
                // ... give current job an oportunity to write a message as if it was the consumer ...
                job_ptr_->SetOwnerLogCallback([this] (const char* const a_tube, const char* const a_key, const std::string& a_value) {
                    // ... temporarly set tube as tag ...
@@ -234,6 +237,9 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
                                           "EXCEPTION",
                                           a_cc_exception.what()
                     );
+                    if ( nullptr != job_ptr_ ) {
+                        job_ptr_->Dismantle(&a_cc_exception);
+                    }
                 }
                 // ... forget it  ...
                 const auto it = cache_.find(tube);
@@ -296,6 +302,7 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
                                           "EXCEPTION",
                                           a_cc_exception.what()
                     );
+                    job_ptr_->Dismantle(&a_cc_exception);
                 }
                 // ... error - already logged ...
                 success          = false;
@@ -399,6 +406,7 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
     
     // ... release job handlers cache ...
     for ( auto it : cache_ ) {
+        it.second->Dismantle(nullptr);
         delete it.second;
     }
     cache_.clear();

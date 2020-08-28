@@ -37,7 +37,8 @@
  */
 cc::job::easy::Job::Job (const ev::Loggable::Data& a_loggable_data, const std::string& a_tube, const Config& a_config)
     : ev::loop::beanstalkd::Job(a_loggable_data, a_tube, a_config),
-      log_level_(CC_JOB_LOG_LEVEL_INF)
+      CC_IF_DEBUG_CONSTRUCT_VAR(thread_id_, cc::debug::Threading::GetInstance().CurrentThreadID(), ,)
+      log_level_(a_config.other().get("log_level", CC_JOB_LOG_LEVEL_INF).asInt())
 {
     logger_client_->Unset(ev::LoggerV2::Client::LoggableFlags::IPAddress | ev::LoggerV2::Client::LoggableFlags::OwnerPTR);
     CC_JOB_LOG_REGISTER();
@@ -80,6 +81,8 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
         // ... set final response ...
         if ( 200 == run_response.code_ ) {
             (void)SetCompletedResponse(run_response.payload_, job_response);
+        } else if ( 302 == run_response.code_ ) {
+            run_response.code_ = SetRedirectResponse(run_response.payload_, job_response, 200);
         } else {
             if ( false == run_response.payload_.isNull() ) {
                 (void)SetFailedResponse(run_response.code_, run_response.payload_, job_response);
@@ -119,11 +122,6 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
         });
         // ... set 'cancelled' response ...
         SetCancelledResponse(/* a_payload*/ Json::Value::null, /* o_response */ job_response );
-    } else if ( false == HasErrorsSet() && true == HasFollowUpJobs() ) { // ... has follow up job?
-        // ... submit follow up jobs ...
-        if ( false == PushFollowUpJobs() ) {
-            SetFailedResponse(/* a_code */ run_response.code_, /* o_response */ job_response );
-        }
     } else if ( true == HasErrorsSet() ) { // ... failed?
         // ... override any response, with a failure message with collected errors ( if any )  ...
         SetFailedResponse(/* a_code */ run_response.code_, /* o_response */ job_response );

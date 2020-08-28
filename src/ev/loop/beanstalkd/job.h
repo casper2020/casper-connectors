@@ -340,14 +340,6 @@ namespace ev
                 Json::Value               progress_;
                 Json::Value               errors_array_;
                 
-                Json::Value               follow_up_jobs_;
-                Json::Value               follow_up_payload_;
-                std::string               follow_up_id_key_;
-                std::string               follow_up_key_;
-                std::string               follow_up_tube_;
-                int64_t                   follow_up_expires_in_;
-                uint32_t                  follow_up_ttr_;
-
             private: // Data
                 
                 cc::UTCTime::HumanReadable chdir_hrt_;
@@ -402,6 +394,7 @@ namespace ev
                 
                 void Setup   (const MessagePumpCallbacks* a_callbacks,
                               const std::string& a_output_directory_prefix, const std::string& a_logs_directory, const std::string& a_shared_directory);
+                void Dismantle (const ::cc::Exception* a_cc_exception);
                 void Consume (const int64_t& a_id, const Json::Value& a_payload,
                               const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback, const DeferredCallback& a_deferred_callback);
 
@@ -413,7 +406,8 @@ namespace ev
 
             protected: // Optional Virtual Method(s) / Function(s)
                 
-                virtual void Setup () { }
+                virtual void Setup     () { }
+                virtual void Dismantle () { }
 
             protected: // Pure Virtual Method(s) / Function(s)
 
@@ -427,7 +421,8 @@ namespace ev
             private: // Method(s) / Function(s)
                 
                 uint16_t FillResponseObject (const uint16_t& a_code, const char* const a_status, const Json::Value& a_response,
-                                             Json::Value& o_object)  const;
+                                             Json::Value& o_object,
+                                             const char* const a_action = "response")  const;
                 
             protected: // Method(s) / Function(s)
                 
@@ -435,7 +430,10 @@ namespace ev
                 uint16_t SetCompletedResponse  (Json::Value& o_response) const;
                 uint16_t SetCompletedResponse  (const Json::Value& a_payload, Json::Value& o_response) const;
                 void     SetCancelledResponse  (const Json::Value& a_payload, Json::Value& o_response) const;
-                                
+
+                // 3xx
+                uint16_t SetRedirectResponse             (const Json::Value& a_payload, Json::Value& o_response, const uint16_t a_code = 302) const;
+
                 // 4xx
                 uint16_t SetBadRequestResponse           (const std::string& a_why, Json::Value& o_response) const;
                 uint16_t SetTimeoutResponse              (const Json::Value& a_payload, Json::Value& o_response) const;
@@ -462,6 +460,8 @@ namespace ev
                 size_t ErrorsCount        () const;
                 CC_DEPRECATED
                 const Json::Value& LastError () const;
+                CC_DEPRECATED
+                const Json::Value& errors () const;
                 
                 void Publish           (const Progress& a_progress);
                 void Publish           (const std::vector<ev::loop::beanstalkd::Job::Progress>& a_progress);
@@ -482,14 +482,7 @@ namespace ev
                 bool  Deferred          () const;
                 bool  ShouldCancel      ();
                 bool& cancellation_flag ();
-                                
-            protected: // REDIS / BEANSTALK Helper Method(s) / Function(s)
-                
-                bool         HasFollowUpJobs   () const;
-                uint64_t     FollowUpJobsCount () const;
-                Json::Value& AppendFollowUpJob ();
-                bool         PushFollowUpJobs  ();
-                
+
             protected: // Other Settings
                 
                 const std::string& logs_directory    () const;
@@ -505,10 +498,6 @@ namespace ev
             protected: // Stats
                 
                 const std::chrono::steady_clock::time_point& start_tp () const;
-            
-            private: // REDIS / BEANSTALK Helper Method(s) / Function(s)
-                
-                void         SubmitFollowUpJob       (const size_t a_number, const Json::Value& a_job);
 
             private: // REDIS Helper Method(s) / Function(s)
 
@@ -669,6 +658,11 @@ namespace ev
                 return ( false == cancelled_ && 0 != errors_array_.size() );
             }
         
+            inline const Json::Value& Job::errors () const
+            {
+                return errors_array_;
+            }
+        
             inline size_t Job::ErrorsCount () const
             {
                 return static_cast<size_t>(errors_array_.size());
@@ -677,16 +671,6 @@ namespace ev
             inline const Json::Value& Job::LastError () const
             {
                 return ( errors_array_.size() > 0 ? errors_array_[errors_array_.size() - 1] : Json::Value::null );
-            }
-            
-            inline bool Job::HasFollowUpJobs () const
-            {
-                return ( FollowUpJobsCount()> 0 );
-            }
-            
-            inline uint64_t Job::FollowUpJobsCount () const
-            {
-                return ( true == follow_up_jobs_.isArray() ? static_cast<uint64_t>(follow_up_jobs_.size()) : 0 );
             }
             
             inline const std::chrono::steady_clock::time_point& Job::start_tp () const

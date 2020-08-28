@@ -60,8 +60,10 @@
 #define CC_JOB_LOG_STEP_REDIS       "REDIS"
 #define CC_JOB_LOG_STEP_POSGRESQL   "PGSQL"
 #define CC_JOB_LOG_STEP_HTTP        "HTTP"
+#define CC_JOB_LOG_STEP_FILE        "FILE"
 #define CC_JOB_LOG_STEP_BEANSTALK   "BT"
 #define CC_JOB_LOG_STEP_STEP        "STEP"
+#define CC_JOB_LOG_STEP_INFO        "INFO"
 #define CC_JOB_LOG_STEP_STATUS      "STATUS"
 #define CC_JOB_LOG_STEP_STATS       "STATS"
 #define CC_JOB_LOG_STEP_RELAY       "RELAY"
@@ -89,6 +91,10 @@ namespace cc
         
             class Job : public ev::loop::beanstalkd::Job
             {
+            
+            protected: // Const Data
+                
+                CC_IF_DEBUG_DECLARE_VAR(const cc::debug::Threading::ThreadID, thread_id_);
                 
             public: // Data Type(s)
                 

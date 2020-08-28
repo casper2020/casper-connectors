@@ -58,11 +58,7 @@ namespace ev
                 
                 const Job::Factory&              factory_;
                 const Job::MessagePumpCallbacks& callbacks_;
-                
-            private: // Const Data
-                
-                const std::string                 default_tube_;
-                
+
             private: // Data
                 
                 ::ev::beanstalk::Consumer* beanstalk_;
@@ -114,8 +110,7 @@ namespace ev
             public: // Constructor(s) / Destructor
                 
                 Looper (const ev::Loggable::Data& a_loggable_data,
-                        const Job::Factory& a_factory, const Job::MessagePumpCallbacks& a_callbacks,
-                        const std::string a_default_tube = "");
+                        const Job::Factory& a_factory, const Job::MessagePumpCallbacks& a_callbacks);
                 virtual ~Looper ();
                 
             public: // Method(s) / Function(s)
