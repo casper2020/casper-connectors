@@ -62,7 +62,8 @@ ev::loop::beanstalkd::Runner::Runner ()
     consumer_thread_          = nullptr;
     consumer_cv_              = nullptr;
     loggable_data_            = nullptr;
-    shared_config_            = new ev::loop::beanstalkd::Runner::SharedConfig({
+    factory_                  = nullptr;
+    shared_config_            = new ev::loop::beanstalkd::SharedConfig({
         /* ip_addr_ */ "",
         /* directories_ */ {
             /* log_  */ "",
@@ -104,8 +105,7 @@ ev::loop::beanstalkd::Runner::Runner ()
             /* sessionless_tubes_ */ {},
             /* action_tubes_      */ {}
         },
-        /* device_limits_ */ {},
-        /* factory */ nullptr
+        /* device_limits_ */ {}
     });
     http_       = nullptr;
     looper_ptr_ = nullptr;
@@ -131,6 +131,7 @@ ev::loop::beanstalkd::Runner::~Runner ()
     if ( nullptr != shared_config_ ) {
         delete shared_config_;
     }
+    factory_ = nullptr;
     if ( nullptr != loggable_data_ ) {
         delete loggable_data_;
     }
@@ -149,7 +150,7 @@ ev::loop::beanstalkd::Runner::~Runner ()
  * @param a_config
  * @param a_fatal_exception_callback
  */
-void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::Runner::StartupConfig& a_config,
+void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::StartupConfig& a_config,
                                             ev::loop::beanstalkd::Runner::FatalExceptionCallback a_fatal_exception_callback)
 {
     const pid_t process_pid = getpid();
@@ -260,7 +261,7 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
     //
     // Copy Startup Config
     //
-    startup_config_ = new ev::loop::beanstalkd::Runner::StartupConfig(*(const ev::loop::beanstalkd::Runner::StartupConfig*)a_args);
+    startup_config_ = new ev::loop::beanstalkd::StartupConfig(*(const ev::loop::beanstalkd::StartupConfig*)a_args);
     
     //
     // Work directories:
@@ -365,6 +366,12 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
         /* process specific config */
         const Json::Value&  p_cfg = read_config[a_process.name_];
         if ( false == p_cfg.isNull() ) {
+            /* host / ip address */
+            if ( true == p_cfg.isMember("host") && true == p_cfg["host"].isString() ) {
+                shared_config_->ip_addr_ = p_cfg["host"].asString();
+            } else {
+                shared_config_->ip_addr_ = "127.0.0.1";
+            }
             /* logs */
             const Json::Value logs = p_cfg.get("logs", Json::Value::null);
             if ( false == logs.isNull() ) {
@@ -396,7 +403,7 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
             }
         }
         
-        InnerStartup(a_process, *startup_config_, read_config, *shared_config_);
+        InnerStartup(a_process, *startup_config_, read_config, *shared_config_, factory_);
 
     } catch (const Json::Exception& a_json_exception) {
         throw ev::Exception("An error occurred while loading configuration: JSON exception %s!", a_json_exception.what());
@@ -808,14 +815,11 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop (const float& a_polling_timeout)
         consumer_cv_->Wake();
         
         looper_mutex_.lock();
-        looper_ptr_ = new ev::loop::beanstalkd::Looper(*loggable_data_,
-                                                       shared_config_->factory_,
-                                                       callbacks
-        );
+        looper_ptr_ = new ev::loop::beanstalkd::Looper(*loggable_data_, factory_, callbacks);
         looper_mutex_.unlock();
         
         looper_ptr_->SetPollingTimeout(a_polling_timeout);
-        looper_ptr_->Run(shared_config_->beanstalk_, shared_config_->directories_.output_, shared_config_->directories_.log_, shared_config_->directories_.shared_, quit_);
+        looper_ptr_->Run(*shared_config_, quit_);
         
     } catch (const Beanstalk::ConnectException& a_beanstalk_exception) {
         exception = new ::ev::Exception("An error occurred while connecting to Beanstalkd:\n%s\n", a_beanstalk_exception.what());

@@ -29,6 +29,7 @@
 
 #include "ev/exception.h"
 
+#include "ev/loop/beanstalkd/config.h"
 #include "ev/loop/beanstalkd/job.h"
 
 #include "ev/beanstalk/consumer.h"
@@ -115,9 +116,7 @@ namespace ev
                 
             public: // Method(s) / Function(s)
                 
-                void Run (const ::ev::beanstalk::Config& a_beanstakd_config,
-                          const std::string& a_output_directory, const std::string& a_logs_directory, const std::string& a_shared_directory,
-                          volatile bool& a_aborted);
+                void Run (const SharedConfig& a_shared_config, volatile bool& a_aborted);
                 
                 void AppendCallback (const std::string& a_id, IdleCallback a_callback,
                                      const size_t a_timeout = 0, const bool a_recurrent = false);

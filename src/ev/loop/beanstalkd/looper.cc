@@ -75,14 +75,10 @@ ev::loop::beanstalkd::Looper::~Looper ()
 /**
  * @brief Consumer loop.
  *
- * @param a_beanstakd_config
- * @param a_output_directory
- * @param a_logs_directory
- * @param a_shared_directory
+ * @param a_shared_config
  * @param a_aborted
  */
-void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beanstakd_config,
-                                        const std::string& a_output_directory, const std::string& a_logs_directory, const std::string& a_shared_directory,
+void ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig& a_shared_config,
                                         volatile bool& a_aborted)
 {   
     Beanstalk::Job job;
@@ -96,11 +92,11 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
     // ... write to permanent log ...
     EV_LOOP_BEANSTALK_LOG("queue",
                           "Connecting to %s:%d...",
-                          a_beanstakd_config.host_.c_str(),
-                          a_beanstakd_config.port_
+                          a_shared_config.beanstalk_.host_.c_str(),
+                          a_shared_config.beanstalk_.port_
     );
 
-    beanstalk_ = new ::ev::beanstalk::Consumer(a_beanstakd_config);
+    beanstalk_ = new ::ev::beanstalk::Consumer(a_shared_config.beanstalk_);
     
     loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
     
@@ -111,14 +107,14 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
     );
 
     std::stringstream ss;
-    for ( auto it : a_beanstakd_config.tubes_ ) {
+    for ( auto it : a_shared_config.beanstalk_.tubes_ ) {
         ss << it << ',';
     }
     ss.seekp(-1, std::ios_base::end); ss << '\0';
     EV_LOOP_BEANSTALK_LOG("queue",
                           "Listening to '%s' %s...",
                           ss.str().c_str(),
-                          a_beanstakd_config.tubes_.size() != 1 ? "tubes" : "tube"
+                          a_shared_config.beanstalk_.tubes_.size() != 1 ? "tubes" : "tube"
     );
     
     // TODO 2.0 : log service id
@@ -140,7 +136,7 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
     if ( true == polling_.set_ ) {
         polling_timeout = 0;
     } else {
-        polling_timeout = static_cast<uint32_t>(a_beanstakd_config.abort_polling_);
+        polling_timeout = static_cast<uint32_t>(a_shared_config.beanstalk_.abort_polling_);
     }
 
     //
@@ -210,7 +206,7 @@ void ev::loop::beanstalkd::Looper::Run (const ::ev::beanstalk::Config& a_beansta
                    loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
                });
                 // ... one-shot setup ...
-                job_ptr_->Setup(&callbacks_, a_output_directory, a_logs_directory, a_shared_directory);
+                job_ptr_->Setup(&callbacks_, a_shared_config);
                 // ... keep track of it ...
                 cache_[tube] = job_ptr_;
             } catch (...) {

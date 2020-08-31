@@ -106,21 +106,18 @@ ev::loop::beanstalkd::Job::~Job ()
  * @brief One-shot setup.
  *
  * @param a_callbacks
- * @param a_output_directory_prefix
- * @param a_logs_directory
- * @param a_shared_directory
+ * @param a_shared_config
  */
 void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callbacks,
-                                       const std::string& a_output_directory_prefix, const std::string& a_logs_directory,
-                                       const std::string& a_shared_directory)
+                                       const ::ev::loop::beanstalkd::SharedConfig& a_shared_config)
 {
     osal::ConditionVariable cv;
     
     callbacks_ptr_           = a_callbacks;
-    output_directory_prefix_ = a_output_directory_prefix;
+    output_directory_prefix_ = a_shared_config.directories_.output_;
     output_directory_        = "";
-    logs_directory_          = a_logs_directory;
-    shared_directory_        = a_shared_directory;
+    logs_directory_          = a_shared_config.directories_.log_;
+    shared_directory_        = a_shared_config.directories_.shared_;
 
     ExecuteOnMainThread([this, &cv] {
         ::ev::redis::subscriptions::Manager::GetInstance().SubscribeChannels({ redis_signal_channel_ },

@@ -55,77 +55,8 @@ namespace ev
 
             public: // typedefs
 
-                typedef ev::loop::beanstalkd::Job::Factory Factory;
+                typedef ev::loop::beanstalkd::Job::Factory                       Factory;
                 typedef std::function<void(const ev::Exception& a_ev_exception)> FatalExceptionCallback;
-
-                typedef struct {
-                    const std::string                  abbr_;
-                    const std::string                  name_;
-                    const std::string                  version_;
-                    const std::string                  rel_date_;
-                    const std::string                  info_;
-                    const std::string                  banner_;
-                    const int                          instance_;
-                    const std::string                  exec_path_;
-                    const std::string                  conf_file_uri_;
-                } StartupConfig;
-
-                typedef struct _SharedConfig {
-                    
-                    std::string                        ip_addr_;
-                    ev::Directories                    directories_;
-                    std::map<std::string, std::string> log_tokens_;
-                    ev::redis::Config                  redis_;
-                    ev::postgresql::Config             postgres_;
-                    ev::beanstalk::Config              beanstalk_;
-                    DeviceLimitsMap                    device_limits_;
-                    Factory                            factory_;
-                    
-                    _SharedConfig(const std::string& a_ip_addr,
-                                  const ev::Directories& a_directories, const std::map<std::string, std::string>& a_log_tokens,
-                                  const ev::redis::Config& a_redis, const ev::postgresql::Config& a_postgres, const ev::beanstalk::Config& a_beanstalk, const DeviceLimitsMap& a_device_limits,
-                                  const Factory& a_factory)
-                    {
-                        ip_addr_       = a_ip_addr;
-                        directories_   = a_directories;
-                        
-                        for ( auto it : a_log_tokens ) {
-                            log_tokens_[it.first] = it.second;
-                        }
-                        
-                        redis_         = a_redis;
-                        postgres_      = a_postgres;
-                        beanstalk_     = a_beanstalk;
-                        
-                        for ( auto it : a_device_limits ) {
-                            device_limits_[it.first] = it.second;
-                        }
-                        
-                        factory_ = a_factory;
-                        
-                    }
-
-                    inline void operator=(const _SharedConfig& a_config)
-                    {
-                        ip_addr_       = a_config.ip_addr_;
-                        directories_   = a_config.directories_;
-                        
-                        for ( auto it : a_config.log_tokens_ ) {
-                            log_tokens_[it.first] = it.second;
-                        }
-                        
-                        redis_         = a_config.redis_;
-                        postgres_      = a_config.postgres_;
-                        beanstalk_     = a_config.beanstalk_;
-                        
-                        for ( auto it : a_config.device_limits_ ) {
-                            device_limits_[it.first] = it.second;
-                        }
-                        
-                        factory_ = a_config.factory_;
-                    }
-                    
-                } SharedConfig;
                 
             private: // Data
                 
@@ -138,6 +69,7 @@ namespace ev
                 StartupConfig*           startup_config_;
                 SharedConfig*            shared_config_;                
                 ev::Loggable::Data*      loggable_data_;
+                Factory                  factory_;
 
             private: // Helpers
                 
@@ -175,7 +107,8 @@ namespace ev
                 
             protected: // Pure Method(s) / Function(s)
                 
-                virtual void InnerStartup  (const ::cc::global::Process& a_process, const StartupConfig& a_startup_config, const Json::Value& a_config, SharedConfig& o_config) = 0;
+                virtual void InnerStartup  (const ::cc::global::Process& a_process, const StartupConfig& a_startup_config, const Json::Value& a_config, const SharedConfig& o_config,
+                                            Factory& a_factory) = 0;
                 virtual void InnerShutdown () = 0;
                 
             protected: // Threading Helper Methods(s) / Function(s)

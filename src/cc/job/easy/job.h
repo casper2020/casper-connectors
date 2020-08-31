@@ -147,7 +147,6 @@ namespace cc
                 uint16_t SetI18NMessage                (const uint16_t& a_code, const easy::Job::I18N& a_i18n, Json::Value& o_payload);
                 uint16_t SetI18NError                  (const uint16_t& a_code, const easy::Job::I18N& a_i18n, const InternalError& a_error,
                                                         Json::Value& o_payload);
-
                 // 2xx
                 uint16_t SetOk                          (const I18N* a_i18n, Json::Value& o_payload);
                 

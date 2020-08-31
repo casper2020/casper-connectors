@@ -63,21 +63,19 @@ cc::job::easy::HandlerInitializer::~HandlerInitializer ()
  * @param a_job_config     Job specific config
  * @param o_config         Merged shared config.
  */
-void cc::job::easy::Handler::InnerStartup  (const ::cc::global::Process& a_process,
-                                            const cc::job::easy::Handler::StartupConfig& a_startup_config,
-                                            const Json::Value& a_job_config, cc::job::easy::Handler::SharedConfig& o_config)
+void cc::job::easy::Handler::InnerStartup  (const ::cc::global::Process& a_process, const ::ev::loop::beanstalkd::StartupConfig& a_startup_config, const Json::Value& a_job_config, const ::ev::loop::beanstalkd::SharedConfig& o_config,
+                                            ev::loop::beanstalkd::Runner::Factory& o_factory)
 {
     const pid_t       pid      = a_process.pid_;
     const std::string pname    = a_process.name_;
     const uint64_t    instance = static_cast<uint64_t>(a_startup_config.instance_);
     const std::string logs_dir = o_config.directories_.log_;
     
-    o_config.factory_ = [this, a_job_config, pid, instance, logs_dir, pname] (const std::string& a_tube) -> ev::loop::beanstalkd::Job* {
+    o_factory = [this, a_job_config, pid, instance, logs_dir, pname] (const std::string& a_tube) -> ev::loop::beanstalkd::Job* {
         const auto it = factories_->find(a_tube);
         if ( factories_->end() != it ) {
             
-            const std::string uri = logs_dir + a_tube + "." + std::to_string(instance) + ".log";
-            CC_JOB_LOG_ENABLE(a_tube, uri);
+            CC_JOB_LOG_ENABLE(a_tube, logs_dir + a_tube + "." + std::to_string(instance) + ".log");
             
             Json::Value tube_cfg = Json::Value::null;
             
@@ -114,7 +112,7 @@ void cc::job::easy::Handler::InnerStartup  (const ::cc::global::Process& a_proce
 
         }
         return nullptr;
-    };    
+    };
 }
 
 /**
@@ -128,7 +126,7 @@ void cc::job::easy::Handler::InnerShutdown ()
 /**
  * @brief Start a 'job' handler.
  *
- * @param a_argumenta This job arguments.
+ * @param a_arguments This job arguments.
  * @param a_factories Tube factories.
  * @param a_polling_timeout Consumer's loop polling timeout in millseconds, if < 0 will use defaults.
  */

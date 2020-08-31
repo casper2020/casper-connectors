@@ -27,6 +27,7 @@
 #include <time.h>
 
 #include "ev/loop/beanstalkd/object.h"
+#include "ev/loop/beanstalkd/config.h"
 
 #include "cc/non-copyable.h"
 #include "cc/non-movable.h"
@@ -84,6 +85,10 @@ namespace ev
             {
                 
             public: // Data Type
+                
+                
+                typedef std::function<Job*(const std::string& a_tube)> Factory;
+
                 
                 class Config : public ::cc::NonMovable
                 {
@@ -278,8 +283,6 @@ namespace ev
                     CancelDispatchOnThread   try_cancel_callback_on_the_looper_thread_;
                     PushJobCallback          on_push_job_;
                 } MessagePumpCallbacks;
-                
-                typedef std::function<Job*(const std::string& a_tube)> Factory;
                                 
             protected: // Data Type(s)
                 
@@ -393,7 +396,7 @@ namespace ev
             public: // Method(s) / Function(s)
                 
                 void Setup   (const MessagePumpCallbacks* a_callbacks,
-                              const std::string& a_output_directory_prefix, const std::string& a_logs_directory, const std::string& a_shared_directory);
+                              const ::ev::loop::beanstalkd::SharedConfig& a_shared_config);
                 void Dismantle (const ::cc::Exception* a_cc_exception);
                 void Consume (const int64_t& a_id, const Json::Value& a_payload,
                               const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback, const DeferredCallback& a_deferred_callback);
@@ -460,8 +463,6 @@ namespace ev
                 size_t ErrorsCount        () const;
                 CC_DEPRECATED
                 const Json::Value& LastError () const;
-                CC_DEPRECATED
-                const Json::Value& errors () const;
                 
                 void Publish           (const Progress& a_progress);
                 void Publish           (const std::vector<ev::loop::beanstalkd::Job::Progress>& a_progress);
@@ -656,11 +657,6 @@ namespace ev
             inline bool Job::HasErrorsSet () const
             {
                 return ( false == cancelled_ && 0 != errors_array_.size() );
-            }
-        
-            inline const Json::Value& Job::errors () const
-            {
-                return errors_array_;
             }
         
             inline size_t Job::ErrorsCount () const

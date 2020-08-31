@@ -77,7 +77,8 @@ namespace cc
                 
             protected: // Inherited Pure Method(s) / Function(s)
                 
-                virtual void InnerStartup  (const ::cc::global::Process& a_process, const StartupConfig& a_startup_config, const Json::Value& a_config, SharedConfig& o_config);
+                virtual void InnerStartup  (const ::cc::global::Process& a_process, const ::ev::loop::beanstalkd::StartupConfig& a_startup_config, const Json::Value& a_job_config, const ::ev::loop::beanstalkd::SharedConfig& a_shared_config,
+                                            ev::loop::beanstalkd::Runner::Factory& o_factory);
                 virtual void InnerShutdown ();
 
             public: // Static Method(s) / Function(s)
