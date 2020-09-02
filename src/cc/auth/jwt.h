@@ -97,6 +97,10 @@ namespace cc
             
             const Json::Value& payload () const;
             
+        public: // Static Method(s) / Function(s)
+            
+            static std::string MakeBrowsersUnhappy (const std::string& a_jwt);
+            
         }; // end of class 'JWT'
         
         /**

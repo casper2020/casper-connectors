@@ -348,3 +348,30 @@ void cc::auth::JWT::Decode (const std::string& a_token, const std::string& a_pub
     }
 
 }
+
+// MARK: -
+
+/**
+ * @brief If the JWT had three dots it means a file extension was added to make the browsers fell happy.
+ *        To make a valid JWT we need to get rid of the extension making the browser unhappy again.
+ *
+ * @param a_jwt JWT or kind of a JWT ( when it's keeping the browser 'happy' )...
+ */
+std::string cc::auth::JWT::MakeBrowsersUnhappy (const std::string& a_jwt)
+{
+    int dot_count = 0;
+    const char* last_dot = nullptr;
+    const char* ptr;
+    for ( ptr = a_jwt.c_str(); *ptr; ++ptr) {
+        if ( '.' == *ptr ) {
+            last_dot = ptr;
+            dot_count++;
+        }
+    }
+    if ( 3 == dot_count && nullptr != last_dot ) {
+        return a_jwt.substr(0, a_jwt.size() - (ptr - last_dot));
+    } else {
+        return a_jwt;
+    }
+}
+
