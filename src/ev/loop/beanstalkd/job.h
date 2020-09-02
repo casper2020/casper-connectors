@@ -341,7 +341,6 @@ namespace ev
                 bool                      deferred_;
 
                 Json::Value               progress_;
-                Json::Value               errors_array_;
                 
             private: // Data
                 
@@ -419,7 +418,7 @@ namespace ev
                 
             protected: // Method(s) / Function(s)
                 
-                void ConfigJSONAPI         (const Json::Value& a_config);
+                void ConfigJSONAPI (const Json::Value& a_config);
                 
             private: // Method(s) / Function(s)
                 
@@ -430,9 +429,9 @@ namespace ev
             protected: // Method(s) / Function(s)
                 
                 // 2xx
-                uint16_t SetCompletedResponse  (Json::Value& o_response) const;
-                uint16_t SetCompletedResponse  (const Json::Value& a_payload, Json::Value& o_response) const;
-                void     SetCancelledResponse  (const Json::Value& a_payload, Json::Value& o_response) const;
+                uint16_t SetCompletedResponse            (Json::Value& o_response) const;
+                uint16_t SetCompletedResponse            (const Json::Value& a_payload, Json::Value& o_response) const;
+                void     SetCancelledResponse            (const Json::Value& a_payload, Json::Value& o_response) const;
 
                 // 3xx
                 uint16_t SetRedirectResponse             (const Json::Value& a_payload, Json::Value& o_response, const uint16_t a_code = 302) const;
@@ -452,18 +451,7 @@ namespace ev
             protected: // REDIS Helper Method(s) / Function(s)
                                 
                 void PublishProgress  (const Json::Value& a_payload); // TODO CHECK USAGE and remove it ?
-                
-                CC_DEPRECATED
-                void   AppendError       (const Json::Value& a_error);
-                CC_DEPRECATED
-                void   AppendError       (const char* const a_type, const std::string& a_why, const char *const a_where, const int a_code);
-                CC_DEPRECATED
-                bool   HasErrorsSet      () const;
-                CC_DEPRECATED
-                size_t ErrorsCount        () const;
-                CC_DEPRECATED
-                const Json::Value& LastError () const;
-                
+
                 void Publish           (const Progress& a_progress);
                 void Publish           (const std::vector<ev::loop::beanstalkd::Job::Progress>& a_progress);
                 void Finished          (const Json::Value& a_response,
@@ -495,10 +483,6 @@ namespace ev
                 void Reset (const ResponseFlags& a_flag);
                 void Set   (const ResponseFlags& a_flag);
                 void Unset (const ResponseFlags& a_flag);
-                
-            protected: // Stats
-                
-                const std::chrono::steady_clock::time_point& start_tp () const;
 
             private: // REDIS Helper Method(s) / Function(s)
 
@@ -595,6 +579,10 @@ namespace ev
                 
                 void HTTPSyncExec (std::function<void(EV_CURL_HTTP_SUCCESS_CALLBACK, EV_CURL_HTTP_FAILURE_CALLBACK)> a_block,
                                    EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback);
+                
+            protected: // Inline Methods(s) / Function(s) - Stats
+                
+                const std::chrono::steady_clock::time_point& start_tp () const;
 
             }; // end of class 'Job'
             
@@ -653,27 +641,7 @@ namespace ev
             {
                 return cancelled_;
             }
-            
-            inline bool Job::HasErrorsSet () const
-            {
-                return ( false == cancelled_ && 0 != errors_array_.size() );
-            }
-        
-            inline size_t Job::ErrorsCount () const
-            {
-                return static_cast<size_t>(errors_array_.size());
-            }
-        
-            inline const Json::Value& Job::LastError () const
-            {
-                return ( errors_array_.size() > 0 ? errors_array_[errors_array_.size() - 1] : Json::Value::null );
-            }
-            
-            inline const std::chrono::steady_clock::time_point& Job::start_tp () const
-            {
-                return start_tp_;
-            }
-        
+
             /*
              * @return R/O access to logs directory.
              */
@@ -770,6 +738,14 @@ namespace ev
             inline void Job::Unset (const Job::ResponseFlags& a_flag)
             {
                 response_flags_ &= ~(a_flag);
+            }
+        
+            /**
+             * @return R/O access to this job start timepoint.
+             */
+            inline const std::chrono::steady_clock::time_point& Job::start_tp () const
+            {
+                return start_tp_;
             }
         
         } // end of namespace 'beanstalkd'

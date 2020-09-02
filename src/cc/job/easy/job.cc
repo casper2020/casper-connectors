@@ -78,16 +78,30 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
     try {
         // ... run job ...
         Run(a_id, a_payload, run_response);
-        // ... set final response ...
-        if ( 200 == run_response.code_ ) {
-            (void)SetCompletedResponse(run_response.payload_, job_response);
-        } else if ( 302 == run_response.code_ ) {
-            run_response.code_ = SetRedirectResponse(run_response.payload_, job_response, 200);
+        // ... was job cancelled?
+        if ( true == WasCancelled() && false == Deferred() ) { // deferred jobs just must handle with cancellation themselves ...
+            // ... yes, publish notification ...
+            Publish({
+                /* key_    */ nullptr,
+                /* args_   */ {},
+                /* status_ */ cc::job::easy::Job::Status::Cancelled,
+                /* value_  */ -1.0,
+                /* now_    */ true
+            });
+            // ... set 'cancelled' response ...
+            SetCancelledResponse(/* a_payload*/ Json::Value::null, /* o_response */ job_response );
         } else {
-            if ( false == run_response.payload_.isNull() ) {
-                (void)SetFailedResponse(run_response.code_, run_response.payload_, job_response);
+            // ... set final response ...
+            if ( 200 == run_response.code_ ) {
+                (void)SetCompletedResponse(run_response.payload_, job_response);
+            } else if ( 302 == run_response.code_ ) {
+                run_response.code_ = SetRedirectResponse(run_response.payload_, job_response, 200);
             } else {
-                (void)SetFailedResponse(run_response.code_, job_response);
+                if ( false == run_response.payload_.isNull() ) {
+                    (void)SetFailedResponse(run_response.code_, run_response.payload_, job_response);
+                } else {
+                    (void)SetFailedResponse(run_response.code_, job_response);
+                }
             }
         }
     } catch (const ::cc::Exception& a_cc_exception) {
@@ -110,25 +124,8 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
          }
      }
     
-    // ... was job cancelled?
-    if ( true == WasCancelled() && false == Deferred() ) { // deferred jobs just must handle with cancellation themselves ...
-        // ... yes, publish notification ...
-        Publish({
-            /* key_    */ nullptr,
-            /* args_   */ {},
-            /* status_ */ cc::job::easy::Job::Status::Cancelled,
-            /* value_  */ -1.0,
-            /* now_    */ true
-        });
-        // ... set 'cancelled' response ...
-        SetCancelledResponse(/* a_payload*/ Json::Value::null, /* o_response */ job_response );
-    } else if ( true == HasErrorsSet() ) { // ... failed?
-        // ... override any response, with a failure message with collected errors ( if any )  ...
-        SetFailedResponse(/* a_code */ run_response.code_, /* o_response */ job_response );
-    }
-    
     // ... check if we should finalize now ...
-    if ( not ( true == HasErrorsSet() || true == AlreadyRan() ) && true == Deferred() ) {
+    if ( false == AlreadyRan() && true == Deferred() ) {
         // ... log ...
         EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("STATUS", "%s",
                                         "DEFERRED"
@@ -174,10 +171,10 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
     } else {
         // ... log ...
         EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("STATUS", "%s",
-                                        job_response ["status"].asCString()
+                                        job_response["status"].asCString()
         );
         // ... notify ...
-        a_completed_callback("", false == HasErrorsSet(), run_response.code_);
+        a_completed_callback("", ( 200 == run_response.code_ ), run_response.code_);
     }
 }
 

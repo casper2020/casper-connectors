@@ -60,7 +60,6 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
     deferred_                        = false;
 
     progress_                        = Json::Value::null;
-    errors_array_                    = Json::Value::null;
 
     chdir_hrt_.seconds_              = static_cast<uint8_t>(0);
     chdir_hrt_.minutes_              = static_cast<uint8_t>(0);
@@ -185,7 +184,6 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     already_ran_                     = false;
     deferred_                        = false;
     progress_                        = Json::Value(Json::ValueType::objectValue);
-    errors_array_                    = Json::Value(Json::ValueType::arrayValue);
     
     //
     // JSONAPI Configuration - optional
@@ -301,12 +299,6 @@ uint16_t ev::loop::beanstalkd::Job::FillResponseObject (const uint16_t& a_code, 
         MergeJSONValue(o_object[a_action], a_response);
         if ( true == o_object[a_action].isMember("message") ) {
             o_object["message"] = o_object[a_action].removeMember("message");
-        }
-    } else if ( true == a_response.isArray() && ( &errors_array_ == &a_response ) ) {
-        // ... errors array ...
-        o_object[a_action]["errors"] = Json::Value(Json::ValueType::arrayValue);
-        for ( Json::ArrayIndex idx = 0 ; idx < a_response.size() ; ++idx ) {
-            (void)o_object[a_action]["errors"].append(a_response[idx]);
         }
     } else if ( false == a_response.isNull() ) {
         // ... 'response' is direct copy ...
@@ -443,9 +435,8 @@ uint16_t ev::loop::beanstalkd::Job::SetFailedResponse (const uint16_t& a_code, c
  */
 uint16_t ev::loop::beanstalkd::Job::SetFailedResponse (const uint16_t&  a_code, Json::Value& o_response) const
 {
-    return SetFailedResponse(a_code, errors_array_, o_response);
+    return SetFailedResponse(a_code, Json::Value::null, o_response);
 }
-
 
 // MARK: -
 
@@ -457,33 +448,6 @@ uint16_t ev::loop::beanstalkd::Job::SetFailedResponse (const uint16_t&  a_code, 
 void ev::loop::beanstalkd::Job::PublishProgress (const Json::Value& a_payload)
 {
     Publish(a_payload);
-}
-
-/**
- * @brief Append an error.
- *
- * @param a_error
- */
-void ev::loop::beanstalkd::Job::AppendError (const Json::Value& a_error)
-{
-    errors_array_.append(a_error);
-}
-
-/**
- * @brief Append an error.
- *
- * @param a_type
- * @param a_why
- * @param a_where
- * @param a_code
- */
-void ev::loop::beanstalkd::Job::AppendError (const char* const a_type, const std::string& a_why, const char *const a_where, const int a_code)
-{
-    Json::Value& object = errors_array_.append(Json::Value(Json::ValueType::objectValue));
-    object["type"]     = a_type;
-    object["why"]      = a_why;
-    object["where"]    = a_where;
-    object["code"]     = a_code;
 }
 
 /**
