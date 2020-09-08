@@ -463,9 +463,6 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
     
     // ... v1 ...
     for ( auto token : { "libpq-connections", "libpq" } ) {
-        if ( shared_config_->log_tokens_.end() == shared_config_->log_tokens_.find(token) ) {
-            continue;
-        }
         o_logs.push_back({ /* token_ */ token ,/* uri_ */ shared_config_->directories_.log_ + token + "." + std::to_string(startup_config_->instance_) + ".log", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 1 });
     }
     // ... v2 ...

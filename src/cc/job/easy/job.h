@@ -80,6 +80,12 @@
     if ( a_level <= log_level_ ) \
         ::ev::LoggerV2::GetInstance().Log(logger_client_, tube_.c_str(), "\n[%s] @ %-4s:%4d\n\n\t* " a_format "\n",  tube_.c_str(), __PRETTY_FUNCTION__, __LINE__, __VA_ARGS__)
 
+#define CC_JOB_LOG_STATIC(a_id, a_client, a_tube, a_format, ...) \
+    ev::LoggerV2::GetInstance().Log(a_client, \
+        a_tube.c_str(), "Job #" INT64_FMT ", " a_format, a_id, __VA_ARGS__ \
+    );
+
+
 namespace cc
 {
 
