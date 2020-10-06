@@ -269,6 +269,21 @@ size_t cc::fs::posix::File::Write (const std::string& a_data, const bool a_flush
 }
 
 /**
+ * @brief Go to a specifc byte in file.
+ *
+ * @param a_pos Position to seek to.
+ */
+void cc::fs::posix::File::Seek (const size_t& a_pos)
+{
+    if ( nullptr == fp_ ) {
+        throw cc::fs::Exception("Unable to seek to position - file not open!");
+    }
+    if ( 0 != fseek(fp_, a_pos, SEEK_SET) ) {
+        throw ::cc::Exception("Could not write seek to " SIZET_FMT ": %s !", a_pos, strerror(errno));
+    }
+}
+
+/**
  * @brief Flush data to currently open file.
  */
 void cc::fs::posix::File::Flush ()
@@ -325,6 +340,7 @@ uint64_t cc::fs::posix::File::Size ()
  * @brief Extract a filename from an URI.
  *
  * @param a_uri File URI.
+ * @param o_name Extracted file extension.
  */
 void cc::fs::posix::File::Name (const std::string& a_uri, std::string& o_name)
 {
@@ -347,6 +363,33 @@ void cc::fs::posix::File::Name (const std::string& a_uri, std::string& o_name)
     
     o_name = ptr;
 }
+
+/**
+ * @brief Extract a extension from an URI.
+ *
+ * @param a_uri       File URI.
+ * @param o_extension Extracted file extension.
+ */
+void cc::fs::posix::File::Extension (const std::string& a_uri, std::string& o_extension)
+{
+    const size_t l1 = a_uri.length();
+    if ( l1 >= PATH_MAX ) {
+        throw cc::fs::Exception("Unable to extract file name from path '%s': max path overflow!", a_uri.c_str());
+    }
+    
+    char path[PATH_MAX];
+    
+    memcpy(path, a_uri.c_str(), l1);
+    path[l1] = 0;
+    
+    const char* const ptr = strrchr(basename(path), '.');
+    if ( nullptr != ptr ) {
+        o_extension = ptr + sizeof(char);
+    } else {
+        o_extension = "";
+    }
+}
+
 /**
  * @brief Extract a path from an URI
  *

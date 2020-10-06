@@ -333,6 +333,8 @@ namespace ev
                 
                 int64_t                   bjid_;                //!< BEANSTALKD job id.
                 std::string               rjnr_;                //!< REDIS job id.
+                std::string               rjid_;                //!< REDIS job key.
+                std::string               rcid_;                //!< REDIS job channel.
                 int64_t                   validity_;
                 bool                      transient_;
                 ProgressReport            progress_report_;
@@ -389,8 +391,11 @@ namespace ev
                 
             public:
                 
-                int64_t ID       () const;
-                int64_t Validity () const;
+                const int64_t& ID       () const;
+                const int64_t& Validity () const;
+                const std::string& RJNR () const;
+                const std::string& RJID () const;
+                const std::string& RCID () const;
                 
             public: // Method(s) / Function(s)
                 
@@ -448,6 +453,9 @@ namespace ev
                 uint16_t SetFailedResponse               (const uint16_t& a_code, Json::Value& o_response) const;
                 uint16_t SetFailedResponse               (const uint16_t& a_code, const Json::Value& a_payload, Json::Value& o_response) const;
 
+                //
+                void  SetProgress                        (const ev::loop::beanstalkd::Job::Progress& a_progress, Json::Value& o_progress) const;
+
             protected: // REDIS Helper Method(s) / Function(s)
                                 
                 void PublishProgress  (const Json::Value& a_payload); // TODO CHECK USAGE and remove it ?
@@ -460,6 +468,7 @@ namespace ev
                 void Relay             (const uint64_t& a_id, const std::string& a_fq_channel, const Json::Value& a_object);
                 void Finished          (const uint64_t& a_id, const std::string& a_fq_channel, const Json::Value& a_response,
                                         const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback);
+                void Publish           (const uint64_t& a_id, const std::string& a_fq_channel, const Progress& a_progress);
                 void Broadcast         (const uint64_t& a_id, const std::string& a_fq_channel, const Status a_status);
                 
                 void Cancel            (const uint64_t& a_id, const std::string& a_fq_channel,
@@ -589,7 +598,7 @@ namespace ev
             /**
              * @return Current job ID.
              */
-            inline int64_t Job::ID () const
+            inline const int64_t& Job::ID () const
             {
                 return bjid_;
             }            
@@ -597,9 +606,33 @@ namespace ev
             /**
              * @return Current job validity.
              */
-            inline int64_t Job::Validity () const
+            inline const int64_t& Job::Validity () const
             {
                 return validity_;
+            }
+        
+            /**
+             * @return REDIS job number.
+             */
+            inline const std::string& Job::RJNR () const
+            {
+                return rjnr_;
+            }
+        
+            /**
+             * @return REDIS job key.
+             */
+            inline const std::string& Job::RJID () const
+            {
+                return rjid_;
+            }
+
+            /**
+             * @return REDIS job channel.
+             */
+            inline const std::string& Job::RCID () const
+            {
+                return rcid_;
             }
 
             /**

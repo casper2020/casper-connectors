@@ -27,10 +27,13 @@
  * @param a_code
  * @param a_headers
  * @param a_body
+ * @param a_rtt
  */
-ev::curl::Value::Value (const int a_code, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body)
+ev::curl::Value::Value (const int a_code, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body,
+                        const size_t& a_rtt)
     : curl::Object(ev::Object::Type::Value),
-    code_(a_code), body_(a_body), last_modified_(0)
+      rtt_(a_rtt),
+      code_(a_code), body_(a_body), last_modified_(0)
 {
     for ( auto m : a_headers ) {
         for ( auto p : m.second ) {
@@ -46,6 +49,7 @@ ev::curl::Value::Value (const int a_code, const EV_CURL_HEADERS_MAP& a_headers, 
  */
 ev::curl::Value::Value (const ev::curl::Value& a_value)
 : curl::Object(a_value.type_),
+    rtt_(a_value.rtt_),
     code_(a_value.code_), body_(a_value.body_), last_modified_(a_value.last_modified_)
 {
     for ( auto m : a_value.headers_ ) {

@@ -33,10 +33,12 @@
  * @param a_code
  * @param a_headers
  * @param a_body
+ * @param a_rtt
  */
-ev::curl::Reply::Reply (int a_code, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body)
+ev::curl::Reply::Reply (int a_code, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body,
+                        size_t a_rtt)
     : ev::curl::Object(ev::curl::Object::Type::Reply),
-    value_(a_code, a_headers, a_body)
+    value_(a_code, a_headers, a_body, a_rtt)
 {
     const auto last_modified_it = a_headers.find("Last-Modified");
     if ( a_headers.end() != last_modified_it && last_modified_it->second.size() > 0 ) {

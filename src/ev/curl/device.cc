@@ -155,6 +155,9 @@ ev::curl::Device::Status ev::curl::Device::Execute (ev::curl::Device::ExecuteCal
         return ev::curl::Device::Status::Error;
     }
     map_[easy_handle] = { curl_request, a_callback };
+    
+    // ... track start time point ...
+    curl_request->SetStarted();
 
     // ... add easy handle to multi handle ...
     const CURLMcode rc = curl_multi_add_handle(context_->handle_, easy_handle);
@@ -163,6 +166,8 @@ ev::curl::Device::Status ev::curl::Device::Execute (ev::curl::Device::ExecuteCal
         map_.erase(map_.find(easy_handle));
         // ... set error message ...
         last_error_msg_   = "Unable to add easy handle to multi context!";
+        // ... track end time point ...
+        curl_request->SetFinished();
         // ... we're done ..
         return ev::curl::Device::Status::Error;
     }
@@ -431,12 +436,17 @@ void ev::curl::Device::MultiContext::Process (ev::curl::Device::MultiContext* a_
         }
         // ... flush ...
         it->second.request_ptr_->Close();
+        
+        // ... track end time point ...
+        it->second.request_ptr_->SetFinished();
+
         // ... attach result or error ...
         if ( 0 == device_ptr_->last_error_msg_.length() ) {
             // ... result ...
             result->AttachDataObject(new ev::curl::Reply(static_cast<int>(last_http_status_code_),
                                                          it->second.request_ptr_->rx_headers(),
-                                                         it->second.request_ptr_->AsString())
+                                                         it->second.request_ptr_->AsString(),
+                                                         it->second.request_ptr_->Elapsed())
             );
         } else {
             // ... error ...

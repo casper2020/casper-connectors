@@ -69,6 +69,7 @@ namespace cc
                 virtual void     Open  (const std::string& a_path, const std::string& a_prefix, const std::string& a_extension, const size_t& a_size);
                 virtual size_t   Write (const unsigned char* a_data, const size_t a_size, const bool a_flush = false);
                 virtual size_t   Write (const std::string& a_data, const bool a_flush = false);
+                virtual void     Seek  (const size_t& a_pos);
                 virtual void     Flush ();
                 virtual void     Close (const bool a_force = false);
                 virtual uint64_t Size  ();
@@ -80,16 +81,17 @@ namespace cc
                 
             public: // Status Method(s) / Function(s)
                 
-                static void     Name   (const std::string& a_uri, std::string& o_name);
-                static void     Path   (const std::string& a_uri, std::string& o_path);
-                static bool     Exists (const std::string& a_uri);
-                static void     Erase  (const std::string& a_uri);
-                static void     Rename (const std::string& a_from_uri, const std::string& a_to_uri);
-                static void     Copy   (const std::string& a_from_uri, const std::string& a_to_uri,
-                                        const bool a_overwrite = false, std::string* os_md5 = nullptr);
-                static uint64_t Size   (const std::string& a_uri);
-                static void     Unique (const std::string& a_path, const std::string& a_name, const std::string& a_extension,
-                                        std::string& o_uri);
+                static void     Name      (const std::string& a_uri, std::string& o_name);
+                static void     Extension (const std::string& a_uri, std::string& o_extension);
+                static void     Path      (const std::string& a_uri, std::string& o_path);
+                static bool     Exists    (const std::string& a_uri);
+                static void     Erase     (const std::string& a_uri);
+                static void     Rename    (const std::string& a_from_uri, const std::string& a_to_uri);
+                static void     Copy      (const std::string& a_from_uri, const std::string& a_to_uri,
+                                           const bool a_overwrite = false, std::string* os_md5 = nullptr);
+                static uint64_t Size      (const std::string& a_uri);
+                static void     Unique    (const std::string& a_path, const std::string& a_name, const std::string& a_extension,
+                                           std::string& o_uri);
                 
             }; // end of class 'File'
             

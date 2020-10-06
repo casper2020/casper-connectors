@@ -40,16 +40,21 @@ namespace ev
         class Value final : public curl::Object
         {
 
+        private: // Const Data
+            
+            const size_t rtt_;
+
         private: // Data
 
            int                  code_;          //!< > 0 HTTP code, < 0 CURL ERROR CODE.
            EV_CURL_HEADERS_MAP  headers_;       //!< Collected headers.
            std::string          body_;          //!< Collected text data, nullptr if none.
            int64_t              last_modified_; //!< Last modified date.
-
+            
         public: // Constructor(s) / Destructor
 
-            Value   (const int a_code, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body);
+            Value   (const int a_code, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body,
+                     const size_t& a_rtt);
             Value   (const Value& a_value);
             virtual ~Value ();
 
@@ -58,9 +63,11 @@ namespace ev
             int                        code              () const;
             const EV_CURL_HEADERS_MAP& headers           () const;
             const std::string&         body              () const;
+            const size_t               rtt               () const;
             void                       set_last_modified (int64_t a_timestamp);
             int64_t                    last_modified     () const;
             std::string                header            (const char* const a_name) const;
+            std::string                header_value      (const char* const a_name) const;
             void                       headers_as_map    (std::map<std::string, std::string>& o_map) const;
 
         public:
@@ -70,7 +77,7 @@ namespace ev
         };
 
         /**
-         * @return Readonly access to received code.
+         * @return R/O access to received code.
          */
         inline int Value::code () const
         {
@@ -78,7 +85,7 @@ namespace ev
         }
 
         /**
-         * @return Readonly access to received headers.
+         * @return R/O access to received headers.
          */
         inline const EV_CURL_HEADERS_MAP& Value::headers () const
         {
@@ -86,11 +93,19 @@ namespace ev
         }
     
         /**
-         * @return Readonly access to received data.
+         * @return R/O access to received data.
          */
         inline const std::string& Value::body () const
         {
             return body_;
+        }
+    
+        /**
+         * @return R/O access to RTT.
+         */
+        inline const size_t Value::rtt () const
+        {
+            return rtt_;
         }
 
         /**
@@ -112,7 +127,7 @@ namespace ev
         /**
          * @brief Rebuild header value.
          *
-         * @param a_name  Header name.
+         * @param a_name Header name.
          *
          * @return Rebuilt value.
          */
@@ -121,6 +136,23 @@ namespace ev
             const auto p = headers_.find(a_name);
             if ( headers_.end() != p ) {
                 return ( p->first + ":" + ( p->second.front().length() > 0 ? " " + p->second.front() : "" ) );
+            } else {
+                return "";
+            }
+        }
+    
+        /**
+         * @brief Fetch header value.
+         *
+         * @param a_name Header name.
+         *
+         * @return Header value.
+         */
+        inline std::string Value::header_value (const char* const a_name) const
+        {
+            const auto p = headers_.find(a_name);
+            if ( headers_.end() != p ) {
+                return p->second.front();
             } else {
                 return "";
             }

@@ -177,6 +177,8 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     //
     bjid_                            = a_id; // beanstalkd number id
     rjnr_                            = redis_channel.asString(); // <name>:<redis numeric id>
+    rjid_                            = ( redis_key_prefix_ + rjnr_ );
+    rcid_                            = ( redis_channel_prefix_ + rjnr_ );
     validity_                        = a_payload.get("validity" , default_validity_).asInt64();
     transient_                       = a_payload.get("transient", config_.transient()).asBool();
     progress_report_.timeout_in_sec_ = a_payload.get("min_progress", config_.min_progress()).asInt();
@@ -220,8 +222,8 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("PAYLOAD", "%s", json_writer_.write(a_payload).c_str());
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("TUBE"   , "%s", tube_.c_str());
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ID"     , "%s", a_payload.get("id"  , "???").asCString());
-    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("CHANNEL", "%s", ( redis_channel_prefix_ + rjnr_ ).c_str());
-    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("KEY"    , "%s", ( redis_key_prefix_     + rjnr_ ).c_str());
+    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("CHANNEL", "%s", rcid_.c_str());
+    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("KEY"    , "%s", rjid_.c_str());
 
     // ... first check if job as cancelled ...
     if ( true == ShouldCancel() ) {
@@ -240,6 +242,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
 
     // ... prevent from REDIS cancellation messages to be logged ...
     rjnr_  = "";
+    rjid_  = "";
 }
 
 #ifdef __APPLE__
@@ -440,6 +443,48 @@ uint16_t ev::loop::beanstalkd::Job::SetFailedResponse (const uint16_t&  a_code, 
 
 // MARK: -
 
+void ev::loop::beanstalkd::Job::SetProgress (const ev::loop::beanstalkd::Job::Progress& a_progress, Json::Value& o_progress) const
+{
+    const char* key;
+    
+    o_progress = Json::Value(Json::ValueType::objectValue);
+    switch (a_progress.status_) {
+        case ev::loop::beanstalkd::Job::Status::InProgress:
+            key = a_progress.key_;
+            o_progress["status"] = "in-progress";
+            break;
+        case ev::loop::beanstalkd::Job::Status::Finished:
+            key = a_progress.key_;
+            o_progress["status"] = "finished";
+            break;
+        case ev::loop::beanstalkd::Job::Status::Failed:
+            key = a_progress.key_;
+            o_progress["status"] = "failed";
+            break;
+        case ev::loop::beanstalkd::Job::Status::Cancelled:
+            key = "i18n_job_cancelled";
+            o_progress["status"] = "cancelled";
+            break;
+        default:
+            throw ::ev::Exception("Broadcast status " UINT8_FMT " not implemented!", static_cast<uint8_t>(a_progress.status_));
+    }
+    
+    if ( -1.0 != a_progress.value_ ) {
+        o_progress["progress"] = a_progress.value_;
+    }
+    
+    Json::Value i18n_array = Json::Value(Json::ValueType::arrayValue);
+    i18n_array.append(key);
+    for ( auto arg : a_progress.args_ ) {
+        Json::Value& object = i18n_array.append(Json::Value(Json::ValueType::objectValue));
+        object[arg.first] = arg.second;
+    }
+    o_progress["message"]  = i18n_array;
+}
+
+
+// MARK: -
+
 /**
  * @brief Publish a 'job progress' message.
  *
@@ -471,7 +516,7 @@ void ev::loop::beanstalkd::Job::Finished (const Json::Value& a_response,
             throw ::ev::Exception("Unable to extract numeric ID from string '%s'!", rjnr_.c_str());
         }
     }
-    Finished(rjnr, ( redis_channel_prefix_ + rjnr_ ), a_response, a_success_callback, a_failure_callback);
+    Finished(rjnr, rcid_, a_response, a_success_callback, a_failure_callback);
 }
 
 /**
@@ -509,6 +554,19 @@ void ev::loop::beanstalkd::Job::Finished (const uint64_t& a_id, const std::strin
     
     // ... broadcast job finished ...
     Broadcast(a_id, a_fq_channel, ev::loop::beanstalkd::Job::Status::Finished);
+}
+
+/**
+ * @brief Publish a 'progress' message to a specific channel and a 'job finished' message to 'job-signals' channel.
+ *
+ * @param a_id
+ * @param a_fq_channel
+ * @param a_progress
+ */
+void ev::loop::beanstalkd::Job::Publish (const uint64_t& a_id, const std::string& a_fq_channel, const Progress& a_progress)
+{
+    SetProgress(a_progress, progress_);
+    Publish(a_id, a_fq_channel, progress_);
 }
 
 /**
@@ -625,47 +683,12 @@ void ev::loop::beanstalkd::Job::Cancel (const uint64_t& a_id, const std::string&
  */
 void ev::loop::beanstalkd::Job::Publish (const ev::loop::beanstalkd::Job::Progress& a_progress)
 {
-
-    const char* key;
-    
     const auto now_tp = std::chrono::steady_clock::now();
     
-    progress_ = Json::Value(Json::ValueType::objectValue);
-    switch (a_progress.status_) {
-        case ev::loop::beanstalkd::Job::Status::InProgress:
-            key = a_progress.key_;
-            progress_["status"] = "in-progress";
-            break;
-        case ev::loop::beanstalkd::Job::Status::Finished:
-            key = a_progress.key_;
-            progress_["status"] = "finished";
-            break;
-        case ev::loop::beanstalkd::Job::Status::Failed:
-            key = a_progress.key_;
-            progress_["status"] = "failed";
-            break;
-        case ev::loop::beanstalkd::Job::Status::Cancelled:
-            key = "i18n_job_cancelled";
-            progress_["status"] = "cancelled";
-            break;
-        default:
-            throw ::ev::Exception("Broadcast status " UINT8_FMT " not implemented!", static_cast<uint8_t>(a_progress.status_));
-    }
-    
-    if ( -1.0 != a_progress.value_ ) {
-        progress_["progress"] = a_progress.value_;
-    }
-    
-    Json::Value i18n_array = Json::Value(Json::ValueType::arrayValue);
-    i18n_array.append(key);
-    for ( auto arg : a_progress.args_ ) {
-        Json::Value& object = i18n_array.append(Json::Value(Json::ValueType::objectValue));
-        object[arg.first] = arg.second;
-    }
-    progress_["message"]  = i18n_array;
+    SetProgress(a_progress, progress_);
 
     const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now_tp - progress_report_.last_tp_).count();
-
+    
     if ( std::chrono::steady_clock::time_point::max() == progress_report_.last_tp_ || elapsed >= progress_report_.timeout_in_sec_ || a_progress.now_ == true ) {
         progress_report_.last_tp_ = now_tp;
         Publish(progress_);
@@ -701,6 +724,8 @@ void ev::loop::beanstalkd::Job::Publish (const uint64_t& /* a_id */, const std::
 
     osal::ConditionVariable cv;
     ev::Exception*          exception = nullptr;
+    
+    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("PUBLISH", "%s", redis_message.c_str());
 
     ExecuteOnMainThread([this, &a_fq_channel, &cv, &redis_message, &exception] {
 
@@ -772,8 +797,8 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
     osal::ConditionVariable cv;
     ev::Exception*          exception = nullptr;
 
-    const std::string redis_channel = ( redis_channel_prefix_ + rjnr_ );
-    const std::string redis_key     = ( redis_key_prefix_     + rjnr_ );
+    const std::string redis_channel = rcid_;
+    const std::string redis_key     = rjid_;
     const std::string redis_message = json_writer_.write(a_object);
 
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("PUBLISH", "%s", redis_message.c_str());
@@ -896,7 +921,7 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
 bool ev::loop::beanstalkd::Job::ShouldCancel ()
 {
     // ... first check cancellation flag ...
-    const std::string redis_key = ( redis_key_prefix_ + rjnr_ );
+    const std::string redis_key = rjid_;
     
     osal::ConditionVariable cancellation_cv;
     

@@ -233,12 +233,12 @@ namespace cc
             
             Boolean() = delete;
             Boolean(const char* const a_long, const char a_short, const bool a_optional, const char* const a_tag, const char* const a_help)
-                : _Opt<bool>(a_long, a_short, a_optional, _Opt<bool>::Type::Boolean, std::numeric_limits<bool>::max(), a_tag, a_help)
+                : _Opt<bool>(a_long, a_short, a_optional, _Opt<bool>::Type::Boolean, false, a_tag, a_help)
             {
                 /* empty */
             }
-            Boolean(const char* const a_long, const char a_short, const bool& a_default, const char* const a_tag, const char* const a_help)
-                : _Opt<bool>(a_long, a_short, /* a_optional */ true, _Opt<bool>::Type::Boolean, a_default, a_tag, a_help)
+            Boolean(const char* const a_long, const char a_short, const bool* a_default, const char* const a_tag, const char* const a_help)
+                : _Opt<bool>(a_long, a_short, /* a_optional */ true, _Opt<bool>::Type::Boolean, ( nullptr != a_default ? *a_default : false ), a_tag, a_help)
             {
                 /* empty */
             }

@@ -176,8 +176,34 @@ void ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig
         
         job_payload_ = Json::Value::null;
         if ( false == json_reader_.parse(job.body(), job_payload_) ) {
-            delete beanstalk_; beanstalk_ = nullptr;
-            throw ev::Exception("An error occurred while loading job payload: JSON parsing error - %s\n", json_reader_.getFormattedErrorMessages().c_str());
+            // ... write to permanent log ...
+            EV_LOOP_BEANSTALK_LOG("queue",
+                                  "RSRVD" INT64_FMT_MAX_RA ": %12.12s: %s",
+                                  job.id(),
+                                  "PAYLOAD",
+                                  job.body().c_str()
+            );
+            // ... log the error ...
+            EV_LOOP_BEANSTALK_LOG("queue",
+                                  "Job #" INT64_FMT_MAX_RA ": %12.12s: %s - %s",
+                                  job.id(),
+                                  "FAILURE",
+                                  "An error occurred while loading job payload: JSON parsing error",
+                                  json_reader_.getFormattedErrorMessages().c_str()
+            );
+            
+            // ... bury it - making it available for human inspection ....
+            beanstalk_->Bury(job);
+            
+            // ... since a call to asString() can allocate dynamic memory ...
+            // ... set this object to null to free memory now ...
+            job_payload_ = Json::Value::null;
+            
+            // ... perform a fake IDLE  ...
+            Idle(/* a_fake */ true);
+            
+            // ... next job ...
+            continue;
         }
         
         const std::string tube = job_payload_.get("tube", "").asString();

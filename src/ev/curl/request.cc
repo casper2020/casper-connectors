@@ -174,6 +174,9 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
     
     rx_exp_ = nullptr;
     tx_exp_ = nullptr;
+    
+    s_tp_ = std::chrono::steady_clock::now();
+    e_tp_ = s_tp_;
 }
 
 /**

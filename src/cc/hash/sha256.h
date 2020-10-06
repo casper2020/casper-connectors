@@ -1,7 +1,7 @@
 /**
- * @file md5.h
+ * @file sha256.h
  *
- * Copyright (c) 2011-2019 Cloudware S.A. All rights reserved.
+ * Copyright (c) 2011-2020 Cloudware S.A. All rights reserved.
  *
  * This file is part of nginx-broker.
  *
@@ -19,17 +19,14 @@
  * along with nginx-broker.  If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
-#ifndef NRS_CC_HASH_MD5_H_
-#define NRS_CC_HASH_MD5_H_
+#ifndef NRS_CC_HASH_SHA256_H_
+#define NRS_CC_HASH_SHA256_H_
 
-#include <sys/types.h> // int64_t
-#include <stdint.h>    // uint8_t, etc
+#include <openssl/sha.h>
+
 #include <string>
 
-#include <openssl/md5.h>
-
-#include "cc/non-copyable.h"
-#include "cc/non-movable.h"
+#define CC_HASH_SHA_256_SHA256_DIGEST_HEX_LENGTH ( 2 * SHA256_DIGEST_LENGTH ) + 1
 
 namespace cc
 {
@@ -37,33 +34,40 @@ namespace cc
     namespace hash
     {
         
-        class MD5 final : public NonCopyable, NonMovable
+        class SHA256 final // : public NonCopyable, NonMovable
         {
+            
+        public: // Enum(s)
+            
+            enum OutputFormat {
+                HEX = 0,
+                BASE64_RFC4648
+            };
             
         private: // Data
             
-            unsigned char digest_ [MD5_DIGEST_LENGTH];
-            char          md5_hex_[33]; // 2 * MD5_DIGEST_LENGTH + 1
+            unsigned char digest_ [SHA256_DIGEST_LENGTH];
+            char          hex_    [CC_HASH_SHA_256_SHA256_DIGEST_HEX_LENGTH];
             
         private: // Data
 
-            MD5_CTX context_;
+            SHA256_CTX context_;
             
         public: // Constructor(s) / Destructor
             
-            MD5();
-            virtual ~MD5();
+            SHA256();
+            virtual ~SHA256();
             
         public: // Method(s) / Function(s)
             
             void        Initialize ();
             void        Update     (const unsigned char* const a_data, size_t a_length);
-            std::string Finalize   ();
+            std::string Finalize   (const OutputFormat a_format = OutputFormat::HEX);
             
-        }; // end of class 'MD5'
-
+        }; // end of class 'SHA256'
+        
     } // end of namespace 'hash'
 
 } // end of namespace 'cc'
 
-#endif // NRS_CC_HASH_MD5_H_
+#endif // NRS_CC_HASH_SHA256_H_

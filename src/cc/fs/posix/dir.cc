@@ -30,6 +30,9 @@
 
 #include <string.h> // strlen, strerror, ...
 
+#include <unistd.h> // getuid
+#include <pwd.h> // getpwuid
+
 // statfs & PATH_PAMX
 #ifdef __APPLE__
   #include <sys/param.h>
@@ -295,5 +298,54 @@ void cc::fs::posix::Dir::EnsureEnoughFreeSpace (const char* const a_path, size_t
         ss << " required " << a_required << " bytes";
         ss << " but there are only " << available_space << " bytes available!";
         throw cc::fs::Exception(ss.str());
+    }
+}
+
+/**
+ * @brief Expand a 'short' path into a full path ( also supports ~ replacement ).
+ *
+ * @param a_path Short path.
+ * @param o_path Expanded URI.
+ */
+void cc::fs::posix::Dir::Expand (const std::string& a_path, std::string& o_path)
+{
+    char  buff[PATH_MAX] = { 0, 0 };
+    
+    const char* c_str = a_path.c_str();
+    if ( '~' == c_str[0] ) {
+        struct passwd *pw = getpwuid(getuid());
+        o_path = pw->pw_dir + std::string(c_str + sizeof(char));
+    } else {
+        char* ptr = realpath(a_path.c_str(), buff);
+        if ( nullptr == ptr ) {
+            throw ::cc::Exception("An error occurred while trying to obtain full path: (%d) %s ", errno, strerror(errno));
+        } else {
+            o_path = ptr;
+        }
+    }
+}
+
+/**
+ * @brief Expand a 'short' path into a full path ( also supports ~ replacement ).
+ *
+ * @param a_uri Short path.
+ *
+ * @return Expanded URI.
+ */
+std::string cc::fs::posix::Dir::Expand (const std::string& a_uri)
+{
+    char  buff[PATH_MAX] = { 0, 0 };
+    
+    const char* c_str = a_uri.c_str();
+    if ( '~' == c_str[0] ) {
+        struct passwd *pw = getpwuid(getuid());
+        return pw->pw_dir + std::string(c_str + sizeof(char));
+    } else {
+        char* ptr = realpath(a_uri.c_str(), buff);
+        if ( nullptr == ptr ) {
+            throw ::cc::Exception("An error occurred while trying to obtain full path: (%d) %s ", errno, strerror(errno));
+        } else {
+            return ptr;
+        }
     }
 }

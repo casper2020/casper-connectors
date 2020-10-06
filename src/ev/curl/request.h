@@ -29,6 +29,7 @@
 #include <string> // std::string
 #include <vector> // std::vector
 #include <map>    // std::map
+#include <chrono>
 
 #include <curl/curl.h>
 
@@ -96,6 +97,9 @@ namespace ev
             ::cc::fs::file::Reader             tx_fr_;                //!< Request file reader.
             std::string                        tx_uri_;               //!< FILE URI where the sending body will be read from.
             ::cc::fs::Exception*               tx_exp_;               //!< Set if an exception ocurred while reading data from file.
+            
+            std::chrono::steady_clock::time_point s_tp_;
+            std::chrono::steady_clock::time_point e_tp_;
 
         private: // Const Data
 
@@ -125,6 +129,10 @@ namespace ev
             void                       SetReadBodyFrom        (const std::string& a_uri);
             void                       SetWriteResponseBodyTo (const std::string& a_uri);
             void                       Close                  ();
+            
+            void                       SetStarted  ();
+            void                       SetFinished ();
+            size_t                     Elapsed     ();
 
         protected:
 
@@ -217,6 +225,30 @@ namespace ev
             if ( true == tx_fr_.IsOpen() ) {
                 tx_fr_.Close();
             }
+        }
+    
+        /**
+         * @brief Set start time point.
+         */
+        inline void Request::SetStarted ()
+        {
+            s_tp_ = std::chrono::steady_clock::now();
+        }
+
+        /**
+         * @brief Set finish time point.
+         */
+        inline void Request::SetFinished ()
+        {
+            e_tp_ = std::chrono::steady_clock::now();
+        }
+    
+        /**
+         * @brief Set finish time point.
+         */
+        inline size_t Request::Elapsed ()
+        {
+            return static_cast<size_t>(std::chrono::duration_cast<std::chrono::milliseconds>(e_tp_ - s_tp_).count());
         }
 
     } // end of namespace 'curl'

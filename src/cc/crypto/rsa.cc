@@ -59,12 +59,78 @@
  *
  * @param a_payload
  * @param a_pem
+ * @param a_output_format
  *
  * @return
  */
-std::string cc::crypto::RSA::SignSHA256 (const std::string& a_payload, const std::string& a_pem)
+std::string cc::crypto::RSA::SignSHA256 (const std::string& a_payload, const std::string& a_pem,
+                                         const RSA::SignOutputFormat a_output_format)
 {
-    return cc::crypto::RSA::Sign(a_payload, a_pem, EVP_sha256());
+    return cc::crypto::RSA::Sign(a_payload, a_pem, /* a_password */ "", EVP_sha256(), RSA::Origin::File, a_output_format);
+}
+
+/**
+ * @brief Sign using the private key.
+ *
+ * @param a_payload
+ * @param a_pem
+ * @param a_password
+ * @param a_output_format
+ *
+ * @return
+ */
+std::string cc::crypto::RSA::SignSHA256 (const std::string& a_payload, const std::string& a_pem, const std::string& a_password,
+                                         const RSA::SignOutputFormat a_output_format)
+{
+    return cc::crypto::RSA::Sign(a_payload, a_pem, a_password, EVP_sha256(), RSA::Origin::File, a_output_format);
+}
+
+/**
+ * @brief Sign using the private key.
+ *
+ * @param a_payload
+ * @param a_pem
+ * @param a_password
+ * @param a_output_format
+ *
+ * @return
+ */
+std::string cc::crypto::RSA::SignSHA256 (const unsigned char* a_payload, const size_t a_length, const std::string& a_pem, const std::string& a_password,
+                                         const RSA::SignOutputFormat a_output_format)
+{
+    return cc::crypto::RSA::Sign(a_payload, a_length, a_pem, a_password, EVP_sha256(), RSA::Origin::File, a_output_format);
+}
+
+/**
+ * @brief Sign using the private key.
+ *
+ * @param a_payload
+ * @param a_pem
+ * @param a_password
+ * @param a_output_format
+ *
+ * @return
+ */
+std::string cc::crypto::RSA::SignSHA256InMemory (const std::string& a_payload, const std::string& a_pem, const std::string& a_password,
+                                                 const RSA::SignOutputFormat a_output_format)
+{
+    return cc::crypto::RSA::Sign(a_payload, a_pem, a_password, EVP_sha256(), RSA::Origin::Memory, a_output_format);
+}
+
+/**
+ * @brief Sign using the private key.
+ *
+ * @param a_payload
+ * @param a_pem
+ * @param a_password
+ * @param a_output_format
+ *
+ * @return
+ */
+std::string cc::crypto::RSA::SignSHA256InMemory (const unsigned char* a_payload, const size_t a_length, const std::string& a_pem, const std::string& a_password,
+                                                 const RSA::SignOutputFormat a_output_format)
+{
+    return cc::crypto::RSA::Sign(a_payload, a_length, a_pem, a_password, EVP_sha256(), RSA::Origin::Memory, a_output_format);
 }
 
 /**
@@ -313,9 +379,13 @@ std::string cc::crypto::RSA::PrivateKeyDecrypt (const std::string& a_payload, co
  *
  * @param a_payload
  * @param a_pem
+ * @param a_password
  * @param a_evp_md
+ * @param a_origin
+ * @param a_output_format
  */
-std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::string& a_pem, const EVP_MD* a_evp_md)
+std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::string& a_pem, const std::string a_password, const EVP_MD* a_evp_md,
+                                   const RSA::Origin a_origin, const RSA::SignOutputFormat a_output_format)
 {
     bool           ctx_initialized  = false;
 #if OPENSSL_VERSION_NUMBER < 0x1010000fL
@@ -327,10 +397,12 @@ std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::stri
     EVP_PKEY*      pkey             = nullptr;
     struct rsa_st* rsa_pkey         = nullptr;
     FILE*          private_key_file = nullptr;
+    BIO*           pkey_bio         = nullptr;
     unsigned char* signature_bytes  = nullptr;
     unsigned int   signature_len    = 0;
+
     
-    const auto cleanup = [&pkey, &private_key_file, &signature_bytes, ctx, &ctx_initialized] () {
+    const auto cleanup = [&pkey, &private_key_file, &pkey_bio, &signature_bytes, ctx, &ctx_initialized] () {
         
         if ( nullptr != signature_bytes ) {
             delete [] signature_bytes;
@@ -342,6 +414,10 @@ std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::stri
         
         if ( nullptr != private_key_file ) {
             fclose(private_key_file);
+        }
+        
+        if ( nullptr != pkey_bio ) {
+            BIO_free(pkey_bio);
         }
         
         if ( true == ctx_initialized ) {
@@ -360,21 +436,43 @@ std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::stri
         //
         // Load private key.
         //
-        pkey             = EVP_PKEY_new();
-        private_key_file = fopen(a_pem.c_str(), "r");
-        if ( nullptr == private_key_file ) {
-            throw ::cc::crypto::Exception("Unable to open RSA private key file!");
-        }
-        
-        //
-        // RSA *PEM_read_RSAPrivateKey(FILE *fp, RSA **x, pem_password_cb *cb, void *u);
-        //
-        // - The PEM functions read or write structures in PEM format.
-        //
-        // Returns RSA* for success and NULL for failure.
-        //
-        if ( ! PEM_read_RSAPrivateKey(private_key_file, &rsa_pkey, NULL, NULL) ) {
-            throw ::cc::crypto::Exception("Error while loading RSA private key file!");
+        pkey = EVP_PKEY_new();
+        // ...
+        if ( RSA::Origin::File == a_origin ) {
+            // ... load private key from file ...
+            private_key_file = fopen(a_pem.c_str(), "r");
+            if ( nullptr == private_key_file ) {
+                throw ::cc::crypto::Exception("Unable to open RSA private key file!");
+            }
+            
+            //
+            // RSA *PEM_read_RSAPrivateKey(FILE *fp, RSA **x, pem_password_cb *cb, void *u);
+            //
+            // - The PEM functions read or write structures in PEM format.
+            //
+            // Returns RSA* for success and NULL for failure
+            if ( 0 != a_password.length() ) {
+                const struct rsa_st* rsa;
+                if ( ! ( rsa = PEM_read_RSAPrivateKey(private_key_file, &rsa_pkey, &pem_password_cb, (void*)a_password.c_str()) ) ) {
+                    throw ::cc::crypto::Exception("Error while loading RSA private key file!");
+                }
+            } else {
+                if ( ! PEM_read_RSAPrivateKey(private_key_file, &rsa_pkey, NULL, NULL) ) {
+                    throw ::cc::crypto::Exception("Error while loading RSA private key file!");
+                }
+            }
+        } else if ( RSA::Origin::Memory == a_origin ) {
+            // ... load private key from memory ...
+            pkey_bio = BIO_new_mem_buf((void*)a_pem.c_str(), static_cast<int>(a_pem.length()));
+            //
+            // PEM_read_bio_RSAPrivateKey(BIO *bp, RSA **x, pem_password_cb *cb, void *u)
+            //
+            // Returns RSA* for success and NULL for failure
+            if ( ! PEM_read_bio_RSAPrivateKey(pkey_bio, &rsa_pkey, &pem_password_cb, (void*)a_password.c_str()) ) {
+                throw ::cc::crypto::Exception("Error while loading RSA private key!");
+            }
+        } else {
+            throw ::cc::crypto::Exception("Dont know how to load RSA private key!");
         }
 
         //
@@ -431,7 +529,222 @@ std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::stri
             throw ::cc::crypto::Exception("Error while finalizing signing context!");
         }
         
-        const std::string signature_b64 = ::cc::base64_url_unpadded::encode(signature_bytes, static_cast<size_t>(signature_len));
+        //
+        // BASE64 encode
+        //
+        std::string signature_b64;
+        if ( RSA::SignOutputFormat::BASE64_RFC4648 == a_output_format ) {
+            signature_b64 = ::cc::base64_rfc4648::encode(signature_bytes, static_cast<size_t>(signature_len));
+        } else if ( RSA::SignOutputFormat::BASE64_URL_UNPADDED == a_output_format ) {
+            signature_b64 = ::cc::base64_url_unpadded::encode(signature_bytes, static_cast<size_t>(signature_len));
+        } else {
+            throw ::cc::crypto::Exception("BASE64 encoded %u - not implemented!", static_cast<unsigned>(a_output_format));
+        }
+    
+        cleanup();
+        
+        return signature_b64;
+        
+    } catch (const ::cc::crypto::Exception& a_crypto_exception) {
+        cleanup();
+        throw a_crypto_exception;
+    }  catch (const std::bad_alloc& a_bad_alloc) {
+        cleanup();
+        throw ::cc::crypto::Exception("C++ Bad Alloc: %s", a_bad_alloc.what());
+    } catch (const std::runtime_error& a_rte) {
+        cleanup();
+        throw ::cc::crypto::Exception("C++ Runtime Error: %s", a_rte.what());
+    } catch (const std::exception& a_std_exception) {
+        cleanup();
+        throw ::cc::crypto::Exception("C++ Standard Exception: %s", a_std_exception.what());
+    } catch (...) {
+        cleanup();
+        std::exception_ptr p = std::current_exception();
+        if ( p ) {
+#ifdef __APPLE__
+            try {
+                std::rethrow_exception(p);
+            } catch(const std::exception& e) {
+                throw ::cc::crypto::Exception("C++ Generic Exception:, %s",
+                                              e.what()
+                );
+            }
+#else
+            throw ::cc::crypto::Exception("C++ Generic Exception:, %s",
+                                      p.__cxa_exception_type()->name()
+            );
+#endif
+        } else {
+            throw ::cc::crypto::Exception("C++ Generic Exception!");
+        }
+    }
+}
+
+/**
+ * @brief Sign using the private key.
+ *
+ * @param a_payload
+ * @param a_pem
+ * @param a_password
+ * @param a_evp_md
+ * @param a_orign
+ * @param a_output_format
+ */
+std::string cc::crypto::RSA::Sign (const unsigned char* a_payload, const size_t a_length, const std::string& a_pem, const std::string a_password, const EVP_MD* a_evp_md,
+                                   const RSA::Origin a_origin, const SignOutputFormat a_output_format)
+{
+    bool           ctx_initialized  = false;
+#if OPENSSL_VERSION_NUMBER < 0x1010000fL
+    EVP_MD_CTX    _ctx;
+    EVP_MD_CTX*    ctx = &_ctx;
+#else
+    EVP_MD_CTX*    ctx = nullptr;
+#endif
+    EVP_PKEY*      pkey             = nullptr;
+    struct rsa_st* rsa_pkey         = nullptr;
+    FILE*          private_key_file = nullptr;
+    BIO*           pkey_bio         = nullptr;
+    unsigned char* signature_bytes  = nullptr;
+    unsigned int   signature_len    = 0;
+    
+    const auto cleanup = [&pkey, &private_key_file, &pkey_bio, &signature_bytes, ctx, &ctx_initialized] () {
+        
+        if ( nullptr != signature_bytes ) {
+            delete [] signature_bytes;
+        }
+        
+        if ( nullptr != pkey ) {
+            EVP_PKEY_free(pkey);
+        }
+        
+        if ( nullptr != private_key_file ) {
+            fclose(private_key_file);
+        }
+        
+        if ( nullptr != pkey_bio ) {
+            BIO_free(pkey_bio);
+        }
+        
+        if ( true == ctx_initialized ) {
+#if OPENSSL_VERSION_NUMBER < 0x1010000fL
+            EVP_MD_CTX_cleanup(ctx);
+#else
+            EVP_MD_CTX_free(ctx);
+#endif
+            ctx_initialized = false;
+        }
+        
+    };
+    
+    try {
+        
+        //
+        // Load private key.
+        //
+        pkey             = EVP_PKEY_new();
+        // ...
+        if ( RSA::Origin::File == a_origin ) {
+            // ... load private key from file ...
+            private_key_file = fopen(a_pem.c_str(), "r");
+            if ( nullptr == private_key_file ) {
+                throw ::cc::crypto::Exception("Unable to open RSA private key file!");
+            }
+            
+            //
+            // RSA *PEM_read_RSAPrivateKey(FILE *fp, RSA **x, pem_password_cb *cb, void *u);
+            //
+            // - The PEM functions read or write structures in PEM format.
+            //
+            // Returns RSA* for success and NULL for failure
+            if ( 0 != a_password.length() ) {
+                const struct rsa_st* rsa;
+                if ( ! ( rsa = PEM_read_RSAPrivateKey(private_key_file, &rsa_pkey, &pem_password_cb, (void*)a_password.c_str()) ) ) {
+                    throw ::cc::crypto::Exception("Error while loading RSA private key file!");
+                }
+            } else {
+                if ( ! PEM_read_RSAPrivateKey(private_key_file, &rsa_pkey, NULL, NULL) ) {
+                    throw ::cc::crypto::Exception("Error while loading RSA private key file!");
+                }
+            }
+        } else if ( RSA::Origin::Memory == a_origin ) {
+            // ... load private key from memory ...
+            pkey_bio = BIO_new_mem_buf((void*)a_pem.c_str(), static_cast<int>(a_pem.length()));
+            //
+            // PEM_read_bio_RSAPrivateKey(BIO *bp, RSA **x, pem_password_cb *cb, void *u)
+            //
+            // Returns RSA* for success and NULL for failure
+            if ( ! PEM_read_bio_RSAPrivateKey(pkey_bio, &rsa_pkey, &pem_password_cb, (void*)a_password.c_str()) ) {
+                throw ::cc::crypto::Exception("Error while loading RSA private key!");
+            }
+        } else {
+            throw ::cc::crypto::Exception("Dont know how to load RSA private key!");
+        }
+
+        //
+        // EVP_PKEY_assign_RSA
+        //
+        // Returns 1 for success and 0 for failure.
+        //
+        if ( 1 != EVP_PKEY_assign_RSA(pkey, rsa_pkey) ) {
+            throw ::cc::crypto::Exception("Error while assigning RSA!");
+        }
+        
+        //
+        // Initializes digest context ctx.
+        //
+#if OPENSSL_VERSION_NUMBER < 0x1010000fL
+        EVP_MD_CTX_init(ctx);
+#else
+        ctx = EVP_MD_CTX_new();
+#endif
+        ctx_initialized = true;
+        
+        //
+        // int EVP_SignInit_ex(EVP_MD_CTX *ctx, const EVP_MD *type, ENGINE *impl);
+        //
+        // - Sets up signing context ctx to use digest type from ENGINE impl.
+        // - ctx must be created with EVP_MD_CTX_new() before calling this function.
+        //
+        // Returns 1 for success and 0 for failure.
+        //
+        if ( 1 != EVP_SignInit(ctx, a_evp_md) ) {
+            throw ::cc::crypto::Exception("Error while setting up signing context!");
+        }
+        
+        //
+        // int EVP_SignUpdate(EVP_MD_CTX *ctx, const void *d, unsigned int cnt);
+        //
+        // - Hashes cnt bytes of data at d into the signature context ctx.
+        //
+        // Returns 1 for success and 0 for failure.
+        //
+        if ( 1 != EVP_SignUpdate(ctx, a_payload, a_length) ) {
+            throw ::cc::crypto::Exception("Error while updating signing context");
+        }
+        
+        //
+        // int EVP_SignFinal(EVP_MD_CTX *ctx, unsigned char *sig, unsigned int *s, EVP_PKEY *pkey);
+        //
+        // - Signs the data in ctx using the private key pkey and places the signature in sig.
+        //
+        // Returns 1 for success and 0 for failure.
+        //
+        signature_bytes = new unsigned char[EVP_PKEY_size(pkey)];
+        if ( 1 != EVP_SignFinal(ctx, signature_bytes, &signature_len, pkey) ) {
+            throw ::cc::crypto::Exception("Error while finalizing signing context!");
+        }
+        
+        //
+        // BASE64 encode
+        //
+        std::string signature_b64;
+        if ( RSA::SignOutputFormat::BASE64_RFC4648 == a_output_format ) {
+            signature_b64 = ::cc::base64_rfc4648::encode(signature_bytes, static_cast<size_t>(signature_len));
+        } else if ( RSA::SignOutputFormat::BASE64_URL_UNPADDED == a_output_format ) {
+            signature_b64 = ::cc::base64_url_unpadded::encode(signature_bytes, static_cast<size_t>(signature_len));
+        } else {
+            throw ::cc::crypto::Exception("BASE64 encoded %u - not implemented!", static_cast<unsigned>(a_output_format));
+        }
     
         cleanup();
         

@@ -75,7 +75,9 @@ namespace cc
                                                           const char* const a_error_msg_prefix = nullptr);
                 static void        EnsureEnoughFreeSpace (const char* const a_path, size_t a_required,
                                                           const char* const a_error_msg_prefix = nullptr);
-
+                static void        Expand                (const std::string& a_uri, std::string& o_uri);
+                static std::string Expand                (const std::string& a_uri);
+                
             }; // end of class 'dir'
             
         } // end of namespace 'posix'

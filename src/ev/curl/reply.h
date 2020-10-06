@@ -35,14 +35,14 @@ namespace ev
 
         class Reply final : public ev::curl::Object
         {
-
+            
         protected:
 
             Value value_;
 
         public: // Constructor(s) / Destructor
 
-            Reply (int a_code, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body);
+            Reply (int a_code, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body, size_t a_rtt);
             virtual ~Reply();
 
         public: // Method(s) / Function(s)

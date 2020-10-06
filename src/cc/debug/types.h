@@ -63,7 +63,11 @@
 
     #define CC_IF_DEBUG_DECLARE_VAR(a_type, a_name) a_type a_name
     #define CC_IF_DEBUG_DECLARE_AND_SET_VAR(a_type, a_name, a_value) a_type a_name = a_value
-    #define CC_IF_DEBUG_CONSTRUCT_VAR(a_name, a_value, ...) a_name(a_value) __VA_ARGS__
+
+    #define CC_IF_DEBUG_CONSTRUCT_DECLARE_VAR(a_type, a_name, ...) a_type a_name __VA_ARGS__
+    #define CC_IF_DEBUG_CONSTRUCT_APPEND_VAR(a_type, a_name) , a_type a_name
+    #define CC_IF_DEBUG_CONSTRUCT_SET_VAR(a_name, a_value, ...) a_name(a_value) __VA_ARGS__
+    #define CC_IF_DEBUG_CONSTRUCT_APPEND_SET_VAR(a_name, a_value, ...) , a_name(a_value) __VA_ARGS__
 
     #define CC_DEBUG_LOG_ENABLE(a_token) \
         ::cc::debug::Logger::GetInstance().Register(a_token);
@@ -97,7 +101,13 @@
 
     #define CC_IF_DEBUG_DECLARE_VAR(a_type, a_name)
     #define CC_IF_DEBUG_DECLARE_AND_SET_VAR(a_type, a_name, a_value)
-    #define CC_IF_DEBUG_CONSTRUCT_VAR(a_name, a_value, ...)
+
+    #define CC_IF_DEBUG_CONSTRUCT_DECLARE_VAR(a_type, a_name, ...)
+    #define CC_IF_DEBUG_CONSTRUCT_APPEND_VAR(a_type, a_name)
+    #define CC_IF_DEBUG_CONSTRUCT_SET_VAR(a_name, a_value, ...)
+    #define CC_IF_DEBUG_CONSTRUCT_APPEND_SET_VAR(a_name, a_value, ...)
+
+    #define CC_IF_DEBUG_CONSTRUCT_SET(a_name, a_value, ...)
 
     #define CC_DEBUG_LOG_ENABLE(a_token)
     #define CC_DEBUG_LOG_MSG(a_token, a_format, ...)
