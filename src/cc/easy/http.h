@@ -26,6 +26,7 @@
 #include "cc/non-movable.h"
 
 #include "ev/curl/http.h"
+#include "ev/curl/reply.h"
 
 #include "ev/scheduler/scheduler.h"
 
@@ -100,18 +101,26 @@ namespace cc
                 OAuth2 oauth2_;
             } Config;
             
-            typedef struct {
-                std::string access_;
-                std::string refresh_;
-                size_t      change_count_;
+            typedef struct _Tokens {
+                std::string           access_;    //!< Access token value.
+                std::string           refresh_;   //!< Refresh token value.
+                std::function<void()> on_change_; //!< Function to call when values changes.
             } Tokens;
             
             typedef HTTPClient::POSTCallbacks POSTCallbacks;
             
+        private: // Const Data
+            
+            const ev::Loggable::Data loggable_data_;
+
         private: // Const Refs
             
             const Config& config_;
+
+        private: // Refs
             
+            Tokens& tokens_;
+
         private: // Helper(s)
             
             HTTPClient http_;
@@ -119,17 +128,18 @@ namespace cc
         public: // Constructor / Destructor
 
             OAuth2HTTPClient () = delete;            
-            OAuth2HTTPClient (const ev::Loggable::Data& a_loggable_data, const Config& a_config);
+            OAuth2HTTPClient (const ev::Loggable::Data& a_loggable_data, const Config& a_config, Tokens& a_tokens);
             virtual ~OAuth2HTTPClient();
             
         public: // Method(s) / Function(s)
             
             void POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
-                       OAuth2HTTPClient::POSTCallbacks a_callbacks, Tokens& a_tokens);
+                       OAuth2HTTPClient::POSTCallbacks a_callbacks);
             
         private: // Helper Method(s) / Function(s)
             
-            ::ev::scheduler::Task* NewTask (const EV_TASK_PARAMS& a_callback);
+            ::ev::scheduler::Task*    NewTask     (const EV_TASK_PARAMS& a_callback);
+            const ::ev::curl::Reply*  EnsureReply (::ev::Object* a_object);
 
         }; // end of class 'OAuth2HTTP'
     

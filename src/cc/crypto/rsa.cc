@@ -29,12 +29,6 @@
 #include <openssl/evp.h>
 #include <openssl/err.h>
 
-//
-//char err[130] = {0};
-//ERR_load_RSA_strings();
-//ERR_error_string(ERR_get_error(), err);
-//
-
 #include "cc/b64.h"
 
 #ifndef __APPLE__ // backtrace
