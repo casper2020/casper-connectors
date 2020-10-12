@@ -41,8 +41,8 @@ std::string cc::crypto::HMAC::SHA256 (const std::string& a_payload, const std::s
     // Initialize HMAC object.
 #if OPENSSL_VERSION_NUMBER < 0x1010000fL
     HMAC_CTX _ctx;
-    HMAC_CTX_init(&ctx);
     HMAC_CTX* ctx = &_ctx;
+    HMAC_CTX_init(ctx);
 #else
     HMAC_CTX* ctx = HMAC_CTX_new();
 #endif
@@ -68,7 +68,7 @@ std::string cc::crypto::HMAC::SHA256 (const std::string& a_payload, const std::s
     //
     // void HMAC_CTX_cleanup(HMAC_CTX *ctx);
     //
-    HMAC_CTX_cleanup(ctx_ptr);
+    HMAC_CTX_cleanup(ctx);
 #else
     HMAC_CTX_free(ctx);
 #endif
