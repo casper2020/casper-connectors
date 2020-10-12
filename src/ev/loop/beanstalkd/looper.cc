@@ -277,13 +277,16 @@ void ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig
             job_ptr_ = cached_it->second;
         }
         
-        const std::chrono::steady_clock::time_point start_tp = std::chrono::steady_clock::now();
-        
         // ... ready?
         if ( nullptr != job_ptr_ ) {
             osal::ConditionVariable job_cv;
             // ... yes, process job ...
             try {
+                // ... mark start ...
+                EV_LOOP_BEANSTALK_LOG("queue",
+                                      "Job #" INT64_FMT_MAX_RA " ~> Run...",
+                                      job.id()
+                );
                 // ... run it ...
                 job_ptr_->Consume(/* a_id */ job.id(), /* a_body */ job_payload_,
                                   /* on_completed_           */
@@ -348,8 +351,6 @@ void ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig
             deferred         = false;
             http_status_code = 500;
         }
-
-        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_tp).count();
         
         loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
 
@@ -370,6 +371,11 @@ void ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig
                                           job.id(), ( true == already_ran ? "Ignored" : true == cancelled ? "Cancelled" : "Done" )
                     );
                 }
+            } else {
+                EV_LOOP_BEANSTALK_LOG("queue",
+                                      "Job #" INT64_FMT_MAX_RA " ~> Deferred...",
+                                      job.id()
+                );
             }
             
             // ... we're done with it ...
@@ -386,15 +392,6 @@ void ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig
             beanstalk_->Bury(job);
         }
 
-        // ... write to permanent log ...
-        if ( false == deferred ) {
-            EV_LOOP_BEANSTALK_LOG("queue",
-                                  "Job #" INT64_FMT_MAX_RA " ~> FINISHED: " UINT64_FMT "ms.",
-                                  job.id(),
-                                  static_cast<uint64_t>(elapsed)
-            );
-        }
-        
         // ... write to permanent log ...
         EV_LOOP_BEANSTALK_LOG("queue",
                               "WTNG %15.15s ---:",
