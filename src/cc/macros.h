@@ -22,6 +22,8 @@
 #ifndef NRS_CC_MACROS_H_
 #define NRS_CC_MACROS_H_
 
+#include <assert.h>
+
 #define CC_DO_PRAGMA(x) _Pragma (#x)
 #define CC_MACRO_DEFER(M,...) M(__VA_ARGS__)
 #define CC_MACRO_STRINGIFY_ARG(a) #a
