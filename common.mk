@@ -41,7 +41,8 @@ CONNECTORS_CC_AUTH_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/auth/jwt.cc \
 
 CONNECTORS_CC_HASH_SRC := \
-  $(PROJECT_SRC_DIR)/src/cc/hash/md5.cc
+  $(PROJECT_SRC_DIR)/src/cc/hash/md5.cc \
+  $(PROJECT_SRC_DIR)/src/cc/hash/sha256.cc
 
 CONNECTORS_CC_CRYPTO_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/crypto/hmac.cc \
@@ -50,6 +51,7 @@ CONNECTORS_CC_CRYPTO_SRC := \
 CONNECTORS_CC_EASY_SRC:= \
   $(PROJECT_SRC_DIR)/src/cc/easy/beanstalk.cc   \
   $(PROJECT_SRC_DIR)/src/cc/easy/redis.cc       \
+  $(PROJECT_SRC_DIR)/src/cc/easy/http.cc        \
   $(PROJECT_SRC_DIR)/src/cc/job/easy/job.cc     \
   $(PROJECT_SRC_DIR)/src/cc/job/easy/handler.cc
 
