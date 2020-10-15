@@ -156,12 +156,13 @@ int cc::job::easy::Handler::Start (const cc::job::easy::Handler::Arguments& a_ar
         cc::OptArg opt (a_arguments.name_.c_str(), a_arguments.version_.c_str(), a_arguments.rel_date_.c_str(), a_arguments.banner_.c_str(),
             {
                 // NOTES: THIS OBJECTS WILL BE DELETE WHEN cc::OptArg::~OptArg IS CALLED
-                new cc::OptArg::String(/* a_long */ "config" , /* a_short */ 'c', /* a_optional */ false , /* a_tag */ "uri"  , /* a_help */ "configuration file"  ),
-                new cc::OptArg::UInt64(/* a_long */ "index"  , /* a_short */ 'i', /* a_optional */ false , /* a_tag */ "index", /* a_help */ "index"               ),
-                new cc::OptArg::Switch(/* a_long */ "help"   , /* a_short */ 'h', /* a_optional */ true  , /* a_tag */          /* a_help */ "show help"           ),
-                new cc::OptArg::Switch(/* a_long */ "version", /* a_short */ 'v', /* a_optional */ true  , /* a_tag */          /* a_help */ "show version"        )
+                new cc::OptArg::String(/* a_long */ "config" , /* a_short */ 'c', /* a_optional */ false             , /* a_tag */ "uri"    , /* a_help */ "configuration file"  ),
+                new cc::OptArg::UInt64(/* a_long */ "index"  , /* a_short */ 'i', /* a_optional */ false             , /* a_tag */ "index"  , /* a_help */ "index"               ),
+                new cc::OptArg::UInt64(/* a_long */ "cluster", /* a_short */ 'k', /* a_default  */ (const uint64_t) 0, /* a_tag */ "cluster", /* a_help */ "cluster number"      ),
+                new cc::OptArg::Switch(/* a_long */ "help"   , /* a_short */ 'h', /* a_optional */ true              , /* a_tag */            /* a_help */ "show help"           ),
+                new cc::OptArg::Switch(/* a_long */ "version", /* a_short */ 'v', /* a_optional */ true              , /* a_tag */            /* a_help */ "show version"        )
             #ifdef CC_DEBUG_ON
-              , new cc::OptArg::String(/* a_long */ "debug"  , /* a_short */ 'd', /* a_optional */ true  , /* a_tag */ "token", /* a_help */ "enable a debug token")
+              , new cc::OptArg::String(/* a_long */ "debug"  , /* a_short */ 'd', /* a_optional */ true              , /* a_tag */ "token", /* a_help */ "enable a debug token")
             #endif
             }
         );
@@ -202,6 +203,7 @@ int cc::job::easy::Handler::Start (const cc::job::easy::Handler::Arguments& a_ar
             /* info_           */ a_arguments.info_,
             /* banner_         */ a_arguments.banner_,
             /* instance_       */ static_cast<int>(opt.GetUInt64('i')->value()),
+            /* cluster_        */ static_cast<int>(opt.GetUInt64('k')->value()),
             /* exec_path_      */ a_arguments.argv_[0],
             /* conf_file_uri_  */  opt.GetString('c')->value(),
         }, fatal_shutdown);

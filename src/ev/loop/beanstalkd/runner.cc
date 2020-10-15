@@ -257,12 +257,19 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
                                                                     const void* a_args,
                                                                     ::cc::global::Logs& o_logs)
 {
-   
     //
     // Copy Startup Config
     //
     startup_config_ = new ev::loop::beanstalkd::StartupConfig(*(const ev::loop::beanstalkd::StartupConfig*)a_args);
-    
+
+    // (<name>.<pid>)[.<cluster>].<instance>(.<ext>)
+    std::string fn_ci_component;
+    if ( 0 != startup_config_->cluster_ ) {
+        fn_ci_component = '.' + std::to_string(startup_config_->cluster_) + '.' + std::to_string(startup_config_->instance_);
+    } else {
+        fn_ci_component = '.' + std::to_string(startup_config_->instance_);
+    }
+
     //
     // Work directories:
     //
@@ -396,7 +403,7 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
                             if ( 0 == token.length() ) {
                                 continue;
                             }
-                            shared_config_->log_tokens_[token] = shared_config_->directories_.log_ + token + "." + std::to_string(startup_config_->instance_) + ".log";
+                            shared_config_->log_tokens_[token] = shared_config_->directories_.log_ + token + fn_ci_component + ".log";
                         }
                     }
                 }
@@ -421,7 +428,7 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
     //
     // Write pid file for SYSTEMD:
     //
-    const std::string pid_file = shared_config_->directories_.run_ + std::to_string(startup_config_->instance_) + ".pid";
+    const std::string pid_file = shared_config_->directories_.run_ + std::string( fn_ci_component.c_str() + 1 ) + ".pid";
     FILE* pid_fd = fopen(pid_file.c_str(), "w");
     if ( nullptr == pid_fd ) {
         throw ev::Exception("Unable to open file '%s' to write pid: nullptr", pid_file.c_str());
@@ -439,7 +446,7 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
     loggable_data_ = new ::ev::Loggable::Data(/* owner_ptr_ */ this,
                                               /* ip_addr_   */ shared_config_->ip_addr_,
                                               /* module_    */ startup_config_->info_,
-                                              /* tag_       */ "instance-" + std::to_string(startup_config_->instance_)
+                                              /* tag_       */ "instance-" + std::to_string(startup_config_->instance_) // TODO cluster?
     );
     
     // ... set a http client ...
@@ -463,11 +470,11 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
     
     // ... v1 ...
     for ( auto token : { "libpq-connections", "libpq" } ) {
-        o_logs.push_back({ /* token_ */ token ,/* uri_ */ shared_config_->directories_.log_ + token + "." + std::to_string(startup_config_->instance_) + ".log", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 1 });
+        o_logs.push_back({ /* token_ */ token ,/* uri_ */ shared_config_->directories_.log_ + token + fn_ci_component + ".log", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 1 });
     }
     // ... v2 ...
     for ( auto token : { "signals", "queue" } ) {
-        o_logs.push_back({ /* token_ */ token ,/* uri_ */ shared_config_->directories_.log_ + token + "." + std::to_string(startup_config_->instance_) + ".log", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 2 });
+        o_logs.push_back({ /* token_ */ token ,/* uri_ */ shared_config_->directories_.log_ + token + fn_ci_component + ".log", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 2 });
     }
     
     //
@@ -477,11 +484,11 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
     
     // ... prepare socket file names ...
     ss.str("");
-    ss << shared_config_->directories_.run_ << "ev-scheduler." << a_process.pid_ << ".socket";
+    ss << shared_config_->directories_.run_ << "ev-scheduler" << fn_ci_component << '.' << a_process.pid_ << ".socket";
     const std::string scheduler_socket_fn = ss.str();
     
     ss.str("");
-    ss << shared_config_->directories_.run_ << "ev-shared-handler." << a_process.pid_ << ".socket";
+    ss << shared_config_->directories_.run_ << "ev-shared-handler" << fn_ci_component << '.' << a_process.pid_ << ".socket";
     const std::string  shared_handler_socket_fn = ss.str();
     
     //

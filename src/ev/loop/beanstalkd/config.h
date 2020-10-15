@@ -44,6 +44,7 @@ namespace ev
                 const std::string                  info_;
                 const std::string                  banner_;
                 const int                          instance_;
+                const int                          cluster_;
                 const std::string                  exec_path_;
                 const std::string                  conf_file_uri_;
             } StartupConfig;
