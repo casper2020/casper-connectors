@@ -52,8 +52,8 @@ CONNECTORS_CC_EASY_SRC:= \
   $(PROJECT_SRC_DIR)/src/cc/easy/beanstalk.cc   \
   $(PROJECT_SRC_DIR)/src/cc/easy/redis.cc       \
   $(PROJECT_SRC_DIR)/src/cc/easy/http.cc        \
-  $(PROJECT_SRC_DIR)/src/cc/job/easy/job.cc     \
-  $(PROJECT_SRC_DIR)/src/cc/job/easy/handler.cc
+  $(PROJECT_SRC_DIR)/src/cc/easy/job/job.cc     \
+  $(PROJECT_SRC_DIR)/src/cc/easy/job/handler.cc
 
 CONNECTORS_CC_DEBUG_SRC:= \
  $(PROJECT_SRC_DIR)/src/cc/debug/logger.cc \

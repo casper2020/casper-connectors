@@ -19,7 +19,7 @@
 * along with casper-connectors.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "cc/job/easy/job.h"
+#include "cc/easy/job/job.h"
 
 #include "cc/macros.h"
 
@@ -35,7 +35,7 @@
  * @param a_loggable_data
 
  */
-cc::job::easy::Job::Job (const ev::Loggable::Data& a_loggable_data, const std::string& a_tube, const Config& a_config)
+cc::easy::job::Job::Job (const ev::Loggable::Data& a_loggable_data, const std::string& a_tube, const Config& a_config)
     : ev::loop::beanstalkd::Job(a_loggable_data, a_tube, a_config),
       CC_IF_DEBUG_CONSTRUCT_SET_VAR(thread_id_, cc::debug::Threading::GetInstance().CurrentThreadID(), ,)
       log_level_(a_config.other().get("log_level", CC_JOB_LOG_LEVEL_INF).asInt())
@@ -47,7 +47,7 @@ cc::job::easy::Job::Job (const ev::Loggable::Data& a_loggable_data, const std::s
 /**
  * @brief Destructor
  */
-cc::job::easy::Job::~Job ()
+cc::easy::job::Job::~Job ()
 {
     CC_JOB_LOG_UNREGISTER();
 }
@@ -61,13 +61,13 @@ cc::job::easy::Job::~Job ()
  * @param a_cancelled_callback
  * @param a_deferred_callback
  */
-void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
-                              const cc::job::easy::Job::CompletedCallback& a_completed_callback,
-                              const cc::job::easy::Job::CancelledCallback& a_cancelled_callback,
-                              const cc::job::easy::Job::DeferredCallback& a_deferred_callback)
+void cc::easy::job::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
+                              const cc::easy::job::Job::CompletedCallback& a_completed_callback,
+                              const cc::easy::job::Job::CancelledCallback& a_cancelled_callback,
+                              const cc::easy::job::Job::DeferredCallback& a_deferred_callback)
 {
     Json::Value                  job_response  = Json::Value::null;
-    cc::job::easy::Job::Response run_response { 400, Json::Value::null };
+    cc::easy::job::Job::Response run_response { 400, Json::Value::null };
     
     std::string uri_;
     
@@ -84,7 +84,7 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
             Publish({
                 /* key_    */ nullptr,
                 /* args_   */ {},
-                /* status_ */ cc::job::easy::Job::Status::Cancelled,
+                /* status_ */ cc::easy::job::Job::Status::Cancelled,
                 /* value_  */ -1.0,
                 /* now_    */ true
             });
@@ -186,7 +186,7 @@ void cc::job::easy::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
  *
  * @return HTTP status code.
  */
-uint16_t cc::job::easy::Job::SetI18NMessage (const uint16_t& a_code, const easy::Job::I18N& a_i18n, Json::Value& o_payload)
+uint16_t cc::easy::job::Job::SetI18NMessage (const uint16_t& a_code, const easy::job::I18N& a_i18n, Json::Value& o_payload)
 {
     // ... a_i18n is mandatory!
     if ( nullptr == a_i18n.key_ ) {
@@ -212,7 +212,7 @@ uint16_t cc::job::easy::Job::SetI18NMessage (const uint16_t& a_code, const easy:
  *
  * @return HTTP status code.
  */
-uint16_t cc::job::easy::Job::SetI18NError (const uint16_t& a_code, const easy::Job::I18N& a_i18n, const easy::Job::InternalError& a_error,
+uint16_t cc::easy::job::Job::SetI18NError (const uint16_t& a_code, const easy::job::I18N& a_i18n, const easy::job::InternalError& a_error,
                                            Json::Value& o_payload)
 {
     // ... set i18n ...
@@ -246,7 +246,7 @@ uint16_t cc::job::easy::Job::SetI18NError (const uint16_t& a_code, const easy::J
  *
  * @return HTTP status code.
  */
-uint16_t cc::job::easy::Job::SetOk (const easy::Job::I18N* a_i18n, Json::Value& o_payload)
+uint16_t cc::easy::job::Job::SetOk (const easy::job::I18N* a_i18n, Json::Value& o_payload)
 {
     if ( nullptr != a_i18n ) {
         return SetI18NMessage(200, *a_i18n, o_payload);
@@ -262,7 +262,7 @@ uint16_t cc::job::easy::Job::SetOk (const easy::Job::I18N* a_i18n, Json::Value& 
  *
  * @return HTTP status code.
  */
-uint16_t cc::job::easy::Job::SetBadRequest (const easy::Job::I18N* a_i18n, Json::Value& o_payload)
+uint16_t cc::easy::job::Job::SetBadRequest (const easy::job::I18N* a_i18n, Json::Value& o_payload)
 {
     if ( nullptr != a_i18n ) {
         return SetI18NMessage(400, *a_i18n, o_payload);
@@ -278,7 +278,7 @@ uint16_t cc::job::easy::Job::SetBadRequest (const easy::Job::I18N* a_i18n, Json:
  *
  * @return HTTP status code.
  */
-uint16_t cc::job::easy::Job::SetInternalServerError (const easy::Job::I18N* a_i18n, Json::Value& o_payload)
+uint16_t cc::easy::job::Job::SetInternalServerError (const easy::job::I18N* a_i18n, Json::Value& o_payload)
 {
     if ( nullptr != a_i18n ) {
         return SetI18NMessage(400, *a_i18n, o_payload);
@@ -294,7 +294,7 @@ uint16_t cc::job::easy::Job::SetInternalServerError (const easy::Job::I18N* a_i1
  *
  * @return HTTP status code.
  */
-uint16_t cc::job::easy::Job::SetNotFound (const easy::Job::I18N* a_i18n, Json::Value& o_payload)
+uint16_t cc::easy::job::Job::SetNotFound (const easy::job::I18N* a_i18n, Json::Value& o_payload)
 {
     if ( nullptr != a_i18n ) {
         return SetI18NMessage(404, *a_i18n, o_payload);
@@ -310,7 +310,7 @@ uint16_t cc::job::easy::Job::SetNotFound (const easy::Job::I18N* a_i18n, Json::V
  *
  * @return HTTP status code.
  */
-uint16_t cc::job::easy::Job::SetNotFound (const I18N* a_i18n, const easy::Job::InternalError& a_error, Json::Value& o_payload)
+uint16_t cc::easy::job::Job::SetNotFound (const I18N* a_i18n, const easy::job::InternalError& a_error, Json::Value& o_payload)
 {
     if ( nullptr != a_i18n ) {
         (void)SetI18NMessage(404, *a_i18n, o_payload);
@@ -335,7 +335,7 @@ uint16_t cc::job::easy::Job::SetNotFound (const I18N* a_i18n, const easy::Job::I
  *
  * @return HTTP status code.
  */
-uint16_t cc::job::easy::Job::SetTimeout (const easy::Job::I18N* a_i18n, Json::Value& o_payload)
+uint16_t cc::easy::job::Job::SetTimeout (const easy::job::I18N* a_i18n, Json::Value& o_payload)
 {
     if ( nullptr != a_i18n ) {
         return SetI18NMessage(408, *a_i18n, o_payload);
@@ -352,7 +352,7 @@ uint16_t cc::job::easy::Job::SetTimeout (const easy::Job::I18N* a_i18n, Json::Va
  *
  * @return HTTP status code.
  */
-uint16_t cc::job::easy::Job::SetInternalServerError (const easy::Job::I18N* a_i18n, const easy::Job::InternalError& a_error, Json::Value& o_payload)
+uint16_t cc::easy::job::Job::SetInternalServerError (const easy::job::I18N* a_i18n, const easy::job::InternalError& a_error, Json::Value& o_payload)
 {
     (void)SetInternalServerError(a_i18n, o_payload);
     o_payload["meta"]["internal-error"] = Json::Value(Json::ValueType::objectValue);
@@ -374,7 +374,7 @@ uint16_t cc::job::easy::Job::SetInternalServerError (const easy::Job::I18N* a_i1
  *
  * @return HTTP status code.
  */
-uint16_t cc::job::easy::Job::SetInternalServerError (const easy::Job::I18N* a_i18n, const easy::Job::InternalException& a_exception, Json::Value& o_payload)
+uint16_t cc::easy::job::Job::SetInternalServerError (const easy::job::I18N* a_i18n, const easy::job::InternalException& a_exception, Json::Value& o_payload)
 {
     return SetInternalServerError(a_i18n, /* a_error */ InternalError({ /* code_ */ a_exception.code_, /* why_ */ a_exception.excpt_.what() }), o_payload);
 }
@@ -387,7 +387,7 @@ uint16_t cc::job::easy::Job::SetInternalServerError (const easy::Job::I18N* a_i1
 *
  * @return HTTP status code.
  */
-uint16_t cc::job::easy::Job::SetNotImplemented (const easy::Job::I18N* a_i18n, Json::Value& o_payload)
+uint16_t cc::easy::job::Job::SetNotImplemented (const easy::job::I18N* a_i18n, Json::Value& o_payload)
 {
     if ( nullptr != a_i18n ) {
         return SetI18NMessage(501, *a_i18n, o_payload);
@@ -404,7 +404,7 @@ uint16_t cc::job::easy::Job::SetNotImplemented (const easy::Job::I18N* a_i18n, J
  *
  * @return HTTP status code.
  */
-uint16_t cc::job::easy::Job::SetNotImplemented (const easy::Job::I18N* a_i18n, const easy::Job::InternalError& a_error, Json::Value& o_payload)
+uint16_t cc::easy::job::Job::SetNotImplemented (const easy::job::I18N* a_i18n, const easy::job::InternalError& a_error, Json::Value& o_payload)
 {
     (void)SetNotImplemented(a_i18n, o_payload);
     o_payload["meta"]["internal-error"] = Json::Value(Json::ValueType::objectValue);

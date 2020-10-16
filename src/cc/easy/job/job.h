@@ -19,10 +19,12 @@
  * along with casper-connectors.  If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
-#ifndef NRS_CC_JOB_EASY_JOB_H_
-#define NRS_CC_JOB_EASY_JOB_H_
+#ifndef NRS_CC_EASY_JOB_H_
+#define NRS_CC_EASY_JOB_H_
 
 #include "ev/loop/beanstalkd/job.h"
+
+#include "cc/easy/job/types.h"
 
 #include "cc/debug/types.h"
 
@@ -47,31 +49,6 @@
         ::ev::LoggerV2::GetInstance().Unregister(logger_client_); \
     }
 
-#define CC_JOB_LOG_LEVEL_CRT 1 // CRITICAL
-#define CC_JOB_LOG_LEVEL_ERR 2 // ERROR
-#define CC_JOB_LOG_LEVEL_WRN 3 // WARNING
-#define CC_JOB_LOG_LEVEL_INF 4 // MESSAGE
-#define CC_JOB_LOG_LEVEL_VBS 5 // VERBOSE
-#define CC_JOB_LOG_LEVEL_DBG 6 // DEBUG
-
-//                                   ------
-#define CC_JOB_LOG_STEP_IN          "IN"
-#define CC_JOB_LOG_STEP_OUT         "OUT"
-#define CC_JOB_LOG_STEP_REDIS       "REDIS"
-#define CC_JOB_LOG_STEP_POSGRESQL   "PGSQL"
-#define CC_JOB_LOG_STEP_HTTP        "HTTP"
-#define CC_JOB_LOG_STEP_FILE        "FILE"
-#define CC_JOB_LOG_STEP_BEANSTALK   "BT"
-#define CC_JOB_LOG_STEP_STEP        "STEP"
-#define CC_JOB_LOG_STEP_INFO        "INFO"
-#define CC_JOB_LOG_STEP_STATUS      "STATUS"
-#define CC_JOB_LOG_STEP_STATS       "STATS"
-#define CC_JOB_LOG_STEP_RELAY       "RELAY"
-#define CC_JOB_LOG_STEP_RTT         "RTT"
-#define CC_JOB_LOG_STEP_ERROR       "ERROR"
-#define CC_JOB_LOG_STEP_V8          "V8"
-#define CC_JOB_LOG_STEP_DUMP        "DUMP"
-
 #define CC_JOB_LOG(a_level, a_id, a_format, ...) \
     if ( a_level <= log_level_ ) \
         ::ev::LoggerV2::GetInstance().Log(logger_client_, tube_.c_str(), "Job #" INT64_FMT ", " a_format, a_id, __VA_ARGS__)
@@ -89,10 +66,10 @@
 namespace cc
 {
 
-    namespace job
+    namespace easy
     {
 
-        namespace easy
+        namespace job
         {
         
             class Job : public ev::loop::beanstalkd::Job
@@ -130,28 +107,10 @@ namespace cc
                 virtual void Run (const int64_t& a_id, const Json::Value& a_payload, Response& o_response) = 0;
                 
             protected: // Method(s) / Function(s)
-                
-                typedef struct {
-                    const char* const                        key_;
-                    const std::map<std::string, Json::Value> arguments_;
-                } I18N;
-
-                typedef struct {
-                    const char* const code_;
-                    const std::string why_;
-                } InternalError;
-
-                typedef struct {
-                    const char* const     code_;
-                    const std::exception& excpt_;
-                } InternalException;
-                
-                
-            protected: // Method(s) / Function(s)
 
                 // 1 ~ 5 xxx
-                uint16_t SetI18NMessage                (const uint16_t& a_code, const easy::Job::I18N& a_i18n, Json::Value& o_payload);
-                uint16_t SetI18NError                  (const uint16_t& a_code, const easy::Job::I18N& a_i18n, const InternalError& a_error,
+                uint16_t SetI18NMessage                (const uint16_t& a_code, const I18N& a_i18n, Json::Value& o_payload);
+                uint16_t SetI18NError                  (const uint16_t& a_code, const I18N& a_i18n, const InternalError& a_error,
                                                         Json::Value& o_payload);
                 // 2xx
                 uint16_t SetOk                          (const I18N* a_i18n, Json::Value& o_payload);
@@ -172,10 +131,10 @@ namespace cc
 
             }; // end of class 'Job'
             
-        } // end of namespace 'easy'
+        } // end of namespace 'job'
     
-    } // end of namespace 'job'
+    } // end of namespace 'easy'
 
 } // end of namespace 'cc'
         
-#endif // NRS_CC_JOB_EASY_JOB_H_
+#endif // NRS_CC_EASY_JOB_H_

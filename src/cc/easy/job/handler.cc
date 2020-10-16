@@ -19,17 +19,17 @@
 * along with casper-connectors.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "cc/job/easy/handler.h"
+#include "cc/easy/job/handler.h"
 
 #include "cc/optarg.h"
 #include "cc/threading/worker.h"
 
-#include "cc/job/easy/job.h"
+#include "cc/easy/job/job.h"
 
 #include "cc/debug/types.h" //  CC_DEBUG_ON
 
 #ifdef __APPLE__
-#pragma mark - cc::job::easy::JobInitializer
+#pragma mark - cc::easy::job::JobInitializer
 #endif
 
 /**
@@ -37,8 +37,8 @@
  *
  * @param a_job A referece to the owner of this class.
  */
-cc::job::easy::HandlerInitializer::HandlerInitializer (cc::job::easy::Handler& a_handler)
-: ::cc::Initializer<cc::job::easy::Handler>(a_handler)
+cc::easy::job::HandlerInitializer::HandlerInitializer (cc::easy::job::Handler& a_handler)
+: ::cc::Initializer<cc::easy::job::Handler>(a_handler)
 {
     instance_.factories_ = nullptr;
 }
@@ -46,13 +46,13 @@ cc::job::easy::HandlerInitializer::HandlerInitializer (cc::job::easy::Handler& a
 /**
  * @brief Destructor.
  */
-cc::job::easy::HandlerInitializer::~HandlerInitializer ()
+cc::easy::job::HandlerInitializer::~HandlerInitializer ()
 {
     instance_.factories_ = nullptr;
 }
 
 #ifdef __APPLE__
-#pragma mark - cc::job::easy::Job
+#pragma mark - cc::easy::job::Handler
 #endif
 
 /**
@@ -63,7 +63,7 @@ cc::job::easy::HandlerInitializer::~HandlerInitializer ()
  * @param a_job_config     Job specific config
  * @param o_config         Merged shared config.
  */
-void cc::job::easy::Handler::InnerStartup  (const ::cc::global::Process& a_process, const ::ev::loop::beanstalkd::StartupConfig& a_startup_config, const Json::Value& a_job_config, const ::ev::loop::beanstalkd::SharedConfig& o_config,
+void cc::easy::job::Handler::InnerStartup  (const ::cc::global::Process& a_process, const ::ev::loop::beanstalkd::StartupConfig& a_startup_config, const Json::Value& a_job_config, const ::ev::loop::beanstalkd::SharedConfig& o_config,
                                             ev::loop::beanstalkd::Runner::Factory& o_factory)
 {
     const pid_t       pid      = a_process.pid_;
@@ -118,7 +118,7 @@ void cc::job::easy::Handler::InnerStartup  (const ::cc::global::Process& a_proce
 /**
  * @brief Call when this job instance is about to shutdown.
  */
-void cc::job::easy::Handler::InnerShutdown ()
+void cc::easy::job::Handler::InnerShutdown ()
 {
     /* empty */
 }
@@ -130,14 +130,14 @@ void cc::job::easy::Handler::InnerShutdown ()
  * @param a_factories Tube factories.
  * @param a_polling_timeout Consumer's loop polling timeout in millseconds, if < 0 will use defaults.
  */
-int cc::job::easy::Handler::Start (const cc::job::easy::Handler::Arguments& a_arguments,
-                                   const cc::job::easy::Handler::Factories& a_factories,
+int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_arguments,
+                                   const cc::easy::job::Handler::Factories& a_factories,
                                    const float& a_polling_timeout)
 {
     const auto clean_shutdown = [] () {
         
-        cc::job::easy::Handler::GetInstance().Shutdown(SIGQUIT);
-        cc::job::easy::Handler::Destroy();
+        cc::easy::job::Handler::GetInstance().Shutdown(SIGQUIT);
+        cc::easy::job::Handler::Destroy();
         
     };
     
@@ -195,7 +195,7 @@ int cc::job::easy::Handler::Start (const cc::job::easy::Handler::Arguments& a_ar
         ::cc::threading::Worker::SetName(a_arguments.name_);
 
         // ... startup ...
-        cc::job::easy::Handler::GetInstance().Startup({
+        cc::easy::job::Handler::GetInstance().Startup({
             /* abbr_           */ a_arguments.abbr_,
             /* name_           */ a_arguments.name_,
             /* version_        */ a_arguments.version_,
@@ -209,10 +209,10 @@ int cc::job::easy::Handler::Start (const cc::job::easy::Handler::Arguments& a_ar
         }, fatal_shutdown);
         
         // ... set this handler specific configs ...
-        cc::job::easy::Handler::GetInstance().factories_ = &a_factories;
+        cc::easy::job::Handler::GetInstance().factories_ = &a_factories;
 
         // ... run ...
-        cc::job::easy::Handler::GetInstance().Run(a_polling_timeout);
+        cc::easy::job::Handler::GetInstance().Run(a_polling_timeout);
 
     } catch (const ::cc::Exception& a_cc_exception ) {
         fatal_shutdown(a_cc_exception, false);
@@ -234,7 +234,7 @@ int cc::job::easy::Handler::Start (const cc::job::easy::Handler::Arguments& a_ar
  * @param a_lhs Primary value.
  * @param a_rhs Override value.
  */
-void cc::job::easy::Handler::MergeJSONValue (Json::Value& a_lhs, const Json::Value& a_rhs)
+void cc::easy::job::Handler::MergeJSONValue (Json::Value& a_lhs, const Json::Value& a_rhs)
 {
     if ( false == a_lhs.isObject() || false == a_rhs.isObject() ) {
         return;

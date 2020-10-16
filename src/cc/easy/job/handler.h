@@ -26,15 +26,15 @@
 
 #include "ev/loop/beanstalkd/runner.h"
 
-#include "cc/job/easy/job.h"
+#include "cc/easy/job/job.h"
 
 namespace cc
 {
 
-    namespace job
+    namespace easy
     {
 
-        namespace easy
+        namespace job
         {
 
             // ---- //
@@ -68,7 +68,7 @@ namespace cc
                     const char** const argv_;
                 } Arguments;
                 
-                typedef std::function<cc::job::easy::Job*(const ev::Loggable::Data&, const cc::job::easy::Job::Config&)> Factory;
+                typedef std::function<cc::easy::job::Job*(const ev::Loggable::Data&, const cc::easy::job::Job::Config&)> Factory;
                 typedef std::map<std::string, Factory>       Factories;
                 
             private: // Data
@@ -92,9 +92,9 @@ namespace cc
                 
             }; // end of class 'Handler'
 
-        } // end of namespace 'easy'
+        } // end of namespace 'job'
 
-    } // end of namespace 'job'
+    } // end of namespace 'easy'
 
 } // end of namespace 'cc'
 
