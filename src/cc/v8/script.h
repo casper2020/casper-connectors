@@ -73,6 +73,7 @@ namespace cc
 
             void CallFunction (const LoadedFunction::Callable& a_callable, ::v8::Persistent<::v8::Value>& o_result) const;
             void IsolatedCall (IsolatedCallback a_callback) const;
+            bool IsNull       (const ::v8::Persistent<::v8::Value>& a_object) const;
 
         protected: // Method(s) / Function(s)
 
@@ -104,6 +105,16 @@ namespace cc
         inline void cc::v8::Script::IsolatedCall (cc::v8::Script::IsolatedCallback a_callback) const
         {
             context_.IsolatedCall(a_callback);
+        }
+    
+        /**
+         * @brief Check if a value is null at this v8 context.
+         *
+         * @param a_object
+         */
+        inline bool cc::v8::Script::IsNull (const ::v8::Persistent<::v8::Value>& a_object) const
+        {
+            return a_object.IsEmpty();
         }
 
     } // end of namespace 'v8'

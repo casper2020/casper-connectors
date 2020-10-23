@@ -231,7 +231,9 @@ namespace cc
             const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - last_).count();
             if ( std::chrono::steady_clock::time_point::max() == last_ || elapsed >= timeout_ || true == a_force ) {
                 last_ = now;
-                callback_(value_);
+                if ( nullptr != callback_ ) {
+                    callback_(value_);
+                }
             }
         }
         
