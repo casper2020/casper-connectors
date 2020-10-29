@@ -31,7 +31,7 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
-
+#include <functional> // std::function
 
 #if ( defined(CASPER_V8_CHRONO_ENABLED) || defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) )
     #define CASPER_V8_CHRONO_START(a_name) \
