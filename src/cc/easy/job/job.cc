@@ -271,19 +271,28 @@ uint16_t cc::easy::job::Job::SetBadRequest (const easy::job::I18N* a_i18n, Json:
 }
 
 /**
- * @brief Fill a 'internal server error' payload ( 500 - Internal Server Error ).
+ * @brief Fill a 'not found' payload ( 404 - Not Found ).
  *
  * @param a_i18n    I18 message.
  * @param o_payload Payload object to create.
  *
  * @return HTTP status code.
  */
-uint16_t cc::easy::job::Job::SetInternalServerError (const easy::job::I18N* a_i18n, Json::Value& o_payload)
+uint16_t cc::easy::job::Job::SetBadRequest (const I18N* a_i18n, const easy::job::InternalError& a_error, Json::Value& o_payload)
 {
     if ( nullptr != a_i18n ) {
-        return SetI18NMessage(400, *a_i18n, o_payload);
+        (void)SetI18NMessage(400, *a_i18n, o_payload);
+    } else {
+        (void) SetI18NMessage(400, /* a_i18n */ { /* a_key*/ "i18n_bad_request", /* a_args */ {} }, o_payload);
     }
-    return SetI18NMessage(400, /* a_i18n */ { /* a_key*/ "i18n_internal_server_error", /* a_args */ {} }, o_payload);
+    o_payload["meta"]["internal-error"] = Json::Value(Json::ValueType::objectValue);
+    if ( nullptr != a_error.code_ ) {
+        o_payload["meta"]["internal-error"]["code"] = a_error.code_;
+    } else {
+        o_payload["meta"]["internal-error"]["code"] = "400 - Bad Request";
+    }
+    o_payload["meta"]["internal-error"]["why"]   = a_error.why_;
+    return 400;
 }
 
 /**
@@ -321,7 +330,7 @@ uint16_t cc::easy::job::Job::SetNotFound (const I18N* a_i18n, const easy::job::I
     if ( nullptr != a_error.code_ ) {
         o_payload["meta"]["internal-error"]["code"] = a_error.code_;
     } else {
-        o_payload["meta"]["internal-error"]["code"] = "400 - Not Found";
+        o_payload["meta"]["internal-error"]["code"] = "404 - Not Found";
     }
     o_payload["meta"]["internal-error"]["why"]   = a_error.why_;
     return 404;
@@ -341,6 +350,22 @@ uint16_t cc::easy::job::Job::SetTimeout (const easy::job::I18N* a_i18n, Json::Va
         return SetI18NMessage(408, *a_i18n, o_payload);
     }
     return SetI18NMessage(408, /* a_i18n */ { /* a_key*/ "i18n_timeout", /* a_args */ {} }, o_payload);
+}
+
+/**
+ * @brief Fill a 'internal server error' payload ( 500 - Internal Server Error ).
+ *
+ * @param a_i18n    I18 message.
+ * @param o_payload Payload object to create.
+ *
+ * @return HTTP status code.
+ */
+uint16_t cc::easy::job::Job::SetInternalServerError (const easy::job::I18N* a_i18n, Json::Value& o_payload)
+{
+    if ( nullptr != a_i18n ) {
+        return SetI18NMessage(500, *a_i18n, o_payload);
+    }
+    return SetI18NMessage(500, /* a_i18n */ { /* a_key*/ "i18n_internal_server_error", /* a_args */ {} }, o_payload);
 }
 
 /**

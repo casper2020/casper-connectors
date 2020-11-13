@@ -198,10 +198,8 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::StartupC
         },
         /* a_present */ [this] (std::string& o_title, std::map<std::string, std::string>& o_values) {
             o_title = "TUBES";
-            auto it = shared_config_->beanstalk_.tubes_.begin();
-            for ( size_t idx = 0 ; idx < shared_config_->beanstalk_.tubes_.size(); ++idx ) {
-                std::advance(it, idx);
-                o_values["tubes[" + std::to_string(idx) + "]"] = *it;
+            for ( auto it : shared_config_->beanstalk_.tubes_ ) {
+                o_values["tubes[" + std::to_string(o_values.size()) + "]"] = it;
             }
         },
         /* a_debug_tokens */

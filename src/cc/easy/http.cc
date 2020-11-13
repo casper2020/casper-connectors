@@ -29,6 +29,8 @@
 
 #include "cc/easy/json.h"
 
+#include <map>
+
 // MARK: - HTTPClient
 
 /**
@@ -51,6 +53,29 @@ cc::easy::HTTPClient::~HTTPClient ()
 }
 
 /**
+ * @brief Perform an HTTP GET request.
+ *
+ * @param a_url      URL.
+ * @param a_headers  HTTP Headers.
+ * @param a_callbacks Set of callbacks to report successfull or failed execution.
+ *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
+ *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ */
+void cc::easy::HTTPClient::GET (const std::string& a_url, const CC_HTTP_HEADERS& a_headers,
+                                 HTTPClient::Callbacks a_callbacks)
+{
+    http_.GET(loggable_data_,
+               a_url, &a_headers,
+               /* a_success_callback */ [a_callbacks] (const ::ev::curl::Value& a_value) {
+                    a_callbacks.on_success_(a_value.code(), a_value.header_value("Content-Type"), a_value.body(), a_value.rtt());
+               },
+               /* a_failure_callback */ [a_callbacks] (const ::ev::Exception& a_ev_exception) {
+                    a_callbacks.on_failure_(::cc::Exception("%s", a_ev_exception.what()));
+               }
+    );
+}
+
+/**
  * @brief Perform an HTTP POST request.
  *
  * @param a_url      URL.
@@ -61,7 +86,7 @@ cc::easy::HTTPClient::~HTTPClient ()
  *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
  */
 void cc::easy::HTTPClient::POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
-                                 HTTPClient::POSTCallbacks a_callbacks)
+                                 HTTPClient::Callbacks a_callbacks)
 {
     http_.POST(loggable_data_,
                a_url, &a_headers, &a_body,
@@ -95,6 +120,59 @@ cc::easy::OAuth2HTTPClient::OAuth2HTTPClient (const ::ev::Loggable::Data& a_logg
 cc::easy::OAuth2HTTPClient::~OAuth2HTTPClient ()
 {
     ::ev::scheduler::Scheduler::GetInstance().Unregister(this);
+}
+
+/**
+ * @brief Perform an HTTP POST request to obtains tokens from an 'autorization code' grant flow.
+ *
+ * @param a_code     OAuth2 Auhtorization code.
+ * @param a_callbacks Set of callbacks to report successfull or failed execution.
+ *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
+ *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ */
+void cc::easy::OAuth2HTTPClient::AutorizationCodeGrant (const std::string& a_code,
+                                                        OAuth2HTTPClient::POSTCallbacks a_callbacks)
+{
+    CURL *curl = curl_easy_init();
+    if ( nullptr == curl ) {
+        throw ::ev::Exception("Unexpected cURL handle: nullptr!");
+    }
+
+    std::string url = config_.oauth2_.urls_.token_ + "?grant_type=authorization_code";
+
+    const std::map<std::string, std::string> map = {
+        { "code"         , a_code                                      },
+        { "client_id"    , config_.oauth2_.credentials_.client_id_     },
+        { "client_secret", config_.oauth2_.credentials_.client_secret_ },
+        { "redirect_uri" , config_.oauth2_.redirect_uri_               }
+    };
+    
+    for ( auto param : map ) {
+        char *output = curl_easy_escape(curl, param.second.c_str(), static_cast<int>(param.second.length()));
+        if ( nullptr == output ) {
+            curl_easy_cleanup(curl);
+            throw ::ev::Exception("Unexpected cURL easy escape: nullptr!");
+        }
+        url += "&" + param.first + "=" + std::string(output);
+        curl_free(output);
+    }
+    
+    curl_easy_cleanup(curl);
+    
+    NewTask([this, url] () -> ::ev::Object* {
+        
+        return new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, url, nullptr, nullptr);
+        
+    })->Finally([this, a_callbacks] (::ev::Object* a_object) {
+
+        const ::ev::curl::Reply* reply = EnsureReply(a_object);;
+        const ::ev::curl::Value& value = reply->value();
+        // ... notify ...
+        a_callbacks.on_success_(value.code(), value.header_value("Content-Type"), value.body(), value.rtt());
+        
+    })->Catch([a_callbacks] (const ::ev::Exception& a_ev_exception) {
+        a_callbacks.on_failure_(a_ev_exception);
+    });    
 }
 
 /**

@@ -46,13 +46,13 @@ namespace cc
             
         public: // Data Type(s)
             
-            typedef std::function<void(const uint16_t& a_code, const std::string& a_content_type, const std::string& a_body, const size_t& a_rtt)> POSTSuccessCallback;
-            typedef std::function<void(const cc::Exception& a_exception)>                                                                          POSTFailureCallback;
+            typedef std::function<void(const uint16_t& a_code, const std::string& a_content_type, const std::string& a_body, const size_t& a_rtt)> SuccessCallback;
+            typedef std::function<void(const cc::Exception& a_exception)>                                                                          FailureCallback;
 
             typedef struct {
-                POSTSuccessCallback on_success_;
-                POSTFailureCallback on_failure_;
-            } POSTCallbacks;
+                SuccessCallback on_success_;
+                FailureCallback on_failure_;
+            } Callbacks;
 
         private: // Const Data
             
@@ -70,7 +70,8 @@ namespace cc
             
         public: // Method(s) / Function(s)
             
-            void POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body, POSTCallbacks a_callbacks);
+            void GET  (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, Callbacks a_callbacks);
+            void POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body, Callbacks a_callbacks);
 
         }; // end of class 'HTTP'
     
@@ -95,6 +96,7 @@ namespace cc
             typedef struct {
                 URLs        urls_;
                 Credentials credentials_;
+                std::string redirect_uri_;
             } OAuth2;
             
             typedef struct {
@@ -102,12 +104,15 @@ namespace cc
             } Config;
             
             typedef struct _Tokens {
-                std::string           access_;    //!< Access token value.
-                std::string           refresh_;   //!< Refresh token value.
-                std::function<void()> on_change_; //!< Function to call when values changes.
+                std::string           type_;       //!< Type type.
+                std::string           access_;     //!< Access token value.
+                std::string           refresh_;    //!< Refresh token value.
+                size_t                expires_in_; //!< Number of seconds until access tokens expires.
+                std::string           scope_;      //!< Service scope.
+                std::function<void()> on_change_;  //!< Function to call when values changes.
             } Tokens;
             
-            typedef HTTPClient::POSTCallbacks POSTCallbacks;
+            typedef HTTPClient::Callbacks POSTCallbacks;
             
         private: // Const Data
             
@@ -132,7 +137,10 @@ namespace cc
             virtual ~OAuth2HTTPClient();
             
         public: // Method(s) / Function(s)
-            
+
+            void AutorizationCodeGrant (const std::string& a_code,
+                                        OAuth2HTTPClient::POSTCallbacks a_callbacks);
+
             void POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
                        OAuth2HTTPClient::POSTCallbacks a_callbacks);
             

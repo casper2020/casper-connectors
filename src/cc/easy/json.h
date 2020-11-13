@@ -50,6 +50,9 @@ namespace cc
             const Json::Value& Get  (const Json::Value& a_parent, const char* const a_key, const Json::ValueType& a_type, const Json::Value* a_default,
                                      const char* const a_error_prefix_msg = "Invalid or missing ") const;
 
+            const Json::Value& Get  (const Json::Value& a_parent, const std::vector<std::string>& a_keys, const Json::ValueType& a_type, const Json::Value* a_default,
+                                     const char* const a_error_prefix_msg = "Invalid or missing ") const;
+
             const Json::Value& Get  (const Json::Value& a_array, const Json::ArrayIndex a_index, const Json::ValueType& a_type, const Json::Value* a_default,
                                      const char* const a_error_prefix_msg = "Invalid or missing ") const;
 
@@ -117,6 +120,45 @@ namespace cc
             } catch (const Json::Exception& a_json_exception ) {
                 throw E("%s", a_json_exception.what());
             }
+        }
+    
+        /**
+         * @brief Retrieve a JSON value from an array or defaults to the provided value ( if not null ).
+         *
+         * @param a_param
+         * @param a_keys
+         * @param a_type
+         * @param a_default
+         *
+         * @return
+         */
+        template <class E>
+        const Json::Value& cc::easy::JSON<E>::Get (const Json::Value& a_parent, const std::vector<std::string>& a_keys, const Json::ValueType& a_type, const Json::Value* a_default,
+                                                   const char* const a_error_prefix_msg) const
+        {
+            // ... try to obtain a valid JSON object ..
+            std::string key;
+            for ( auto k : a_keys ) {
+                if ( true == a_parent.isMember(k) ) {
+                    key = k;
+                    break;
+                }
+            }
+            // ... found? ...
+            if ( 0 != key.length()  ) {
+                return Get(a_parent, key.c_str(), a_type, a_default, a_error_prefix_msg);
+            }
+            // ... NOT found ...
+            for ( auto idx = 0 ; idx < a_keys.size() - 1; ++idx  ) {
+                key += a_keys[idx] + "||";
+            }
+            if ( a_keys.size() > 0 ) {
+                key += a_keys[a_keys.size() - 1];
+            }
+            throw E("%sJSON value for key '%s' - type mismatch: got %s, expected %s!",
+                    a_error_prefix_msg,
+                    key.c_str(), "null", ValueTypeAsCString(a_type)
+            );
         }
 
         /**
