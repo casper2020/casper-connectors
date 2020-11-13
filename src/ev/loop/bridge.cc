@@ -354,7 +354,9 @@ void ev::loop::Bridge::Loop ()
     running_ = true;
     
     ::cc::threading::Worker::SetName(name_ + "::ev::bridge");
-    ::cc::threading::Worker::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
+    if ( false == cc::debug::Threading::GetInstance().AtMainThread() ) {
+        ::cc::threading::Worker::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
+    }
 
 #if 0 // TODO
     detach_condition_.Wake();
