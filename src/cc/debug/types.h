@@ -93,7 +93,10 @@
 
     #define CC_DEBUG_ASSERT(a_condition)
 
-    #define CC_DEBUG_SET_MAIN_THREAD_ID()
+    // exception: CC_DEBUG_SET_MAIN_THREAD_ID
+    #define CC_DEBUG_SET_MAIN_THREAD_ID() \
+      cc::debug::Threading::GetInstance().Start();
+
     #define CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD()
     #define CC_DEBUG_FAIL_IF_NOT_AT_THREAD(a_id)
 
