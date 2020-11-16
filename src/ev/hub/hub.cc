@@ -176,13 +176,13 @@ ev::hub::Hub::Hub (const std::string& a_name,
     socket_event_                = nullptr;
     socket_buffer_               = nullptr;
     socket_buffer_length_        = 0;
-    thread_id_                   = cc::debug::Threading::k_invalid_thread_id_;
     one_shot_requests_handler_   = nullptr;
     keep_alive_requests_handler_ = nullptr;
     event_set_fatal_callback(ev::hub::Hub::EventFatalCallback);
 #ifdef DEBUG
     event_set_log_callback(ev::hub::Hub::EventLogCallback);
 #endif
+    CC_IF_DEBUG_SET_VAR(thread_id_, cc::debug::Threading::k_invalid_thread_id_);
 }
 
 /**
@@ -411,7 +411,7 @@ void ev::hub::Hub::Loop ()
 {
     fault_msg_ = "";
     
-    thread_id_ = cc::debug::Threading::GetInstance().CurrentThreadID();
+    CC_IF_DEBUG_SET_VAR(thread_id_, cc::debug::Threading::GetInstance().CurrentThreadID());
     
     ::cc::threading::Worker::SetName(name_ + "::ev::hub");
     ::cc::threading::Worker::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
@@ -427,8 +427,8 @@ void ev::hub::Hub::Loop ()
         socket_event_ = nullptr;
     }
 
-    one_shot_requests_handler_   = new ev::hub::OneShotHandler(stepper_, thread_id_);
-    keep_alive_requests_handler_ = new ev::hub::KeepAliveHandler(stepper_, thread_id_);
+    one_shot_requests_handler_   = new ev::hub::OneShotHandler(stepper_   CC_IF_DEBUG_CONSTRUCT_APPEND_PARAM_VALUE(thread_id_));
+    keep_alive_requests_handler_ = new ev::hub::KeepAliveHandler(stepper_ CC_IF_DEBUG_CONSTRUCT_APPEND_PARAM_VALUE(thread_id_));
 
     if ( false == socket_.Create(socket_file_name_.c_str()) ) {
         fault_msg_  = "Can't open a socket, using ";

@@ -42,7 +42,11 @@ namespace ev
 
         class Handler : public ev::Device::Listener, public ev::Device::Handler
         {
-            
+
+        protected: // Const Data
+
+            CC_IF_DEBUG_DECLARE_VAR(const cc::debug::Threading::ThreadID, thread_id_);
+
         protected: // Refs
             
             StepperCallbacks&            stepper_;
@@ -51,11 +55,10 @@ namespace ev
             
             std::set<ev::Object::Target>   supported_target_;
             
-            cc::debug::Threading::ThreadID thread_id_;
-            
         public: // Constructor(s) / Destructor
             
-            Handler(StepperCallbacks& a_stepper, cc::debug::Threading::ThreadID a_thread_id);
+            Handler(StepperCallbacks& a_stepper
+                    CC_IF_DEBUG_CONSTRUCT_APPEND_VAR(const cc::debug::Threading::ThreadID, a_thread_id));
             virtual ~Handler();
             
         public: // Pure Virtual Method(s) / Function(s) - Declaration

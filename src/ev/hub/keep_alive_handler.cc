@@ -28,8 +28,9 @@
 /**
  * @brief Default constructor.
  */
-ev::hub::KeepAliveHandler::KeepAliveHandler (ev::hub::StepperCallbacks& a_stepper_callbacks, cc::debug::Threading::ThreadID a_thread_id)
-    : ev::hub::Handler(a_stepper_callbacks, a_thread_id)
+ev::hub::KeepAliveHandler::KeepAliveHandler (ev::hub::StepperCallbacks& a_stepper_callbacks
+                                             CC_IF_DEBUG_CONSTRUCT_APPEND_VAR(const cc::debug::Threading::ThreadID, a_thread_id))
+    : ev::hub::Handler(a_stepper_callbacks CC_IF_DEBUG_CONSTRUCT_APPEND_PARAM_VALUE(a_thread_id))
 {
     CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     supported_target_ = { ev::Object::Target::Redis };

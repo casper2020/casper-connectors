@@ -54,7 +54,7 @@ namespace ev
         /**
          * @brief A class that defines a 'hub' for events.
          */
-        class Hub
+        class Hub final
         {
             
         public: // Data Type(s)
@@ -168,11 +168,12 @@ namespace ev
             InitializedCallback          initialized_callback_;
             StepperCallbacks             stepper_;
             
-            cc::debug::Threading::ThreadID thread_id_;
             osal::ConditionVariable        stop_cv_;
             
             std::atomic<int>&            pending_callbacks_count_;
-                        
+
+            CC_IF_DEBUG_DECLARE_VAR(cc::debug::Threading::ThreadID, thread_id_);
+
         public: // Static Const Data
             
             static const char* const k_msg_no_payload_format_;

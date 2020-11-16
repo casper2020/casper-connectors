@@ -584,8 +584,9 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
  * @brief Run 'bridge' loop.
  *
  * @param a_polling_timeout Consumer's loop polling timeout in millseconds, if < 0 will use defaults.
+ * @param a_at_main_thread True if this will run at main thread.
  */
-void ev::loop::beanstalkd::Runner::Run (const float& a_polling_timeout)
+void ev::loop::beanstalkd::Runner::Run (const float& a_polling_timeout, const bool a_at_main_thread)
 {
     consumer_cv_     = new osal::ConditionVariable();
     consumer_thread_ = new std::thread(&ev::loop::beanstalkd::Runner::ConsumerLoop, this, a_polling_timeout);
@@ -593,7 +594,7 @@ void ev::loop::beanstalkd::Runner::Run (const float& a_polling_timeout)
     
     consumer_cv_->Wait();
     
-    bridge_->Loop();
+    bridge_->Loop(a_at_main_thread);
     
     if ( nullptr != consumer_cv_ ) {
         delete consumer_cv_;

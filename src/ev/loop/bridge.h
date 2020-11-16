@@ -142,7 +142,8 @@ namespace ev
 #if 0 // TODO
             std::thread*                 thread_;
 #endif
-            cc::debug::Threading::ThreadID thread_id_;
+            CC_IF_DEBUG_DECLARE_VAR(cc::debug::Threading::ThreadID, thread_id_);
+            
             std::atomic<bool>              aborted_;
             std::atomic<bool>              running_;
             
@@ -195,7 +196,7 @@ namespace ev
         // TODO private: // Virtual Method(s) / Function(s)
         public:
 
-            void Loop                           ();
+            void Loop                           (const bool a_at_main_thread);
             void ScheduleCalbackOnMainThread    (Callback* a_callback, int64_t a_timeout_ms);
 
         private:

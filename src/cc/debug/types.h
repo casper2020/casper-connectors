@@ -63,6 +63,7 @@
 
     #define CC_IF_DEBUG_DECLARE_VAR(a_type, a_name) a_type a_name
     #define CC_IF_DEBUG_DECLARE_AND_SET_VAR(a_type, a_name, a_value) a_type a_name = a_value
+    #define CC_IF_DEBUG_SET_VAR(a_name, a_value) a_name = a_value
 
     #define CC_IF_DEBUG_CONSTRUCT_DECLARE_VAR(a_type, a_name, ...) a_type a_name __VA_ARGS__
     #define CC_IF_DEBUG_CONSTRUCT_APPEND_VAR(a_type, a_name) , a_type a_name
@@ -93,10 +94,7 @@
 
     #define CC_DEBUG_ASSERT(a_condition)
 
-    // exception: CC_DEBUG_SET_MAIN_THREAD_ID
-    #define CC_DEBUG_SET_MAIN_THREAD_ID() \
-      cc::debug::Threading::GetInstance().Start();
-
+    #define CC_DEBUG_SET_MAIN_THREAD_ID()
     #define CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD()
     #define CC_DEBUG_FAIL_IF_NOT_AT_THREAD(a_id)
 
@@ -105,6 +103,7 @@
 
     #define CC_IF_DEBUG_DECLARE_VAR(a_type, a_name)
     #define CC_IF_DEBUG_DECLARE_AND_SET_VAR(a_type, a_name, a_value)
+    #define CC_IF_DEBUG_SET_VAR(a_name, a_value)
 
     #define CC_IF_DEBUG_CONSTRUCT_DECLARE_VAR(a_type, a_name, ...)
     #define CC_IF_DEBUG_CONSTRUCT_APPEND_VAR(a_type, a_name)
@@ -202,7 +201,7 @@ namespace cc
         }; // end of class 'OneShot'
 
         // ---- //
-        class Threading final : public ::cc::logs::Logger, public cc::Singleton<Threading, ThreadingOneShotInitializer>
+        class Threading final : public cc::Singleton<Threading, ThreadingOneShotInitializer>
         {
           
           friend class ThreadingOneShotInitializer;

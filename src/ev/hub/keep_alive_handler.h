@@ -40,7 +40,8 @@ namespace ev
             
         public: // Constructor(s) / Destructor
             
-            KeepAliveHandler(StepperCallbacks& a_stepper_callbacks, cc::debug::Threading::ThreadID a_thread_id);
+            KeepAliveHandler(StepperCallbacks& a_stepper_callbacks
+                             CC_IF_DEBUG_CONSTRUCT_APPEND_VAR(const cc::debug::Threading::ThreadID, a_thread_id));
             virtual ~KeepAliveHandler();
             
         private: // Data

@@ -24,11 +24,11 @@
 /**
  * @brief Default constructor.
  */
-ev::hub::Handler::Handler (ev::hub::StepperCallbacks& a_stepper, cc::debug::Threading::ThreadID a_thread_id)
-    : stepper_(a_stepper)
+ev::hub::Handler::Handler (ev::hub::StepperCallbacks& a_stepper
+                           CC_IF_DEBUG_CONSTRUCT_APPEND_VAR(const cc::debug::Threading::ThreadID, a_thread_id))
+    : CC_IF_DEBUG_CONSTRUCT_SET_VAR(thread_id_, a_thread_id,,) stepper_(a_stepper)  
 {
-    stepper_   = a_stepper;
-    thread_id_ = a_thread_id;
+    /* empty */
 }
 
 /**

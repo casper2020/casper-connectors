@@ -93,7 +93,7 @@ namespace ev
                 
                 void Startup (const StartupConfig& a_config,
                               FatalExceptionCallback a_fatal_exception_callback);
-                void Run      (const float& a_polling_timeout = -1.0f);
+                void Run      (const float& a_polling_timeout = -1.0f, const bool a_at_main_thread = false);
                 void Shutdown (int a_sig_no);
                 
             public: // Inline Method(s) / Function(s)

@@ -212,7 +212,7 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
         cc::easy::job::Handler::GetInstance().factories_ = &a_factories;
 
         // ... run ...
-        cc::easy::job::Handler::GetInstance().Run(a_polling_timeout);
+        cc::easy::job::Handler::GetInstance().Run(a_polling_timeout, /* a_at_main_thread */ true);
 
     } catch (const ::cc::Exception& a_cc_exception ) {
         fatal_shutdown(a_cc_exception, false);

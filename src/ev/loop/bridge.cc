@@ -40,7 +40,7 @@ ev::loop::Bridge::Bridge ()
 #if 0 // TODO
     thread_                  = nullptr;
 #endif
-    thread_id_               = cc::debug::Threading::k_invalid_thread_id_;
+    CC_IF_DEBUG_SET_VAR(thread_id_, cc::debug::Threading::k_invalid_thread_id_);
     aborted_                 = false;
     running_                 = false;
     event_base_              = nullptr;
@@ -346,15 +346,17 @@ void ev::loop::Bridge::ThrowFatalException (const ev::Exception& a_ev_exception)
 
 /**
  * @brief Event loop.
+ *
+ * @param a_at_main_thread
  */
-void ev::loop::Bridge::Loop ()
+void ev::loop::Bridge::Loop (const bool a_at_main_thread)
 {
-    thread_id_ = cc::debug::Threading::GetInstance().CurrentThreadID();
+    CC_IF_DEBUG_SET_VAR(thread_id_, cc::debug::Threading::GetInstance().CurrentThreadID());
     
     running_ = true;
     
     ::cc::threading::Worker::SetName(name_ + "::ev::bridge");
-    if ( false == cc::debug::Threading::GetInstance().AtMainThread() ) {
+    if ( false == a_at_main_thread ) {
         ::cc::threading::Worker::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
     }
 
