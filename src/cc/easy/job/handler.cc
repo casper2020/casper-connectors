@@ -70,12 +70,20 @@ void cc::easy::job::Handler::InnerStartup  (const ::cc::global::Process& a_proce
     const std::string pname    = a_process.name_;
     const uint64_t    instance = static_cast<uint64_t>(a_startup_config.instance_);
     const std::string logs_dir = o_config.directories_.log_;
+    const int         cluster = a_startup_config.cluster_;
     
-    o_factory = [this, a_job_config, pid, instance, logs_dir, pname] (const std::string& a_tube) -> ev::loop::beanstalkd::Job* {
+    o_factory = [this, a_job_config, pid, instance, logs_dir, cluster, pname] (const std::string& a_tube) -> ev::loop::beanstalkd::Job* {
         const auto it = factories_->find(a_tube);
         if ( factories_->end() != it ) {
             
-            CC_JOB_LOG_ENABLE(a_tube, logs_dir + a_tube + "." + std::to_string(instance) + ".log");
+            std::string log_token;
+            if ( 0 != cluster ) {
+                log_token = a_tube + '.' + std::to_string(cluster) + '.' + std::to_string(instance);
+            } else { \
+                log_token = a_tube + '.' + std::to_string(instance);
+            }
+            
+            CC_JOB_LOG_ENABLE(a_tube, logs_dir + log_token + ".log");
             
             Json::Value tube_cfg = Json::Value::null;
             
@@ -103,10 +111,12 @@ void cc::easy::job::Handler::InnerStartup  (const ::cc::global::Process& a_proce
             return it->second(loggable_data(), {
                 /* pid_               */ pid,
                 /* instance_          */ instance,
+                /* cluster_           */ cluster,
                 /* service_id_        */ config.get("service_id"   ,        "development").asString(),
                 /* transient_         */ config.get("transient"    ,                false).asBool(),
                 /* min_progress_      */ config.get("min_progress",                     3).asInt(),
                 /* log_level_         */ config.get("log_level"    , CC_JOB_LOG_LEVEL_INF).asInt(),
+                /* log_token_         */ log_token,
                 /* other_             */ config
             });
 

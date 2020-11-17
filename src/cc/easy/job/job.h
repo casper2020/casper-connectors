@@ -39,10 +39,11 @@
 #define CC_JOB_LOG_ENABLE(a_tube, a_uri) \
     ::ev::LoggerV2::GetInstance().cc::logs::Logger::Register(a_tube, a_uri);
 
-#define CC_JOB_LOG_REGISTER() \
-    if ( true == ::ev::LoggerV2::GetInstance().cc::logs::Logger::IsRegistered(tube_.c_str()) ) { \
-        ::ev::LoggerV2::GetInstance().Register(logger_client_, { tube_.c_str() }); \
-    }
+#define CC_JOB_LOG_REGISTER(a_token) do { \
+    if ( false == ::ev::LoggerV2::GetInstance().cc::logs::Logger::IsRegistered(a_token.c_str()) ) { \
+        ::ev::LoggerV2::GetInstance().Register(logger_client_, { a_token.c_str() }); \
+    } \
+} while(0)
 
 #define CC_JOB_LOG_UNREGISTER() \
     if ( true == ::ev::LoggerV2::GetInstance().cc::logs::Logger::IsRegistered(tube_.c_str()) ) { \

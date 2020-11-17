@@ -79,9 +79,8 @@ std::string cc::hash::SHA256::Finalize (const SHA256::OutputFormat a_format)
         }
         hex_[CC_HASH_SHA_256_SHA256_DIGEST_HEX_LENGTH - 1] = '\0';
         return std::string(hex_);
-    } else if ( SHA256::OutputFormat::BASE64_RFC4648 ) {
+    } else if ( a_format == SHA256::OutputFormat::BASE64_RFC4648 ) {
         return cppcodec::base64_rfc4648::encode(digest_, SHA256_DIGEST_LENGTH);
     }
-    // TODO SILENCE 'Code will never be executed warning'
     throw cc::Exception("Requested output format not implemented yet!");
 }

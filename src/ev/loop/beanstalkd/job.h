@@ -95,13 +95,15 @@ namespace ev
                     
                 protected: // Data
                     
-                    pid_t       pid_;
-                    uint64_t    instance_;
-                    std::string service_id_;
-                    bool        transient_;
-                    int         min_progress_;
-                    int         log_level_;
-                    Json::Value other_;
+                    pid_t        pid_;
+                    uint64_t     instance_;
+                    int          cluster_;
+                    std::string  service_id_;
+                    bool         transient_;
+                    int          min_progress_;
+                    int          log_level_;
+                    std::string  log_token_;
+                    Json::Value  other_;
                     
                 public: // Constructor(s) / Destructor
                     
@@ -112,18 +114,21 @@ namespace ev
                      *
                      * @param a_pid
                      * @param a_instance
+                     * @param a_cluster
                      * @param a_service_id
                      * @param a_transient
                      * @param a_min_progress
                      * @param a_log_level
+                     * @param a_log_token
                      * @param a_other
                      */
-                    Config (const pid_t& a_pid, const uint64_t& a_instance, const std::string& a_service_id, const bool a_transient,
-                            const int a_min_progress = 3,
-                            const int a_log_level = -1,
-                            const Json::Value& a_other = Json::Value::null)
-                        : pid_(a_pid), instance_(a_instance), service_id_(a_service_id), transient_(a_transient), min_progress_(a_min_progress), log_level_(a_log_level),
-                          other_(a_other)
+                    Config (const pid_t& a_pid, const uint64_t& a_instance, const int& a_cluster, const std::string& a_service_id, const bool a_transient,
+                            const int a_min_progress,
+                            const int a_log_level,
+                            const std::string& a_log_token,
+                            const Json::Value& a_other)
+                        : pid_(a_pid), instance_(a_instance), cluster_(a_cluster), service_id_(a_service_id), transient_(a_transient), min_progress_(a_min_progress),
+                          log_level_(a_log_level), log_token_(a_log_token), other_(a_other)
                     {
                         /* empty */
                     }
@@ -134,7 +139,8 @@ namespace ev
                      * @param a_config Object to copy.
                      */
                     Config (const Config& a_config)
-                    : pid_(a_config.pid_), instance_(a_config.instance_), service_id_(a_config.service_id_), transient_(a_config.transient_),   min_progress_(a_config.min_progress_), log_level_(a_config.log_level_), other_(a_config.other_)
+                    : pid_(a_config.pid_), instance_(a_config.instance_), cluster_(a_config.cluster_), service_id_(a_config.service_id_), transient_(a_config.transient_),   min_progress_(a_config.min_progress_),
+                        log_level_(a_config.log_level_), log_token_(a_config.log_token_), other_(a_config.other_)
                     {
                         /* empty */
                     }
@@ -150,10 +156,12 @@ namespace ev
                     {
                         pid_          = a_config.pid_;
                         instance_     = a_config.instance_;
+                        cluster_      = a_config.cluster_;
                         service_id_   = a_config.service_id_;
                         transient_    = a_config.transient_;
                         min_progress_ = a_config.min_progress_;
                         log_level_    = a_config.log_level_;
+                        log_token_    = a_config.log_token_;
                         other_        = a_config.other_;
                         return *this;
                     }
@@ -172,6 +180,14 @@ namespace ev
                     inline const uint64_t& instance () const
                     {
                         return instance_;
+                    }
+                    
+                    /**
+                     * @return R/O Access to \link cluster_ \link.
+                     */
+                    inline const int& cluster () const
+                    {
+                        return cluster_;
                     }
                     
                     /**
@@ -205,7 +221,15 @@ namespace ev
                     {
                         return log_level_;
                     }
-                    
+
+                    /**
+                     * @return R/O Access to \link log_token_ \link.
+                     */
+                    inline const std::string& log_token () const
+                    {
+                        return log_token_;
+                    }
+
                     /**
                      * @return R/O Access to \link other_ \link.
                      */
@@ -232,6 +256,16 @@ namespace ev
                     inline void SetInstance (const uint64_t& a_instance)
                     {
                         instance_ = a_instance;
+                    }
+                    
+                    /**
+                     * @brief Set cluster.
+                     *
+                     * @param a_cluster Cluster number.
+                     */
+                    inline void SetCluster (const int& a_cluster)
+                    {
+                        cluster_ = a_cluster;
                     }
                     
                     /**

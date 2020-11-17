@@ -251,8 +251,12 @@ namespace cc
         {
             #ifdef __APPLE__
                 uint64_t thread_id;
-                const int rv = pthread_threadid_np(NULL, &thread_id);
-                assert(0 == rv);
+                #ifdef CC_DEBUG_ON
+                    const int rv = pthread_threadid_np(NULL, &thread_id);
+                    assert(0 == rv);
+                #else
+                    (void)pthread_threadid_np(NULL, &thread_id);
+                #endif
                 return thread_id;
             #else
                 return (uint64_t)syscall(SYS_gettid);
