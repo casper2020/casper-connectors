@@ -67,11 +67,11 @@ void cc::v8::Script::Compile (const ::v8::Local<::v8::String>& a_script, const c
 {
     const ::v8::String::Utf8Value& script = ::v8::String::Utf8Value(context_.Isolate(), a_script);
 
-    const std::string log_uri = out_path_ + name_ + ".js";
+    const std::string script_uri = out_path_ + name_ + ".js";
 
-    std::ofstream out(log_uri, std::ofstream::out);
+    std::ofstream out(script_uri, std::ofstream::out);
     if ( ! out ) {
-        throw cc::v8::Exception("Failed to write data to '%s'!", log_uri.c_str());
+        throw cc::v8::Exception("Failed to write data to '%s'!", script_uri.c_str());
     }
     
     out << "//\n// " << name_ << " \n";
