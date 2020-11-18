@@ -79,10 +79,11 @@ namespace ev
                 
                 ev::loop::beanstalkd::Runner::FatalExceptionCallback on_fatal_exception_;
                 
-            private: // Threading Ptrs
+            private: // Threading
                 
                 std::mutex                    looper_mutex_;
                 ev::loop::beanstalkd::Looper* looper_ptr_;
+                std::atomic<bool>             running_;
                 
             public: // Constructor(s) / Destructor
                 

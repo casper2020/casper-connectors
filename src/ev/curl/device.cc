@@ -44,7 +44,7 @@ ev::curl::Device::Device (const ::ev::Loggable::Data& a_loggable_data)
  */
 ev::curl::Device::~Device ()
 {
-    Disconnect();
+    Disconnect(/* a_notify */ false);
 }
 
 #ifdef __APPLE__
@@ -193,8 +193,10 @@ ev::Error* ev::curl::Device::DetachLastError ()
 
 /**
  * @brief Release current curl connection.
+ *
+ * @param a_notify When true listener will be notified.
  */
-void ev::curl::Device::Disconnect ()
+void ev::curl::Device::Disconnect (bool a_notify)
 {
     // ... already disconnected?
     if ( nullptr == context_ ) {
@@ -208,13 +210,19 @@ void ev::curl::Device::Disconnect ()
     }
     // ... remove event and notify ...
     try {
-        const int del_rc = event_del(context_->event_);
-        if ( 0 != del_rc ) {
-            exception_callback_(ev::Exception("An error occurred while deleting an event: code %d!", del_rc));
+        // ... release event ...
+        if ( nullptr != context_->event_ ) {
+            const int del_rc = event_del(context_->event_);
+            if ( 0 != del_rc ) {
+                exception_callback_(ev::Exception("An error occurred while deleting an event: code %d!", del_rc));
+            }
+            event_del(context_->event_);
+            event_free(context_->event_);
+            context_->event_ = nullptr;
         }
         // ... release connection ...
         if ( nullptr != context_->handle_ ) {
-            curl_easy_cleanup(context_->handle_);
+            curl_multi_cleanup(context_->handle_);
             context_->handle_ = nullptr;
         }
         // .. mark as disconnected ...
@@ -242,7 +250,7 @@ void ev::curl::Device::Disconnect ()
             disconnected_callback_ = nullptr;
         }
         // ... notify all listeners ...
-        if ( nullptr != listener_ptr_ ) {
+        if ( nullptr != listener_ptr_ && true ==a_notify ) {
             listener_ptr_->OnConnectionStatusChanged(connection_status_, this);
         }
     } catch (const ev::Exception& a_ev_exception) {
@@ -289,6 +297,7 @@ ev::curl::Device::MultiContext::MultiContext (ev::curl::Device* a_device)
 
         if ( 0 != setup_errors_ ) {
             curl_multi_cleanup(handle_);
+            handle_    = nullptr;
             last_code_ = CURLM_BAD_HANDLE;
         } else {
             last_code_ = CURLM_OK;

@@ -223,6 +223,9 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
 
         // ... run ...
         cc::easy::job::Handler::GetInstance().Run(a_polling_timeout, /* a_at_main_thread */ true);
+        
+        // ... shutdown ...
+        clean_shutdown();
 
     } catch (const ::cc::Exception& a_cc_exception ) {
         fatal_shutdown(a_cc_exception, false);

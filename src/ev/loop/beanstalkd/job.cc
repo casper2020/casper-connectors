@@ -69,9 +69,7 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
     chdir_hrt_.year_                 = static_cast<uint16_t>(0);
     
     hrt_buffer_[0]                   = '\0';
-    
-    ev::scheduler::Scheduler::GetInstance().Register(this);
-   
+       
     json_writer_.omitEndingLineFeed();
     
     callbacks_ptr_ = nullptr;
@@ -91,10 +89,7 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
  */
 ev::loop::beanstalkd::Job::~Job ()
 {
-    ExecuteOnMainThread([this] {
-        ::ev::redis::subscriptions::Manager::GetInstance().Unubscribe(this);
-    }, /* a_blocking */ true);
-    ev::scheduler::Scheduler::GetInstance().Unregister(this);
+    /* empty */
 }
 
 #ifdef __APPLE__
@@ -119,6 +114,9 @@ void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callba
     shared_directory_        = a_shared_config.directories_.shared_;
 
     ExecuteOnMainThread([this, &cv] {
+
+        ::ev::scheduler::Scheduler::GetInstance().Register(this);
+
         ::ev::redis::subscriptions::Manager::GetInstance().SubscribeChannels({ redis_signal_channel_ },
                                                                              /* a_status_callback */
                                                                              [&cv](const std::string& a_name_or_pattern,
@@ -147,6 +145,10 @@ void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callba
 */
 void ev::loop::beanstalkd::Job::Dismantle (const ::cc::Exception* /* a_cc_exception */)
 {
+    ExecuteOnMainThread([this] {
+        ::ev::redis::subscriptions::Manager::GetInstance().Unubscribe(this);
+        ::ev::scheduler::Scheduler::GetInstance().Unregister(this);
+    }, /* a_blocking */ true);
     Dismantle();
 }
 

@@ -264,6 +264,7 @@ void ev::hub::Hub::Start (ev::hub::Hub::InitializedCallback a_initialized_callba
         tv.tv_usec = 0;
 
         if ( nullptr != hack_event_ ) {
+            event_del(hack_event_);
             event_free(hack_event_);
         }
         hack_event_ = evtimer_new(event_base_, ev::hub::Hub::LoopHackEventCallback, &hack_event_);
@@ -277,6 +278,7 @@ void ev::hub::Hub::Start (ev::hub::Hub::InitializedCallback a_initialized_callba
         }
 
         if ( nullptr != watchdog_event_ ) {
+            event_del(watchdog_event_);
             event_free(watchdog_event_);
         }
         watchdog_event_ = evtimer_new(event_base_, ev::hub::Hub::WatchdogCallback, this);
@@ -318,7 +320,7 @@ void ev::hub::Hub::Start (ev::hub::Hub::InitializedCallback a_initialized_callba
 void ev::hub::Hub::Stop (int a_sig_no)
 {
 
-    OSALITE_DEBUG_TRACE("ev_hub", "~> Stop(a_sig_no=%d)...", a_sig_no);
+    OSALITE_DEBUG_TRACE("ev_hub", "~> @ %s(a_sig_no=%d)...", __FUNCTION__, a_sig_no);
 
     aborted_ = true;
 
@@ -333,23 +335,33 @@ void ev::hub::Hub::Stop (int a_sig_no)
         if ( nullptr != event_base_ ) {
             event_active(watchdog_event_, EV_TIMEOUT, 0);
         }
-        OSALITE_DEBUG_TRACE("ev_hub", "~> stop_cv_ locked from 'main' thread loop...");
+        OSALITE_DEBUG_TRACE("ev_hub", "-~ %s", "stop_cv_ .Wait() - in - from 'main' thread loop...");
         stop_cv_.Wait();
+        OSALITE_DEBUG_TRACE("ev_hub", "-~ %s", "stop_cv_ .Wait() - out - from 'main' thread loop...");
     }
 
     running_ = false;
 
     if ( nullptr != hack_event_ ) {
+        event_del(hack_event_);
         event_free(hack_event_);
         hack_event_ = nullptr;
     }
 
     if ( nullptr != watchdog_event_ ) {
+        event_del(watchdog_event_);
         event_free(watchdog_event_);
         watchdog_event_ = nullptr;
     }
+    
+    if ( nullptr != socket_event_ ) {
+        event_del(socket_event_);
+        event_free(socket_event_);
+        socket_event_ = nullptr;
+    }
 
     if ( nullptr != event_base_ ) {
+        event_base_loopbreak(event_base_);
         event_base_free(event_base_);
         event_base_ = nullptr;
     }
@@ -365,16 +377,6 @@ void ev::hub::Hub::Stop (int a_sig_no)
         delete [] socket_buffer_;
         socket_buffer_ = nullptr;
         socket_buffer_length_ = 0;
-    }
-
-    if ( nullptr != one_shot_requests_handler_ ) {
-        delete one_shot_requests_handler_;
-        one_shot_requests_handler_ = nullptr;
-    }
-
-    if ( nullptr != keep_alive_requests_handler_ ) {
-        delete keep_alive_requests_handler_;
-        keep_alive_requests_handler_ = nullptr;
     }
 
     handlers_.clear();
@@ -397,7 +399,7 @@ void ev::hub::Hub::Stop (int a_sig_no)
     stepper_.setup_   = nullptr;
     stepper_.factory_ = nullptr;
 
-    OSALITE_DEBUG_TRACE("ev_hub", "<~ Stop()...");
+    OSALITE_DEBUG_TRACE("ev_hub", "<~ @ %s()...", __FUNCTION__);
 }
 
 #ifdef __APPLE__
@@ -509,7 +511,7 @@ void ev::hub::Hub::Loop ()
     while ( false == aborted_ ) {
 
         int rv = event_base_loop(event_base_, EVLOOP_NO_EXIT_ON_EMPTY);
-        OSALITE_DEBUG_TRACE("ev_hub", "~> event_base_loop = %d!", rv);
+        OSALITE_DEBUG_TRACE("ev_hub", "-~ event_base_loop rv is %d", rv);
         switch (rv) {
             case -1: // ... error ...
                 break;
@@ -525,11 +527,9 @@ void ev::hub::Hub::Loop ()
 
 finally:
 
-    OSALITE_DEBUG_TRACE("ev_hub", "~> closing socket %d!", socket_.GetFileDescriptor());
-
-    socket_.Close();
-
-    if ( nullptr !=  one_shot_requests_handler_ ) {
+    OSALITE_DEBUG_TRACE("ev_hub", "-~ closing socket %d", socket_.GetFileDescriptor());
+    
+    if ( nullptr != one_shot_requests_handler_ ) {
         delete one_shot_requests_handler_;
         one_shot_requests_handler_ = nullptr;
     }
@@ -538,29 +538,20 @@ finally:
         delete keep_alive_requests_handler_;
         keep_alive_requests_handler_ = nullptr;
     }
-
+    
+    socket_.Close();
+   
     handlers_.clear();
-
-    if ( nullptr != socket_event_ ) {
-        event_del(socket_event_);
-        event_free(socket_event_);
-        socket_event_ = nullptr;
-    }
-
-    if ( nullptr != event_base_ ) {
-        event_base_free(event_base_);
-        event_base_ = nullptr;
-    }
 
     if ( 0 != fault_msg_.length() ) {
         bridge_.ThrowFatalException(ev::Exception(fault_msg_));
     }
 
+    OSALITE_DEBUG_TRACE("ev_hub", "-~ %s", "stop_cv_ .Wake() - in - from 'main' thread loop...");
     stop_cv_.Wake();
+    OSALITE_DEBUG_TRACE("ev_hub", "-~ %s", "stop_cv_ .Wake() - out - from 'main' thread loop...");
 
     running_ = false;
-
-    OSALITE_DEBUG_TRACE("ev_hub", "~> stop_cv_ unlocked from thread loop...");
 }
 
 #ifdef __APPLE__
@@ -666,6 +657,8 @@ void ev::hub::Hub::LoopHackEventCallback (evutil_socket_t /* a_fd */, short /* a
  */
 void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* a_flags */, void* a_arg)
 {
+    // OSALITE_DEBUG_TRACE("ev_hub", "~> %s(...)", __FUNCTION__);
+                        
     ev::hub::Hub* self = (ev::hub::Hub*)a_arg;
 
     if ( self->socket_.GetFileDescriptor() != a_fd /* || a_flags != EV_READ */ ) {
@@ -707,9 +700,9 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
         rx_count     += length;
 
         OSALITE_DEBUG_TRACE("ev_hub",
-                            "eh: received %d message(s) [ %d byte(s) ], pending %d message(s)",
+                            "-~ eh: received %d message(s) [ %d byte(s) ], pending %d message(s)",
                             msg_received, rx_count, mgs_remaining
-                            );
+        );
         (void)mgs_remaining;
 
 
@@ -717,7 +710,7 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
 
         // ... ensure message has the minimum length ...
         if ( length < k_msg_min_length_ ) {
-            OSALITE_DEBUG_TRACE("ev_hub", "Skipping message... " SIZET_FMT " vs " SIZET_FMT,
+            OSALITE_DEBUG_TRACE("ev_hub", "-~ Skipping message... " SIZET_FMT " vs " SIZET_FMT,
                                 length, k_msg_min_length_);
             continue;
         }
@@ -922,9 +915,11 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
 
     }
 
-    OSALITE_DEBUG_TRACE("ev_hub", "~> Idle...");
+    // OSALITE_DEBUG_TRACE("ev_hub", "-~ %s", "Idle...");
     self->one_shot_requests_handler_->Idle();
     self->keep_alive_requests_handler_->Idle();
+    
+    // OSALITE_DEBUG_TRACE("ev_hub", "<~ %s(...)", __FUNCTION__);
 }
 
 /**
@@ -938,13 +933,13 @@ void ev::hub::Hub::WatchdogCallback (evutil_socket_t /* a_fd */, short /* a_flag
 {
     ev::hub::Hub* self = (ev::hub::Hub*)a_arg;
 
-    OSALITE_DEBUG_TRACE("ev_hub", "~> Watchdog reporting for duty...");
+    OSALITE_DEBUG_TRACE("ev_hub", "~> @ %s -> Watchdog reporting for duty...", __FUNCTION__);
 
     if ( true == self->aborted_ ) {
-        OSALITE_DEBUG_TRACE("ev_hub", "~> Watchdog decision is... break it!");
+        OSALITE_DEBUG_TRACE("ev_hub", "~> @ %s -> Watchdog decision is... break it!", __FUNCTION__);
         event_base_loopbreak(self->event_base_);
     } else {
-        OSALITE_DEBUG_TRACE("ev_hub", "~> Watchdog decision is... let it lingering!");
+        OSALITE_DEBUG_TRACE("ev_hub", "~> @ %s -> Watchdog decision is... let it lingering!", __FUNCTION__);
         timeval tv;
         tv.tv_sec  = 365 * 24 * 3600;
         tv.tv_usec = 0;

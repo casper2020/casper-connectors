@@ -197,7 +197,7 @@ ev::loop::Bridge::CallOnMainThreadCallback ev::loop::Bridge::Start (const std::s
  */
 void ev::loop::Bridge::Stop (int a_sig_no)
 {
-    OSALITE_DEBUG_TRACE("ev_bridge", "~> Stop(a_sig_no=%d)...", a_sig_no);
+    OSALITE_DEBUG_TRACE("ev_bridge", "~> %s(a_sig_no=%d)", __FUNCTION__, a_sig_no);
     
     aborted_ = true;
     
@@ -231,8 +231,9 @@ void ev::loop::Bridge::Stop (int a_sig_no)
             // - THEADS WILL STOP RUNNING
             // - NO POINT IN WAITING FOR A THREAD THAT WONT RUN!
             //
-            OSALITE_DEBUG_TRACE("ev_bridge", "~> stop_cv_ locked from 'main' thread loop...");
+            OSALITE_DEBUG_TRACE("ev_bridge", "-~ %s", "stop_cv_.Wait() - in - from 'main' thread loop...");
             abort_condition_.Wait();
+            OSALITE_DEBUG_TRACE("ev_bridge", "-~ %s", "stop_cv_.Wait() - out - from 'main' thread loop...");
         }
     }
 
@@ -254,7 +255,7 @@ void ev::loop::Bridge::Stop (int a_sig_no)
         rx_buffer_bytes_count_ = 0;
     }
 
-    OSALITE_DEBUG_TRACE("ev_bridge", "<~ Stop()...");
+    OSALITE_DEBUG_TRACE("ev_bridge", "<~ %s(...)", __FUNCTION__);
 }
 
 /**
@@ -262,15 +263,16 @@ void ev::loop::Bridge::Stop (int a_sig_no)
  */
 void ev::loop::Bridge::Quit ()
 {
-    OSALITE_DEBUG_TRACE("ev_bridge", "<~ Quit()...");
+    OSALITE_DEBUG_TRACE("ev_bridge", "~> %s()", __FUNCTION__);
     if ( true == running_ && false == aborted_ ) {
         aborted_ = true;
         if ( nullptr != event_base_ ) {
-            OSALITE_DEBUG_TRACE("ev_bridge", "-~ Stopping base event...");
+            OSALITE_DEBUG_TRACE("ev_bridge", "-~ %s", "Stopping base event...");
             event_active(watchdog_event_, EV_TIMEOUT, 0);
             abort_condition_.Wait();
         }
     }
+    OSALITE_DEBUG_TRACE("ev_bridge", "<~ %s()", __FUNCTION__);
 }
 
 #ifdef __APPLE__
@@ -351,6 +353,8 @@ void ev::loop::Bridge::ThrowFatalException (const ev::Exception& a_ev_exception)
  */
 void ev::loop::Bridge::Loop (const bool a_at_main_thread)
 {
+    OSALITE_DEBUG_TRACE("ev_bridge", "~> %s(a_at_main_thread=%d)!", __FUNCTION__, a_at_main_thread);
+    
     CC_IF_DEBUG_SET_VAR(thread_id_, cc::debug::Threading::GetInstance().CurrentThreadID());
     
     running_ = true;
@@ -369,7 +373,7 @@ void ev::loop::Bridge::Loop (const bool a_at_main_thread)
     while ( false == aborted_ && nullptr != event_base_ ) {
         
         int rv = event_base_loop(event_base_, EVLOOP_NO_EXIT_ON_EMPTY);
-        OSALITE_DEBUG_TRACE("ev_bridge", "~> event_base_loop = %d!", rv);
+        OSALITE_DEBUG_TRACE("ev_bridge", "~- event_base_loop rv is %d", rv);
         switch (rv) {
             case -1: // ... error ...
                 break;
@@ -384,8 +388,12 @@ void ev::loop::Bridge::Loop (const bool a_at_main_thread)
     }
 
     running_ = false;
-    
+
+    OSALITE_DEBUG_TRACE("ev_bridge", "-~ %s(...)!", __FUNCTION__);
+
     abort_condition_.Wake();
+    
+    OSALITE_DEBUG_TRACE("ev_bridge", "<~ %s(...)!", __FUNCTION__);
 }
 
 /**
@@ -396,8 +404,9 @@ void ev::loop::Bridge::Loop (const bool a_at_main_thread)
  */
 void ev::loop::Bridge::ScheduleCalbackOnMainThread (ev::loop::Bridge::Callback* a_callback, int64_t a_timeout_ms)
 {
+    OSALITE_DEBUG_TRACE("ev_bridge_handler", "~> %s(...)", __FUNCTION__);
     OSALITE_DEBUG_TRACE("ev_bridge_handler",
-                        "smt: ~> scheduling callback %p...",
+                        "-~ smt: scheduling callback %p...",
                         a_callback
     );
     
@@ -408,19 +417,23 @@ void ev::loop::Bridge::ScheduleCalbackOnMainThread (ev::loop::Bridge::Callback* 
         if ( false == socket_.Send("callback:%p", static_cast<void*>(a_callback)) ) {
             if ( EAGAIN == socket_.GetLastSendError() ) {
                 OSALITE_DEBUG_TRACE("ev_bridge_handler",
-                                    "smt: ~> (re)scheduling callback %p...",
+                                    "-~ smt: (re)scheduling callback %p...",
                                     a_callback
                 );
                 ScheduleCalbackOnMainThread(a_callback, 1000);
                 return;
             } else {
+                OSALITE_DEBUG_TRACE("ev_bridge_handler",
+                                    "-~ err: Unable to send a message through socket: %s!",
+                                    socket_.GetLastSendErrorString().c_str()
+                );
                 throw ev::Exception("Unable to send a message through socket: %s!",
                                     socket_.GetLastSendErrorString().c_str()
                 );
             }
         }
         OSALITE_DEBUG_TRACE("ev_bridge_handler",
-                            "smt: ~> callback %p scheduled [ pending_callbacks_count_ = %d ]",
+                            "-~ smt: callback %p scheduled [ pending_callbacks_count_ = %d ]",
                             a_callback, remaining
         );
         (void)remaining;
@@ -447,11 +460,12 @@ void ev::loop::Bridge::ScheduleCalbackOnMainThread (ev::loop::Bridge::Callback* 
         a_callback->parent_ptr_ = this;
         
         OSALITE_DEBUG_TRACE("ev_bridge_handler",
-                            "smt: ~> callback %p scheduled [ pending_callbacks_count_ = %d ], timeout in " INT64_FMT "ms",
+                            "-~ smt: callback %p scheduled [ pending_callbacks_count_ = %d ], timeout in " INT64_FMT "ms",
                             a_callback, remaining, a_timeout_ms
         );
         (void)remaining;
     }
+    OSALITE_DEBUG_TRACE("ev_bridge_handler", "<~ %s(...)", __FUNCTION__);
 }
 
 #ifdef __APPLE__
@@ -494,6 +508,8 @@ void ev::loop::Bridge::EventLogCallback (int a_severity, const char* a_msg)
  */
 void ev::loop::Bridge::SocketCallback (evutil_socket_t /* a_fd */, short a_flags, void* a_arg)
 {
+    OSALITE_DEBUG_TRACE("ev_bridge", "~> %s(...)", __FUNCTION__);
+    
     ev::loop::Bridge* self = (ev::loop::Bridge*)a_arg;
     
     // .... we're only expecting read event ...
@@ -517,7 +533,7 @@ void ev::loop::Bridge::SocketCallback (evutil_socket_t /* a_fd */, short a_flags
             // ... decode message ...
             const std::string message = std::string(reinterpret_cast<const char* const>(self->rx_buffer_), self->rx_buffer_bytes_count_);
             OSALITE_DEBUG_TRACE("ev_bridge",
-                                "sh: received " SIZET_FMT " byte(s) - %s",
+                                "-~ sh: received " SIZET_FMT " byte(s) - %s",
                                 self->rx_buffer_bytes_count_, message.c_str()
             );
             
@@ -535,7 +551,7 @@ void ev::loop::Bridge::SocketCallback (evutil_socket_t /* a_fd */, short a_flags
             // ... perform callback ...
             callback->Call();
             OSALITE_DEBUG_TRACE("ev_bridge",
-                                "smt: ~> callback %p performed",
+                                "-~ smt: callback %p performed",
                                 callback
             );
             // ... forget it ...
@@ -544,7 +560,7 @@ void ev::loop::Bridge::SocketCallback (evutil_socket_t /* a_fd */, short a_flags
         }
         
         OSALITE_DEBUG_TRACE("ev_bridge",
-                            "sh: received %d message(s) [ %d byte(s) ], pending %d callbacks(s)",
+                            "-~ sh: received %d message(s) [ %d byte(s) ], pending %d callbacks(s)",
                             msg_received, rx_count, callbacks_remaining
         );
         (void)callbacks_remaining;
@@ -552,11 +568,11 @@ void ev::loop::Bridge::SocketCallback (evutil_socket_t /* a_fd */, short a_flags
         // ... fatal error?
         const int last_error_code = self->socket_.GetLastReceiveError();
         OSALITE_DEBUG_IF("ev_bridge") {
-            const std::string last_error_msg  = self->socket_.GetLastReceiveErrorString();
+            const std::string last_error_msg = self->socket_.GetLastReceiveErrorString();
             OSALITE_DEBUG_TRACE("ev_bridge",
-                                "sh: rx error %d - %s",
+                                "-~ sh: rx error %d - %s",
                                 last_error_code, last_error_msg.c_str()
-                                );
+            );
         }
         
         if ( EAGAIN == last_error_code ) {
@@ -598,6 +614,8 @@ void ev::loop::Bridge::SocketCallback (evutil_socket_t /* a_fd */, short a_flags
     } catch (...) {
         self->ThrowFatalException(ev::Exception(STD_CPP_GENERIC_EXCEPTION_TRACE()));
     }
+    
+    OSALITE_DEBUG_TRACE("ev_bridge", "<~ %s(...)", __FUNCTION__);
 }
 
 /**
@@ -628,13 +646,13 @@ void ev::loop::Bridge::WatchdogCallback (evutil_socket_t /* a_fd */, short /* a_
 {
     ev::loop::Bridge* self = (ev::loop::Bridge*)a_arg;
     
-    OSALITE_DEBUG_TRACE("ev_bridge", "~> Watchdog reporting for duty...");
+    OSALITE_DEBUG_TRACE("ev_bridge", "~> %s" "Watchdog reporting for duty...");
     
     if ( true == self->aborted_ ) {
-        OSALITE_DEBUG_TRACE("ev_bridge", "~> Watchdog decision is... break it!");
+        OSALITE_DEBUG_TRACE("ev_bridge", "-~ %s", "Watchdog decision is... break it!");
         event_base_loopbreak(self->event_base_);
     } else {
-        OSALITE_DEBUG_TRACE("ev_bridge", "~> Watchdog decision is... let it lingering!");
+        OSALITE_DEBUG_TRACE("ev_bridge", "-~ %s", "Watchdog decision is... let it lingering!");
         timeval tv;
         tv.tv_sec  = 365 * 24 * 3600;
         tv.tv_usec = 0;

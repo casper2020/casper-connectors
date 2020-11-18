@@ -98,7 +98,14 @@ namespace cc
             void WarmUp   (const Process& a_process, const Directories* a_directories, const Logs& a_logs, const V8& a_v8,
                            const WarmUpNextStep& a_next_step,
                            const std::function<void(std::string&, std::map<std::string, std::string>&)> a_present,
-                           const std::set<std::string>* a_debug_tokens);
+                           const std::set<std::string>* a_debug_tokens,
+#ifdef __APPLE__
+                           const bool a_use_local_dirs = true,
+#else
+                           const bool a_use_local_dirs = false,
+#endif
+                           const std::string a_log_fn_component = "");
+
             void Startup  (const Signals& a_signals, const Callbacks& a_callbacks);
             void Shutdown (bool a_for_cleanup_only);
             

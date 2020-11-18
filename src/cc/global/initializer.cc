@@ -143,12 +143,14 @@ cc::global::OneShot::~OneShot ()
 /**
  * @brief Warmup casper-connectors.
  *
- * @param a_process      [REQUIRED] Process information, see \link cc::global::Initializer::Process \link.
- * @param a_directories  [OPTIONAL] directories information, see \link cc::global::Initializer::Directories \link.
- * @param a_logs         [REQUIRED] Logs to be registered.
- * @param a_next_step    [REQUIRED] Function & arguments to call / pass before exiting this function call.
- * @param a_present      [REQUIRED]
- * @param a_debug_tokens [OPTIONAL] Debug tokens to register.
+ * @param a_process        [REQUIRED] Process information, see \link cc::global::Initializer::Process \link.
+ * @param a_directories    [OPTIONAL] directories information, see \link cc::global::Initializer::Directories \link.
+ * @param a_logs           [REQUIRED] Logs to be registered.
+ * @param a_next_step      [REQUIRED] Function & arguments to call / pass before exiting this function call.
+ * @param a_present        [REQUIRED]
+ * @param a_debug_tokens   [OPTIONAL] Debug tokens to register.
+ * @param a_use_local_dirs [OPTIONAL] default false - when true use /usr/local prefix
+ * @param a_log_fn_component  [OPTIONAL]
  */
 void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
                                       const cc::global::Directories* a_directories,
@@ -156,7 +158,8 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
                                       const cc::global::Initializer::V8& a_v8,
                                       const cc::global::Initializer::WarmUpNextStep& a_next_step,
                                       const std::function<void(std::string&, std::map<std::string, std::string>&)> a_present,
-                                      const std::set<std::string>* a_debug_tokens)
+                                      const std::set<std::string>* a_debug_tokens,
+                                      const bool a_use_local_dirs, const std::string a_log_fn_component)
 {
     // ... can't start if alread initialized ...
     if ( true == warmed_up_ ) {
@@ -192,21 +195,22 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         directories_ = new Directories(*a_directories);
     } else {
         const std::string process_name = ( 0 != process_->alt_name_.length() ? process_->alt_name_ : process_->name_ );
-        #ifdef __APPLE__
-            const std::string prefix = "/usr/local";
-        #else
-            const std::string prefix = "";
-        #endif
+#ifdef __APPLE__
+        const std::string prefix = "/usr/local" ;
+        (void)a_use_local_dirs;
+#else
+        const std::string prefix = "";
+#endif
         directories_ = new Directories({
             /* etc_   */ cc::fs::Dir::Normalize(prefix + "/etc/"      + process_name),
             /* log_   */ cc::fs::Dir::Normalize(prefix + "/var/log/"  + process_name),
             #ifdef __APPLE__
-            /* share_ */ cc::fs::Dir::Normalize(prefix + "/share/"    + process_name),
+                /* share_ */ cc::fs::Dir::Normalize(prefix + "/share/"    + process_name),
             #else
                 /* share_ */ cc::fs::Dir::Normalize("/usr/share/"      + process_name),
             #endif
-            /* run_   */ cc::fs::Dir::Normalize(prefix + "/var/run/"  + process_name),
-            /* lock_  */ cc::fs::Dir::Normalize(prefix + "/var/lock/" + process_name),
+            /* run_   */ cc::fs::Dir::Normalize(std::string( true == a_use_local_dirs ? "/usr/local" : "" ) + "/var/run/"  + process_name),
+            /* lock_  */ cc::fs::Dir::Normalize(std::string( true == a_use_local_dirs ? "/usr/local" : "" ) + "/var/lock/" + process_name),
             /* tmp_   */ cc::fs::Dir::Normalize("/tmp/")
         });
     }
@@ -228,27 +232,30 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         // TODO 2.0
         osal::debug::Trace::GetInstance().Startup();
 
-        #ifdef __APPLE__
-            FILE* where = stdout;
-        #else // assuming linux
-            FILE* where = stderr;
-        #endif
-                
-        if ( nullptr != a_debug_tokens ) {
-            for ( auto token : *a_debug_tokens ) {
-                OSALITE_REGISTER_DEBUG_TOKEN(token, where);
+        CC_IF_DEBUG(
+            #ifdef __APPLE__
+                FILE* where = stdout;
+            #else // assuming linux
+                FILE* where = stderr;
+            #endif
+            if ( nullptr != a_debug_tokens ) {
+                for ( auto token : *a_debug_tokens ) {
+                    OSALITE_REGISTER_DEBUG_TOKEN(token, where);
+                }
             }
-        }
-        
+        );
         
         // ... forget previous logs?
-        if ( true == process_->is_master_ ) {
+        if ( true == process_->is_master_ && 0 == a_log_fn_component.length() ) {
             // ... only if we're the master process ...
             (void)osal::File::Delete(directories_->log_.c_str(), "cc-status*.log", nullptr);
         }
-        
         // .. global status ...
-        CC_GLOBAL_INITIALIZER_LOGGER_REGISTER("cc-status", directories_->log_ + "cc-status." + std::to_string(process_->pid_) + ".log");
+        if ( 0 == a_log_fn_component.length() ) {
+            CC_GLOBAL_INITIALIZER_LOGGER_REGISTER("cc-status", directories_->log_ + "cc-status." + std::to_string(process_->pid_) + ".log");
+        } else {
+            CC_GLOBAL_INITIALIZER_LOGGER_REGISTER("cc-status", directories_->log_ + "cc-status" + a_log_fn_component + ".log");
+        }
         if ( true == process_->is_master_ && process_->banner_.length() > 0 ) {
             CC_GLOBAL_INITIALIZER_LOG("cc-status", "\n%s\n", process_->banner_.c_str());
         }
@@ -774,7 +781,11 @@ void cc::global::Initializer::EnableLogsIfRequired (const cc::global::Logs& a_lo
         
         switch(entry.version_) {
             case 0:
-                ::osal::debug::Trace::GetInstance().Register(entry.token_, stdout);
+                if ( 0 != entry.uri_.length() ) {
+                    ::osal::debug::Trace::GetInstance().Register(entry.token_, entry.uri_);
+                } else {
+                    ::osal::debug::Trace::GetInstance().Register(entry.token_, stdout);
+                }
                 break;
             case 1:
                 ::ev::Logger::GetInstance().Register(entry.token_, uri);

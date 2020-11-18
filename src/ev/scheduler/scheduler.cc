@@ -53,7 +53,7 @@ void ev::scheduler::Scheduler::Scheduler::Start (const std::string& a_name,
                                                  ev::scheduler::Scheduler::DeviceLimitsCallback a_device_limits)
 {
 
-    OSALITE_DEBUG_TRACE("ev_scheduler", "~> Start(...)");
+    OSALITE_DEBUG_TRACE("ev_scheduler", "~> %s(...)", __FUNCTION__);
     
     socket_fn_ = a_socket_fn;
     
@@ -204,7 +204,7 @@ void ev::scheduler::Scheduler::Scheduler::Start (const std::string& a_name,
                 a_device_limits
     );
     
-    OSALITE_DEBUG_TRACE("ev_scheduler", "<~ Start(...)");
+    OSALITE_DEBUG_TRACE("ev_scheduler", "<~ %s(...)", __FUNCTION__);
 }
 
 /**
@@ -216,7 +216,7 @@ void ev::scheduler::Scheduler::Scheduler::Start (const std::string& a_name,
 void ev::scheduler::Scheduler::Stop (ev::scheduler::Scheduler::FinalizationCallback a_finalization_callback,
                                      int a_sig_no)
 {
-    OSALITE_DEBUG_TRACE("ev_scheduler", "~> Stop(...)");
+    OSALITE_DEBUG_TRACE("ev_scheduler", "~> %s(...)", __FUNCTION__);
     
     if ( nullptr != hub_ ) {
         hub_->Stop(a_sig_no);
@@ -238,7 +238,7 @@ void ev::scheduler::Scheduler::Stop (ev::scheduler::Scheduler::FinalizationCallb
       a_finalization_callback();
     }
     
-    OSALITE_DEBUG_TRACE("ev_scheduler", "<~ Stop(...)");
+    OSALITE_DEBUG_TRACE("ev_scheduler", "<~ %s(...)", __FUNCTION__);
 }
 
 /**

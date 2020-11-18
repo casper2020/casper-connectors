@@ -126,7 +126,7 @@ namespace ev
 
         private: // Method(s) / Function(s)
 
-            void Disconnect ();
+            void Disconnect (bool a_notify = true);
 
         }; // end of class 'Device'
 

@@ -109,6 +109,7 @@ ev::loop::beanstalkd::Runner::Runner ()
     });
     http_       = nullptr;
     looper_ptr_ = nullptr;
+    running_    = false;
 }
 
 /**
@@ -159,6 +160,14 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::StartupC
     CC_IF_DEBUG(
         debug_tokens.insert("exceptions");
     );
+    
+    // (<name>.<pid>)[.<cluster>].<instance>(.<ext>)
+    std::string log_fn_component;
+    if ( 0 != a_config.cluster_ ) {
+        log_fn_component = '.' + std::to_string(a_config.cluster_) + '.' + std::to_string(a_config.instance_);
+    } else {
+        log_fn_component = '.' + std::to_string(a_config.instance_);
+    }
 
     //
     // ... initialize casper-connectors // third party libraries ...
@@ -203,7 +212,9 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::StartupC
             }
         },
         /* a_debug_tokens */
-        CC_IF_DEBUG_ELSE(&debug_tokens, nullptr)
+        CC_IF_DEBUG_ELSE(&debug_tokens, nullptr),
+        /* a_use_local_dirs */ true,
+        /* a_log_fn_component */ log_fn_component
     );
     
     on_fatal_exception_ = a_fatal_exception_callback;
@@ -456,8 +467,8 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
 #if 0
     CC_IF_DEBUG(
       // ... v0 ...
-      for ( auto token : { "ev_bridge" } ) {
-          o_logs.push_back({ /* token_ */ token ,/* uri_ */ "", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 0 });
+      for ( auto token : { "ev_bridge", "ev_hub", "ev_scheduler", "ev_bridge_handler" } ) {
+          o_logs.push_back({ /* token_ */ token ,/* uri_ */ shared_config_->directories_.log_ + +"debug." + token + fn_ci_component + ".log", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 0 });
       }
     );
 #endif
@@ -747,7 +758,7 @@ void ev::loop::beanstalkd::Runner::ScheduleCallbackOnLooperThread (const std::st
                                                                    const size_t a_deferred, const bool a_recurrent)
 {
     std::lock_guard<std::mutex> lock(looper_mutex_);
-    if ( nullptr == looper_ptr_ ) {
+    if ( false == running_ || nullptr == looper_ptr_ ) {
         throw ev::Exception("Illegal call to '%s' - looper not ready!", __PRETTY_FUNCTION__);
     }
     looper_ptr_->AppendCallback(a_id, a_callback, a_deferred, a_recurrent);
@@ -761,7 +772,7 @@ void ev::loop::beanstalkd::Runner::ScheduleCallbackOnLooperThread (const std::st
 void ev::loop::beanstalkd::Runner::TryCancelCallbackOnLooperThread (const std::string& a_id)
 {
     std::lock_guard<std::mutex> lock(looper_mutex_);
-    if ( nullptr == looper_ptr_ ) {
+    if ( false == running_ || nullptr == looper_ptr_ ) {
         throw ev::Exception("Illegal call to '%s' - looper not ready!", __PRETTY_FUNCTION__);
     }
     looper_ptr_->RemoveCallback(a_id);
@@ -792,24 +803,25 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop (const float& a_polling_timeout)
 {
     ev::Exception* exception = nullptr;
         
+    
+    const ev::loop::beanstalkd::Job::MessagePumpCallbacks callbacks = {
+        /* on_fatal_exception_                       */ std::bind(&ev::loop::beanstalkd::Runner::OnFatalException,
+                                                                  this, std::placeholders::_1),
+        /* on_main_thread_                           */ std::bind(&ev::loop::beanstalkd::Runner::ExecuteOnMainThread,
+                                                                  this, std::placeholders::_1, std::placeholders::_2),
+        /* schedule_callback_on_the_looper_thread_   */ std::bind(&ev::loop::beanstalkd::Runner::ScheduleCallbackOnLooperThread,
+                                                                  this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
+        /* try_cancel_callback_on_the_looper_thread_ */ std::bind(&ev::loop::beanstalkd::Runner::TryCancelCallbackOnLooperThread,
+                                                                  this, std::placeholders::_1),
+        /* on_push_job_                              */ std::bind(&ev::loop::beanstalkd::Runner::PushJob,
+                                                                  this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+    };
+    
     try {
         
         ::cc::threading::Worker::SetName(startup_config_->abbr_ + "::Runner");
         ::cc::threading::Worker::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
-        
-        const ev::loop::beanstalkd::Job::MessagePumpCallbacks callbacks = {
-            /* on_fatal_exception_                       */ std::bind(&ev::loop::beanstalkd::Runner::OnFatalException,
-                                                                      this, std::placeholders::_1),
-            /* on_main_thread_                           */ std::bind(&ev::loop::beanstalkd::Runner::ExecuteOnMainThread,
-                                                                      this, std::placeholders::_1, std::placeholders::_2),
-            /* schedule_callback_on_the_looper_thread_   */ std::bind(&ev::loop::beanstalkd::Runner::ScheduleCallbackOnLooperThread,
-                                                                      this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
-            /* try_cancel_callback_on_the_looper_thread_ */ std::bind(&ev::loop::beanstalkd::Runner::TryCancelCallbackOnLooperThread,
-                                                                      this, std::placeholders::_1),
-            /* on_push_job_                              */ std::bind(&ev::loop::beanstalkd::Runner::PushJob,
-                                                                      this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-        };
-        
+
         // ... initialize v8 ...
         #ifdef CASPER_REQUIRE_GOOGLE_V8
             ::cc::v8::Singleton::GetInstance().Initialize();
@@ -817,12 +829,16 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop (const float& a_polling_timeout)
         
         consumer_cv_->Wake();
         
+        running_ = true;
+        
         looper_mutex_.lock();
         looper_ptr_ = new ev::loop::beanstalkd::Looper(*loggable_data_, factory_, callbacks);
         looper_mutex_.unlock();
         
         looper_ptr_->SetPollingTimeout(a_polling_timeout);
         looper_ptr_->Run(*shared_config_, quit_);
+        
+        running_ = false;
         
     } catch (const Beanstalk::ConnectException& a_beanstalk_exception) {
         exception = new ::ev::Exception("An error occurred while connecting to Beanstalkd:\n%s\n", a_beanstalk_exception.what());
@@ -846,6 +862,7 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop (const float& a_polling_timeout)
         looper_ptr_ = nullptr;
     }
     looper_mutex_.unlock();
+    running_ = false;
     
     if ( nullptr != exception ) {
         OnFatalException(*exception);

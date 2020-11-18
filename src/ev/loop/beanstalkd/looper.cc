@@ -62,7 +62,6 @@ ev::loop::beanstalkd::Looper::~Looper ()
         delete beanstalk_;
     }
     for ( auto it : cache_ ) {
-        it.second->Dismantle(nullptr);
         delete it.second;
     }
     job_ptr_ = nullptr;
