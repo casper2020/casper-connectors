@@ -41,7 +41,7 @@ cc::easy::job::Job::Job (const ev::Loggable::Data& a_loggable_data, const std::s
       log_level_(a_config.other().get("log_level", CC_JOB_LOG_LEVEL_INF).asInt())
 {
     logger_client_->Unset(ev::LoggerV2::Client::LoggableFlags::IPAddress | ev::LoggerV2::Client::LoggableFlags::OwnerPTR);
-    CC_JOB_LOG_REGISTER(a_config.log_token());
+    CC_JOB_LOG_REGISTER(tube_);
 }
 
 /**
