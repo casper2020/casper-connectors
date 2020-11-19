@@ -163,8 +163,10 @@ const int64_t     ev::hub::Hub::k_wake_msg_invalid_id_     = std::numeric_limits
  * @param a_socket_file_name
  * @param a_bridge
  */
-ev::hub::Hub::Hub (Bridge& a_bridge, const std::string& a_socket_file_name, std::atomic<int>& a_pending_callbacks_count)
-    : bridge_(a_bridge), thread_(nullptr), configured_(false), running_(false), aborted_(false), pending_callbacks_count_(a_pending_callbacks_count)
+ev::hub::Hub::Hub (const std::string& a_name,
+                   Bridge& a_bridge, const std::string& a_socket_file_name, std::atomic<int>& a_pending_callbacks_count)
+    : name_(a_name),
+      bridge_(a_bridge), thread_(nullptr), configured_(false), running_(false), aborted_(false), pending_callbacks_count_(a_pending_callbacks_count)
 {
     event_base_                  = nullptr;
     hack_event_                  = nullptr;
@@ -407,10 +409,7 @@ void ev::hub::Hub::Loop ()
 {
     fault_msg_ = "";
 
-#ifdef __APPLE__
-    pthread_setname_np("ev::hub");
-#endif
-
+    osal::posix::ThreadHelper::SetThreadName(name_);
     osal::posix::ThreadHelper::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
     
     stepper_.setup_ = [this](ev::Device* a_device) {

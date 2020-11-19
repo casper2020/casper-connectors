@@ -30,7 +30,8 @@
 /**
  * @brief Default constructor.
  */
-ev::loop::Bridge::Bridge ()
+ev::loop::Bridge::Bridge (const std::string& a_name_prefix)
+  : name_(a_name_prefix + "::ev::Bridge")
 {
 #if 0 // TODO
     thread_                  = nullptr;
@@ -319,6 +320,8 @@ void ev::loop::Bridge::ThrowFatalException (const ev::Exception& a_ev_exception)
  */
 void ev::loop::Bridge::Loop ()
 {
+
+    osal::posix::ThreadHelper::SetThreadName(name_);    
     thread_id_ = osal::ThreadHelper::GetInstance().CurrentThreadID();
     
     running_ = true;

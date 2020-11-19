@@ -127,6 +127,10 @@ namespace ev
                 
             };
             
+        private: // Const Data
+            
+            const std::string           name_;
+            
         protected: // Theading
 
 #if 0 // TODO
@@ -166,7 +170,8 @@ namespace ev
             
         public: // Constructor(s) / Destructor
             
-            Bridge ();
+            Bridge () = delete;
+            Bridge (const std::string& a_name_prefix);
             virtual ~Bridge ();
             
         public: // Method(s) / Function(s)

@@ -82,8 +82,8 @@ namespace ev
             
         public: // Method(s) / Function(s)
             
-            void Start      (const std::string& a_socket_fn,
-                             ev::Bridge& a_bridge, InitializedCallback a_initialized_callback, DeviceFactoryCallback a_device_factory, DeviceLimitsCallback a_device_limits);
+            void Start      (const std::string& a_name_prefix,
+                             const std::string& a_socket_fn, ev::Bridge& a_bridge, InitializedCallback a_initialized_callback, DeviceFactoryCallback a_device_factory, DeviceLimitsCallback a_device_limits);
             void Stop       (FinalizationCallback a_finalization_callback,
                              int a_sig_no);
             void Push       (Client* a_client, scheduler::Object* a_task);

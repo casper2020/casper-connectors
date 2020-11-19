@@ -45,7 +45,8 @@ ev::Bridge*   ev::scheduler::Scheduler::bridge_ptr_ = nullptr;
  * @param a_device_factory
  * @param a_device_limits
  */
-void ev::scheduler::Scheduler::Scheduler::Start (const std::string& a_socket_fn,
+void ev::scheduler::Scheduler::Scheduler::Start (const std::string& a_name_prefix,
+                                                 const std::string& a_socket_fn,
                                                  ev::Bridge& a_bridge,
                                                  ev::scheduler::Scheduler::InitializedCallback a_initialized_callback,
                                                  ev::scheduler::Scheduler::DeviceFactoryCallback a_device_factory,
@@ -60,7 +61,7 @@ void ev::scheduler::Scheduler::Scheduler::Start (const std::string& a_socket_fn,
     
     bridge_ptr_ = &a_bridge;
     
-    hub_ = new ev::hub::Hub(a_bridge, socket_fn_, pending_callbacks_count_);
+    hub_ = new ev::hub::Hub(a_name_prefix + "::ev::Scheduler", a_bridge, socket_fn_, pending_callbacks_count_);
     hub_->Start(
                 [this, a_initialized_callback]() {
                     

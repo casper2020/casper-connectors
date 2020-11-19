@@ -130,6 +130,10 @@ namespace ev
                 
             };
             
+        protected: // Const Data
+            
+            const std::string            name_;
+            
         protected: // Refs
             
             ev::Bridge&                  bridge_;
@@ -180,7 +184,9 @@ namespace ev
             
         public: // Constructor(s) / Destructor
             
-            Hub (ev::Bridge& a_bridge, const std::string& a_socket_file_name, std::atomic<int>& a_pending_callbacks_count);
+            Hub () = delete;
+            Hub (const std::string& a_name,
+                 ev::Bridge& a_bridge, const std::string& a_socket_file_name, std::atomic<int>& a_pending_callbacks_count);
             virtual ~Hub ();
             
         public: // Virtual Method(s) / Function(s)
