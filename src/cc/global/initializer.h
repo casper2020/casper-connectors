@@ -89,9 +89,11 @@ namespace cc
             ::ev::Loggable::Data* loggable_data_;
             bool                  warmed_up_;
             bool                  initialized_;
-            bool                  being_debugged_;
-            
             V8*                   v8_config_;
+
+            bool                  being_debugged_;
+            FILE*                 stdout_fp_;
+            FILE*                 stderr_fp_;
 
         public: // Method(s) / Function(s)
             

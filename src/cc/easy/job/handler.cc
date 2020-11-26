@@ -83,7 +83,7 @@ void cc::easy::job::Handler::InnerStartup  (const ::cc::global::Process& a_proce
             std::string log_token;
             if ( 0 != cluster ) {
                 log_token = a_tube + '.' + std::to_string(cluster) + '.' + std::to_string(instance);
-            } else { \
+            } else {
                 log_token = a_tube + '.' + std::to_string(instance);
             }
             

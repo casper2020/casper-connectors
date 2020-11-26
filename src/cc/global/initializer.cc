@@ -107,12 +107,14 @@ cc::global::OneShot::OneShot (cc::global::Initializer& a_instance)
     instance_.loggable_data_  = nullptr;
     instance_.warmed_up_      = false;
     instance_.initialized_    = false;
+    instance_.v8_config_      = nullptr;
 #ifdef __APPLE__
     instance_.being_debugged_ = sys::bsd::Process::IsProcessBeingDebugged(getpid());
 #else
     instance_.being_debugged_ = false;
 #endif
-    instance_.v8_config_ = nullptr;
+    instance_.stdout_fp_      = nullptr;
+    instance_.stderr_fp_      = nullptr;
 }
 
 /**
@@ -131,6 +133,12 @@ cc::global::OneShot::~OneShot ()
     }
     if ( nullptr != instance_.v8_config_ ) {
         delete instance_.v8_config_;
+    }
+    if ( nullptr != instance_.stdout_fp_ ) {
+        fclose(instance_.stdout_fp_);
+    }
+    if ( nullptr != instance_.stderr_fp_ ) {
+        fclose(instance_.stderr_fp_);
     }
 }
 
@@ -249,6 +257,19 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         if ( true == process_->is_master_ && 0 == a_log_fn_component.length() ) {
             // ... only if we're the master process ...
             (void)osal::File::Delete(directories_->log_.c_str(), "cc-status*.log", nullptr);
+            (void)osal::File::Delete(directories_->log_.c_str(), "cc-std*.log"   , nullptr);
+        }
+        // ... redirect stdout and stderr to a file ...
+        if ( true == process_->standalone_ && false == being_debugged_ ) {
+            if ( 0 == a_log_fn_component.length() ) {
+                stdout_fp_ = freopen(( directories_->log_ + "cc-stdout." + std::to_string(process_->pid_) + ".log").c_str(), "w+", stdout);
+                stderr_fp_ = freopen(( directories_->log_ + "cc-stderr." + std::to_string(process_->pid_) + ".log").c_str(), "w+", stderr);
+            } else {
+                stdout_fp_ = freopen(( directories_->log_ + "cc-stdout" + a_log_fn_component + ".log").c_str(), "w+", stdout);
+                stderr_fp_ = freopen(( directories_->log_ + "cc-stderr" + a_log_fn_component + ".log").c_str(), "w+", stderr);
+            }
+            fprintf(stdout, "--- BEGIN OF stdout LOG FOR %s v%s w/pid %d ---\n", process_->name_.c_str(), process_->version_.c_str(), process_->pid_); fflush(stdout);
+            fprintf(stderr, "--- BEGIN OF stderr LOG FOR %s v%s w/pid %d ---\n", process_->name_.c_str(), process_->version_.c_str(), process_->pid_); fflush(stderr);
         }
         // .. global status ...
         if ( 0 == a_log_fn_component.length() ) {
