@@ -82,10 +82,6 @@ namespace ev
             
             std::string socket_files_dn_;
             
-        public: // Constructor(s) / Destructor
-            
-            virtual ~SharedGlue();
-            
         public: // Method(s) / Function(s)
             
             void PreConfigure     (const ngx_core_conf_t* a_config, const bool a_master);

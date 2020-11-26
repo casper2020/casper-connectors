@@ -1564,7 +1564,7 @@ void ev::loop::beanstalkd::Job::ParseJSON (const std::string& a_value, Json::Val
 void ev::loop::beanstalkd::Job::ToJSON (const ev::postgresql::Value& a_value, Json::Value& o_value) const
 {
     if ( false == o_value.isArray() ) {
-        throw ::ev::Exception("Unexpected object type: got " UINT8_FMT " expected an array", a_value.type_);
+        throw ::ev::Exception("Unexpected object type: got " UINT8_FMT " expected an array", static_cast<uint8_t>(a_value.type_));
     }
     try {
         Json::Reader reader;

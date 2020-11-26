@@ -41,8 +41,27 @@ namespace ev
  
     namespace scheduler
     {
+    
+        // ---- //
+        class Scheduler;
+        class SchedulerOneShot final : public ::osal::Initializer<Scheduler>
+        {
+            
+        public: // Constructor(s) / Destructor
+            
+            SchedulerOneShot (Scheduler& a_instance)
+                : ::osal::Initializer<Scheduler>(a_instance)
+            {
+                /* empty */
+            }
+            virtual ~SchedulerOneShot ()
+            {
+                /* empty */
+            }
+            
+        }; // end of class 'UniqueIDGenerator'
 
-        class Scheduler final : public osal::Singleton<Scheduler>
+        class Scheduler final : public osal::Singleton<Scheduler, SchedulerOneShot>
         {
             
             typedef hub::Hub::InitializedCallback  InitializedCallback;

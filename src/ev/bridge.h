@@ -32,16 +32,6 @@ namespace ev
     class Bridge
     {
         
-    public: // Constructor(s) / Destructor
-                
-        /**
-         * @brief Destructor.
-         */
-        virtual ~Bridge()
-        {
-            /* empty */
-        }
-        
     public: // Pure Virtual Method(s) / Function(s)
         
         virtual void    CallOnMainThread    (std::function<void(void* a_payload)> a_callback, void* a_payload, int64_t a_timeout_ms = 0) = 0;
@@ -50,7 +40,7 @@ namespace ev
     
     public: // Optional Virtual Method(s) / Function(s)
         
-        virtual void    Loop                () { throw Exception("Not Implemented!"); }
+        virtual void    Loop                (const bool /* a_at_main_thread */) { throw Exception("Not Implemented!"); }
         
     }; // end of class 'SharedHandler'
 

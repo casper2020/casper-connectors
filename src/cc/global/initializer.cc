@@ -679,37 +679,11 @@ void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
     #endif
 
     //
-    // ... destroy singletons?
+    // ... log ...
     //
-    if ( false == a_for_cleanup_only ) {
-        // ... cURL ...
-        cc::curl::Initializer::Destroy();
-        // ... ICU // V8 ...
-        #ifdef CASPER_REQUIRE_GOOGLE_V8
-            // ... ICU // V8 ...
-            cc::v8::Singleton::Destroy();
-        #else
-            // ... ICU ...
-            ::cc::icu::Initializer::Destroy();
-        #endif
-        // ... logger ...
-        ::ev::Logger::Destroy();
-        ::ev::LoggerV2::Destroy();
-        
-        CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s %s...\n",
-                                  log_line_prefix.c_str(), "going down"
-        );
-
-        // ... debug trace ...
-        osal::debug::Trace::Destroy();
-
-        // .... signals ...
-        ::ev::Signals::Destroy();
-    } else {
-        CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s %s...\n",
-                                  log_line_prefix.c_str(), "cleaned up"
-        );
-    }
+    CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s %s...\n",
+                              log_line_prefix.c_str(), ( true == a_for_cleanup_only ?  "cleaned up" : "going down" )
+   );
     
     // ... log final step ...
     if ( false == forked ) {
@@ -725,9 +699,6 @@ void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
 
     // ... shutdown logger ...
     cc::logs::Basic::GetInstance().Shutdown();
-    if ( false == a_for_cleanup_only ) {
-        cc::logs::Basic::Destroy();
-    }
 
     // ... mark as NOT warmed-up ...
     warmed_up_ = false;

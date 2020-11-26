@@ -41,6 +41,7 @@ cc::easy::job::HandlerInitializer::HandlerInitializer (cc::easy::job::Handler& a
 : ::cc::Initializer<cc::easy::job::Handler>(a_handler)
 {
     instance_.factories_ = nullptr;
+    instance_.runner_    = new ev::loop::beanstalkd::Runner();
 }
 
 /**
@@ -49,6 +50,9 @@ cc::easy::job::HandlerInitializer::HandlerInitializer (cc::easy::job::Handler& a
 cc::easy::job::HandlerInitializer::~HandlerInitializer ()
 {
     instance_.factories_ = nullptr;
+    if ( nullptr != instance_.runner_ ) {
+        delete instance_.runner_;
+    }
 }
 
 #ifdef __APPLE__
@@ -108,7 +112,7 @@ void cc::easy::job::Handler::InnerStartup  (const ::cc::global::Process& a_proce
             MergeJSONValue(config, tube_cfg);
 
             // ... create new tube instance and we're done ...
-            return it->second(loggable_data(), {
+            return it->second(runner_->loggable_data(), {
                 /* pid_               */ pid,
                 /* instance_          */ instance,
                 /* cluster_           */ cluster,
@@ -144,10 +148,10 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
                                    const cc::easy::job::Handler::Factories& a_factories,
                                    const float& a_polling_timeout)
 {
-    const auto clean_shutdown = [] () {
+
+    const auto clean_shutdown = [this] () {
         
-        cc::easy::job::Handler::GetInstance().Shutdown(SIGQUIT);
-        cc::easy::job::Handler::Destroy();
+        runner_->Shutdown(SIGQUIT);
         
     };
     
@@ -202,10 +206,10 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
         }
         
         // ... set thread name ...
-        ::cc::threading::Worker::SetName(a_arguments.name_);
+        ::cc::threading::Worker::SetName(a_arguments.abbr_);
 
         // ... startup ...
-        cc::easy::job::Handler::GetInstance().Startup({
+        runner_->Startup({
             /* abbr_           */ a_arguments.abbr_,
             /* name_           */ a_arguments.name_,
             /* version_        */ a_arguments.version_,
@@ -216,13 +220,16 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
             /* cluster_        */ static_cast<int>(opt.GetUInt64('k')->value()),
             /* exec_path_      */ a_arguments.argv_[0],
             /* conf_file_uri_  */  opt.GetString('c')->value(),
-        }, fatal_shutdown);
+        },
+        /* a_inner_shutdown           */ std::bind(&cc::easy::job::Handler::InnerStartup, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5),
+        /* inner_shutdown_            */ std::bind(&cc::easy::job::Handler::InnerShutdown, this),
+        /* a_fatal_exception_callback */ fatal_shutdown);
         
         // ... set this handler specific configs ...
-        cc::easy::job::Handler::GetInstance().factories_ = &a_factories;
+        factories_ = &a_factories;
 
         // ... run ...
-        cc::easy::job::Handler::GetInstance().Run(a_polling_timeout, /* a_at_main_thread */ true);
+        runner_->Run(a_polling_timeout, /* a_at_main_thread */ true);
         
         // ... shutdown ...
         clean_shutdown();

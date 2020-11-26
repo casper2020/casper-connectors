@@ -45,8 +45,27 @@ namespace ev
     
         namespace route
         {
+        
+            // ---- //
+            class Gatekeeper;
+            class GatekeeperOneShot final : public ::osal::Initializer<Gatekeeper>
+            {
+                
+            public: // Constructor(s) / Destructor
+                
+                GatekeeperOneShot (Gatekeeper& a_instance)
+                    : ::osal::Initializer<Gatekeeper>(a_instance)
+                {
+                    /* empty */
+                }
+                virtual ~GatekeeperOneShot ()
+                {
+                    /* empty */
+                }
+                
+            }; // end of class 'GatekeeperOneShot'
 
-            class Gatekeeper final : public osal::Singleton<Gatekeeper>
+            class Gatekeeper final : public osal::Singleton<Gatekeeper, GatekeeperOneShot>
             {
                 
             public: // Data Type(s)

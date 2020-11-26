@@ -166,7 +166,7 @@ int cc::OptArg::Parse (const int& a_argc, const char** const a_argv,
                 dynamic_cast<cc::OptArg::UInt64*>(opts_[rw])->Set(std::stoull(optarg));
                 break;
             default:
-                throw cc::Exception("Unimplemented type " UINT8_FMT "!", opts_[rw]->type_);
+                throw cc::Exception("Unimplemented type " UINT8_FMT "!", static_cast<uint8_t>(opts_[rw]->type_));
         }
         // ... notify?
         const auto it = listener_map_.find(opts_[rw]->short_);

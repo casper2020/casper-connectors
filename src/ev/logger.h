@@ -26,7 +26,8 @@
 
 #include "ev/loggable.h"
 
-#include "osal/osal_singleton.h"
+#include "cc/singleton.h"
+
 #include "cc/utc_time.h"
 
 #include <exception>
@@ -41,7 +42,7 @@ namespace ev
     /**
      * @brief A singleton to log messages.
      */
-    class Logger final : public ::cc::logs::Logger, public osal::Singleton<Logger>
+    class Logger final : public ::cc::logs::Logger, public cc::Singleton<::ev::Logger, cc::logs::OneShotInitializer>
     {                
 
     public: // Log API - Method(s) / Function(s)

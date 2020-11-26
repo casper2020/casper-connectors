@@ -32,6 +32,8 @@
 
 #include "cc/utc_time.h"
 
+#include "cc/singleton.h"
+
 #if defined(__APPLE__) || defined(__linux__)
 
     #ifdef __APPLE__
@@ -103,8 +105,13 @@ namespace cc
     namespace logs
     {
     
+        // ---- //
+        class OneShotInitializer;
+
         class Logger
         {
+            
+            friend class OneShotInitializer;
             
         public: // Data Type(s)
             
@@ -199,28 +206,11 @@ namespace cc
         protected: // Data
             
             std::map<std::string, Token*> tokens_;
-            
-        public: // Constructor(s) / Destructor
-            
-            Logger ()
-            {
-                user_id_         = UINT32_MAX;
-                group_id_        = UINT32_MAX;
-                buffer_          = nullptr;
-                buffer_capacity_ = 0;
-            }
-            
-            virtual ~Logger ()
-            {
-                if ( nullptr != buffer_ ) {
-                    delete [] buffer_;
-                }
-            }
 
         public: // Initialization / Release API - Method(s) / Function(s)
             
-            void    Startup  ();
-            void    Shutdown ();
+            void Startup  ();
+            void Shutdown ();
             
         public: // Method(s) / Function(s)
 
@@ -433,6 +423,29 @@ namespace cc
            // ... we're good to go if ...
            return ( a_capacity == buffer_capacity_ );
        }
+
+        // ---- //
+        class OneShotInitializer final : public ::cc::Initializer<Logger>
+        {
+            
+        public: // Constructor(s) / Destructor
+            
+            OneShotInitializer (Logger& a_instance)
+                : ::cc::Initializer<Logger>(a_instance)
+            {
+                instance_.user_id_         = UINT32_MAX;
+                instance_.group_id_        = UINT32_MAX;
+                instance_.buffer_          = nullptr;
+                instance_.buffer_capacity_ = 0;
+            }
+            virtual ~OneShotInitializer ()
+            {
+                if ( nullptr != instance_.buffer_ ) {
+                    delete [] instance_.buffer_;
+                }
+            }
+            
+        }; // end of class 'OneShotInitializer'
 
     } // end of namespace 'logs'
 

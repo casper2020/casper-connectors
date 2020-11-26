@@ -50,7 +50,7 @@ namespace cc
             };
 
             // ---- //
-            class Handler final : public ev::loop::beanstalkd::Runner, public ::cc::Singleton<Handler, HandlerInitializer>
+            class Handler final : public ::cc::Singleton<Handler, HandlerInitializer>
             {
                 
                 friend class HandlerInitializer;
@@ -71,15 +71,19 @@ namespace cc
                 typedef std::function<cc::easy::job::Job*(const ev::Loggable::Data&, const cc::easy::job::Job::Config&)> Factory;
                 typedef std::map<std::string, Factory>       Factories;
                 
-            private: // Data
+            private: // Const Data:
                 
                 const Factories* factories_;
                 
-            protected: // Inherited Pure Method(s) / Function(s)
+            private: // Data:
                 
-                virtual void InnerStartup  (const ::cc::global::Process& a_process, const ::ev::loop::beanstalkd::StartupConfig& a_startup_config, const Json::Value& a_job_config, const ::ev::loop::beanstalkd::SharedConfig& a_shared_config,
+                ev::loop::beanstalkd::Runner* runner_;
+                
+            private: // Method(s) / Function(s)
+                
+                void InnerStartup  (const ::cc::global::Process& a_process, const ::ev::loop::beanstalkd::StartupConfig& a_startup_config, const Json::Value& a_job_config, const ::ev::loop::beanstalkd::SharedConfig& a_shared_config,
                                             ev::loop::beanstalkd::Runner::Factory& o_factory);
-                virtual void InnerShutdown ();
+                void InnerShutdown ();
 
             public: // Static Method(s) / Function(s)
                 

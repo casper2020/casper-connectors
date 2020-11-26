@@ -38,8 +38,28 @@ namespace ev
     
     namespace ngx
     {
+    
+        // ---- //
+        class Bridge;
+        class BridgeInitializer final : public ::osal::Initializer<Bridge>
+        {
+            
+        public: // Constructor(s) / Destructor
+            
+            BridgeInitializer (Bridge& a_instance)
+                : ::osal::Initializer<Bridge>(a_instance)
+            {
+                /* empty */
+            }
+            virtual ~BridgeInitializer ()
+            {
+                /* empty */
+            }
+            
+        }; // end of class 'BridgeInitializer'
 
-        class Bridge final : public ::ev::Bridge, public osal::Singleton<Bridge>
+        // ---- //
+        class Bridge final : public ::ev::Bridge, public osal::Singleton<Bridge, BridgeInitializer>
         {
             
         private: // Data Type(s)

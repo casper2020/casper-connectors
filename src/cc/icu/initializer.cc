@@ -202,6 +202,12 @@ leave:
             icu_data_ = nullptr;
         }
     }
+    
+    // ... close file ...
+    if ( nullptr != fp ) {
+        fclose(fp);
+    }
+
 #else
     
     // ... close file ...

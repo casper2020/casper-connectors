@@ -43,7 +43,7 @@
 
 #include "ev/loggable.h"
 
-#include "osal/osal_singleton.h"
+#include "cc/singleton.h"
 
 #ifndef EV_LOGGER_KEY_FMT
     #define EV_LOGGER_KEY_FMT "%-28.28s"
@@ -52,7 +52,7 @@
 namespace ev
 {
         
-    class LoggerV2 final : public ::cc::logs::Logger, public osal::Singleton<LoggerV2>
+    class LoggerV2 final : public ::cc::logs::Logger, public cc::Singleton<::ev::LoggerV2, cc::logs::OneShotInitializer>
     {
         
     public: // Data Types
@@ -95,6 +95,7 @@ namespace ev
              * @param a_loggable_data_ref
              * @param a_prefix_format_flags
              */
+            Client () = delete;
             Client (const ev::Loggable::Data& a_loggable_data_ref, const LoggableFlags& a_prefix_format_flags = LoggableFlags::Default)
                 : loggable_data_ref_(a_loggable_data_ref)
             {

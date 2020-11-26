@@ -34,7 +34,26 @@ namespace ev
     namespace scheduler
     {
 
-        class UniqueIDGenerator final : public osal::Singleton<UniqueIDGenerator>
+        // ---- //
+        class UniqueIDGenerator;
+        class UniqueIDGeneratorOneShot final : public ::osal::Initializer<UniqueIDGenerator>
+        {
+            
+        public: // Constructor(s) / Destructor
+            
+            UniqueIDGeneratorOneShot (UniqueIDGenerator& a_instance)
+                : ::osal::Initializer<UniqueIDGenerator>(a_instance)
+            {
+                /* empty */
+            }
+            virtual ~UniqueIDGeneratorOneShot ()
+            {
+                /* empty */
+            }
+            
+        }; // end of class 'UniqueIDGenerator'
+        
+        class UniqueIDGenerator final : public osal::Singleton<UniqueIDGenerator, UniqueIDGeneratorOneShot>
         {
             
         public: // Const Data

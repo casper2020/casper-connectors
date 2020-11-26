@@ -42,7 +42,26 @@ namespace ev
         namespace subscriptions
         {
             
-            class Manager final : public osal::Singleton<Manager>, public ::ev::scheduler::Client
+            // ---- //
+            class Manager;
+            class ManagerOneShot final : public ::osal::Initializer<Manager>
+            {
+                
+            public: // Constructor(s) / Destructor
+                
+                ManagerOneShot (Manager& a_instance)
+                    : ::osal::Initializer<Manager>(a_instance)
+                {
+                    /* empty */
+                }
+                virtual ~ManagerOneShot ()
+                {
+                    /* empty */
+                }
+                
+            }; // end of class 'ManagerOneShot'
+            
+            class Manager final : public osal::Singleton<Manager, ManagerOneShot>, public ::ev::scheduler::Client
             {
                 
             public: // Data Type(s)

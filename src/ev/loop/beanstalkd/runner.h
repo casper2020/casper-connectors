@@ -58,6 +58,9 @@ namespace ev
                 typedef ev::loop::beanstalkd::Job::Factory                       Factory;
                 typedef std::function<void(const ev::Exception& a_ev_exception)> FatalExceptionCallback;
                 
+                typedef std::function<void(const ::cc::global::Process&, const StartupConfig&, const Json::Value&, const SharedConfig&, Factory&)> InnerStartup;
+                typedef std::function<void()>                                                                                                      InnerShutdown;
+                
             private: // Data
                 
                 bool                     initialized_;
@@ -78,6 +81,8 @@ namespace ev
             private: // Callbacks
                 
                 ev::loop::beanstalkd::Runner::FatalExceptionCallback on_fatal_exception_;
+                InnerStartup                                         inner_startup_;
+                InnerShutdown                                        inner_shutdown_;
                 
             private: // Threading
                 
@@ -93,6 +98,7 @@ namespace ev
             public: // Method(s) / Function(s)
                 
                 void Startup (const StartupConfig& a_config,
+                              InnerStartup a_inner_startup, InnerShutdown a_inner_shutdown,
                               FatalExceptionCallback a_fatal_exception_callback);
                 void Run      (const float& a_polling_timeout = -1.0f, const bool a_at_main_thread = false);
                 void Shutdown (int a_sig_no);
@@ -101,17 +107,14 @@ namespace ev
                 
                 void                      Quit          ();
                 
-            protected: // Inline Method(s) / Function(s)
+            public: // Inline Method(s) / Function(s)
                 
                 const ev::Loggable::Data& loggable_data () const;
+
+            protected: // Inline Method(s) / Function(s)
+                
                 ev::curl::HTTP&           HTTP          ();
-                
-            protected: // Pure Method(s) / Function(s)
-                
-                virtual void InnerStartup  (const ::cc::global::Process& a_process, const StartupConfig& a_startup_config, const Json::Value& a_config, const SharedConfig& o_config,
-                                            Factory& a_factory) = 0;
-                virtual void InnerShutdown () = 0;
-                
+                                
             protected: // Threading Helper Methods(s) / Function(s)
                 
                 void PushJob               (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr);

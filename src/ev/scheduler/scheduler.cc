@@ -230,7 +230,14 @@ void ev::scheduler::Scheduler::Stop (ev::scheduler::Scheduler::FinalizationCallb
         vector->clear();
     }
     
+    for ( auto it : clients_to_objects_map_ ) {
+        for ( auto it2 : *it.second ) {
+            delete it2;
+        }
+        delete it.second;
+    }
     clients_to_objects_map_.clear();
+    
     object_to_client_map_.clear();
     ids_to_object_map_.clear();
 

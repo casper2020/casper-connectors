@@ -130,6 +130,9 @@ ev::loop::beanstalkd::Runner::~Runner ()
         delete startup_config_;
     }
     if ( nullptr != shared_config_ ) {
+        if ( nullptr != shared_config_->postgres_.post_connect_queries_ ) {
+            delete shared_config_->postgres_.post_connect_queries_;
+        }
         delete shared_config_;
     }
     factory_ = nullptr;
@@ -152,8 +155,12 @@ ev::loop::beanstalkd::Runner::~Runner ()
  * @param a_fatal_exception_callback
  */
 void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::StartupConfig& a_config,
+                                            ev::loop::beanstalkd::Runner::InnerStartup a_inner_startup, ev::loop::beanstalkd::Runner::InnerShutdown a_inner_shutdown,
                                             ev::loop::beanstalkd::Runner::FatalExceptionCallback a_fatal_exception_callback)
 {
+    inner_startup_  = a_inner_startup;
+    inner_shutdown_ = a_inner_shutdown;
+    
     const pid_t process_pid = getpid();
 
     CC_IF_DEBUG_DECLARE_VAR(std::set<std::string>, debug_tokens);
@@ -177,6 +184,7 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::StartupC
     #else
         const bool v8_required = false;
     #endif
+        
     ::cc::global::Initializer::GetInstance().WarmUp(
         /* a_process */
         {
@@ -186,7 +194,7 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::StartupC
             /* version_    */ a_config.version_,
             /* rel_date_   */ a_config.rel_date_,
             /* info_       */ a_config.info_,
-            /* rel_date_   */ a_config.banner_,
+            /* banner_     */ a_config.banner_,
             /* pid_        */ process_pid,
             /* standalone_ */ true,
             /* is_master_  */ true
@@ -419,7 +427,7 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
             }
         }
         
-        InnerStartup(a_process, *startup_config_, read_config, *shared_config_, factory_);
+        inner_startup_(a_process, *startup_config_, read_config, *shared_config_, factory_);
 
     } catch (const Json::Exception& a_json_exception) {
         throw ev::Exception("An error occurred while loading configuration: JSON exception %s!", a_json_exception.what());
@@ -663,7 +671,7 @@ void ev::loop::beanstalkd::Runner::Shutdown (int a_sig_no)
             consumer_cv_ = nullptr;
         }
 
-        InnerShutdown();
+        inner_shutdown_();
 
         if ( nullptr != loggable_data_ ) {
             delete loggable_data_;

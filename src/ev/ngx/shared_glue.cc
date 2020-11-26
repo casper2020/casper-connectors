@@ -52,14 +52,6 @@ std::string ev::ngx::SharedGlue::s_job_id_key_ = "";
 };
 
 /**
- * @brief Destructor.
- */
-ev::ngx::SharedGlue::~SharedGlue ()
-{
-    /* empty */
-}
-
-/**
  * @brief Shared pre-startup configuration.
  *
  * @param a_config The 'master' process config struct..

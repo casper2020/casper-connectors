@@ -288,9 +288,6 @@ void ev::loop::Bridge::Quit ()
  */
 void ev::loop::Bridge::CallOnMainThread (std::function<void(void* a_payload)> a_callback, void* a_payload, int64_t a_timeout_ms)
 {
-    CC_WARNING_TODO("TODO URGENT - ev::loop::Bridge CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_)");
-    // TODO URGENT : CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
-    
     static std::mutex ___mutex;
     std::lock_guard<std::mutex> lock(___mutex);
     
@@ -305,9 +302,6 @@ void ev::loop::Bridge::CallOnMainThread (std::function<void(void* a_payload)> a_
  */
 void ev::loop::Bridge::CallOnMainThread (std::function<void()> a_callback, int64_t a_timeout_ms)
 {
-    CC_WARNING_TODO("TODO URGENT - ev::loop::Bridge CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_)");
-    // TODO URGENT : CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
-
     static std::mutex ___mutex;
     std::lock_guard<std::mutex> lock(___mutex);
     
@@ -321,10 +315,6 @@ void ev::loop::Bridge::CallOnMainThread (std::function<void()> a_callback, int64
  */
 void ev::loop::Bridge::CallOnMainThread (std::function<void()> a_callback)
 {
-    CC_WARNING_TODO("TODO URGENT - ev::loop::Bridge CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_)");
-    
-    // TODO URGENT : CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
-
     static std::mutex ___mutex;
     std::lock_guard<std::mutex> lock(___mutex);
     

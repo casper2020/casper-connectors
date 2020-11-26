@@ -36,7 +36,26 @@ namespace cc
     namespace i18n
     {
         
-        class Singleton final : public osal::Singleton<Singleton>
+        // ---- //
+        class Singleton;
+        class SingletonOneShot final : public ::osal::Initializer<Singleton>
+        {
+            
+        public: // Constructor(s) / Destructor
+            
+            SingletonOneShot (Singleton& a_instance)
+                : ::osal::Initializer<Singleton>(a_instance)
+            {
+                /* empty */
+            }
+            virtual ~SingletonOneShot ()
+            {
+                /* empty */
+            }
+            
+        }; // end of class 'SingletonOneShot'
+        
+        class Singleton final : public osal::Singleton<Singleton, SingletonOneShot>
         {
             
         public: // Const Static Data

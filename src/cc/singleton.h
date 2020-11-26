@@ -30,111 +30,91 @@
 #include "cc/non-copyable.h"
 #include "cc/non-movable.h"
 
-// TODO 2.0
-//#if ( defined(NDEBUG) && !( defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) ) )
+#include "cc/macros.h"
+#include "cc/types.h"
+
+#if 0 && defined(CC_DEBUG_ON)
     #include <stdio.h>  // vsnprintf
     #include <stdarg.h> // va_list, va_start, va_arg, va_end
-    #include <typeinfo>
+    #include <typeinfo> // typeid
 
     #define CC_SINGLETON_DEBUG_TRACE(a_format, ...) \
         do { \
             fprintf(stdout, a_format, __VA_ARGS__); \
             fflush(stdout); \
         } while (0)
-//#else
-//    #define CC_SINGLETON_DEBUG_TRACE(a_format, ...)
-//#endif
+#else
+    #define CC_SINGLETON_DEBUG_TRACE(a_format, ...)
+#endif
 
 namespace cc
 {
-    
+
+    // -- -- //
+
     template <typename C> class Initializer
     {
-        
+
     protected: // Refs
-        
+
         C& instance_;
-        
+
     public: // Constructor(s) / Destructor
-        
+
         Initializer (C& a_instance);
         virtual ~Initializer ();
-        
+
     };
     
     template <typename C> Initializer<C>::Initializer (C& a_instance)
         : instance_(a_instance)
     {
-        
+        CC_SINGLETON_DEBUG_TRACE("\t⌁ [%p @ " UINT64_FMT_LP(8) " ✔︎] : %s\n", this, CC_CURRENT_THREAD_ID(), CC_DEMANGLE(typeid(this).name()).c_str());
     }
-    
+
     template <typename C> Initializer<C>::~Initializer ()
     {
-        /* empty */
+        CC_SINGLETON_DEBUG_TRACE("\t⌁ [%p @ " UINT64_FMT_LP(8) " ✗] : %s\n", this, CC_CURRENT_THREAD_ID(), CC_DEMANGLE(typeid(this).name()).c_str());
     }
-    
+
+    // -- -- //
+
     template <typename T, typename I, typename = std::enable_if<std::is_base_of<Initializer<T>, I>::value>> class Singleton : public NonCopyable, public NonMovable
     {
+
+    public: // Constructor(s))
         
-    private: // Static Data
+        Singleton (const Singleton<T,I>&) = delete; // Copy constructor
+        Singleton (Singleton<T,I>&&)      = delete; // Move constructor
         
-        static T* instance_;
-        static I* initializer_;
+    protected: // Constructor // Destructor
         
-    protected: // constructor
-        
-        Singleton (Singleton&) = delete;
-        Singleton (Singleton&&) = delete;
         Singleton ()
         {
-            /* empty */
-            // CC_SINGLETON_DEBUG_TRACE("\t⌥ [%p ✔︎] : %s\n", this, typeid(T).name());
+            CC_SINGLETON_DEBUG_TRACE("⌁ [%p @ " UINT64_FMT_LP(8) " ✔︎] : %s\n", this, CC_CURRENT_THREAD_ID(), CC_DEMANGLE(typeid(T).name()).c_str());
         }
                 
         ~Singleton()
         {
-            /* empty */
-            // CC_SINGLETON_DEBUG_TRACE("\t⌥ [%p ✗] : %s\n", this, typeid(T).name());
+            CC_SINGLETON_DEBUG_TRACE("⌁ [%p @ " UINT64_FMT_LP(8) " ✗] : %s\n", this, CC_CURRENT_THREAD_ID(), CC_DEMANGLE(typeid(T).name()).c_str());
         }
-                
-    private: // operators
         
-        T& operator = (const T& a_singleton)
-        {
-            if ( &a_singleton != this ) {
-                instance_ = a_singleton.instance_;
-            }
-            return this;
-        }
+    public: // Operator(s) Overload
+        
+        Singleton<T,I>& operator=(Singleton<T,I> &&)                   = delete; // Move assign
+        Singleton<T,I>& operator = (const Singleton<T,I>& a_singleton) = delete; // Copy assign
         
     public: // inline method(s) / function(s) declaration
         
         static T& GetInstance () __attribute__ ((visibility ("default")))
         {
-            if ( nullptr == Singleton<T,I>::instance_ ) {
-                Singleton<T,I>::instance_    = new T();
-                Singleton<T,I>::initializer_ = new I(*Singleton<T,I>::instance_);
-            }
-            return *Singleton<T,I>::instance_;
+            // C++11 'magic statics' aproatch
+            static T t;
+            static I i(t);
+            return t;
         }
         
-        static void Destroy ()
-        {
-            if ( nullptr != Singleton<T,I>::initializer_ ) {
-                delete initializer_;
-                initializer_ = nullptr;
-            }
-            if ( nullptr != Singleton<T,I>::instance_ ) {
-                delete instance_;
-                instance_ = nullptr;
-            }
-        }
-        
-    }; // end of class Singleton
-    
-    template <typename T, typename I, typename S> T* Singleton<T,I,S>::instance_    = nullptr;
-    template <typename T, typename I, typename S> I* Singleton<T,I,S>::initializer_ = nullptr;
-
+    }; // end of template Singleton
 
 } // end of namespace casper
 

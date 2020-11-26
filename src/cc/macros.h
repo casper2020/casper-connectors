@@ -22,6 +22,12 @@
 #ifndef NRS_CC_MACROS_H_
 #define NRS_CC_MACROS_H_
 
+#if !defined(NDEBUG) || defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG)
+    #define CC_DEBUG_ON 1
+#else
+    #undef CC_DEBUG_ON
+#endif
+
 #include <assert.h>
 
 #define CC_DO_PRAGMA(x) _Pragma (#x)
@@ -50,5 +56,35 @@
     _Pragma("clang diagnostic pop")\
 
 #define CC_ASSERT(a_condition) assert(a_condition)
+
+#include <cxxabi.h>
+#include <memory> // std::unique_ptr
+#include <string>
+#define CC_DEMANGLE(a_name)[]() -> std::string { \
+    int status = -4; \
+    std::unique_ptr<char, void(*)(void*)> res { \
+        abi::__cxa_demangle(a_name, NULL, NULL, &status), \
+        std::free \
+    }; \
+    return std::string( (status==0) ? res.get() : a_name ); \
+} ()
+
+#if !defined(__APPLE__)
+    #include <unistd.h>
+    #include <sys/syscall.h>
+#else
+    #include <pthread.h>
+#endif
+#ifdef __APPLE__
+    #define CC_CURRENT_THREAD_ID()[]() { \
+        uint64_t thread_id; \
+        (void)pthread_threadid_np(NULL, &thread_id); \
+        return thread_id; \
+    }()
+#else
+    #define CC_CURRENT_THREAD_ID()[]() { \
+        return (uint64_t)syscall(SYS_gettid); \
+    }()
+#endif
 
 #endif // NRS_CC_MACROS_H_

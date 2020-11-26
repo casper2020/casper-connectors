@@ -27,7 +27,9 @@
 #include <pthread.h>
 #include <assert.h>
 
-#include "cc/singleton.h"
+#include "cc/macros.h"
+
+#include "cc/debug/threading.h"
 
 #if !defined(__APPLE__)
     #include <unistd.h>
@@ -35,12 +37,6 @@
 #endif
 
 #include "cc/debug/logger.h"
-
-#if !defined(NDEBUG) || defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG)
-    #define CC_DEBUG_ON 1
-#else
-    #undef CC_DEBUG_ON
-#endif
 
 #ifdef CC_DEBUG_ON
 
@@ -182,88 +178,5 @@
         } while(0);
 
 #endif
-
-namespace cc
-{
-    namespace debug
-    {
-    
-        // ---- //
-        class Threading;
-        class ThreadingOneShotInitializer final : public ::cc::Initializer<Threading>
-        {
-          
-        public: // Constructor(s) / Destructor
-          
-          ThreadingOneShotInitializer (::cc::debug::Threading& a_instance);
-          virtual ~ThreadingOneShotInitializer ();
-          
-        }; // end of class 'OneShot'
-
-        // ---- //
-        class Threading final : public cc::Singleton<Threading, ThreadingOneShotInitializer>
-        {
-          
-          friend class ThreadingOneShotInitializer;
-            
-        public: // Types
-            
-            typedef uint64_t ThreadID;
-
-        public: // Static Const Data
-            
-            static const ThreadID k_invalid_thread_id_;
-
-        private: // Static Data
-            
-            ThreadID main_thread_id_;
-            
-        public: // Inline Method(s) / Function(s)
-            
-            void     Start ();
-            bool     AtMainThread    () const;
-            ThreadID CurrentThreadID () const;
-
-        };
-        
-        /**
-         * @brief Mark the current thread as the 'main' one.
-         */
-        inline void Threading::Start ()
-        {
-            main_thread_id_ = CurrentThreadID();
-        }
-        
-        /**
-         * @brief Check if this function is being called at 'main' thread.
-         */
-        inline bool Threading::AtMainThread () const
-        {
-            return ( k_invalid_thread_id_ != main_thread_id_ && CurrentThreadID() == main_thread_id_ );
-        }
-        
-        /**
-         * @return The current thread id.
-         *
-         * @throw An exception when it's not possible to retrieve the current thread id.
-         */
-        inline Threading::ThreadID Threading::CurrentThreadID () const
-        {
-            #ifdef __APPLE__
-                uint64_t thread_id;
-                #ifdef CC_DEBUG_ON
-                    const int rv = pthread_threadid_np(NULL, &thread_id);
-                    assert(0 == rv);
-                #else
-                    (void)pthread_threadid_np(NULL, &thread_id);
-                #endif
-                return thread_id;
-            #else
-                return (uint64_t)syscall(SYS_gettid);
-            #endif
-        }
-    
-    }
-}
 
 #endif // NRS_CC_DEBUG_TYPES_H_
