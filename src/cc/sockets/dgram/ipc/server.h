@@ -87,6 +87,7 @@ namespace cc
                     std::thread*                 thread_;
                     std::atomic<bool>            running_;
                     std::atomic<bool>            aborted_;
+                    std::atomic<bool>            thread_woken_;
                     std::mutex                   mutex_;
                     osal::ConditionVariable      thread_cv_;
                     osal::ConditionVariable      stop_cv_;

@@ -40,6 +40,7 @@ cc::sockets::dgram::ipc::ServerInitializer::ServerInitializer (cc::sockets::dgra
     instance_.thread_               = nullptr;
     instance_.running_              = false;
     instance_.aborted_              = false;
+    instance_.thread_woken_         = false;
     instance_.event_base_           = nullptr;
     instance_.watchdog_event_       = nullptr;
     instance_.socket_buffer_        = nullptr;
@@ -71,6 +72,8 @@ void cc::sockets::dgram::ipc::Server::Start (const std::string& a_name, const st
                                              const cc::sockets::dgram::ipc::Server::Callbacks& a_callbacks)
 {
     try {
+        
+        thread_woken_ = false;
         
         socket_fn_ = a_runtime_directory + a_name + ".socket";
         
@@ -262,8 +265,8 @@ void cc::sockets::dgram::ipc::Server::Listen ()
         }
         
         timeval tv;
-        tv.tv_sec  = 15;
-        tv.tv_usec = 0;
+        tv.tv_sec  = 0;
+        tv.tv_usec = 20000;
         
         if ( 0 != event_add(socket_event_, &tv) ) {
             throw ::cc::Exception("Unable to add datagram socket event!");
@@ -272,7 +275,6 @@ void cc::sockets::dgram::ipc::Server::Listen ()
 #ifndef EVLOOP_NO_EXIT_ON_EMPTY
     #define EVLOOP_NO_EXIT_ON_EMPTY 0x04
 #endif
-        thread_cv_.Wake();
 
         while ( false == aborted_ ) {
         
@@ -412,6 +414,12 @@ void cc::sockets::dgram::ipc::Server::Schedule (const char* const a_caller)
 void cc::sockets::dgram::ipc::Server::DatagramEventHandlerCallback (evutil_socket_t a_fd, short a_flags, void* a_arg)
 {    
     auto self = static_cast<cc::sockets::dgram::ipc::Server*>(a_arg);
+    
+    if ( false == self->thread_woken_ ) {
+        self->thread_woken_ = true;
+        self->thread_cv_.Wake();
+        return;
+    }
 
     if ( self->socket_.GetFileDescriptor() != a_fd /* || a_flags != EV_READ */ ) {
         return;

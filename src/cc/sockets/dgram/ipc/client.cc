@@ -78,7 +78,7 @@ void cc::sockets::dgram::ipc::Client::Start (const std::string& a_name, const st
         throw exception;
     }
     // ... 'this' side socket must be binded now ...
-    if ( false == socket_.Bind() ) {
+    if ( false == socket_.Bind(false) ) {
         // ... unable to bind socket ...
         const auto exception = ::cc::Exception("Unable to bind client communication channel: %s !",
                                                socket_.GetLastConfigErrorString().c_str()
