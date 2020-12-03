@@ -138,6 +138,9 @@ void cc::easy::job::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
     
     // ... log ...
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("RESPONSE", "%s", json_writer_.write(job_response).c_str());
+    
+    // ... log ..
+    LogResponse(run_response, job_response);
                         
     // ... publish result ...
     Finished(job_response ,

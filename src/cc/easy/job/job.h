@@ -105,6 +105,10 @@ namespace cc
                 
                 virtual void Run (const int64_t& a_id, const Json::Value& a_payload, Response& o_response) = 0;
                 
+            protected: // Virtual Method(s) / Function(s)
+                
+                virtual void LogResponse (const Response& /* a_response */, const Json::Value& /* a_payload */) {};
+                
             protected: // Method(s) / Function(s)
 
                 // 1 ~ 5 xxx
