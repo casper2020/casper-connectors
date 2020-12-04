@@ -57,8 +57,10 @@ cc::sockets::dgram::ipc::ClientInitializer::~ClientInitializer ()
  *
  * @parma a_name              Channel name.
  * @param a_runtime_directory Directory where socket file will be created.
+ * @param a_standalone        True when it's a standalone instance - socket will bind.
  */
-void cc::sockets::dgram::ipc::Client::Start (const std::string& a_name, const std::string& a_runtime_directory)
+void cc::sockets::dgram::ipc::Client::Start (const std::string& a_name, const std::string& a_runtime_directory,
+                                             const bool a_standalone)
 {
     if ( 0 != socket_fn_.length() ) {
         throw ::cc::Exception("Unable to start client communication channel: already running!");
@@ -78,10 +80,10 @@ void cc::sockets::dgram::ipc::Client::Start (const std::string& a_name, const st
         throw exception;
     }
     // ... 'this' side socket must be binded now ...
-    if ( false == socket_.Bind(false) ) {
+    if ( false == socket_.Bind(( true == a_standalone ? false : true )) ) {
         // ... unable to bind socket ...
-        const auto exception = ::cc::Exception("Unable to bind client communication channel: %s !",
-                                               socket_.GetLastConfigErrorString().c_str()
+        const auto exception = ::cc::Exception("Unable to bind client socket (%s): %s !",
+                                               socket_fn_.c_str(), socket_.GetLastConfigErrorString().c_str()
         );
         socket_fn_ = "";
         throw exception;

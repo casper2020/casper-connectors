@@ -70,7 +70,7 @@ namespace cc
                     
                 public: // Method(s) / Function(s)
                     
-                    void Start (const std::string& a_name, const std::string& a_runtime_directory);
+                    void Start (const std::string& a_name, const std::string& a_runtime_directory, const bool a_standalone);
                     void Stop  (const int a_sig_no);
                     void Send  (const Json::Value& a_value);
                 

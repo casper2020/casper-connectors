@@ -73,6 +73,7 @@ void cc::sockets::dgram::ipc::Server::Start (const std::string& a_name, const st
 {
     try {
         
+        aborted_      = false;
         thread_woken_ = false;
         
         socket_fn_ = a_runtime_directory + a_name + ".socket";
@@ -248,8 +249,8 @@ void cc::sockets::dgram::ipc::Server::Listen ()
         }
         
         if ( false == socket_.Bind() ) {
-            throw ::cc::Exception("Unable to bind client: %s!",
-                                  socket_.GetLastConfigErrorString().c_str()
+            throw ::cc::Exception("Unable to bind server socket (%s): %s!",
+                                  socket_fn_.c_str(), socket_.GetLastConfigErrorString().c_str()
             );
         }
         
