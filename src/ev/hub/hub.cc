@@ -442,7 +442,7 @@ void ev::hub::Hub::Loop ()
     }
 
 	if ( false == socket_.Bind() ) {
-        fault_msg_  = "Unable to bind client: ";
+        fault_msg_  = "Unable to bind hub socket ( " + socket_file_name_ + " ): ";
         fault_msg_ += socket_.GetLastConfigErrorString();
         fault_msg_ += "!";
         goto finally;

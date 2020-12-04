@@ -80,7 +80,9 @@ void ev::scheduler::Scheduler::Scheduler::Start (const std::string& a_name,
                         a_initialized_callback();
                     } else {
                         // ... unable to bind socket ...
-                        throw ev::Exception("Unable to bind client socket: %s",socket_.GetLastConfigErrorString().c_str());
+                        throw ev::Exception("Unable to bind scheduler socket (%s): %s",
+                                            socket_fn_.c_str(), socket_.GetLastConfigErrorString().c_str()
+                        );
                     }
                     
                 },

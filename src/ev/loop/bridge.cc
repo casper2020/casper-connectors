@@ -139,7 +139,9 @@ ev::loop::Bridge::CallOnMainThreadCallback ev::loop::Bridge::Start (const std::s
         // ... 'this' side socket must be binded now ...
         if ( false == socket_.Bind() ) {
             // ... unable to bind socket ...
-            throw ev::Exception("Unable to bind client: %s", socket_.GetLastConfigErrorString().c_str());
+            throw ev::Exception("Unable to bind bridge socket (%s): %s",
+                                a_socket_fn.c_str(), socket_.GetLastConfigErrorString().c_str()
+            );
         }
         
         // ... set non-block ...
