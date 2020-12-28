@@ -59,7 +59,7 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
     already_ran_                     = false;
     deferred_                        = false;
 
-    progress_                        = Json::Value::null;
+    progress_                        = Json::Value(Json::ValueType::objectValue); // This object must be always an objectValue!
 
     chdir_hrt_.seconds_              = static_cast<uint8_t>(0);
     chdir_hrt_.minutes_              = static_cast<uint8_t>(0);
@@ -187,7 +187,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     cancelled_                       = false;
     already_ran_                     = false;
     deferred_                        = false;
-    progress_                        = Json::Value(Json::ValueType::objectValue);
+    progress_.clear();               // This object must be always an objectValue! - clear is safe to use.
     
     //
     // JSONAPI Configuration - optional
@@ -580,7 +580,7 @@ void ev::loop::beanstalkd::Job::Publish (const uint64_t& a_id, const std::string
  */
 void ev::loop::beanstalkd::Job::Broadcast (const uint64_t& a_id, const std::string& a_fq_channel, const ev::loop::beanstalkd::Job::Status a_status)
 {
-    progress_       = Json::Value(Json::ValueType::objectValue);
+    progress_.clear(); // This object must be always an objectValue! - clear is safe to use.
     progress_["id"] = a_id;
     
     switch (a_status) {
@@ -596,6 +596,8 @@ void ev::loop::beanstalkd::Job::Broadcast (const uint64_t& a_id, const std::stri
     progress_["channel"] = a_fq_channel;
     
     Publish(a_id, redis_signal_channel_, progress_);
+    
+    progress_.clear(); // This object must be always an objectValue! - clear is safe to use.
 }
 
 /**

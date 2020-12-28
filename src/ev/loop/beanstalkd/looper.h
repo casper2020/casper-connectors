@@ -65,8 +65,6 @@ namespace ev
                 ::ev::beanstalk::Consumer* beanstalk_;
                 Cache                      cache_;
                 Job*                       job_ptr_;
-                Json::Reader               json_reader_;
-                Json::Value                job_payload_;
                 
             private: // Control Data
                 

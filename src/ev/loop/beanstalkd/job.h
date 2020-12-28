@@ -376,7 +376,7 @@ namespace ev
                 bool                      already_ran_;
                 bool                      deferred_;
 
-                Json::Value               progress_;
+                Json::Value               progress_;            //!< This object must be always an objectValue!
                 
             private: // Data
                 

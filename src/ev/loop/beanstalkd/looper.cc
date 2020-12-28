@@ -173,8 +173,9 @@ void ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig
         already_ran  = false;
         deferred     = false;
         
-        job_payload_ = Json::Value::null;
-        if ( false == json_reader_.parse(job.body(), job_payload_) ) {
+        Json::Value job_payload = Json::Value();
+        Json::Reader json_reader;
+        if ( false == json_reader.parse(job.body(), job_payload) ) {
             // ... write to permanent log ...
             EV_LOOP_BEANSTALK_LOG("queue",
                                   "RSRVD" INT64_FMT_MAX_RA ": %12.12s: %s",
@@ -188,15 +189,15 @@ void ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig
                                   job.id(),
                                   "FAILURE",
                                   "An error occurred while loading job payload: JSON parsing error",
-                                  json_reader_.getFormattedErrorMessages().c_str()
+                                  json_reader.getFormattedErrorMessages().c_str()
             );
             
             // ... bury it - making it available for human inspection ....
             beanstalk_->Bury(job);
             
             // ... since a call to asString() can allocate dynamic memory ...
-            // ... set this object to null to free memory now ...
-            job_payload_ = Json::Value::null;
+            // ... CLEAR this object to null to free memory now ...
+            job_payload.clear();
             
             // ... perform a fake IDLE  ...
             Idle(/* a_fake */ true);
@@ -205,7 +206,7 @@ void ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig
             continue;
         }
         
-        const std::string tube = job_payload_.get("tube", "").asString();
+        const std::string tube = job_payload.get("tube", "").asString();
 
         // check if consumer is already loaded
         const auto cached_it = cache_.find(tube);
@@ -287,7 +288,7 @@ void ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig
                                       job.id()
                 );
                 // ... run it ...
-                job_ptr_->Consume(/* a_id */ job.id(), /* a_body */ job_payload_,
+                job_ptr_->Consume(/* a_id */ job.id(), /* a_body */ job_payload,
                                   /* on_completed_           */
                                   [&uri, &http_status_code, &success, &job_cv](const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code) {
                                       uri              = a_uri;
@@ -398,8 +399,8 @@ void ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig
         );
         
         // ... since a call to asString() can allocate dynamic memory ...
-        // ... set this object to null to free memory now ...
-        job_payload_ = Json::Value::null;
+        // ... CLEAR this object to null to free memory now ...
+        job_payload.clear();
         
         // ... next job ...
         Idle(/* a_fake */ true);
