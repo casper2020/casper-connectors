@@ -505,12 +505,20 @@ void ev::redis::subscriptions::Manager::Unlink (const std::string& a_name,
         // ... nothing to do ...
         return;
     }
+    // ... forget client ...
     auto c_it = std::find(it->second->begin(), it->second->end(), a_client);
-    if ( it->second->end() == c_it ) {
-        // ... nothing to do ...
-        return;
+    if ( it->second->end() != c_it ) {
+        it->second->erase(c_it);
     }
-    it->second->erase(c_it);
+    // ... get rid of 'clients vector'
+    if ( 0 == it ->second->size() ) {
+        delete it->second;
+        a_map.erase(it);
+    }
+    const auto cc_it = a_client->callbacks_.find(a_name);
+    if ( a_client->callbacks_.end() != cc_it ) {
+        a_client->callbacks_.erase(cc_it);
+    }
 }
 
 /**
