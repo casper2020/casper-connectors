@@ -374,9 +374,8 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         //
         // ... ICU / V8 ...
         //
-                
         // ... OPENSSL ...
-        if ( 0 == strncmp(process_->name_.c_str(), "nginx-", sizeof(char) * 6) ) {
+        if ( 0 != strncmp(process_->name_.c_str(), "nginx-", sizeof(char) * 6) ) {
             // ... not an nginx initialize openssl ...
 #if OPENSSL_VERSION_NUMBER < 0x1010000fL
             OPENSSL_config(NULL);
