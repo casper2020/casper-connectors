@@ -69,8 +69,6 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
     chdir_hrt_.year_                 = static_cast<uint16_t>(0);
     
     hrt_buffer_[0]                   = '\0';
-       
-    json_writer_.omitEndingLineFeed();
     
     callbacks_ptr_ = nullptr;
     start_tp_      = std::chrono::steady_clock::time_point::min();
@@ -220,8 +218,10 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     
     start_tp_ = std::chrono::steady_clock::now();
     end_tp_   = start_tp_;
+    
+    Json::FastWriter jfw; jfw.omitEndingLineFeed();
 
-    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("PAYLOAD", "%s", json_writer_.write(a_payload).c_str());
+    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("PAYLOAD", "%s", jfw.write(a_payload).c_str());
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("TUBE"   , "%s", tube_.c_str());
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ID"     , "%s", a_payload.get("id"  , "???").asCString());
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("CHANNEL", "%s", rcid_.c_str());
@@ -724,7 +724,9 @@ void ev::loop::beanstalkd::Job::Publish (const uint64_t& /* a_id */, const std::
                                          const Json::Value& a_object,
                                          const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
 {
-    const std::string redis_message = json_writer_.write(a_object);
+    Json::FastWriter jfw; jfw.omitEndingLineFeed();
+    
+    const std::string redis_message = jfw.write(a_object);
 
     osal::ConditionVariable cv;
     ev::Exception*          exception = nullptr;
@@ -798,12 +800,14 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
                                          const std::function<void()> a_success_callback,
                                          const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
 {
+    Json::FastWriter jfw; jfw.omitEndingLineFeed();
+    
     osal::ConditionVariable cv;
     ev::Exception*          exception = nullptr;
 
     const std::string redis_channel = rcid_;
     const std::string redis_key     = rjid_;
-    const std::string redis_message = json_writer_.write(a_object);
+    const std::string redis_message = jfw.write(a_object);
 
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("PUBLISH", "%s", redis_message.c_str());
     

@@ -392,13 +392,7 @@ namespace ev
                 
                 ev::curl::HTTP             http_;
                 ::ev::postgresql::JSONAPI  json_api_;
-                
-            protected:
-                
-                Json::Reader               json_reader_;
-                Json::FastWriter           json_writer_;
-                Json::StyledWriter         json_styled_writer_;
-                
+
             private: // Ptrs
                 
                 const MessagePumpCallbacks* callbacks_ptr_;
