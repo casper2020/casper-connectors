@@ -25,6 +25,9 @@
 
 #include "cppcodec/base64_rfc4648.hpp"
 
+const unsigned char cc::hash::SHA256::sk_signature_prefix_[]    = { 0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x05, 0x00, 0x04, 0x20 };
+const size_t        cc::hash::SHA256::sk_signature_prefix_size_ = 19;
+
 /**
  * @brief Default constructor.
  */
@@ -43,7 +46,7 @@ cc::hash::SHA256::~SHA256 ()
 }
 
 /**
- * @brief Initialize MD5 context.
+ * @brief Initialize context.
  */
 void cc::hash::SHA256::Initialize ()
 {
@@ -53,7 +56,7 @@ void cc::hash::SHA256::Initialize ()
 }
 
 /**
- * @brief Update MD5.
+ * @brief Update.
  *
  * @param a_data   Data.
  * @param a_length Size in bytes.
@@ -64,15 +67,28 @@ void cc::hash::SHA256::Update(const unsigned char* const a_data, size_t a_length
 }
 
 /**
- * @brief Finalize and calculate MD5.
+ * @brief Finalize calculation.
+ *
+ * @param
+ *
+ * @return SHA256 digest non-enoded bytes.
+ */
+const unsigned char* const cc::hash::SHA256::Final ()
+{
+    SHA256_Final(digest_, &context_);
+    return digest_;
+}
+
+/**
+ * @brief Finalize calculation.
  *
  * @param  a_format 
  *
- * @return SHA256 string ( hex default, or base64, etc... ).
+ * @return SHA256 digest encoded ( hex default, or base64, etc... ).
  */
-std::string cc::hash::SHA256::Finalize (const SHA256::OutputFormat a_format)
+std::string cc::hash::SHA256::FinalEncoded (const SHA256::OutputFormat a_format)
 {
-    SHA256_Final(digest_,&context_);
+    SHA256_Final(digest_, &context_);
     if ( SHA256::OutputFormat::HEX == a_format ) {
         for( size_t idx = 0; idx < SHA256_DIGEST_LENGTH; idx++ ) {
             sprintf(&(hex_[idx*2]), "%02x", (unsigned int)digest_[idx]);

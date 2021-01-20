@@ -30,6 +30,7 @@
 #include "cc/easy/json.h"
 
 #include <map>
+#include <iomanip> // std::left, std::setfill, etc...
 
 // MARK: - HTTPClient
 
@@ -109,7 +110,7 @@ void cc::easy::HTTPClient::POST (const std::string& a_url, const CC_HTTP_HEADERS
  * @param a_tokens R/W reference to \link OAuth2HTTPClient::Tokens \link.
  */
 cc::easy::OAuth2HTTPClient::OAuth2HTTPClient (const ::ev::Loggable::Data& a_loggable_data, const OAuth2HTTPClient::Config& a_config, OAuth2HTTPClient::Tokens& a_tokens)
-    : loggable_data_(a_loggable_data), config_(a_config), tokens_(a_tokens), http_(loggable_data_)
+    : loggable_data_(a_loggable_data), config_(a_config), tokens_(a_tokens), http_(loggable_data_), nsi_ptr_(nullptr)
 {
     ::ev::scheduler::Scheduler::GetInstance().Register(this);
 }
@@ -188,33 +189,50 @@ void cc::easy::OAuth2HTTPClient::AutorizationCodeGrant (const std::string& a_cod
 void cc::easy::OAuth2HTTPClient::POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
                                        OAuth2HTTPClient::POSTCallbacks a_callbacks)
 {
-    
     NewTask([this, a_url, a_headers, a_body] () -> ::ev::Object* {
-                    
+
+        // ... copy original header ...
         CC_HTTP_HEADERS headers;
         for ( auto it : a_headers ) {
             for ( auto it2 : it.second ) {
                 headers[it.first].push_back(it2);
             }
         }
+        // ... apply new access token ...
         headers["Authorization"].push_back("Bearer " + tokens_.access_);
-
+        // ... notify interceptor?
+        if ( nullptr != nsi_ptr_ ) {
+            nsi_ptr_->OnHTTPRequestHeaderSet(headers);
+        }
+        // ... dump request ...
+        CC_IF_DEBUG(DumpRequest("POST", a_url, headers, &a_body));
+        // ... perform request ...
         return new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, a_url, &headers, &a_body);
         
-    })->Then([this] (::ev::Object* a_object) -> ::ev::Object* {
+    })->Then([this CC_IF_DEBUG_CONSTRUCT_APPEND_PARAM_VALUE(a_url)] (::ev::Object* a_object) -> ::ev::Object* {
         
         const ::ev::curl::Reply* reply = EnsureReply(a_object);
         const ::ev::curl::Value& value = reply->value();
-
+        
         // ... unauthorized?
-        if ( 401 == value.code() ) {
+        const bool unauthorized = ( 401 == value.code() || ( nullptr != nsi_ptr_ && nsi_ptr_->OnHTTPRequestReturned(value.code(), value.headers(), value.body()) ) );
+        if ( true == unauthorized ) {
+            // ... dump response ...
+            CC_IF_DEBUG(DumpResponse("POST", a_url, value));
             // ... yes, refresh tokens now ...
-            const CC_HTTP_HEADERS oauth_headers = {
+            CC_HTTP_HEADERS headers = {
                 { "Authorization", { "Basic " + ::cc::base64_url_unpadded::encode((config_.oauth2_.credentials_.client_id_ + ':' + config_.oauth2_.credentials_.client_secret_)) } },
                 { "Content-Type" , { "application/x-www-form-urlencoded" } }
             };
-            const std::string     oauth_body    = "grant_type=refresh_token&refresh_token=" + ( tokens_.refresh_ );
-            return new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, config_.oauth2_.urls_.token_, &oauth_headers, &oauth_body);
+            std::string body = "grant_type=refresh_token&refresh_token=" + ( tokens_.refresh_ );
+            // ... notify interceptor?
+            if ( nullptr != nsi_ptr_ ) {
+                nsi_ptr_->OnOAuth2RequestSet(headers, body);
+            }
+            // ... dump request ...
+            CC_IF_DEBUG(DumpRequest("POST", config_.oauth2_.urls_.token_.c_str(), headers, &body));
+            // ... perform request ...
+            return new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, config_.oauth2_.urls_.token_, &headers, &body);
         } else {
             // ... no, continue ..
             return dynamic_cast<::ev::Result*>(a_object)->DetachDataObject();
@@ -232,26 +250,39 @@ void cc::easy::OAuth2HTTPClient::POST (const std::string& a_url, const CC_HTTP_H
             const ::ev::curl::Value& value = reply->value();
 
             if ( 200 == value.code() ) {
-                cc::easy::JSON<::ev::Exception> json;
-                Json::Value                     response;
-                
-                json.Parse(value.body(), response);
                 
                 // ... keep track of new tokens ...
-                tokens_.access_  = json.Get(response, "access_token" , Json::ValueType::stringValue, /* a_default */ nullptr).asString();
-                tokens_.refresh_ = json.Get(response, "refresh_token", Json::ValueType::stringValue, /* a_default */ nullptr).asString();
+                if ( nullptr != nsi_ptr_ ) {
+                    nsi_ptr_->OnOAuth2RequestReturned(value.headers(), value.body(), tokens_.access_, tokens_.refresh_);
+                } else {
+                    // ... expecting JSON response ...
+                    cc::easy::JSON<::ev::Exception> json;
+                    Json::Value                     response;
+                    json.Parse(value.body(), response);
+                    // ... keep track of new tokens ...
+                    tokens_.access_  = json.Get(response, "access_token" , Json::ValueType::stringValue, /* a_default */ nullptr).asString();
+                    tokens_.refresh_ = json.Get(response, "refresh_token", Json::ValueType::stringValue, /* a_default */ nullptr).asString();
+                }
+                // ... notify tokens changed ...
                 if ( nullptr != tokens_.on_change_ ) {
                     tokens_.on_change_();
                 }
                 
+                // ... copy original header ...
                 CC_HTTP_HEADERS headers;
                 for ( auto it : a_headers ) {
                     for ( auto it2 : it.second ) {
                         headers[it.first].push_back(it2);
                     }
                 }
+                // ... apply new access token ...
                 headers["Authorization"].push_back("Bearer " + tokens_.access_);
-
+                // ... notify interceptor?
+                if ( nullptr != nsi_ptr_ ) {
+                    nsi_ptr_->OnHTTPRequestHeaderSet(headers);
+                }
+                // ... dump request ...
+                CC_IF_DEBUG(DumpRequest("POST", a_url, headers, &a_body));
                 // ... the original request must be performed again ...
                 return new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, a_url, &headers, &a_body);
             } else {
@@ -260,14 +291,16 @@ void cc::easy::OAuth2HTTPClient::POST (const std::string& a_url, const CC_HTTP_H
             }
         }
         
-    })->Finally([this, a_callbacks] (::ev::Object* a_object) {
-
+    })->Finally([this, a_callbacks CC_IF_DEBUG_CONSTRUCT_APPEND_PARAM_VALUE(a_url)]  (::ev::Object* a_object) {
+        
         const ::ev::curl::Reply* reply = dynamic_cast<const ::ev::curl::Reply*>(a_object);
         // ... if not a 'reply' it must be a 'result' object ...
         if ( nullptr == reply ) {
             reply = EnsureReply(a_object);
         }
         const ::ev::curl::Value& value = reply->value();
+        // ... dump response ...
+        CC_IF_DEBUG(DumpResponse("POST", a_url, value));
         // ... notify ...
         a_callbacks.on_success_(value.code(), value.header_value("Content-Type"), value.body(), value.rtt());
         
@@ -318,3 +351,69 @@ const ::ev::curl::Reply* cc::easy::OAuth2HTTPClient::EnsureReply (::ev::Object* 
     // ... same as reply, but it was detached ...
     return reply;
 }
+
+// MARK: - DEBUG ONLY: Helper Method(s) / Function(s)
+
+CC_IF_DEBUG(
+/**
+ * @brief Call this method to dump an HTTP request data before it's execution.
+ *
+ * @param a_method Method name.
+ * @param a_url    URL.
+ * @param a_header Headers.
+ * @param a_body   If applicable.
+ */
+void cc::easy::OAuth2HTTPClient::DumpRequest (const char* const a_method, const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string* a_body) const
+{
+    CC_DEBUG_LOG_MSG("OAuth2HTTPClient", "%s", std::string(80, '-').c_str());
+    CC_DEBUG_LOG_MSG("OAuth2HTTPClient", "%-7s: %s", "Method", a_method);
+    CC_DEBUG_LOG_MSG("OAuth2HTTPClient", "%-7s: %s", "URL", a_url.c_str());
+    if ( a_headers.size() > 0 ) {
+        CC_DEBUG_LOG_MSG("OAuth2HTTPClient", "%-7s:", "Headers");
+        std::stringstream ss;
+        for ( auto header : a_headers ) {
+            ss.str("");
+            ss << '\t' << std::right << std::setfill(' ') << std::setw(25) << header.first << ": ";
+            for ( auto value : header.second ) {
+                ss << value << ' ';
+            }
+            CC_DEBUG_LOG_MSG("OAuth2HTTPClient", "%s", ss.str().c_str());
+        }
+    }
+    if ( 0 != strcasecmp(a_method, "GET") && nullptr != a_body ) {
+        CC_DEBUG_LOG_MSG("OAuth2HTTPClient", "%-7s: %s", "Body", (*a_body).c_str());
+    }
+    CC_DEBUG_LOG_MSG("OAuth2HTTPClient", "%s", std::string(80, '-').c_str());
+}
+
+/**
+ * @brief Call this method to dump an HTTP response data.
+ *
+ * @param a_method Method name.
+ * @param a_url    URL.
+ * @param a_header cURL value object,
+ */
+void cc::easy::OAuth2HTTPClient::DumpResponse (const char* const a_method, const std::string& a_url,const ev::curl::Value& a_value) const
+{
+    CC_DEBUG_LOG_MSG("OAuth2HTTPClient", "%s", std::string(80, '-').c_str());
+    CC_DEBUG_LOG_MSG("OAuth2HTTPClient", "%-7s: %s", "Method", a_method);
+    CC_DEBUG_LOG_MSG("OAuth2HTTPClient", "%-7s: %s", "URL", a_url.c_str());
+    if ( a_value.headers().size() > 0 ) {
+        CC_DEBUG_LOG_MSG("OAuth2HTTPClient", "%-7s:", "Headers");
+        std::stringstream ss;
+        for ( auto header : a_value.headers() ) {
+            ss.str("");
+            ss << '\t' << std::right << std::setfill(' ') << std::setw(25) << header.first << ": ";
+            for ( auto value : header.second ) {
+                ss << value << ' ';
+            }
+            CC_DEBUG_LOG_MSG("OAuth2HTTPClient", "%s", ss.str().c_str());
+        }
+    }
+    if ( 0 != strcasecmp(a_method, "GET") ) {
+        CC_DEBUG_LOG_MSG("OAuth2HTTPClient", "%-7s: %s", "Body", a_value.body().c_str());
+    }
+    CC_DEBUG_LOG_MSG("OAuth2HTTPClient", "%-7s: %d", "Status", a_value.code());
+    CC_DEBUG_LOG_MSG("OAuth2HTTPClient", "%s", std::string(80, '-').c_str());
+}
+) // NOT A TYPO - close debug if macro

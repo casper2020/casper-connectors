@@ -83,6 +83,70 @@ namespace cc
             
         public: // Data Type(s)
             
+            class NonStandardRequestInterceptor : public ::cc::NonCopyable, public ::cc::NonMovable
+            {
+
+            public: // Constructor // Destructor
+                
+                /**
+                 * @brief Default constructor
+                 */
+                NonStandardRequestInterceptor ()
+                {
+                    /* empty */
+                }
+                
+                /**
+                 * @brief Destructor.
+                 */
+                virtual ~NonStandardRequestInterceptor ()
+                {
+                    /* empty */
+                }
+                
+            public: // Virtual Method(s) / Function(s)
+                
+                /**
+                 * @brief Called to give a change to non-standard OAuth2 requests ( used when server does no follow RFC or needs additional headers / data )
+                 *        to set or modify non-standard data.
+                 * @param a_headers OAuth2 HTTP standard headers.
+                 * @param a_body    OAuth2 HTTP standard body.
+                 */
+                virtual void OnOAuth2RequestSet (CC_HTTP_HEADERS& /* o_headers */, std::string& /* a_body */) const {}
+                
+                /**
+                 * @brief Called to give a change to non-standard OAuth2 requests ( used when server does no follow RFC or needs additional headers / data )
+                 *        to read non-standard data.
+                 * @param a_headers       HTTP standard headers.
+                 * @param a_body          Response body.
+                 * @param o_access_token  Value of the access token.
+                 * @param o_refresh_token Value of the refresh token.
+                 */
+                virtual void OnOAuth2RequestReturned (const CC_HTTP_HEADERS& /* o_headers */, const std::string& /* a_body */, std::string& /* o_access_token */, std::string& /* o_refresh_token */) const {}
+
+                /**
+                 * @brief Called to give a change to non-standard OAuth2 requests ( used when server does no follow RFC or needs additional headers )
+                 *        to set or modify non-standard headers.
+                 * @param a_headers OAuth2 HTTP standard headers.
+                 */
+                virtual void OnHTTPRequestHeaderSet (CC_HTTP_HEADERS& /* o_headers */) const {};
+                
+                
+                /**
+                 * @brief Called to give a process to non-standard OAuth2 requests reply ( used when server does no follow RFC or needs additional headers / data )
+                 *        to check if we should consider reply a "401 - Unauthorized" response.
+                 * @param a_code    HTTP status code.
+                 * @param a_headers OAuth2 HTTP standard headers.
+                 * @param a_body    OAuth2 HTTP standard body.
+                 *
+                 * @return True if we should consider a 401.
+                 */
+                virtual bool OnHTTPRequestReturned (const uint16_t& /* a_code */, const CC_HTTP_HEADERS& /* a_headers */, const std::string& /* a_body */) const { return false; };
+
+            };
+            
+        public: // Data Type(s)
+            
             typedef struct {
                 std::string authorization_;
                 std::string token_;
@@ -113,10 +177,10 @@ namespace cc
             } Tokens;
             
             typedef HTTPClient::Callbacks POSTCallbacks;
-            
+  
         private: // Const Data
             
-            const ev::Loggable::Data loggable_data_;
+            const ev::Loggable::Data    loggable_data_;
 
         private: // Const Refs
             
@@ -129,6 +193,10 @@ namespace cc
         private: // Helper(s)
             
             HTTPClient http_;
+
+        private: // Callbacks
+            
+            const NonStandardRequestInterceptor* nsi_ptr_; //!< When set it will be 'awesome'...
             
         public: // Constructor / Destructor
 
@@ -144,12 +212,33 @@ namespace cc
             void POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
                        OAuth2HTTPClient::POSTCallbacks a_callbacks);
             
+        public: // Inline Method(s) / Function(s)
+            
+            void SetNonStandardRequestInterceptor (const NonStandardRequestInterceptor* a_interceptor);
+            
         private: // Helper Method(s) / Function(s)
             
             ::ev::scheduler::Task*    NewTask     (const EV_TASK_PARAMS& a_callback);
             const ::ev::curl::Reply*  EnsureReply (::ev::Object* a_object);
 
+        private: // DEBUG ONLY: Helper Method(s) / Function(s)
+            
+            CC_IF_DEBUG(
+               void DumpRequest  (const char* const a_method, const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string* a_body) const;
+               void DumpResponse (const char* const a_method, const std::string& a_url, const ::ev::curl::Value& a_value) const;
+            );
+
         }; // end of class 'OAuth2HTTP'
+    
+        /**
+         * Set non-standard request interceptor.
+         *
+         * @param a_interceptor See \link NonStandardRequestInterceptor \link.
+         */
+        inline void OAuth2HTTPClient::SetNonStandardRequestInterceptor (const NonStandardRequestInterceptor* a_interceptor)
+        {
+            nsi_ptr_ = a_interceptor;
+        }
     
     }  // end of namespace 'easy'
 

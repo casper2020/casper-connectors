@@ -36,10 +36,6 @@ namespace cc
         template <class Exception> class JSON : public ::cc::NonCopyable, public ::cc::NonMovable
         {
             
-        private: // Helper(s)
-            
-            Json::FastWriter fw_;
-            
         public: // Constructor(s) / Destructor
             
             JSON ();
@@ -57,6 +53,9 @@ namespace cc
                                      const char* const a_error_prefix_msg = "Invalid or missing ") const;
 
             void               Merge (Json::Value& a_lhs, const Json::Value& a_rhs) const;
+            
+            void               Patch (Json::Value& a_object, const std::map<std::string, std::string>& a_patchables) const;
+            void               Patch (const std::string& a_name, Json::Value& a_object, const std::map<std::string, std::string>& a_patchables) const;
                         
             void               Parse (const std::string& a_value, Json::Value& o_value) const;
             std::string        Write (const Json::Value& a_value);
@@ -235,7 +234,12 @@ namespace cc
         template <class E>
         std::string cc::easy::JSON<E>::Write (const Json::Value& a_value)
         {
-            return fw_.write(a_value);
+            try {
+                Json::FastWriter fw; fw.omitEndingLineFeed();
+                return fw.write(a_value);
+            } catch (const Json::Exception& a_json_exception ) {
+                throw E("%s", a_json_exception.what());
+            }
         }
 
         /**
@@ -247,15 +251,73 @@ namespace cc
         template <class E>
         void cc::easy::JSON<E>::Merge (Json::Value& a_lhs, const Json::Value& a_rhs) const
         {
-            if ( false == a_lhs.isObject() || false == a_rhs.isObject() ) {
-                return;
-            }
-            for ( const auto& k : a_rhs.getMemberNames() ) {
-                if ( true == a_lhs[k].isObject() && true == a_rhs[k].isObject() ) {
-                    Merge(a_lhs[k], a_rhs[k]);
-                } else {
-                    a_lhs[k] = a_rhs[k];
+            try {
+                if ( false == a_lhs.isObject() || false == a_rhs.isObject() ) {
+                    return;
                 }
+                for ( const auto& k : a_rhs.getMemberNames() ) {
+                    if ( true == a_lhs[k].isObject() && true == a_rhs[k].isObject() ) {
+                        Merge(a_lhs[k], a_rhs[k]);
+                    } else {
+                        a_lhs[k] = a_rhs[k];
+                    }
+                }
+            } catch (const Json::Exception& a_json_exception ) {
+                throw E("%s", a_json_exception.what());
+            }
+        }
+    
+        /**
+         * @brief Recursively patch a JSON object with provided map..
+         *
+         * @param a_object     Object object patch.
+         * @param a_patchables Map of string to patch.
+         */
+        template <class E>
+        void cc::easy::JSON<E>::Patch (Json::Value& a_object, const std::map<std::string, std::string>& a_patchables) const
+        {
+            Patch("", a_object, a_patchables);
+        }
+    
+        /**
+         * @brief Recursively patch a JSON object with provided map..
+         *
+         * @param a_name       Object name to patch, "" if it's root.
+         * @param a_object     Object object patch.
+         * @param a_patchables Map of string to patch.
+         */
+        template <class E>
+        void cc::easy::JSON<E>::Patch (const std::string& a_name, Json::Value& a_object, const std::map<std::string, std::string>& a_patchables) const
+        {
+            try {
+                switch ( a_object.type() ) {
+                    case Json::ValueType::objectValue:   // object value (collection of name/value pairs)
+                        for( auto member : a_object.getMemberNames()) {
+                            Patch(member, a_object[member], a_patchables);
+                        }
+                        break;
+                    case Json::ValueType::arrayValue:    // array value (ordered list)
+                        for ( auto ait = a_object.begin(); ait != a_object.end(); ++ait ) {
+                            Patch("", *ait, a_patchables);
+                        }
+                        break;
+                    case Json::ValueType::stringValue:  // UTF-8 string value
+                    case Json::ValueType::nullValue:    // 'null' value
+                    case Json::ValueType::intValue:     // signed integer value
+                    case Json::ValueType::uintValue:    // unsigned integer value
+                    case Json::ValueType::realValue:    // double value
+                    case Json::ValueType::booleanValue: // bool value
+                    default:
+                    {
+                        const auto it = a_patchables.find(a_name);
+                        if ( a_patchables.end() != it ) {
+                            a_object = it->second;
+                        }
+                        break;
+                    }
+                }                
+            } catch (const Json::Exception& a_json_exception ) {
+                throw E("%s", a_json_exception.what());
             }
         }
     

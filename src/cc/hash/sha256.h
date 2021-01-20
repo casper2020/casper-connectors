@@ -37,6 +37,11 @@ namespace cc
         class SHA256 final // : public NonCopyable, NonMovable
         {
             
+        public : // Static Const Data
+            
+            static const unsigned char sk_signature_prefix_[];
+            static const size_t        sk_signature_prefix_size_;
+            
         public: // Enum(s)
             
             enum OutputFormat {
@@ -60,9 +65,10 @@ namespace cc
             
         public: // Method(s) / Function(s)
             
-            void        Initialize ();
-            void        Update     (const unsigned char* const a_data, size_t a_length);
-            std::string Finalize   (const OutputFormat a_format = OutputFormat::HEX);
+            void                       Initialize   ();
+            void                       Update       (const unsigned char* const a_data, size_t a_length);
+            const unsigned char* const Final        ();
+            std::string                FinalEncoded (const OutputFormat a_format = OutputFormat::HEX);
             
         }; // end of class 'SHA256'
         
