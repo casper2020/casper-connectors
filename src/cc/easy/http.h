@@ -117,12 +117,16 @@ namespace cc
                 /**
                  * @brief Called to give a change to non-standard OAuth2 requests ( used when server does no follow RFC or needs additional headers / data )
                  *        to read non-standard data.
+                 *
                  * @param a_headers       HTTP standard headers.
                  * @param a_body          Response body.
+                 * @param o_scope         Tokens scope.
                  * @param o_access_token  Value of the access token.
                  * @param o_refresh_token Value of the refresh token.
+                 * @param o_expires_in    Expiration in seconds.
                  */
-                virtual void OnOAuth2RequestReturned (const CC_HTTP_HEADERS& /* o_headers */, const std::string& /* a_body */, std::string& /* o_access_token */, std::string& /* o_refresh_token */) const {}
+                virtual void OnOAuth2RequestReturned (const CC_HTTP_HEADERS& /* o_headers */, const std::string& /* a_body */,
+                                                      std::string& /* o_scope */, std::string& /* o_access_token */, std::string& /* o_refresh_token */, size_t& /* o_expires_in */) const {}
 
                 /**
                  * @brief Called to give a change to non-standard OAuth2 requests ( used when server does no follow RFC or needs additional headers )

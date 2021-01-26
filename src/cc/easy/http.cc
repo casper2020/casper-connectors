@@ -253,15 +253,22 @@ void cc::easy::OAuth2HTTPClient::POST (const std::string& a_url, const CC_HTTP_H
                 
                 // ... keep track of new tokens ...
                 if ( nullptr != nsi_ptr_ ) {
-                    nsi_ptr_->OnOAuth2RequestReturned(value.headers(), value.body(), tokens_.access_, tokens_.refresh_);
+                    nsi_ptr_->OnOAuth2RequestReturned(value.headers(), value.body(), tokens_.scope_, tokens_.access_, tokens_.refresh_, tokens_.expires_in_);
                 } else {
                     // ... expecting JSON response ...
                     cc::easy::JSON<::ev::Exception> json;
                     Json::Value                     response;
                     json.Parse(value.body(), response);
                     // ... keep track of new tokens ...
-                    tokens_.access_  = json.Get(response, "access_token" , Json::ValueType::stringValue, /* a_default */ nullptr).asString();
-                    tokens_.refresh_ = json.Get(response, "refresh_token", Json::ValueType::stringValue, /* a_default */ nullptr).asString();
+                    tokens_.scope_      = json.Get(response, "scope"        , Json::ValueType::stringValue, /* a_default */ nullptr).asString();
+                    tokens_.access_     = json.Get(response, "access_token" , Json::ValueType::stringValue, /* a_default */ nullptr).asString();
+                    tokens_.refresh_    = json.Get(response, "refresh_token", Json::ValueType::stringValue, /* a_default */ nullptr).asString();
+                    // ... optinal value, no default value ...
+                    if ( true == response.isMember("expires_in") && response.isNumeric() ) {
+                        tokens_.expires_in_ = response["expires_in"].asInt64();
+                    } else {
+                        tokens_.expires_in_ = 0;
+                    }
                 }
                 // ... notify tokens changed ...
                 if ( nullptr != tokens_.on_change_ ) {
