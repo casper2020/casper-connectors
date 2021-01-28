@@ -262,6 +262,33 @@ uint16_t cc::easy::job::Job::SetOk (const easy::job::I18N* a_i18n, Json::Value& 
 }
 
 /**
+ * @brief Fill a 'error' payload ( != 200 - Ok ).
+ *
+ * @param a_code    HTTP status code.
+ * @param a_i18n    I18 message.
+ * @param a_error   Internal error.
+ * @param o_payload Payload object to create.
+ *
+ * @return HTTP status code.
+ */
+uint16_t cc::easy::job::Job::SetError (const uint16_t& a_code, const I18N* a_i18n, const easy::job::InternalError& a_error, Json::Value& o_payload)
+{
+    if ( nullptr != a_i18n ) {
+        (void)SetI18NMessage(a_code, *a_i18n, o_payload);
+    } else {
+        (void) SetI18NMessage(a_code, /* a_i18n */ { /* a_key*/ "i18n_error", /* a_args */ {} }, o_payload);
+    }
+    o_payload["meta"]["internal-error"] = Json::Value(Json::ValueType::objectValue);
+    if ( nullptr != a_error.code_ ) {
+        o_payload["meta"]["internal-error"]["code"] = a_error.code_;
+    } else {
+        o_payload["meta"]["internal-error"]["code"] = "400 - Bad Request";
+    }
+    o_payload["meta"]["internal-error"]["why"] = a_error.why_;
+    return a_code;
+}
+
+/**
  * @brief Fill a 'bad request' payload ( 400 - Bad Request ).
  *
  * @param a_i18n    I18 message.

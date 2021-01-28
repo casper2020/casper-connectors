@@ -58,7 +58,7 @@ namespace cc
             void               Patch (const std::string& a_name, Json::Value& a_object, const std::map<std::string, std::string>& a_patchables) const;
                         
             void               Parse (const std::string& a_value, Json::Value& o_value) const;
-            std::string        Write (const Json::Value& a_value);
+            std::string        Write (const Json::Value& a_value) const;
             
         public: // Inline Method(s) / Function(s)
             
@@ -232,7 +232,7 @@ namespace cc
          * @return JSON object as string.
          */
         template <class E>
-        std::string cc::easy::JSON<E>::Write (const Json::Value& a_value)
+        std::string cc::easy::JSON<E>::Write (const Json::Value& a_value) const
         {
             try {
                 Json::FastWriter fw; fw.omitEndingLineFeed();
