@@ -25,6 +25,7 @@
 #include "cc/macros.h"
 
 #include <chrono>
+#include <map>
 
 #include <openssl/pem.h>
 #include <openssl/x509v3.h>
@@ -97,7 +98,7 @@ bool cc::crt::X509Reader::IsCA () const
 /**
  * @brief Read an 'subject DN' value from currenly loaded X509.
  *
- * @param o_value
+ * @param o_value Read 'subject DN' value.
  */
 void cc::crt::X509Reader::GetSubjectDN (std::string& o_value) const
 {
@@ -109,9 +110,25 @@ void cc::crt::X509Reader::GetSubjectDN (std::string& o_value) const
 }
 
 /**
+ * @brief Read an 'subject DN' value from currenly loaded X509.
+ *
+ * @return Read 'subject DN' value.
+ */
+std::string cc::crt::X509Reader::GetSubjectDN () const
+{
+    std::string value;
+    char* subject = X509_NAME_oneline(name_ptr_, NULL, 0);
+    if ( nullptr != subject ) {
+        value = subject;
+        OPENSSL_free(subject);
+    }
+    return value;
+}
+
+/**
  * @brief Read an 'issuer DN' value from currenly loaded X509.
  *
- * @param o_value
+ * @param o_value Read 'issuer DN' value.
  */
 void cc::crt::X509Reader::GetIssuerDN (std::string& o_value) const
 {
@@ -123,6 +140,25 @@ void cc::crt::X509Reader::GetIssuerDN (std::string& o_value) const
             OPENSSL_free(issuer);
         }
     }
+}
+
+/**
+ * @brief Read an 'issuer DN' value from currenly loaded X509.
+ *
+ * @return Read 'issuer DN' value.
+ */
+std::string cc::crt::X509Reader::GetIssuerDN () const
+{
+    std::string value;
+    X509_NAME* name = X509_get_issuer_name(x509_);
+    if ( nullptr == name ) {
+        char* issuer = X509_NAME_oneline(name_ptr_, NULL, 0);
+        if ( nullptr != issuer ) {
+            value = issuer;
+            OPENSSL_free(issuer);
+        }
+    }
+    return value;
 }
 
 /**
@@ -211,6 +247,36 @@ void cc::crt::X509Reader::GetValidity (std::string& o_valid_from, std::string& o
     o_status = ( ( end < now ) ? "expired" : "valid" );
 }
 
+/**
+ * @brief Dump some info about loaded X509 certificate.
+ *
+ * param a_fp
+ */
+void cc::crt::X509Reader::Dump (FILE *a_fp)
+{
+    std::vector<std::string> tmp_values;
+
+    const std::map<int, const char*> map = {
+        { NID_serialNumber          , LN_serialNumber            },
+        { NID_commonName            , LN_commonName              },
+        { NID_organizationName      , LN_organizationName        },
+        { NID_organizationIdentifier, LN_organizationIdentifier  } , // ... OID.2.5.4.97 ...
+        { NID_organizationalUnitName, LN_organizationalUnitName  },
+        { NID_givenName             , LN_givenName               },
+        { NID_surname               , LN_surname                 },
+    };
+
+    fprintf(a_fp, "--- --- ---\n");
+    for ( auto entry : map ) {
+        GetEntry(entry.first, tmp_values);
+        fprintf(a_fp, "%s:\n", entry.second);
+        for ( auto it : tmp_values ) {
+            fprintf(a_fp, "\t: %s\n", it.c_str());
+        }
+        fflush(a_fp);
+        tmp_values.clear();
+    }
+}
 
 // MARK: PRIVATE
 
@@ -256,9 +322,9 @@ void cc::crt::X509Reader::ANS1_UTF8_STRING (const ASN1_STRING* a_value, std::str
  * @brief Fold a PEM in to 64 columns.
  *
  * @param a_pem Unfolded PEM data.
- * @param o_pem Folded PEM data.
+ * @return Folded PEM data.
  */
-void cc::crt::X509Reader::Fold (const char* const a_pem, std::string& o_pem)
+std::string cc::crt::X509Reader::Fold (const char* const a_pem)
 {
     std::stringstream ss("");
     const char* ptr = a_pem;
@@ -274,5 +340,5 @@ void cc::crt::X509Reader::Fold (const char* const a_pem, std::string& o_pem)
         ss << '\n';
     }
     ss << "-----END CERTIFICATE-----";
-    o_pem = ss.str().c_str();
+    return ss.str();
 }

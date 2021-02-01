@@ -57,16 +57,20 @@ namespace cc
             
             bool IsCA         () const;
             
-            void GetIssuerDN  (std::string& o_value) const;
-            void GetSubjectDN (std::string& o_value) const;
+            void        GetIssuerDN  (std::string& o_value) const;
+            std::string GetIssuerDN  () const;
+            void        GetSubjectDN (std::string& o_value) const;
+            std::string GetSubjectDN () const;
             
             size_t GetEntry    (const int a_nid, std::string& o_value) const;
             void   GetEntry    (const int a_nid, std::vector<std::string>& o_values) const;
             void   GetValidity (std::string& o_valid_from, std::string& o_valid_to, std::string& o_status) const;
             
+            void   Dump (FILE* a_fp);
+            
         public: // Static Method(s) / Function(s)
             
-            static void Fold (const char* const a_pem, std::string& o_pem);
+            static std::string Fold (const char* const a_pem);
             
         private: // Method(s) / Function(s)
             
