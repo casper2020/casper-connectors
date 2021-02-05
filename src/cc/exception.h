@@ -140,6 +140,8 @@ namespace cc
                     throw ::cc::Exception(msg_prefix + "logic error" + msg_suffix + ": " + a_rte.what());
                 }  catch (const std::runtime_error& a_rte) {
                     throw ::cc::Exception(msg_prefix + "runtime error" + msg_suffix + ": " + a_rte.what());
+                } catch (const std::bad_function_call& a_bfc) {
+                    throw ::cc::Exception(msg_prefix + "bad function call" + msg_suffix + ": " + a_bfc.what());
                 } catch (const std::exception& a_se) {
                     throw ::cc::Exception(msg_prefix + "exception" + msg_suffix + ": " + a_se.what());
                 } catch (...) {
