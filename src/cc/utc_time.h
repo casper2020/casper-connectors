@@ -19,8 +19,8 @@
  * along with nginx-broker.  If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
-#ifndef NRS_CC_TIME_H_
-#define NRS_CC_TIME_H_
+#ifndef NRS_CC_UTC_TIME_H_
+#define NRS_CC_UTC_TIME_H_
 
 #include <sys/types.h> // int64_t
 #include <stdint.h>    // uint8_t, etc
@@ -56,4 +56,4 @@ namespace cc
     
 } // end of namespace 'c''
 
-#endif // NRS_CC_TIME_H_
+#endif // NRS_CC_UTC_TIME_H_
