@@ -353,7 +353,7 @@ namespace cc
          */
         inline bool Logger::EnsureOwnership (const std::string& a_uri)
         {
-            if ( UINT32_MAX == user_id_ || UINT32_MAX == group_id_ ) {
+            if ( ( UINT32_MAX == user_id_ || UINT32_MAX == group_id_ ) || ( 0 == user_id_ || 0 == group_id_ ) ) {
                 return true;
             }
             const int chown_status = chown(a_uri.c_str(), user_id_, group_id_);
@@ -410,7 +410,7 @@ namespace cc
          */
         inline bool Logger::EnsureOwnership ()
         {
-            if ( UINT32_MAX == user_id_ || UINT32_MAX == group_id_ ) {
+            if ( ( UINT32_MAX == user_id_ || UINT32_MAX == group_id_ ) || ( 0 == user_id_ || 0 == group_id_ ) ) {
                 return true;
             }
             size_t count = 0;
