@@ -26,6 +26,7 @@
 
 #include <chrono>
 #include <map>
+#include <string.h> // strlen
 
 #include <openssl/pem.h>
 #include <openssl/x509v3.h>

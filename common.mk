@@ -48,6 +48,9 @@ CONNECTORS_CC_CRYPTO_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/crypto/hmac.cc \
   $(PROJECT_SRC_DIR)/src/cc/crypto/rsa.cc
 
+CONNECTORS_CC_CRT_SRC := \
+  $(PROJECT_SRC_DIR)/src/cc/crt/x509_reader.cc
+
 CONNECTORS_CC_EASY_SRC:= \
   $(PROJECT_SRC_DIR)/src/cc/easy/beanstalk.cc   \
   $(PROJECT_SRC_DIR)/src/cc/easy/redis.cc       \
@@ -194,6 +197,7 @@ set-dependencies: $(CONNECTORS_DEPENDENCIES)
     $(CONNECTORS_EV_SRC)        \
     $(CONNECTORS_CC_SRC)        \
     $(CONNECTORS_CC_CRYPTO_SRC) \
+    $(CONNECTORS_CC_CRT_SRC)    \
     $(CONNECTORS_CC_HASH_SRC)   \
     $(CONNECTORS_CC_AUTH_SRC)   \
     $(CONNECTORS_CC_SYS_SRC)
