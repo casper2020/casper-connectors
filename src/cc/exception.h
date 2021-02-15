@@ -28,6 +28,7 @@
 #include <stdexcept>  // std::runtime_error
 #include <vector>     // std::vector
 #include <sstream>    // std::stringstream
+#include <functional> // std::bad_function_call
 
 #if defined(__APPLE__) || defined(__clang__)
     #define STD_CPP_GENERIC_EXCEPTION_TRACE() \
