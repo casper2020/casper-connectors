@@ -358,12 +358,12 @@ namespace cc
             }
             const int chown_status = chown(a_uri.c_str(), user_id_, group_id_);
             if ( 0 != chown_status ) {
-                fprintf(stderr, "WARNING: failed to change ownership of %s to %u:%u ~ %d - %s", a_uri.c_str(), user_id_, group_id_, errno, strerror(errno));
+                fprintf(stderr, "WARNING: failed to change ownership of %s to %u:%u ~ %d - %s\n", a_uri.c_str(), user_id_, group_id_, errno, strerror(errno));
                 fflush(stderr);
             }
             const int chmod_status = chmod(a_uri.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
             if ( 0 != chmod_status ) {
-                fprintf(stderr, "WARNING: failed to change permissions of %s to %o ~ %d - %s ", a_uri.c_str(), ( S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH ), errno, strerror(errno));
+                fprintf(stderr, "WARNING: failed to change permissions of %s to %o ~ %d - %s\n", a_uri.c_str(), ( S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH ), errno, strerror(errno));
                 fflush(stderr);
             }
             return ( 0 == chown_status && 0 == chmod_status );
