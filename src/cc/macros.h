@@ -22,7 +22,7 @@
 #ifndef NRS_CC_MACROS_H_
 #define NRS_CC_MACROS_H_
 
-#if !defined(NDEBUG) || defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG)
+#if defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG)
     #define CC_DEBUG_ON 1
 #else
     #undef CC_DEBUG_ON
