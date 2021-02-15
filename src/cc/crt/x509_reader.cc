@@ -293,8 +293,7 @@ void cc::crt::X509Reader::ANS1_UTF8_STRING (const ASN1_STRING* a_value, std::str
     try {
         int utf8_length = ASN1_STRING_to_UTF8(&utf8_value, a_value);
         if ( utf8_length < 0 ) {
-            CC_WARNING_TODO("cc::crt::X509Reader - error handling");
-            throw ::cc::Exception("%s", "TODO");
+            throw ::cc::Exception("%s", "Invalid UTF-8 string length!");
         } else {
             // ... cleanup string - *trailing* NUL byte ...
             while ( utf8_length > 0 && utf8_value[utf8_length - 1] == '\0' ) {
@@ -302,8 +301,7 @@ void cc::crt::X509Reader::ANS1_UTF8_STRING (const ASN1_STRING* a_value, std::str
             }
             // ... cleanup string - *embedded* NULs ...
             if ( strlen(reinterpret_cast<const char* const>(utf8_value)) != static_cast<size_t>(utf8_length) ) {
-                CC_WARNING_TODO("cc::crt::X509Reader - error handling");
-                throw ::cc::Exception("%s", "TODO");
+                throw ::cc::Exception("%s", "Invalid UTF-8 string length!");
             }
             o_value = std::string(reinterpret_cast<const char* const>(utf8_value));
         }
