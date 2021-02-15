@@ -742,6 +742,14 @@ void cc::global::Initializer::EnableLogsIfRequired (const cc::global::Logs& a_lo
         return;
     }
     
+    if ( true == process_->standalone_ ) {
+        const uid_t uid = getuid();
+        const gid_t gid = getgid();
+        ::osal::debug::Trace::GetInstance().EnsureOwnership(uid, gid);
+        ::ev::Logger::GetInstance().EnsureOwnership(uid, gid);
+        ::ev::LoggerV2::GetInstance().EnsureOwnership(uid, gid);
+    }
+    
     size_t enabled_count = 0;
 
     for ( auto& entry : a_logs ) {

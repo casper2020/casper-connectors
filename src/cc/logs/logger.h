@@ -224,7 +224,8 @@ namespace cc
 
         protected: // Method(s) / Function(s)
             
-            bool EnsureOwnership ();
+            bool EnsureOwnership      ();
+            bool EnsureOwnership      (const std::string& a_uri);
             bool EnsureBufferCapacity (const size_t& a_capacity);
 
         }; // end of class 'Logger'
@@ -280,6 +281,8 @@ namespace cc
             }
             // ... keep track of it ...
             tokens_[a_token] = new Token(a_token, a_file, fp);
+            // ... ensure ownership ...
+            EnsureOwnership(a_file);
         }
         
         /**
@@ -339,6 +342,32 @@ namespace cc
             group_id_ = a_group_id;
             return EnsureOwnership();
         }
+        
+        /**
+         * @brief Change the logs permissions to a specific user / group for a specific file.
+         *
+         * @param a_user_id
+         * @param a_group_id
+         *
+         * @return True if changed to new permissions or it not needed, false otherwise.
+         */
+        inline bool Logger::EnsureOwnership (const std::string& a_uri)
+        {
+            if ( UINT32_MAX == user_id_ || UINT32_MAX == group_id_ ) {
+                return true;
+            }
+            const int chown_status = chown(a_uri.c_str(), user_id_, group_id_);
+            if ( 0 != chown_status ) {
+                fprintf(stderr, "WARNING: failed to change ownership of %s to %u:%u ~ %d - %s", a_uri.c_str(), user_id_, group_id_, errno, strerror(errno));
+                fflush(stderr);
+            }
+            const int chmod_status = chmod(a_uri.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+            if ( 0 != chmod_status ) {
+                fprintf(stderr, "WARNING: failed to change permissions of %s to %o ~ %d - %s ", a_uri.c_str(), ( S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH ), errno, strerror(errno));
+                fflush(stderr);
+            }
+            return ( 0 == chown_status && 0 == chmod_status );
+        }
     
         /**
          * @brief Re-open log files ( if any ).
@@ -365,11 +394,13 @@ namespace cc
                         "An error occurred while creating rotating log file '" + it.second->uri_ + "': " + std::string(nullptr != err_str ? err_str : "nullptr") + " !"
                     );
                 }
-                // ... write a comment line ...
+            }
+            // ... write a comment line ...
+            for ( auto it : tokens_ ) {
+                (void)EnsureOwnership(it.second->uri_);
                 fprintf(it.second->fp_, "---- %s '%s' ----\n", cc::UTCTime::NowISO8601WithTZ().c_str(), it.second->uri_.c_str());
                 fflush(it.second->fp_);
             }
-            EnsureOwnership();
         }
     
         /**
