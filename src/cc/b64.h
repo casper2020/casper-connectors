@@ -22,8 +22,13 @@
 #ifndef NRS_CC_B64_H_
 #define NRS_CC_B64_H_
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
 #include "cppcodec/base64_url_unpadded.hpp"
 #include "cppcodec/base64_rfc4648.hpp"
+
+#pragma GCC diagnostic pop
 
 namespace cc
 {

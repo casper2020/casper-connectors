@@ -33,7 +33,10 @@
   #include <libproc.h>
 #endif
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include "lemon/topology_sort.h"
+#pragma GCC diagnostic pop
 
 #include "cc/exception.h"
 
