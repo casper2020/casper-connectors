@@ -209,7 +209,7 @@ void cc::easy::OAuth2HTTPClient::POST (const std::string& a_url, const CC_HTTP_H
         // ... perform request ...
         return new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, a_url, &headers, &a_body);
         
-    })->Then([this CC_IF_DEBUG_CONSTRUCT_APPEND_PARAM_VALUE(a_url)] (::ev::Object* a_object) -> ::ev::Object* {
+    })->Then([this, a_url] (::ev::Object* a_object) -> ::ev::Object* {
         
         const ::ev::curl::Reply* reply = EnsureReply(a_object);
         const ::ev::curl::Value& value = reply->value();
@@ -219,6 +219,14 @@ void cc::easy::OAuth2HTTPClient::POST (const std::string& a_url, const CC_HTTP_H
         if ( true == unauthorized ) {
             // ... dump response ...
             CC_IF_DEBUG(DumpResponse("POST", a_url, value));
+            // ... notify interceptor?
+            if ( nullptr != nsi_ptr_ ) {
+                // ... abort refresh?
+                if ( false == nsi_ptr_->OnUnauthorizedShouldRefresh(a_url, value.headers()) ) {
+                    // ... yes ...
+                    return dynamic_cast<::ev::Result*>(a_object)->DetachDataObject();
+                }
+            }
             // ... yes, refresh tokens now ...
             CC_HTTP_HEADERS headers = {
                 { "Authorization", { "Basic " + ::cc::base64_url_unpadded::encode((config_.oauth2_.credentials_.client_id_ + ':' + config_.oauth2_.credentials_.client_secret_)) } },

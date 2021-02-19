@@ -107,6 +107,15 @@ namespace cc
             public: // Virtual Method(s) / Function(s)
                 
                 /**
+                 * @brief Called to give a change to non-standard OAuth2 requests to deny refresh operation for a specfic request.
+                 * @param a_url     URL.
+                 * @param a_headers OAuth2 HTTP standard headers.
+                 *
+                 * @return True if refresh should continue, false it should be aborted.
+                 */
+                virtual bool OnUnauthorizedShouldRefresh (const std::string& /* a_url */, const CC_HTTP_HEADERS& /* a_headers */) const { return true; }
+                
+                /**
                  * @brief Called to give a change to non-standard OAuth2 requests ( used when server does no follow RFC or needs additional headers / data )
                  *        to set or modify non-standard data.
                  * @param a_headers OAuth2 HTTP standard headers.
