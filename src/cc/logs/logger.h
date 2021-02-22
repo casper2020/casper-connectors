@@ -162,12 +162,12 @@ namespace cc
                 /**
                  * @brief Default constructor.
                  *
-                 * @param a_name The token name.
-                 * @param a_fn
-                 * @param a_fp
+                 * @param a_name Token name.
+                 * @param a_uri  File URI.
+                 * @param a_fp   FILE pointer.
                  */
-                Token (const std::string& a_name, const std::string& a_fn, FILE* a_fp)
-                    : name_(a_name), uri_(a_fn), fp_(a_fp)
+                Token (const std::string& a_name, const std::string& a_uri, FILE* a_fp)
+                    : name_(a_name), uri_(a_uri), fp_(a_fp)
                 {
                     /* empty */
                 }
@@ -214,7 +214,7 @@ namespace cc
             
         public: // Method(s) / Function(s)
 
-            void Register     (const std::string& a_token, const std::string& a_file);
+            void Register     (const std::string& a_token, const std::string& a_uri);
             bool IsRegistered (const std::string& a_token);
             
             void Unregister   (const std::string& a_token);
@@ -232,8 +232,6 @@ namespace cc
         
         /**
          * @brief Initialize logger instance.
-         *
-         * @param a_name
          */
         inline void Logger::Startup  ()
         {
@@ -261,10 +259,10 @@ namespace cc
         /**
          * @brief Register a token.
          *
-         * @param a_token
-         * @param a_file
+         * @param a_token Token name.
+         * @param a_uri  File URI.
          */
-        inline void Logger::Register (const std::string& a_token, const std::string& a_file)
+        inline void Logger::Register (const std::string& a_token, const std::string& a_uri)
         {
             std::lock_guard<std::mutex> lock(mutex_);
             // ... already registered? ...
@@ -272,23 +270,23 @@ namespace cc
                 return;
             }
             // ... try to open log file ...
-            FILE* fp = fopen(a_file.c_str(), "a");
+            FILE* fp = fopen(a_uri.c_str(), "a");
             if ( nullptr == fp ) {
                 const char* const err_str = strerror(errno);
                 throw RegistrationException(
-                    "An error occurred while creating preparing log file '" + a_file + "': " + std::string(nullptr != err_str ? err_str : "nullptr") + " !"
+                    "An error occurred while creating preparing log file '" + a_uri + "': " + std::string(nullptr != err_str ? err_str : "nullptr") + " !"
                 );
             }
             // ... keep track of it ...
-            tokens_[a_token] = new Token(a_token, a_file, fp);
+            tokens_[a_token] = new Token(a_token, a_uri, fp);
             // ... ensure ownership ...
-            EnsureOwnership(a_file);
+            EnsureOwnership(a_uri);
         }
         
         /**
          * @brief Check if a token is registered.
          *
-         * @param a_token
+         * @param a_token Token name.
          *
          * @return True if so, false otherwise.
          */
@@ -302,7 +300,7 @@ namespace cc
         /**
          * @brief Call this method to unregister a token.
          *
-         * @param a_token
+         * @param a_token Token name.
          */
         inline void Logger::Unregister (const std::string& a_token)
         {
@@ -330,8 +328,8 @@ namespace cc
         /**
          * @brief Change the logs permissions to a specific user / group.
          *
-         * @param a_user_id
-         * @param a_group_id
+         * @param a_user_id  Log file owner ID.
+         * @param a_group_id Log file owner group ID.
          *
          * @return True if all files changed to new permissions or it not needed, false otherwise.
          */
@@ -346,8 +344,7 @@ namespace cc
         /**
          * @brief Change the logs permissions to a specific user / group for a specific file.
          *
-         * @param a_user_id
-         * @param a_group_id
+         * @param a_uri File URI,
          *
          * @return True if changed to new permissions or it not needed, false otherwise.
          */
@@ -461,6 +458,11 @@ namespace cc
             
         public: // Constructor(s) / Destructor
             
+            /**
+             * @brief Default constructor.
+             *
+             * @param a_instance Instance to initialize.
+             */
             OneShotInitializer (Logger& a_instance)
                 : ::cc::Initializer<Logger>(a_instance)
             {
@@ -469,6 +471,10 @@ namespace cc
                 instance_.buffer_          = nullptr;
                 instance_.buffer_capacity_ = 0;
             }
+            
+            /**
+             * @brief Destructor.
+             */
             virtual ~OneShotInitializer ()
             {
                 if ( nullptr != instance_.buffer_ ) {
