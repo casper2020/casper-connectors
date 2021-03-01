@@ -165,6 +165,15 @@ int cc::OptArg::Parse (const int& a_argc, const char** const a_argv,
             case cc::OptArg::Opt::Type::UInt64:
                 dynamic_cast<cc::OptArg::UInt64*>(opts_[rw])->Set(std::stoull(optarg));
                 break;
+            case cc::OptArg::Opt::Type::Boolean:
+                if ( 0 == strcasecmp(static_cast<const char*>(optarg), "true") || 0 == strcasecmp(static_cast<const char*>(optarg), "t") ) {
+                    dynamic_cast<cc::OptArg::Boolean*>(opts_[rw])->Set(true);
+                } else if ( 0 == strcasecmp(static_cast<const char*>(optarg), "false") || 0 == strcasecmp(static_cast<const char*>(optarg), "f") ) {
+                    dynamic_cast<cc::OptArg::Boolean*>(opts_[rw])->Set(false);
+                } else {
+                    throw cc::Exception("Invalid value '%s' for option '%c'!", static_cast<const char*>(optarg), opts_[rw]->short_);
+                }
+                break;
             default:
                 throw cc::Exception("Unimplemented type " UINT8_FMT "!", static_cast<uint8_t>(opts_[rw]->type_));
         }
