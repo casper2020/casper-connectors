@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <stdint.h> // uint16_t
 #include <vector>
+#include <set>
 #include <string>
 
 #include <string.h>   // strlen
@@ -68,11 +69,16 @@ namespace ev
             int64_t                    last_modified     () const;
             std::string                header            (const char* const a_name) const;
             std::string                header_value      (const char* const a_name) const;
+            size_t                     header_values     (const char* const a_name, std::set<std::string>& o_values) const;
             void                       headers_as_map    (std::map<std::string, std::string>& o_map) const;
 
         public:
             
             inline Value& operator=(const Value&) = delete;
+            
+        public: // Static Method(s) / Function(s)
+            
+            bool content_disposition (std::string* o_disposition, std::string* o_field_name, std::string* o_file_name) const;
             
         };
 
@@ -109,7 +115,9 @@ namespace ev
         }
 
         /**
-         * @return The last modified timestamp.
+         * @brief Set the last modified timestamp.
+         *
+         * @param a_timestamp Timestamp value.
          */
         inline void Value::set_last_modified (int64_t a_timestamp)
         {
@@ -158,6 +166,25 @@ namespace ev
             }
         }
     
+        /**
+         * @brief Fetch header values.
+         *
+         * @param a_name   Header name.
+         * @param o_values Set of values for provided header name.
+         *
+         * @return Number of possible values for this header.
+         */
+        inline size_t Value::header_values (const char* const a_name, std::set<std::string>& o_values) const
+        {
+            o_values.clear();
+            const auto p = headers_.find(a_name);
+            if ( headers_.end() != p ) {
+                for ( auto it : p->second ) {
+                    o_values.insert(it);
+                }
+            }
+            return o_values.size();
+        }
         /**
          * @brief Rebuild headers map.
          *
