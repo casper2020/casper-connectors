@@ -148,6 +148,10 @@ namespace ev
 
             static size_t WriteDataCallbackWrapper      (char* a_buffer, size_t a_size, size_t a_nm_elem, void* a_self);
             static size_t ReadDataCallbackWrapper       (char* o_buffer, size_t a_size, size_t a_nm_elem, void* a_self);
+            
+        public: // Static Method(s) / Function(s)
+            
+            static std::string Escape (const std::string& a_value);
 
         }; // end of class 'Request'
 

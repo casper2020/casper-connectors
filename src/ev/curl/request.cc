@@ -482,3 +482,31 @@ size_t ev::curl::Request::ReadDataCallbackWrapper (char* o_buffer, size_t a_size
 {
     return static_cast<ev::curl::Request*>(a_self)->OnSendBody(o_buffer, a_size, a_nm_elem);
 }
+
+// MARK: -
+
+/**
+ * @brief Helper to escape an URL parameter value.
+ *
+ * @param a_value URL parameter value.
+ *
+ * @return URL encoded parameter value.
+ */
+std::string ev::curl::Request::Escape (const std::string &a_value)
+{
+    std::string rv;
+    CURL *curl = curl_easy_init();
+    if ( nullptr == curl ) {
+        throw ::ev::Exception("Unexpected cURL handle: nullptr!");
+    }
+
+    char *output = curl_easy_escape(curl, a_value.c_str(), static_cast<int>(a_value.length()));
+    if ( nullptr == output ) {
+        curl_easy_cleanup(curl);
+        throw ::ev::Exception("Unexpected cURL easy escape: nullptr!");
+    }
+    rv = output;
+    curl_free(output);
+    curl_easy_cleanup(curl);
+    return rv;
+}
