@@ -76,18 +76,14 @@ void cc::easy::job::Handler::InnerStartup  (const ::cc::global::Process& a_proce
     const std::string logs_dir = o_config.directories_.log_;
     const int         cluster = a_startup_config.cluster_;
     
-    o_factory = [this, a_job_config, pid, instance, logs_dir, cluster, pname] (const std::string& a_tube) -> ev::loop::beanstalkd::Job* {
+    // ... enable logs for all tubes ...
+    for ( auto tube: o_config.beanstalk_.tubes_ ) {
+        CC_JOB_LOG_ENABLE(tube, logs_dir + LogToken(tube, cluster, instance) + ".log");
+    }
+    // .. set factory ...
+    o_factory = [this, a_job_config, pid, instance, cluster, pname] (const std::string& a_tube) -> ev::loop::beanstalkd::Job* {
         const auto it = factories_->find(a_tube);
         if ( factories_->end() != it ) {
-            
-            std::string log_token;
-            if ( 0 != cluster ) {
-                log_token = a_tube + '.' + std::to_string(cluster) + '.' + std::to_string(instance);
-            } else {
-                log_token = a_tube + '.' + std::to_string(instance);
-            }
-            
-            CC_JOB_LOG_ENABLE(a_tube, logs_dir + log_token + ".log");
             
             Json::Value tube_cfg = Json::Value::null;
             
@@ -120,7 +116,7 @@ void cc::easy::job::Handler::InnerStartup  (const ::cc::global::Process& a_proce
                 /* transient_         */ config.get("transient"    ,                false).asBool(),
                 /* min_progress_      */ config.get("min_progress",                     3).asInt(),
                 /* log_level_         */ config.get("log_level"    , CC_JOB_LOG_LEVEL_INF).asInt(),
-                /* log_token_         */ log_token,
+                /* log_token_         */ LogToken(a_tube, cluster, instance),
                 /* other_             */ config
             });
 

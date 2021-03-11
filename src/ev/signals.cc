@@ -130,7 +130,10 @@ void ev::Signals::Startup (const std::set<int>& a_signals,
 
     memset(&act, 0, sizeof(act));
 
+    sigemptyset(&act.sa_mask);
     act.sa_handler = ev_sa_handler;
+    act.sa_flags   = SA_NODEFER;
+
     for ( auto signal : a_signals ) {
         sigaction(signal, &act, 0);
         signals_.insert(signal);

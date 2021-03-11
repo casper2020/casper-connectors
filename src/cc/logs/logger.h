@@ -26,6 +26,8 @@
 #include <sys/types.h>
 #include <sys/stat.h> // chmod
 #include <unistd.h>   // getpid, chown
+#include <pwd.h>      // getpwuid
+#include <grp.h>      // getgrgid
 #include <mutex>      // std::mutext, std::lock_guard
 #include <string.h>   // stderror
 #include <map>        // std::map
@@ -195,9 +197,12 @@ namespace cc
 
         protected: // Data
 
-            uid_t user_id_;
-            gid_t group_id_;
-            
+            uid_t       user_id_;
+            std::string user_name_;
+            gid_t       group_id_;
+            std::string group_name_;
+            mode_t      mode_;
+
         protected: // Data
             
             char*  buffer_;
@@ -336,15 +341,29 @@ namespace cc
         inline bool Logger::EnsureOwnership (uid_t a_user_id, gid_t a_group_id)
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            user_id_  = a_user_id;
-            group_id_ = a_group_id;
+            user_id_    = a_user_id;
+            user_name_  = "";
+            group_id_   = a_group_id;
+            group_name_ = "";
+            if ( not ( UINT32_MAX == user_id_ || 0 == user_id_) ) {
+                struct passwd* pw = getpwuid(user_id_);
+                if ( nullptr != pw ) {
+                    user_name_ = pw->pw_name;
+                }
+            }
+            if ( not ( UINT32_MAX == user_id_ || 0 == user_id_) ) {
+                struct group* gr = getgrgid(group_id_);
+                if ( nullptr != gr ) {
+                    group_name_ = gr->gr_name;
+                }
+            }
             return EnsureOwnership();
         }
         
         /**
          * @brief Change the logs permissions to a specific user / group for a specific file.
          *
-         * @param a_uri File URI,
+         * @param a_uri File URI.
          *
          * @return True if changed to new permissions or it not needed, false otherwise.
          */
@@ -358,9 +377,9 @@ namespace cc
                 fprintf(stderr, "WARNING: failed to change ownership of %s to %u:%u ~ %d - %s\n", a_uri.c_str(), user_id_, group_id_, errno, strerror(errno));
                 fflush(stderr);
             }
-            const int chmod_status = chmod(a_uri.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+            const int chmod_status = chmod(a_uri.c_str(), mode_);
             if ( 0 != chmod_status ) {
-                fprintf(stderr, "WARNING: failed to change permissions of %s to %o ~ %d - %s\n", a_uri.c_str(), ( S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH ), errno, strerror(errno));
+                fprintf(stderr, "WARNING: failed to change permissions of %s to %o ~ %d - %s\n", a_uri.c_str(), mode_, errno, strerror(errno));
                 fflush(stderr);
             }
             return ( 0 == chown_status && 0 == chmod_status );
@@ -394,8 +413,24 @@ namespace cc
             }
             // ... write a comment line ...
             for ( auto it : tokens_ ) {
+                // ... skip if not a 'real' file ...
+                if ( stdout == it.second->fp_ || stderr == it.second->fp_ ) {
+                    continue;
+                }
+                // .. ensure write permissions ...
                 (void)EnsureOwnership(it.second->uri_);
-                fprintf(it.second->fp_, "---- %s '%s' ----\n", cc::UTCTime::NowISO8601WithTZ().c_str(), it.second->uri_.c_str());
+                // ... log recycle messages ...
+                fprintf(it.second->fp_, "--- --- ---\n");
+                fprintf(it.second->fp_, "⌥ LOG FILE   : %s\n", it.second->uri_.c_str());
+                fprintf(it.second->fp_, "⌥ OWNERSHIP  : %4O\n", mode_);
+                if ( not ( ( UINT32_MAX == user_id_ || UINT32_MAX == group_id_ ) || ( 0 == user_id_ || 0 == group_id_ ) ) ) {
+                    fprintf(it.second->fp_, "  - USER : " UINT32_FMT_LP(4) " - %s\n", user_id_, user_name_.c_str());
+                    fprintf(it.second->fp_, "  - GROUP: " UINT32_FMT_LP(4) " - %s\n", group_id_, group_name_.c_str());
+                }
+                fprintf(it.second->fp_, "⌥ PERMISSIONS:\n");
+                fprintf(it.second->fp_, "  - MODE : %-4o\n", mode_);
+                fprintf(it.second->fp_, "⌥ RECYCLED AT: %s\n", cc::UTCTime::NowISO8601WithTZ().c_str());
+                fprintf(it.second->fp_, "--- --- ---\n");
                 fflush(it.second->fp_);
             }
         }
@@ -412,9 +447,7 @@ namespace cc
             }
             size_t count = 0;
             for ( auto it : tokens_ ) {
-                const int chown_status = chown(it.second->uri_.c_str(), user_id_, group_id_);
-                const int chmod_status = chmod(it.second->uri_.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
-                if ( 0 == chown_status && 0 == chmod_status ) {
+                if ( true == EnsureOwnership(it.second->uri_.c_str()) ) {
                     count++;
                 }
             }
@@ -467,7 +500,10 @@ namespace cc
                 : ::cc::Initializer<Logger>(a_instance)
             {
                 instance_.user_id_         = UINT32_MAX;
+                instance_.user_name_       = "";
                 instance_.group_id_        = UINT32_MAX;
+                instance_.group_name_      = "";
+                instance_.mode_            = ( S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH );
                 instance_.buffer_          = nullptr;
                 instance_.buffer_capacity_ = 0;
             }

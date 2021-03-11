@@ -94,6 +94,17 @@ namespace cc
                 
                 void MergeJSONValue (Json::Value& a_lhs, const Json::Value& a_rhs);
                 
+            private: // Inline Method(s) / Function(s)
+                
+                inline std::string LogToken (const std::string& a_tube, const int& a_cluster, const uint64_t& a_instance) const
+                {
+                    if ( 0 != a_cluster ) {
+                        return a_tube + '.' + std::to_string(a_cluster) + '.' + std::to_string(a_instance);
+                    } else {
+                        return a_tube + '.' + std::to_string(a_instance);
+                    }
+                }
+                
             }; // end of class 'Handler'
 
         } // end of namespace 'job'

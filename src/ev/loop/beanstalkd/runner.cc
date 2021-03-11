@@ -230,7 +230,7 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::StartupC
     ::cc::global::Initializer::GetInstance().Startup(
         /* a_signals */
         {
-            /* register_ */ { SIGQUIT, SIGTERM, SIGTTIN },
+            /* register_ */ { SIGUSR1, SIGQUIT, SIGTERM, SIGTTIN },
             /* on_signal_ */
             [this](const int a_sig_no) { // unhandled signals callback
                 // ... is a 'shutdown' signal?
@@ -828,7 +828,7 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop (const float& a_polling_timeout)
     try {
         
         ::cc::threading::Worker::SetName(startup_config_->abbr_ + "::Runner");
-        ::cc::threading::Worker::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
+        ::cc::threading::Worker::BlockSignals({SIGUSR1, SIGTTIN, SIGTERM, SIGQUIT});
 
         // ... initialize v8 ...
         #ifdef CASPER_REQUIRE_GOOGLE_V8

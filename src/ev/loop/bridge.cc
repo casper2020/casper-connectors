@@ -353,7 +353,7 @@ void ev::loop::Bridge::Loop (const bool a_at_main_thread)
     
     ::cc::threading::Worker::SetName(name_ + "::ev::bridge");
     if ( false == a_at_main_thread ) {
-        ::cc::threading::Worker::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
+        ::cc::threading::Worker::BlockSignals({SIGUSR1, SIGTTIN, SIGTERM, SIGQUIT});
     }
 
 #if 0 // TODO
