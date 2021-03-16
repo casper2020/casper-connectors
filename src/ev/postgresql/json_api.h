@@ -58,6 +58,7 @@ namespace ev
                 std::string base_;   //!< Base URL.
                 std::string load_;   //!< Load URI.
                 std::string params_; //!< Load URI params.
+                bool        legacy_; //!<
                 
             protected:
                 
@@ -66,6 +67,11 @@ namespace ev
                 std::function<void()> invalidate_;
                 
             public: // Constructor(s) / Destructor
+                
+                URIs ()
+                {
+                    legacy_ = false;
+                }
                 
                 virtual ~URIs ()
                 {
@@ -97,15 +103,17 @@ namespace ev
                  * @brief Set load URI.
                  *
                  * @param a_uri
-                 * @param a_a
+                 * @param a_params
+                 * @param a_legacy
                  */
-                inline void SetLoad (const std::string& a_uri, const std::string& a_params)
+                inline void SetLoad (const std::string& a_uri, const std::string& a_params, const bool a_legacy)
                 {
                     if ( nullptr != invalidate_ ) {
                         invalidate_();
                     }
                     load_   = a_uri;
                     params_ = a_params;
+                    legacy_ = a_legacy;
                 }
                 
                 /**
@@ -122,6 +130,14 @@ namespace ev
                 inline const std::string& GetLoadParams () const
                 {
                     return params_;
+                }
+                
+                /**
+                 * @return True if in legacy mode, false otherwise.
+                 */
+                inline const bool& Legacy () const
+                {
+                    return legacy_;
                 }
                 
             };
