@@ -73,6 +73,9 @@
     #define CC_DEBUG_LOG_MSG(a_token, a_format, ...) \
         ::cc::debug::Logger::GetInstance().Log(a_token, "[%s] " a_format "\n", a_token, __VA_ARGS__);
 
+    #define CC_DEBUG_LOG_PRINT(a_token, a_format, ...) \
+        ::cc::debug::Logger::GetInstance().Log(a_token, a_format, __VA_ARGS__);
+
     #define CC_DEBUG_LOG_TRACE(a_token, a_format, ...) \
         ::cc::debug::Logger::GetInstance().Log(a_token, "\n[%s] @ %-4s:%4d\n\n\t* " a_format "\n",  a_token, __PRETTY_FUNCTION__, __LINE__, __VA_ARGS__);
 
