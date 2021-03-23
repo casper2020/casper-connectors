@@ -46,6 +46,9 @@ namespace cc
             const Json::Value& Get  (const Json::Value& a_parent, const char* const a_key, const Json::ValueType& a_type, const Json::Value* a_default,
                                      const char* const a_error_prefix_msg = "Invalid or missing ") const;
 
+            const Json::Value& Get  (const Json::Value& a_parent, const char* const a_key, const std::vector<Json::ValueType>& a_types, const Json::Value* a_default,
+                                     const char* const a_error_prefix_msg = "Invalid or missing ") const;
+
             const Json::Value& Get  (const Json::Value& a_parent, const std::vector<std::string>& a_keys, const Json::ValueType& a_type, const Json::Value* a_default,
                                      const char* const a_error_prefix_msg = "Invalid or missing ") const;
 
@@ -125,6 +128,48 @@ namespace cc
          * @brief Retrieve a JSON value from an array or defaults to the provided value ( if not null ).
          *
          * @param a_param
+         * @param a_key
+         * @param a_types
+         * @param a_default
+         *
+         * @return
+         */
+        template <class E>
+        const Json::Value& cc::easy::JSON<E>::Get (const Json::Value& a_parent, const char* const a_key, const std::vector<Json::ValueType>& a_types, const Json::Value* a_default,
+                                                   const char* const a_error_prefix_msg) const
+        {
+            // ... try to obtain a valid JSON object ..
+            Json::ValueType type;
+            bool found = false;
+            for ( auto t : a_types ) {
+                if ( true == a_parent.isMember(a_key) && a_parent[a_key].type() == t ) {
+                    type  = t;
+                    found = true;
+                    break;
+                }
+            }
+            // ... found? ...
+            if ( true == found ) {
+                return Get(a_parent, a_key, type, a_default, a_error_prefix_msg);
+            }
+            // ... NOT found ...
+            std::string types;
+            for ( size_t idx = 0 ; idx < a_types.size() - 1; ++idx  ) {
+                types += std::string(ValueTypeAsCString(a_types[idx])) + "||";
+            }
+            if ( a_types.size() > 0 ) {
+                types += std::string(ValueTypeAsCString(a_types[a_types.size() - 1])) + "||";
+            }
+            throw E("%sJSON value for key '%s' - type mismatch: got %s, expected %s!",
+                    a_error_prefix_msg,
+                    a_key, "null", types.c_str()
+            );
+        }
+
+        /**
+         * @brief Retrieve a JSON value from an array or defaults to the provided value ( if not null ).
+         *
+         * @param a_param
          * @param a_keys
          * @param a_type
          * @param a_default
@@ -148,7 +193,7 @@ namespace cc
                 return Get(a_parent, key.c_str(), a_type, a_default, a_error_prefix_msg);
             }
             // ... NOT found ...
-            for ( auto idx = 0 ; idx < a_keys.size() - 1; ++idx  ) {
+            for ( size_t idx = 0 ; idx < a_keys.size() - 1; ++idx  ) {
                 key += a_keys[idx] + "||";
             }
             if ( a_keys.size() > 0 ) {
