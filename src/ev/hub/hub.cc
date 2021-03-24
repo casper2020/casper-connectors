@@ -410,7 +410,7 @@ void ev::hub::Hub::Loop ()
     fault_msg_ = "";
 
     osal::posix::ThreadHelper::SetThreadName(name_);
-    osal::posix::ThreadHelper::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
+    osal::posix::ThreadHelper::BlockSignals({SIGUSR1, SIGTTIN, SIGTERM, SIGQUIT});
     
     stepper_.setup_ = [this](ev::Device* a_device) {
         a_device->Setup(event_base_, [this] (const ev::Exception& a_ev_exception) {

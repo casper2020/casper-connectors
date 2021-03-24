@@ -327,7 +327,7 @@ void ev::loop::Bridge::Loop ()
     running_ = true;
 
     if ( false == osal::ThreadHelper::GetInstance().AtMainThread() ) {
-      osal::posix::ThreadHelper::BlockSignals({SIGTTIN, SIGTERM, SIGQUIT});
+      osal::posix::ThreadHelper::BlockSignals({SIGUSR1, SIGTTIN, SIGTERM, SIGQUIT});
     }
 
 #if 0 // TODO
