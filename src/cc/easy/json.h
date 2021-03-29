@@ -83,7 +83,7 @@ namespace cc
          * @brief Destructor.
          */
         template <class E>
-        cc::easy::JSON<E>::~JSON ()
+        cc::easy::JSON<E>::JSON::~JSON ()
         {
             /* empty */
         }
