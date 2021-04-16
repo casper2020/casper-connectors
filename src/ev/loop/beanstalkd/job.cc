@@ -991,7 +991,18 @@ bool ev::loop::beanstalkd::Job::ShouldCancel ()
  */
 void ev::loop::beanstalkd::Job::ExecuteOnMainThread (std::function<void()> a_callback, bool a_blocking)
 {
-    callbacks_ptr_->on_main_thread_(a_callback, a_blocking);
+    callbacks_ptr_->dispatch_on_main_thread_(a_callback, a_blocking);
+}
+
+/**
+ * @brief Schedule a callback on main thread.
+ *
+ * @param a_callback
+ * @param a_blockina_deferred
+ */
+void ev::loop::beanstalkd::Job::ScheduleOnMainThread (std::function<void()> a_callback, const size_t a_deferred)
+{
+    callbacks_ptr_->schedule_on_main_thread_(a_callback, a_deferred);
 }
 
 /**

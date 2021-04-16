@@ -305,17 +305,19 @@ namespace ev
                 typedef std::function<void()>                                                                                  DeferredCallback;
 
                 typedef std::function<void(const ev::Exception&)>                                                                                                         FatalExceptionCallback;
-                typedef std::function<void(std::function<void()> a_callback, bool a_blocking)>                                                                            DispatchOnThread;
+                typedef std::function<void(std::function<void()> a_callback, bool a_blocking)>                                                                            DispatchOnMainThread;
+                typedef std::function<void(std::function<void()> a_callback, const size_t a_deferred)>                                                                    DispatchOnMainThreadDeferred;
                 typedef std::function<void(const std::string& a_id, std::function<void(const std::string&)> a_callback, const size_t a_deferred, const bool a_recurrent)> DispatchOnThreadDeferred;
                 typedef std::function<void(const std::string& a_id)>                                                                                                      CancelDispatchOnThread;
                 typedef std::function<void(const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr)>                                               PushJobCallback;
                                 
                 typedef struct {
-                    FatalExceptionCallback   on_fatal_exception_;
-                    DispatchOnThread         on_main_thread_;
-                    DispatchOnThreadDeferred schedule_callback_on_the_looper_thread_;
-                    CancelDispatchOnThread   try_cancel_callback_on_the_looper_thread_;
-                    PushJobCallback          on_push_job_;
+                    FatalExceptionCallback       on_fatal_exception_;
+                    DispatchOnMainThread         dispatch_on_main_thread_;
+                    DispatchOnMainThreadDeferred schedule_on_main_thread_;
+                    DispatchOnThreadDeferred     schedule_callback_on_the_looper_thread_;
+                    CancelDispatchOnThread       try_cancel_callback_on_the_looper_thread_;
+                    PushJobCallback              on_push_job_;
                 } MessagePumpCallbacks;
                                 
             protected: // Data Type(s)
@@ -531,7 +533,8 @@ namespace ev
                 
             protected: // Threading Helper Methods(s) / Function(s)
                 
-                void ExecuteOnMainThread    (std::function<void()> a_callback, bool a_blocking);
+                void ExecuteOnMainThread  (std::function<void()> a_callback, bool a_blocking);
+                void ScheduleOnMainThread (std::function<void()> a_callback, const size_t a_deferred);
                 
             protected: // Threading Helper Methods(s) / Function(s)
                                 

@@ -755,6 +755,17 @@ void ev::loop::beanstalkd::Runner::ExecuteOnMainThread (std::function<void()> a_
 }
 
 /**
+ * @brief Execute a callback on main thread.
+ *
+ * @param a_callback
+ * @param a_blocking
+ */
+void ev::loop::beanstalkd::Runner::ScheduleOnMainThread (std::function<void()> a_callback, const size_t a_deferred)
+{
+    bridge_->CallOnMainThread(a_callback, static_cast<int64_t>(a_deferred));
+}
+
+/**
  * @brief Schedule a callback on 'the other' thread.
  *
  * @param a_id
@@ -816,6 +827,8 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop (const float& a_polling_timeout)
         /* on_fatal_exception_                       */ std::bind(&ev::loop::beanstalkd::Runner::OnFatalException,
                                                                   this, std::placeholders::_1),
         /* on_main_thread_                           */ std::bind(&ev::loop::beanstalkd::Runner::ExecuteOnMainThread,
+                                                                  this, std::placeholders::_1, std::placeholders::_2),
+        /* schedule_on_main_thread_                  */ std::bind(&ev::loop::beanstalkd::Runner::ScheduleOnMainThread,
                                                                   this, std::placeholders::_1, std::placeholders::_2),
         /* schedule_callback_on_the_looper_thread_   */ std::bind(&ev::loop::beanstalkd::Runner::ScheduleCallbackOnLooperThread,
                                                                   this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),

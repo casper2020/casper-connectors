@@ -119,6 +119,7 @@ namespace ev
                 
                 void PushJob               (const std::string& a_tube, const std::string& a_payload, const uint32_t& a_ttr);
                 void ExecuteOnMainThread   (std::function<void()> a_callback, bool a_blocking);
+                void ScheduleOnMainThread  (std::function<void()> a_callback, const size_t a_deferred);
                 
                 void ScheduleCallbackOnLooperThread (const std::string& a_id, ev::loop::beanstalkd::Looper::IdleCallback a_callback,
                                                      const size_t a_deferred, const bool a_recurrent);
