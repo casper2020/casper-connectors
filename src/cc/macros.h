@@ -34,8 +34,25 @@
 #define CC_MACRO_DEFER(M,...) M(__VA_ARGS__)
 #define CC_MACRO_STRINGIFY_ARG(a) #a
 
-#define CC_SILENCE_UNUSED_VARIABLE(a_name) \
-    (void)a_name
+#if __cplusplus >=202002L
+    #define CC_CPP_VERSION 20L
+#elif __cplusplus >=201703L
+    #define CC_CPP_VERSION 17L
+#elif __cplusplus >=201402L
+    #define CC_CPP_VERSION 14L
+#elif __cplusplus >= 201103L
+    #define CC_CPP_VERSION 11L
+#elif __cplusplus < 201103L
+    #error This project needs at least a C++11 compliant compiler
+#endif
+
+#if CC_CPP_VERSION >= 17L
+    #define CC_DECLARE_UNUSED_VARIABLE(a_type, a_name) [[maybe_unused]]a_type a_name
+#else
+    #define CC_DECLARE_UNUSED_VARIABLE(a_type, a_name) a_type a_name __attribute__((unused))
+#endif
+
+#define CC_SILENCE_UNUSED_VARIABLE(a_name) (void)a_name
 
 #define CC_WARN_UNUSED_RESULT __attribute__((warn_unused_result))
 
@@ -53,7 +70,17 @@
     _Pragma("clang diagnostic push") \
     _Pragma("clang diagnostic ignored \"-Woverloaded-virtual\"") \
     function \
-    _Pragma("clang diagnostic pop")\
+    _Pragma("clang diagnostic pop")
+
+#define CC_DIAGNOSTIC_PUSH() \
+    _Pragma("clang diagnostic push");
+
+#define CC_DIAGNOSTIC_IGNORED(warning) do { \
+    CC_DO_PRAGMA(clang diagnostic ignored warning); \
+} while (false)
+
+#define CC_DIAGNOSTIC_POP() \
+    _Pragma("clang diagnostic pop") \
 
 #define CC_ASSERT(a_condition) assert(a_condition)
 
