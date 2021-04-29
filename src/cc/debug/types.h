@@ -45,6 +45,9 @@
     #define CC_DEBUG_ASSERT(a_condition) \
         assert(a_condition)
 
+    #define CC_DEBUG_ABORT() \
+        CC_DEBUG_ASSERT(1==2)
+
     #define CC_DEBUG_SET_MAIN_THREAD_ID() \
         cc::debug::Threading::GetInstance().Start();
 
@@ -92,6 +95,7 @@
     // RELEASE MODE
 
     #define CC_DEBUG_ASSERT(a_condition)
+    #define CC_DEBUG_ABORT()
 
     #define CC_DEBUG_SET_MAIN_THREAD_ID()
     #define CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD()
