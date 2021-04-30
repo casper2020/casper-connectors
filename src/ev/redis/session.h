@@ -154,8 +154,9 @@ namespace ev
             void         Extend       (const size_t a_amount,
                                        const SuccessCallback a_success_callback, const InvalidCallback a_invalid_callback, const FailureCallback a_failure_callback);
             
-            const DataT& Data         () const;
-            void         SetToken     (const std::string& a_token);
+            const std::string& SID       () const;
+            const DataT&       Data      () const;
+            void               SetToken  (const std::string& a_token);
             
         public:
             
@@ -174,6 +175,14 @@ namespace ev
             void                    FillSessionData   (const ev::Object* a_object, DataT& o_data) const;
             
         }; // end of class 'Session'
+        
+        /**
+         * @return Read-only access to session SID.
+         */
+        inline const std::string& Session::SID () const
+        {
+            return sid_;
+        }
         
         /**
          * @return Read-only access to session data, see \link Session::Data \link.
