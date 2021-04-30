@@ -27,6 +27,8 @@
 
 #include "json/json.h"
 
+#include <functional>
+
 namespace cc
 {
 
@@ -60,7 +62,9 @@ namespace cc
             void               Patch (Json::Value& a_object, const std::map<std::string, std::string>& a_patchables) const;
             void               Patch (const std::string& a_name, Json::Value& a_object, const std::map<std::string, std::string>& a_patchables) const;
                         
-            void               Parse (const std::string& a_value, Json::Value& o_value) const;
+            void               Parse (const std::string&  a_value,  Json::Value& o_value) const;
+            void               Parse (std::istream& a_buffer, Json::Value& o_value,
+                                      const std::function<std::string(const char* const, const char* const)>& a_error = nullptr) const;
             std::string        Write (const Json::Value& a_value) const;
             
         public: // Inline Method(s) / Function(s)
@@ -262,6 +266,49 @@ namespace cc
                         throw E("An error ocurred while parsing '%s' as JSON!",
                                 a_value.c_str()
                         );
+                    }
+                }
+            } catch (const Json::Exception& a_json_exception ) {
+                throw E("%s", a_json_exception.what());
+            }
+        }
+    
+        /**
+         * @brief Serialize a JSON string to a JSON Object.
+         *
+         * @param a_value JSON string to parse.
+         * @param o_value JSON object to fill.
+         * @param a_error On error callback.
+         */
+        template <class E>
+        void cc::easy::JSON<E>::Parse (std::istream& a_stream, Json::Value& o_value,
+                                       const std::function<std::string(const char* const, const char* const)>& a_error) const
+        {
+            try {
+                Json::Reader reader;
+                if ( false == reader.parse(a_stream, o_value) ) {
+                    const auto errors = reader.getStructuredErrors();
+                    const std::string data = std::string(std::istreambuf_iterator<char>(a_stream), {});
+                    if ( errors.size() > 0 ) {
+                        if ( nullptr != a_error ) {
+                            throw E("%s",
+                                    a_error(data.c_str(), reader.getFormatedErrorMessages().c_str()).c_str()
+                            );
+                        } else {
+                            throw E("An error ocurred while parsing '%s as JSON': %s!",
+                                    data.c_str(), reader.getFormatedErrorMessages().c_str()
+                            );
+                        }
+                    } else {
+                        if ( nullptr != a_error ) {
+                            throw E("%s",
+                                    a_error(data.c_str(), nullptr).c_str()
+                            );
+                        } else {
+                            throw E("An error ocurred while parsing '%s' as JSON!",
+                                    data.c_str()
+                            );
+                        }
                     }
                 }
             } catch (const Json::Exception& a_json_exception ) {
