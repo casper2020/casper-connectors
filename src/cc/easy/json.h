@@ -62,7 +62,8 @@ namespace cc
             void               Patch (Json::Value& a_object, const std::map<std::string, std::string>& a_patchables) const;
             void               Patch (const std::string& a_name, Json::Value& a_object, const std::map<std::string, std::string>& a_patchables) const;
                         
-            void               Parse (const std::string&  a_value,  Json::Value& o_value) const;
+            void               Parse (const std::string& a_value, Json::Value& o_value,
+                                      const std::function<std::string(const char* const, const char* const)>& a_error = nullptr) const;
             void               Parse (std::istream& a_buffer, Json::Value& o_value,
                                       const std::function<std::string(const char* const, const char* const)>& a_error = nullptr) const;
             std::string        Write (const Json::Value& a_value) const;
@@ -250,22 +251,36 @@ namespace cc
          *
          * @param a_value JSON string to parse.
          * @param o_value JSON object to fill.
+         * @param a_error On error callback.
          */
         template <class E>
-        void cc::easy::JSON<E>::Parse (const std::string& a_value, Json::Value& o_value) const
+        void cc::easy::JSON<E>::Parse (const std::string& a_value, Json::Value& o_value,
+                                       const std::function<std::string(const char* const, const char* const)>& a_error) const
         {
             try {
                 Json::Reader reader;
                 if ( false == reader.parse(a_value, o_value) ) {
                     const auto errors = reader.getStructuredErrors();
                     if ( errors.size() > 0 ) {
-                        throw E("An error ocurred while parsing '%s as JSON': %s!",
-                                a_value.c_str(), reader.getFormatedErrorMessages().c_str()
-                        );
+                        if ( nullptr != a_error ) {
+                            throw E("%s",
+                                    a_error(a_value.c_str(), reader.getFormatedErrorMessages().c_str()).c_str()
+                            );
+                        } else {
+                            throw E("An error ocurred while parsing '%s as JSON': %s!",
+                                    a_value.c_str(), reader.getFormatedErrorMessages().c_str()
+                            );
+                        }
                     } else {
-                        throw E("An error ocurred while parsing '%s' as JSON!",
-                                a_value.c_str()
-                        );
+                        if ( nullptr != a_error ) {
+                            throw E("%s",
+                                    a_error(a_value.c_str(), nullptr).c_str()
+                            );
+                        } else {
+                            throw E("An error ocurred while parsing '%s' as JSON!",
+                                    a_value.c_str()
+                            );
+                        }
                     }
                 }
             } catch (const Json::Exception& a_json_exception ) {
