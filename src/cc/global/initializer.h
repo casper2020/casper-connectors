@@ -24,6 +24,9 @@
 
 #include "cc/singleton.h"
 
+#include "cc/macros.h"
+#include "cc/debug/types.h"
+
 #include <set>
 #include <vector>
 #include <map>
@@ -118,6 +121,8 @@ namespace cc
             
             ev::Loggable::Data& loggable_data   ();
             
+            const Directories& directories () const;
+            
         private: //
             
             void EnableLogsIfRequired (const Logs& a_logs);
@@ -150,6 +155,15 @@ namespace cc
         inline ::ev::Loggable::Data& Initializer::loggable_data ()
         {
             return *loggable_data_;
+        }
+    
+        /**
+         * @return R/O access to directories configs.
+         */
+        inline const Directories& Initializer::directories () const
+        {
+            CC_DEBUG_ASSERT(nullptr != directories_);
+            return *directories_;
         }
 
     } // end of namespace 'global'

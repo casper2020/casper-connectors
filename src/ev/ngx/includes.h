@@ -34,6 +34,7 @@ extern "C" {
   #include <ngx_string.h>
   #include <ngx_files.h>
   #include <ngx_http_request.h>
+  #include <ngx_http_config.h>
 }
 
 #pragma GCC diagnostic pop
