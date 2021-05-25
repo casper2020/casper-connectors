@@ -77,6 +77,7 @@ namespace cc
                                                           const char* const a_error_msg_prefix = nullptr);
                 static void        Expand                (const std::string& a_uri, std::string& o_uri);
                 static std::string Expand                (const std::string& a_uri);
+                static std::string RealPath              (const std::string& a_path);
                 
             }; // end of class 'dir'
             
