@@ -374,9 +374,9 @@ std::string cc::fs::posix::Dir::ReadLink (const std::string& a_path)
     char buffer[PATH_MAX];
     ssize_t len;
     if ( -1 == ( len = readlink(a_path.c_str(), buffer, PATH_MAX-1) ) ) {
-        throw ::cc::Exception("An error occurred while trying to obtain real path: (%d) %s ", errno, strerror(errno));
-    } else if ( (PATH_MAX-1-1) == len ) {
-        throw ::cc::Exception("An error occurred while trying to obtain real path: (%d) %s ", PATH_MAX, "buffer to short to write URI");
+        throw ::cc::Exception("An error occurred while trying to read link %s: (%d) %s ", a_path.c_str(), errno, strerror(errno));
+    } else if ( (PATH_MAX-1) == len ) {
+        throw ::cc::Exception("An error occurred while trying to read link %s: (%d) %s ", a_path.c_str(), PATH_MAX, "buffer to short to write URI");
     } else {
         return std::string(buffer, len);
     }
