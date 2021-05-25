@@ -78,6 +78,7 @@ namespace cc
                 static void        Expand                (const std::string& a_uri, std::string& o_uri);
                 static std::string Expand                (const std::string& a_uri);
                 static std::string RealPath              (const std::string& a_path);
+                static std::string ReadLink              (const std::string& a_path);
                 
             }; // end of class 'dir'
             

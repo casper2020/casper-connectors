@@ -359,6 +359,18 @@ std::string cc::fs::posix::Dir::Expand (const std::string& a_uri)
  */
 std::string cc::fs::posix::Dir::RealPath (const std::string& a_path)
 {
+    return Expand(a_path);
+}
+
+/**
+ * @brief Calculate the canonicalized absolute pathname.
+ *
+ * @param a_path Path.
+ *
+ * @return The canonicalized absolute pathname
+ */
+std::string cc::fs::posix::Dir::ReadLink (const std::string& a_path)
+{
     char buffer[PATH_MAX];
     ssize_t len;
     if ( -1 == ( len = readlink(a_path.c_str(), buffer, PATH_MAX-1) ) ) {
