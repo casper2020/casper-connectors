@@ -397,10 +397,10 @@ namespace ev
         if ( aux > 0 && static_cast<size_t>(aux) < buffer_capacity_ ) {
             auto file = tokens_.find(a_token)->second->fp_;
             // ... output message ...
-            fprintf(tokens_.find(a_token)->second->fp_, "%s,%s",
+            fprintf(file, "%s,%s",
                     cc::UTCTime::NowISO8601WithTZ().c_str(), a_client->prefix()
             );
-            fprintf(tokens_.find(a_token)->second->fp_, "%s\n", buffer_);
+            fprintf(file, "%s\n", buffer_);
             // ... flush ...
             if ( stdout != file && stderr != file ) {
                 fflush(file);
