@@ -169,6 +169,7 @@ endif
 
 # dependencies
 CONNECTORS_DEPENDENCIES := \
+  libevent2-dep-on \
   openssl-dep-on icu-dep-on curl-dep-on postgresql-dep-on zlib-dep-on \
   casper-osal-dep-on lemon-dep-on jsoncpp-dep-on \
   cppcodec-dep-on \

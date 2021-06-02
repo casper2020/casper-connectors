@@ -33,6 +33,7 @@ LIBRARY_TYPE        := static
 ICU_DEP_ON          ?= true
 CURL_DEP_ON         ?= true
 OPENSSL_DEP_ON      ?= true
+
 ifeq (true, $(V8_DEP_ON))
   LIBRARY_NAME := libconnectors-v8.a
 else ifeq (true, $(ICU_STAND_ALONE_DEP_ON))
