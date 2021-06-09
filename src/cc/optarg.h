@@ -262,6 +262,8 @@ namespace cc
         const std::string name_;
         const std::string version_;
         const std::string rel_date_;
+        const std::string rel_branch_;
+        const std::string rel_hash_;
         const std::string banner_;
         
     private: // Data Type(s)
@@ -284,7 +286,9 @@ namespace cc
     public: // Constructor(s) / Destructor
 
         OptArg () = delete;
-        OptArg (const char* const a_name, const char* const a_version, const char* const a_rel_date, const char* const a_banner,
+        OptArg (const char* const a_name, const char* const a_version,
+                const char* const a_rel_date, const char* const a_rel_branch, const char* const a_rel_hash,
+                const char* const a_banner,
                 const std::initializer_list<Opt*>& a_opts);
         virtual ~OptArg();
 

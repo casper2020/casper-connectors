@@ -33,15 +33,19 @@
 /**
  * @brief Default constructor.
  *
- * @param a_name     Name.
- * @param a_version  Version.
- * @param a_rel_date Release data.
- * @param a_banner   Banner.
+ * @param a_name       Name.
+ * @param a_version    Version.
+ * @param a_rel_date   Release date.
+ * @param a_rel_branch Release branch.
+ * @param a_rel_hash   Release hash.
+ * @param a_banner     Banner.
  * @param a_opts
  */
-cc::OptArg::OptArg (const char* const a_name, const char* const a_version, const char* const a_rel_date, const char* const a_banner,
+cc::OptArg::OptArg (const char* const a_name, const char* const a_version,
+                    const char* const a_rel_date, const char* const a_rel_branch, const char* const a_rel_hash,
+                    const char* const a_banner,
                     const std::initializer_list<cc::OptArg::Opt*>& a_opts)
-    : name_(a_name), version_(a_version), rel_date_(a_rel_date), banner_(a_banner)
+    : name_(a_name), version_(a_version), rel_date_(a_rel_date), rel_branch_(a_rel_branch), rel_hash_(a_rel_hash), banner_(a_banner)
 {
     counters_.optional_  = 0;
     counters_.mandatory_ = 0;

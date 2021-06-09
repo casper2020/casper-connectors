@@ -163,7 +163,9 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
     
     try {
 
-        cc::OptArg opt (a_arguments.name_.c_str(), a_arguments.version_.c_str(), a_arguments.rel_date_.c_str(), a_arguments.banner_.c_str(),
+        cc::OptArg opt (a_arguments.name_.c_str(), a_arguments.version_.c_str(),
+                        a_arguments.rel_date_.c_str(), a_arguments.rel_branch_.c_str(), a_arguments.rel_hash_.c_str(),
+                        a_arguments.banner_.c_str(),
             {
                 // NOTES: THIS OBJECTS WILL BE DELETE WHEN cc::OptArg::~OptArg IS CALLED
                 new cc::OptArg::String(/* a_long */ "config" , /* a_short */ 'c', /* a_optional */ false             , /* a_tag */ "uri"    , /* a_help */ "configuration file"  ),
@@ -210,6 +212,8 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
             /* name_           */ a_arguments.name_,
             /* version_        */ a_arguments.version_,
             /* rel_date_       */ a_arguments.rel_date_,
+            /* rel_branch_     */ a_arguments.rel_branch_,
+            /* rel_hash_       */ a_arguments.rel_hash_,
             /* info_           */ a_arguments.info_,
             /* banner_         */ a_arguments.banner_,
             /* instance_       */ static_cast<int>(opt.GetUInt64('i')->value()),

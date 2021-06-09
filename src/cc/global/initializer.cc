@@ -184,6 +184,8 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
             /* abbr_       */ a_process.abbr_,
             /* version_    */ a_process.version_,
             /* rel_date_   */ a_process.rel_date_,
+            /* rel_branch_ */ a_process.rel_branch_,
+            /* rel_hash_   */ a_process.rel_hash_,
             /* info_       */ a_process.info_,
             /* banner_     */ a_process.banner_,
             /* pid_        */ getpid(),
@@ -293,10 +295,12 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         std::transform(process_name_uc.begin(), process_name_uc.end(), process_name_uc.begin(), ::toupper);
         
         CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", process_name_uc.c_str());
-        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION"      , process_->version_.c_str());
-        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "RELEASE DATE" , process_->rel_date_.c_str());
-        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INFO"         , process_->info_.c_str());
-        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "TARGET"       , CC_IF_DEBUG_ELSE("debug", "release"));
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION"       , process_->version_.c_str());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "RELEASE DATE"  , process_->rel_date_.c_str());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "RELEASE BRANCH", process_->rel_branch_.c_str());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "RELEASE HASH"  , process_->rel_hash_.c_str());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INFO"          , process_->info_.c_str());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "TARGET"        , CC_IF_DEBUG_ELSE("debug", "release"));
         
         //
         // ... directories ...

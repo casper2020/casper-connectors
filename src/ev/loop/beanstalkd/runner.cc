@@ -193,6 +193,8 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::StartupC
             /* abbr_       */ a_config.abbr_,
             /* version_    */ a_config.version_,
             /* rel_date_   */ a_config.rel_date_,
+            /* rel_branch_ */ a_config.rel_branch_,
+            /* rel_hash_   */ a_config.rel_hash_,
             /* info_       */ a_config.info_,
             /* banner_     */ a_config.banner_,
             /* pid_        */ process_pid,

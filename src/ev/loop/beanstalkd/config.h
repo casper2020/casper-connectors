@@ -41,6 +41,8 @@ namespace ev
                 const std::string                  name_;
                 const std::string                  version_;
                 const std::string                  rel_date_;
+                const std::string                  rel_branch_;
+                const std::string                  rel_hash_;
                 const std::string                  info_;
                 const std::string                  banner_;
                 const int                          instance_;
