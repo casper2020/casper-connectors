@@ -117,6 +117,7 @@
     #define CC_IF_DEBUG_CONSTRUCT_SET(a_name, a_value, ...)
 
     #define CC_DEBUG_LOG_ENABLE(a_token)
+    #define CC_DEBUG_LOG_PRINT(a_token, a_format, ...)
     #define CC_DEBUG_LOG_MSG(a_token, a_format, ...)
     #define CC_DEBUG_LOG_TRACE(a_token, a_format, ...)
     #define CC_DEBUG_LOG_RECYCLE()
