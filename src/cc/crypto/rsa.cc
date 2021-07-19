@@ -189,8 +189,7 @@ std::string cc::crypto::RSA::PublicKeyEncrypt (const std::string& a_payload, con
         //
         // Returns RSA* for success and NULL for failure.
         //
-        const struct rsa_st* rsa;
-        if ( ! ( rsa = PEM_read_RSA_PUBKEY(public_key_file, &rsa_pkey, NULL, NULL) ) ) {
+        if ( NULL == PEM_read_RSA_PUBKEY(public_key_file, &rsa_pkey, NULL, NULL) ) {
             throw ::cc::crypto::Exception("Error while loading RSA public key File!");
         }
         
@@ -301,8 +300,7 @@ std::string cc::crypto::RSA::PrivateKeyDecrypt (const std::string& a_payload, co
         //
         // Returns RSA* for success and NULL for failure.
         //
-        const struct rsa_st* rsa;
-        if ( ! ( rsa = PEM_read_RSAPrivateKey(private_key_file, &rsa_pkey, &pem_password_cb, (void*)a_password.c_str()) ) ) {
+        if ( NULL == PEM_read_RSAPrivateKey(private_key_file, &rsa_pkey, &pem_password_cb, (void*)a_password.c_str()) ) {
             throw ::cc::crypto::Exception("Error while loading RSA private key file!");
         }
         
@@ -446,8 +444,7 @@ std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::stri
             //
             // Returns RSA* for success and NULL for failure
             if ( 0 != a_password.length() ) {
-                const struct rsa_st* rsa;
-                if ( ! ( rsa = PEM_read_RSAPrivateKey(private_key_file, &rsa_pkey, &pem_password_cb, (void*)a_password.c_str()) ) ) {
+                if ( NULL == PEM_read_RSAPrivateKey(private_key_file, &rsa_pkey, &pem_password_cb, (void*)a_password.c_str()) ) {
                     throw ::cc::crypto::Exception("Error while loading RSA private key file!");
                 }
             } else {
@@ -651,8 +648,7 @@ std::string cc::crypto::RSA::Sign (const unsigned char* a_payload, const size_t 
             //
             // Returns RSA* for success and NULL for failure
             if ( 0 != a_password.length() ) {
-                const struct rsa_st* rsa;
-                if ( ! ( rsa = PEM_read_RSAPrivateKey(private_key_file, &rsa_pkey, &pem_password_cb, (void*)a_password.c_str()) ) ) {
+                if ( NULL == PEM_read_RSAPrivateKey(private_key_file, &rsa_pkey, &pem_password_cb, (void*)a_password.c_str()) ) {
                     throw ::cc::crypto::Exception("Error while loading RSA private key file!");
                 }
             } else {
@@ -801,7 +797,6 @@ void cc::crypto::RSA::Verify (const std::string& a_payload, const std::string& a
     FILE*          public_key_file  = nullptr;
     unsigned char* signature_bytes  = nullptr;
     size_t         signature_len    = 0;
-    int            rv               = -1;
     
     const auto cleanup = [&pkey, &public_key_file, &signature_bytes, &ctx_initialized, ctx] () {
         
@@ -901,7 +896,7 @@ void cc::crypto::RSA::Verify (const std::string& a_payload, const std::string& a
         //
         const void* data = a_payload.c_str();
         unsigned int cnt = static_cast<unsigned int>(a_payload.length());
-        if ( 1 != ( rv = EVP_VerifyUpdate(ctx, data, cnt) ) ) {
+        if ( 1 != EVP_VerifyUpdate(ctx, data, cnt) ) {
             throw ::cc::crypto::Exception("Error while verifying data!");
         }
         
@@ -913,7 +908,7 @@ void cc::crypto::RSA::Verify (const std::string& a_payload, const std::string& a
         //
         //  Returns 1 for a correct signature, 0 for failure and -1 if some other error occurred.
         //
-        if ( 1 != ( rv = EVP_VerifyFinal(ctx, signature_bytes, static_cast<unsigned int>(signature_len), pkey) ) ) {
+        if ( 1 != EVP_VerifyFinal(ctx, signature_bytes, static_cast<unsigned int>(signature_len), pkey) ) {
             throw ::cc::crypto::Exception("Error while verifying signature!");
         }
         
