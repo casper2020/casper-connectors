@@ -608,8 +608,8 @@ const ev::redis::Reply* ev::redis::Session::EnsureReplyObject (const ev::Object*
 {
     const ::ev::Result* result = dynamic_cast<const ::ev::Result*>(a_object);
     if ( nullptr == result ) {
-        throw ::ev::Exception("Unexpected data object type - expecting " UINT8_FMT " got " UINT8_FMT " !",
-                              static_cast<uint8_t>(a_object->type_), static_cast<uint8_t>(::ev::Object::Type::Result)
+        throw ::ev::Exception("Unexpected result object type - expecting " UINT8_FMT " got nullptr!",
+                              static_cast<uint8_t>(::ev::Object::Type::Result)
         );
     }
     

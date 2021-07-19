@@ -201,6 +201,13 @@ ev::redis::Device::Status ev::redis::Device::Execute (ev::redis::Device::Execute
 
     int async_rv;
     if ( REDIS_OK != ( async_rv = redisAsyncFormattedCommand(hiredis_context_, HiredisDataCallback, nullptr, payload.c_str(), payload.length()) ) ) {
+        ev::LoggerV2::GetInstance().Log(this, "redis_trace",
+                                        "[%-30s] : context = %p, request_ptr_ = %p : unable to set formatted commmand - error was %d!",
+                                        __FUNCTION__,
+                                        hiredis_context_,
+                                        request_ptr_,
+                                        async_rv
+        );
         rv                = ev::redis::Device::Status::Error;
         execute_callback_ = nullptr;
         request_ptr_      = nullptr;

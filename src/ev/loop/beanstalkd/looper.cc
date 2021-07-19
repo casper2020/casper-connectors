@@ -485,7 +485,6 @@ void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
         // ... process as many as we can ...
         const auto   start         = std::chrono::steady_clock::now();
         const size_t exec_timeout = ( a_fake ? 100 : 50 );
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
         while ( idle_callbacks_.queue_.size() > 0 ) {
             // ... pick next callback ...
             auto callback = idle_callbacks_.queue_.top();
@@ -516,7 +515,7 @@ void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
                 }
             }
             // ... check if we've time for more ...
-            elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
             if ( elapsed >= exec_timeout ) {
                 // ... we don't ...
                 break;
