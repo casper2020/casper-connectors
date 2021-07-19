@@ -450,17 +450,21 @@ void ev::scheduler::Scheduler::ReleaseObject (ev::scheduler::Object* a_object)
     for ( auto it = zombies_.begin(); zombies_.end() != it ; ++it ) {
         if ( a_object == (*it) ) {
             // ... it's a zombie ...
-            delete a_object;
+            delete *it;
             zombies_.erase(it);
-            break;
+            // ... done ...
+            return;
         }
     }
+
     // ... not a zombie, check if it was detached ...
     for ( auto it = detached_.begin(); detached_.end() != it ; ++it ) {
         if ( a_object == (*it) ) {
-            // ... detached, promote it to a zombie ...
+            // ... it's detached ...
+            delete *it;
             detached_.erase(it);
-            break;
+            // ... done ...
+            return;
         }
     }
     
