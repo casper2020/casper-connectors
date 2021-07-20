@@ -154,7 +154,7 @@ void cc::easy::job::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
                                  ID(), jsw.write(job_response).c_str()
                 );
             },
-            [CC_IF_DEBUG_LAMBDA_CAPTURE(this)](const ev::Exception& a_ev_exception){
+            [this](const ev::Exception& a_ev_exception){
                 // ... log ...
                 EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("EXCEPTION", "%s", a_ev_exception.what());
                 // ... for debug proposes only ...
