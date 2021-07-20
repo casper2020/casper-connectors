@@ -263,7 +263,7 @@ void ev::hub::KeepAliveHandler::OnConnectionStatusChanged (const ev::Device::Con
     disconnected_requests_.clear();
     
     // ... issue callbacks ...
-    stepper_.disconnected_->Call([this, payload]() -> void* {
+    stepper_.disconnected_->Call([CC_IF_DEBUG_LAMBDA_CAPTURE(this,) payload]() -> void* {
                                          CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
                                          return payload;
                                      },
@@ -305,7 +305,7 @@ bool ev::hub::KeepAliveHandler::OnUnhandledDataObjectReceived (const ev::Device*
     
     // ... issue callbacks ...
     stepper_.publish_->Call(
-                            [this, a_request, a_result] () -> void* {
+                            [CC_IF_DEBUG_LAMBDA_CAPTURE(this,) a_request, a_result] () -> void* {
                                 CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
                                 // ... prepare callback payload ...
                                 return new Payload({a_request->GetInvokeID(), a_request->target_, a_request->GetTag(), a_result});

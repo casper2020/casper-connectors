@@ -872,7 +872,7 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
                     NextStepPayload* p = new NextStepPayload ({invoke_id, mode, target, tag});
 
                     self->stepper_.next_->Call(
-                                               [self, p] () -> void* {
+                                               [CC_IF_DEBUG_LAMBDA_CAPTURE(self,) p] () -> void* {
                                                    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(self->thread_id_);
                                                    return p;
                                                },

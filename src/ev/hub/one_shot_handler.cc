@@ -286,7 +286,7 @@ void ev::hub::OneShotHandler::OnConnectionStatusChanged (const ev::Device::Conne
 
         // ... issue callbacks ...
         stepper_.disconnected_->Call(
-                                     [this, payload]() -> void* {
+                                     [CC_IF_DEBUG_LAMBDA_CAPTURE(this,) payload]() -> void* {
                                          CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
                                          return payload;
                                      },
@@ -631,7 +631,7 @@ void ev::hub::OneShotHandler::Publish ()
     }
 
     stepper_.next_->Call(
-                         [this, p_requests] () -> void* {
+                         [CC_IF_DEBUG_LAMBDA_CAPTURE(this,) p_requests] () -> void* {
                              CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
                              return p_requests;
                          },

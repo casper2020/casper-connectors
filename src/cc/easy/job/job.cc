@@ -148,13 +148,13 @@ void cc::easy::job::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
 
     // ... publish result ...
     Finished(job_response ,
-            [this, &job_response, &jsw]() {
+            [CC_IF_DEBUG_LAMBDA_CAPTURE(this, &job_response, &jsw)]() {
                 // ... log ...
                 CC_DEBUG_LOG_MSG("job", "Job #" INT64_FMT " ~> response:\n%s",
                                  ID(), jsw.write(job_response).c_str()
                 );
             },
-            [this](const ev::Exception& a_ev_exception){
+            [CC_IF_DEBUG_LAMBDA_CAPTURE(this)](const ev::Exception& a_ev_exception){
                 // ... log ...
                 EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("EXCEPTION", "%s", a_ev_exception.what());
                 // ... for debug proposes only ...
