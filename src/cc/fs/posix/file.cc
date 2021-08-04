@@ -27,8 +27,10 @@
 
 #include "cc/types.h"
 
-#include <unistd.h> // mkstemps
-#include <libgen.h> // basename, dirname
+#include <unistd.h>  // mkstemps
+#include <libgen.h>  // basename, dirname
+#include <dirent.h>  // opendir
+#include <fnmatch.h> // fnmatch
 
 #include <string.h> // strlen, strerror, ...
 
@@ -447,6 +449,38 @@ void cc::fs::posix::File::Erase (const std::string& a_uri)
     if ( 0 != rv ) {
         throw cc::fs::Exception("Unable to erase file '%s' - %s!", a_uri.c_str(), strerror(errno));
     }
+}
+
+/**
+ * @brief Erase files in a specific directory that match a pattern
+ *
+ * @param a_dir     Local directory URI.
+ * @param a_pattern Pattern to apply to file list.
+ */
+void cc::fs::posix::File::Erase (const std::string& a_dir, const std::string& a_pattern)
+{
+    // ... invalid arguments?
+    if ( 0 == a_dir.length() || 0 == a_pattern.length() ) {
+        throw cc::fs::Exception("Unable to erase file(s) at '%s' - invalid arguments!", a_dir.c_str());
+    }
+    // ... open directory ...
+    DIR* handle = opendir(a_dir.c_str());
+    if ( nullptr == handle ) {
+        throw cc::fs::Exception("Unable to erase file(s) at '%s' - %s!", a_dir.c_str(), strerror(errno));
+    }
+    // ... find file in that match pattern ...
+    char   path [PATH_MAX] = {0, 0};
+    struct dirent* entry;
+    while ( (entry = readdir(handle)) ) {
+        if ( entry->d_type & DT_REG ) {
+            if ( 0 == fnmatch(a_pattern.c_str(), entry->d_name, FNM_CASEFOLD) ) {
+                snprintf(path, sizeof(path), "%s%s", a_dir.c_str(), entry->d_name);
+                Erase(path);
+            }
+        }
+    }
+    // ... done ...
+    closedir(handle);
 }
 
 /**
