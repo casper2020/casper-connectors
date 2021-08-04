@@ -42,8 +42,15 @@
 
     // DEBUG MODE
 
-    #define CC_DEBUG_ASSERT(a_condition) \
-        assert(a_condition)
+// #if !defined(NDEBUG)
+    #define CC_DEBUG_ASSERT(a_condition)  \
+        ((void) ((a_condition) ? ((void)0) : __CC_DEBUG_ASSERT (#a_condition, __FILE__, __LINE__)))
+    #define __CC_DEBUG_ASSERT(a_condition, a_file, a_line) \
+        ((void)printf("[CC_DEBUG] ⚠️ @ %s:%d: failed assertion `%s'\n", a_file, a_line, a_condition), abort())
+//#else
+//    #define CC_DEBUG_ASSERT(a_condition)  \
+//        assert(a_condition)
+//#endif
 
     #define CC_DEBUG_ABORT() \
         CC_DEBUG_ASSERT(1==2)
@@ -69,6 +76,8 @@
     #define CC_IF_DEBUG_CONSTRUCT_SET_VAR(a_name, a_value, ...) a_name(a_value) __VA_ARGS__
     #define CC_IF_DEBUG_CONSTRUCT_APPEND_SET_VAR(a_name, a_value, ...) , a_name(a_value) __VA_ARGS__
     #define CC_IF_DEBUG_CONSTRUCT_APPEND_PARAM_VALUE(a_value) , a_value
+
+    #define CC_IF_DEBUG_FUNCTION_SET_PARAM_VALUE(a_value, ...) a_value __VA_ARGS__
 
     #define CC_IF_DEBUG_LAMBDA_CAPTURE(...) __VA_ARGS__
 
@@ -116,7 +125,7 @@
     #define CC_IF_DEBUG_CONSTRUCT_APPEND_SET_VAR(a_name, a_value, ...)
     #define CC_IF_DEBUG_CONSTRUCT_APPEND_PARAM_VALUE(a_value)
 
-    #define CC_IF_DEBUG_CONSTRUCT_SET(a_name, a_value, ...)
+    #define CC_IF_DEBUG_FUNCTION_SET_PARAM_VALUE(a_value, ...)
 
     #define CC_IF_DEBUG_LAMBDA_CAPTURE(...)
 
