@@ -42,6 +42,9 @@
   #include <sys/vfs.h>    /* or <sys/statfs.h> */
   #include <linux/limits.h>
 #endif
+#include <unistd.h>
+#include <dirent.h>
+#include <fnmatch.h>
 
 /**
  * @brief Default constructor.
@@ -380,4 +383,54 @@ std::string cc::fs::posix::Dir::ReadLink (const std::string& a_path)
     } else {
         return std::string(buffer, len);
     }
+}
+
+/**
+ * @brief Search for files in a directory.
+ *
+ * @param a_path     Local dir URI.
+ * @param a_pattern  File name search pattern.
+ * @param a_callback Function to call for each file found.
+ *
+ */
+void cc::fs::posix::Dir::ListFiles (const std::string& a_path, const std::string& a_pattern,
+                                    const std::function<bool(const std::string& a_uri)> a_callback)
+{
+    DIR* handle = opendir(a_path.c_str());
+    if ( handle == NULL ) {
+        if ( false == Exists(a_path) ) {
+            throw ::cc::Exception("Directory %s does not exist!", a_path.c_str());
+        } else {
+            throw ::cc::Exception("Unable to verify if directory %s exists!", a_path.c_str());
+        }
+    }
+    std::stringstream ss;
+    struct dirent* entry;
+    while ( ( entry = readdir(handle) ) != NULL ) {
+        // ... is it a file?
+        if ( entry->d_type & DT_REG ) {
+            // .. and the pattern matches?
+            if ( 0 == fnmatch(a_pattern.c_str(), entry->d_name, FNM_CASEFOLD) ) {
+                ss.str("");
+                ss << a_path << entry->d_name;
+                try {
+                    if ( false == a_callback(ss.str()) ) {
+                        break;
+                    }
+                } catch(...) {
+                    closedir(handle);
+                    CC_EXCEPTION_RETHROW(/* a_unhandled */ false);
+                }
+            }
+        } else if ( entry->d_type & DT_DIR && ( '.' != entry->d_name[0] ) ) {
+            try {
+                ListFiles(a_path + entry->d_name + "/", a_pattern, a_callback);
+            } catch(...) {
+                closedir(handle);
+                CC_EXCEPTION_RETHROW(/* a_unhandled */ false);
+            }
+        }
+    }
+    // ... close handle ...
+    closedir(handle);
 }

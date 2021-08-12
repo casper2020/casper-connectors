@@ -80,6 +80,9 @@ namespace cc
                 static std::string RealPath              (const std::string& a_path);
                 static std::string ReadLink              (const std::string& a_path);
                 
+                static void        ListFiles (const std::string& a_path, const std::string& a_pattern,
+                                              const std::function<bool(const std::string& a_uri)> a_callback);
+                
             }; // end of class 'dir'
             
         } // end of namespace 'posix'
