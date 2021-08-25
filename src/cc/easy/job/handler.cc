@@ -42,6 +42,7 @@ cc::easy::job::HandlerInitializer::HandlerInitializer (cc::easy::job::Handler& a
 {
     instance_.factories_ = nullptr;
     instance_.runner_    = new ev::loop::beanstalkd::Runner();
+    instance_.rv_        = 0;
 }
 
 /**
@@ -208,22 +209,23 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
 
         // ... startup ...
         runner_->Startup({
-            /* abbr_           */ a_arguments.abbr_,
-            /* name_           */ a_arguments.name_,
-            /* version_        */ a_arguments.version_,
-            /* rel_date_       */ a_arguments.rel_date_,
-            /* rel_branch_     */ a_arguments.rel_branch_,
-            /* rel_hash_       */ a_arguments.rel_hash_,
-            /* info_           */ a_arguments.info_,
-            /* banner_         */ a_arguments.banner_,
-            /* instance_       */ static_cast<int>(opt.GetUInt64('i')->value()),
-            /* cluster_        */ static_cast<int>(opt.GetUInt64('k')->value()),
-            /* exec_path_      */ a_arguments.argv_[0],
-            /* conf_file_uri_  */  opt.GetString('c')->value(),
-        },
-        /* a_inner_shutdown           */ std::bind(&cc::easy::job::Handler::InnerStartup, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5),
-        /* inner_shutdown_            */ std::bind(&cc::easy::job::Handler::InnerShutdown, this),
-        /* a_fatal_exception_callback */ fatal_shutdown);
+                            /* abbr_           */ a_arguments.abbr_,
+                            /* name_           */ a_arguments.name_,
+                            /* version_        */ a_arguments.version_,
+                            /* rel_date_       */ a_arguments.rel_date_,
+                            /* rel_branch_     */ a_arguments.rel_branch_,
+                            /* rel_hash_       */ a_arguments.rel_hash_,
+                            /* info_           */ a_arguments.info_,
+                            /* banner_         */ a_arguments.banner_,
+                            /* instance_       */ static_cast<int>(opt.GetUInt64('i')->value()),
+                            /* cluster_        */ static_cast<int>(opt.GetUInt64('k')->value()),
+                            /* exec_path_      */ a_arguments.argv_[0],
+                            /* conf_file_uri_  */  opt.GetString('c')->value(),
+                        },
+                        /* a_inner_shutdown           */ std::bind(&cc::easy::job::Handler::InnerStartup, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5),
+                        /* inner_shutdown_            */ std::bind(&cc::easy::job::Handler::InnerShutdown, this),
+                        /* a_fatal_exception_callback */ std::bind(&cc::easy::job::Handler::OnRunnerFatalException, this, std::placeholders::_1)
+        );
         
         // ... set this handler specific configs ...
         factories_ = &a_factories;
@@ -245,8 +247,10 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
     }
     
     // ... done ...
-    return 0;
+    return rv_;
 }
+
+// MARK: -
 
 /**
  * @brief Merge JSON Value.
@@ -266,4 +270,20 @@ void cc::easy::job::Handler::MergeJSONValue (Json::Value& a_lhs, const Json::Val
             a_lhs[k] = a_rhs[k];
         }
     }
+}
+
+// MARK: -
+
+/**
+ * @brief This method will be called when a fatal exception occurred.
+ *
+ * @param a_exception Caught exception.
+ */
+void cc::easy::job::Handler::OnRunnerFatalException (const ev::Exception& a_exception)
+{
+    // ... log error ...
+    fprintf(stderr, "\n~~~\n\n%s\n~~~\n\n", a_exception.what());
+    fflush(stderr);
+    // ... something went wrong ...
+    rv_ = -1;
 }

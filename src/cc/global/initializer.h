@@ -82,9 +82,13 @@ namespace cc
 
             typedef struct {
                 std::function<void(std::function<void()>)> call_on_main_thread_;
-                std::function<void(const cc::Exception&)>  on_fatal_exception_;
             } Callbacks;
 
+            typedef struct {
+                std::string                        title_;
+                std::map<std::string, std::string> values_;
+            } Present;
+            
         private: // Data
 
             Process*              process_;
@@ -102,7 +106,7 @@ namespace cc
             
             void WarmUp   (const Process& a_process, const Directories* a_directories, const Logs& a_logs, const V8& a_v8,
                            const WarmUpNextStep& a_next_step,
-                           const std::function<void(std::string&, std::map<std::string, std::string>&)> a_present,
+                           const std::function<void(std::vector<Present>&)> a_present,
                            const std::set<std::string>* a_debug_tokens,
 #ifdef __APPLE__
                            const bool a_use_local_dirs = true,

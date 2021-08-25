@@ -61,14 +61,15 @@ ev::loop::beanstalkd::Runner::Runner ()
     bridge_                   = nullptr;
     consumer_thread_          = nullptr;
     consumer_cv_              = nullptr;
-    loggable_data_            = nullptr;
-    factory_                  = nullptr;
+    startup_config_           = nullptr;
     shared_config_            = new ev::loop::beanstalkd::SharedConfig({
         /* ip_addr_ */ "",
         /* directories_ */ {
-            /* log_  */ "",
-            /* run_  */ "",
-            /* lock_ */ "",
+            /* log_    */ "",
+            /* run_    */ "",
+            /* lock_   */ "",
+            /* shared_ */ "",
+            /* output_ */ "",
         },
         /* log_tokens_ */ {},
         /* redis_ */
@@ -101,15 +102,18 @@ ev::loop::beanstalkd::Runner::Runner ()
             /* port_              */ 11300,
             /* timeout_           */ 0.0,
             /* abort_polling_     */ 3,
+            /* max_attempts_      */ std::numeric_limits<uint64_t>::max(),
             /* tubes_             */ {} ,
             /* sessionless_tubes_ */ {},
             /* action_tubes_      */ {}
         },
         /* device_limits_ */ {}
     });
-    http_       = nullptr;
-    looper_ptr_ = nullptr;
-    running_    = false;
+    loggable_data_ = nullptr;
+    factory_       = nullptr;
+    http_          = nullptr;
+    looper_ptr_    = nullptr;
+    running_       = false;
 }
 
 /**
@@ -215,10 +219,29 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::StartupC
             /* function_ */ std::bind(&ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
             /* args_     */ (void*)(&a_config)
         },
-        /* a_present */ [this] (std::string& o_title, std::map<std::string, std::string>& o_values) {
-            o_title = "TUBES";
-            for ( auto it : shared_config_->beanstalk_.tubes_ ) {
-                o_values["tubes[" + std::to_string(o_values.size()) + "]"] = it;
+        /* a_present */ [this, &a_config] (std::vector<::cc::global::Initializer::Present>& o_values) {
+            // ... config file ...
+            {
+                o_values.push_back({
+                    /* title_   */ "CONFIG",
+                    /* values_ */ { { "URI" , a_config.conf_file_uri_ } }
+                });
+                auto& config = o_values.back();
+                if ( -0 != a_config.cluster_ ) {
+                    config.values_["CLUSTER"] = std::to_string(a_config.cluster_);
+                }
+                config.values_["INSTANCE"] = std::to_string(a_config.instance_);
+            }
+            // ... tubes ...
+            {
+                o_values.push_back({
+                    /* title_   */ "TUBES",
+                    /* values_ */ {}
+                });
+                auto& tubes = o_values.back();
+                for ( auto it : shared_config_->beanstalk_.tubes_ ) {
+                    tubes.values_["tubes[" + std::to_string(tubes.values_.size()) + "]"] = it;
+                }
             }
         },
         /* a_debug_tokens */
@@ -253,8 +276,7 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::StartupC
             /* call_on_main_thread_    */
             [this] (std::function<void()> a_callback) {
                 ExecuteOnMainThread(a_callback, /* a_blocking */ false);
-            },
-            /* on_fatal_exception_     */ std::bind(&ev::loop::beanstalkd::Runner::OnFatalException, this, std::placeholders::_1)
+            }
         }
     );
 }
@@ -362,6 +384,7 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
             shared_config_->beanstalk_.port_          = beanstalkd.get("port"         , shared_config_->beanstalk_.port_         ).asInt();
             shared_config_->beanstalk_.timeout_       = beanstalkd.get("timeout"      , shared_config_->beanstalk_.timeout_      ).asFloat();
             shared_config_->beanstalk_.abort_polling_ = beanstalkd.get("abort_polling", shared_config_->beanstalk_.abort_polling_).asFloat();
+            shared_config_->beanstalk_.max_attempts_  = beanstalkd.get("max_attempts" , shared_config_->beanstalk_.max_attempts_).asUInt64();
             shared_config_->beanstalk_.tubes_.clear();
             const Json::Value& tubes = beanstalkd["tubes"];
             if ( false == tubes.isArray() ) {
@@ -460,12 +483,12 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
     }
     fflush(pid_fd);
     fclose(pid_fd);
-    
+        
     // .. set loggable data ...
     loggable_data_ = new ::ev::Loggable::Data(/* owner_ptr_ */ this,
                                               /* ip_addr_   */ shared_config_->ip_addr_,
                                               /* module_    */ startup_config_->info_,
-                                              /* tag_       */ "instance-" + std::to_string(startup_config_->instance_) // TODO cluster?
+                                              /* tag_       */ ( 0 != startup_config_->cluster_ ? "-k " + std::to_string(startup_config_->cluster_) + "; " : "" ) + "-i " + std::to_string(startup_config_->instance_)
     );
     
     // ... set a http client ...
@@ -808,7 +831,7 @@ void ev::loop::beanstalkd::Runner::OnFatalException (const ev::Exception& a_exce
 {
     ExecuteOnMainThread([this, a_exception]{
         on_fatal_exception_(a_exception);
-    }, /* a_blocking */ false);
+    }, /* a_blocking */ ( false == running_ ));
 }
 
 #ifdef __APPLE__

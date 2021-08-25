@@ -56,9 +56,8 @@ namespace ev
     public: // Data Type(s)
         
         typedef struct {
-            std::function<bool(int /* a_signo */)>                         on_signal_;
-            std::function<void(const ev::Exception& /* a_ev_exception */)> on_fatal_exception_;
-            std::function<void(std::function<void()>)>                     call_on_main_thread_;
+            std::function<bool(int)>                   on_signal_;
+            std::function<void(std::function<void()>)> call_on_main_thread_;
         } Callbacks;
         
         typedef struct {

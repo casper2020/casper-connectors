@@ -58,7 +58,7 @@ ev::Initializer::Initializer (ev::Signals& a_instance)
 {
     instance_.loggable_data_ = nullptr;
     instance_.logger_client_ = nullptr;
-    instance_.callbacks_     = { nullptr, nullptr, nullptr };
+    instance_.callbacks_     = { nullptr, nullptr };
 }
 
 /**
@@ -168,7 +168,7 @@ void ev::Signals::Shutdown ()
     }
     signals_.clear();
 
-    callbacks_ = { nullptr, nullptr, nullptr };
+    callbacks_ = { nullptr, nullptr };
     
     ev::LoggerV2::GetInstance().Unregister(logger_client_);
     
@@ -210,7 +210,7 @@ void ev::Signals::Unregister ()
         delete it.second;
     }
     other_signal_handlers_.clear();
-    callbacks_ = { nullptr, nullptr, nullptr };
+    callbacks_ = { nullptr, nullptr };
 }
 
 #ifdef __APPLE__

@@ -165,7 +165,7 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
                                       const cc::global::Logs& a_logs,
                                       const cc::global::Initializer::V8& a_v8,
                                       const cc::global::Initializer::WarmUpNextStep& a_next_step,
-                                      const std::function<void(std::string&, std::map<std::string, std::string>&)> a_present,
+                                      const std::function<void(std::vector<Present>&)> a_present,
                                       const std::set<std::string>* a_debug_tokens,
                                       const bool a_use_local_dirs, const std::string a_log_fn_component)
 {
@@ -537,13 +537,14 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         // ... present ...
         //
         if ( nullptr != a_present ) {
-            std::string                        title;
-            std::map<std::string, std::string> values;
-            a_present(title, values);
-            if ( values.size() > 0 ) {
-                CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", title.c_str());
-                for ( const auto& p : values ) {
-                    CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", p.first.c_str(), p.second.c_str());
+            std::vector<Present> present;
+            a_present(present);
+            for ( auto& p : present ) {
+                if ( p.values_.size() > 0 ) {
+                    CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", p.title_.c_str());
+                    for ( const auto& v : p.values_ ) {
+                        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", v.first.c_str(), v.second.c_str());
+                    }
                 }
             }
         }
@@ -625,7 +626,6 @@ void cc::global::Initializer::Startup (const cc::global::Initializer::Signals& a
             /* a_callbacks */
             {
                 /* on_signal_           */ a_signals.unhandled_signals_callback_,
-                /* on_fatal_exception_  */ a_callbacks.on_fatal_exception_,
                 /* call_on_main_thread_ */ a_callbacks.call_on_main_thread_
             }
     );

@@ -23,11 +23,15 @@
 #ifndef NRS_EV_BEANSTALK_CONSUMER_H_
 #define NRS_EV_BEANSTALK_CONSUMER_H_
 
+#include "cc/non-copyable.h"
+#include "cc/non-movable.h"
+
 #include "ev/beanstalk/config.h"
 
 #include "beanstalk-client/beanstalk.hpp"
 
 #include <string>
+#include <functional>
 
 namespace ev
 {
@@ -35,8 +39,15 @@ namespace ev
     namespace beanstalk
     {
         
-        class Consumer
+        class Consumer final : public ::cc::NonCopyable, public ::cc::NonMovable
         {
+            
+        public: // Data Type(s)
+            
+            typedef struct {
+                const std::function<void(const uint64_t&, const uint64_t&, const float&)>&       attempt_;
+                const std::function<void(const uint64_t&, const uint64_t&, const std::string&)>& failure_;
+            } ConnectCallbacks;
             
         private: //
             
@@ -44,19 +55,16 @@ namespace ev
             
         public: // Constructor(s) / Destructor
             
-            Consumer (const Config& a_config);
+            Consumer ();
             virtual ~Consumer ();
             
         public: // Method(s) / Function(s)
             
+            void Connect (const ev::beanstalk::Config& a_config, const ConnectCallbacks& a_callbacks, volatile bool& a_abort);
             bool Reserve (::Beanstalk::Job& a_job);
             bool Reserve (::Beanstalk::Job& a_job, uint32_t a_timeout_sec);
             bool Bury    (const ::Beanstalk::Job& a_job, uint32_t a_priority = 1);
             bool Del     (const ::Beanstalk::Job& a_job);
-            
-        private:  // Method(s) / Function(s)
-            
-            void Runner ();
             
         }; // end of class 'Consumer';
         

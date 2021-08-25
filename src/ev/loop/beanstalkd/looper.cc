@@ -87,56 +87,87 @@ void ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig
     bool           already_ran;
     bool           deferred;
     uint16_t       http_status_code;
-    
-    // ... write to permanent log ...
-    EV_LOOP_BEANSTALK_LOG("queue",
-                          "Connecting to %s:%d...",
-                          a_shared_config.beanstalk_.host_.c_str(),
-                          a_shared_config.beanstalk_.port_
+        
+    // ... try to connect to beanstalkd ...
+    beanstalk_ = new ::ev::beanstalk::Consumer();
+    beanstalk_->Connect(a_shared_config.beanstalk_,
+                        {
+                            /* attempt_ */
+                            [this, &a_shared_config] (const uint64_t& a_attempt, const uint64_t& a_max_attempts, const float& a_timeout) {
+                                // ... write to permanent log ...
+                                if ( std::numeric_limits<uint64_t>::max() != a_max_attempts ) {
+                                    EV_LOOP_BEANSTALK_LOG("queue",
+                                                          "Attempt " UINT64_FMT " of " UINT64_FMT ", trying to connect to %s:%d, timeout in %.0f second(s)...",
+                                                          a_attempt, a_max_attempts,
+                                                          a_shared_config.beanstalk_.host_.c_str(),
+                                                          a_shared_config.beanstalk_.port_,
+                                                          a_timeout
+                                    );
+                                } else {
+                                    EV_LOOP_BEANSTALK_LOG("queue",
+                                                          "Trying to connect to %s:%d, timeout in %.0f second(s)...",
+                                                          a_shared_config.beanstalk_.host_.c_str(),
+                                                          a_shared_config.beanstalk_.port_,
+                                                          a_timeout
+                                    );
+                                }
+                            },
+                            /* failure */
+                            [this] (const uint64_t& a_attempt, const uint64_t& a_max_attempts, const std::string& a_what) {
+                                // ... write to permanent log ...
+                                if ( std::numeric_limits<uint64_t>::max() != a_max_attempts ) {
+                                    EV_LOOP_BEANSTALK_LOG("queue",
+                                                          "# " UINT64_FMT " failed: %s",
+                                                          a_attempt,
+                                                          a_what.c_str()
+                                    );
+                                } else {
+                                    EV_LOOP_BEANSTALK_LOG("queue",
+                                                          "Failed: %s",
+                                                          a_what.c_str()
+                                    );
+                                }
+                            }
+                        },
+                        a_aborted
     );
 
-    beanstalk_ = new ::ev::beanstalk::Consumer(a_shared_config.beanstalk_);
-    
-    loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
-    
-    // ... write to permanent log ...
-    EV_LOOP_BEANSTALK_LOG("queue",
-                          "%s",
-                          "Connection established..."
-    );
-
-    std::stringstream ss;
-    for ( auto it : a_shared_config.beanstalk_.tubes_ ) {
-        ss << it << ',';
+    // ... established or aborted?
+    if ( false == a_aborted ) { // ... established ...
+        // ... write to permanent log ...
+        EV_LOOP_BEANSTALK_LOG("queue",
+                              "%s",
+                              "Connection established..."
+        );
+        std::stringstream ss;
+        for ( auto it : a_shared_config.beanstalk_.tubes_ ) {
+            ss << it << ',';
+        }
+        ss.seekp(-1, std::ios_base::end); ss << '\0';
+        EV_LOOP_BEANSTALK_LOG("queue",
+                              "Listening to '%s' %s...",
+                              ss.str().c_str(),
+                              a_shared_config.beanstalk_.tubes_.size() != 1 ? "tubes" : "tube"
+        );
+        // ... update logger info ...
+        loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
+        // ... write to permanent log ...
+        EV_LOOP_BEANSTALK_LOG("queue",
+                              "WTNG %19.19s"  "-",
+                              "--"
+        );
+    } else { // ... aborted ...
+        // ... write to permanent log ...
+        EV_LOOP_BEANSTALK_LOG("queue",
+                              "%s",
+                              "Connection aborted..."
+        );
     }
-    ss.seekp(-1, std::ios_base::end); ss << '\0';
-    EV_LOOP_BEANSTALK_LOG("queue",
-                          "Listening to '%s' %s...",
-                          ss.str().c_str(),
-                          a_shared_config.beanstalk_.tubes_.size() != 1 ? "tubes" : "tube"
-    );
-    
-    // TODO 2.0 : log service id
-    //    EV_LOOP_BEANSTALK_LOG("queue",
-    //                          "Using service id '%s'",
-    //                          a_beanstakd_config.
-    //    );
-
-    // ... write to permanent log ...
-    EV_LOOP_BEANSTALK_LOG("queue",
-                          "WTNG %19.19s"  "-",
-                          "--"
-    );
-    
+        
     //
     // set polling timeout
     //
-    uint32_t polling_timeout;
-    if ( true == polling_.set_ ) {
-        polling_timeout = 0;
-    } else {
-        polling_timeout = static_cast<uint32_t>(a_shared_config.beanstalk_.abort_polling_);
-    }
+    const uint32_t polling_timeout = ( true == polling_.set_ ? 0 : static_cast<uint32_t>(a_shared_config.beanstalk_.abort_polling_) );
 
     //
     // consumer loop

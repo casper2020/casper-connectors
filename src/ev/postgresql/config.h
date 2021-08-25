@@ -43,8 +43,10 @@ namespace ev
             
             inline void operator=(const _Config& a_config)
             {
-                conn_str_          = a_config.conn_str_;
-                statement_timeout_ = a_config.statement_timeout_;
+                conn_str_             = a_config.conn_str_;
+                statement_timeout_    = a_config.statement_timeout_;
+                post_connect_queries_ = a_config.post_connect_queries_;
+                limits_               = a_config.limits_;
             }
             
         } Config;

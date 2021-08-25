@@ -80,6 +80,7 @@ namespace cc
             private: // Data:
                 
                 ev::loop::beanstalkd::Runner* runner_;
+                int                           rv_;
                 
             private: // Method(s) / Function(s)
                 
@@ -95,6 +96,10 @@ namespace cc
             private: // Method(s) / Function(s)
                 
                 void MergeJSONValue (Json::Value& a_lhs, const Json::Value& a_rhs);
+
+            private: // Method(s) / Function(s)
+
+                void OnRunnerFatalException (const ev::Exception& a_exception);
                 
             private: // Inline Method(s) / Function(s)
                 

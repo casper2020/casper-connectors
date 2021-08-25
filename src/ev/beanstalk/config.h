@@ -38,6 +38,7 @@ namespace ev
             int                   port_;             //!< port number
             float                 timeout_;          //!< in seconds
             uint32_t              abort_polling_;    //!< in seconds
+            uint64_t              max_attempts_;     //!< number of attempts before givin up on trying to establish a connection
             std::set<std::string> tubes_;            //!< tubes
             std::set<std::string> sessionless_tubes_;
             std::set<std::string> action_tubes_;
@@ -48,6 +49,7 @@ namespace ev
                 port_          = a_config.port_;
                 timeout_       = a_config.timeout_;
                 abort_polling_ = a_config.abort_polling_;
+                max_attempts_  = a_config.max_attempts_;
                 for ( auto it : a_config.tubes_ ) {
                     tubes_.insert(it);
                 }
