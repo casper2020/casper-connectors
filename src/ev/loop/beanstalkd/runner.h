@@ -89,7 +89,8 @@ namespace ev
                 std::mutex                    looper_mutex_;
                 ev::loop::beanstalkd::Looper* looper_ptr_;
                 std::atomic<bool>             running_;
-                
+                std::atomic<int>              rv_;
+
             public: // Constructor(s) / Destructor
                 
                 Runner ();
@@ -100,7 +101,7 @@ namespace ev
                 void Startup (const StartupConfig& a_config,
                               InnerStartup a_inner_startup, InnerShutdown a_inner_shutdown,
                               FatalExceptionCallback a_fatal_exception_callback);
-                void Run      (const float& a_polling_timeout = -1.0f, const bool a_at_main_thread = false);
+                int  Run      (const float& a_polling_timeout = -1.0f, const bool a_at_main_thread = false);
                 void Shutdown (int a_sig_no);
                 
             public: // Inline Method(s) / Function(s)

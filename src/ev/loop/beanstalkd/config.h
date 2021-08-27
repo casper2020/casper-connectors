@@ -50,9 +50,17 @@ namespace ev
                 const std::string                  exec_path_;
                 const std::string                  conf_file_uri_;
             } StartupConfig;
+        
+            typedef struct {
+                size_t  limit_;     //!< physical memory footprint size limit
+                uint8_t log_level_; //!< 0 no log, 1 minimum, 2 verbose
+                bool    enabled_;   //!< true when this feature should be enabled
+            } PMFTrigger;
 
             typedef struct _SharedConfig {
                 
+                pid_t                              pid_;
+                PMFTrigger                         pmf_;
                 std::string                        ip_addr_;
                 ev::Directories                    directories_;
                 std::map<std::string, std::string> log_tokens_;
@@ -61,12 +69,15 @@ namespace ev
                 ev::beanstalk::Config              beanstalk_;
                 DeviceLimitsMap                    device_limits_;
                 
-                _SharedConfig(const std::string& a_ip_addr,
+                _SharedConfig(const pid_t a_pid, const PMFTrigger a_pmf,
+                              const std::string& a_ip_addr,
                               const ev::Directories& a_directories, const std::map<std::string, std::string>& a_log_tokens,
                               const ev::redis::Config& a_redis, const ev::postgresql::Config& a_postgres, const ev::beanstalk::Config& a_beanstalk, const DeviceLimitsMap& a_device_limits)
                 {
-                    ip_addr_       = a_ip_addr;
-                    directories_   = a_directories;
+                    pid_            = a_pid;
+                    pmf_            = a_pmf;
+                    ip_addr_        = a_ip_addr;
+                    directories_    = a_directories;
                     
                     for ( auto it : a_log_tokens ) {
                         log_tokens_[it.first] = it.second;
@@ -83,8 +94,10 @@ namespace ev
 
                 inline void operator=(const _SharedConfig& a_config)
                 {
-                    ip_addr_       = a_config.ip_addr_;
-                    directories_   = a_config.directories_;
+                    pid_            = a_config.pid_;
+                    pmf_            = a_config.pmf_;
+                    ip_addr_        = a_config.ip_addr_;
+                    directories_    = a_config.directories_;
                     
                     for ( auto it : a_config.log_tokens_ ) {
                         log_tokens_[it.first] = it.second;

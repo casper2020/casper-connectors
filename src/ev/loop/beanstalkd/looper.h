@@ -75,6 +75,16 @@ namespace ev
                 
                 Polling polling_;
                 
+                typedef struct {
+                    pid_t  pid_;      //!< Process PID.
+                    size_t limit_;    //!< Usage limit, in bytes.
+                    size_t size_;     //!< Last check, physical memory footprint size.
+                    bool   check_;    //!< True if checks should be performed, false othewise.
+                    bool   enforce_;  //!< True if it's limit should be enforced, false otheriwse.
+                    bool   triggered_;//!< True when limit was triggered.
+                } PhysMemFP;
+                PhysMemFP phys_mem_;
+                
             public: // Data Type(s)
                 
                 typedef std::function<void(const std::string&)> IdleCallback;
@@ -114,7 +124,7 @@ namespace ev
                 
             public: // Method(s) / Function(s)
                 
-                void Run (const SharedConfig& a_shared_config, volatile bool& a_aborted);
+                int Run (const SharedConfig& a_shared_config, volatile bool& a_aborted);
                 
                 void AppendCallback (const std::string& a_id, IdleCallback a_callback,
                                      const size_t a_timeout = 0, const bool a_recurrent = false);
@@ -140,7 +150,7 @@ namespace ev
                 polling_.timeout_ = a_millseconds;
                 polling_.set_     = ( polling_.timeout_ > -1.0 );
             }
-            
+
         } // end of namespace 'beanstalkd'
             
     } // end of namespace 'loop'

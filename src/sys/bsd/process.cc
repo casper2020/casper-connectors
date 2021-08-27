@@ -24,8 +24,10 @@
 #include <unistd.h>        // access, pid_t, getppid
 #include <errno.h>         // errno
 #include <sys/sysctl.h>    // sysctl
+#include<mach/mach.h>
 
 #include <exception>
+
 
 /**
  * @brief Destructor
@@ -262,4 +264,28 @@ bool sys::bsd::Process::IsProcessBeingDebugged (const pid_t& a_pid)
     
     // ... done - the provided process is being debugged if the P_TRACED flag is set ...
     return ( (info.kp_proc.p_flag & P_TRACED) != 0 );
+}
+
+/**
+ * @brief Obtain memory physical footprint size for a process by pid.
+ *
+ * @param a_pid Process pid.
+ *
+ * @return Memory physical footprint for the provided process id.
+ */
+ssize_t sys::bsd::Process::MemPhysicalFootprint (const pid_t& a_pid)
+{
+    task_t task;
+    
+    kern_return_t error = task_for_pid(mach_task_self(), a_pid, &task);
+    if ( KERN_SUCCESS != error ) {
+        return -1;
+    }
+    task_vm_info_data_t vm_info;
+    mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+    error = task_info(task, TASK_VM_INFO, (task_info_t) &vm_info, &count);
+    if ( KERN_SUCCESS != error ) {
+        return -1;
+    }
+    return static_cast<ssize_t>(vm_info.phys_footprint);
 }

@@ -152,7 +152,7 @@ namespace cc
                 const auto e = std::current_exception();
                 if ( e ) {
                     try {
-                        std::rethrow_exception(std::current_exception());
+                        std::rethrow_exception(e);
                     } catch(const std::exception& e) {
                         throw ::cc::Exception("%s", e.what());
                     }

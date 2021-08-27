@@ -30,6 +30,11 @@
 
 #include "cc/macros.h"
 
+#ifdef __APPLE__
+    #include "sys/bsd/process.h"
+#endif
+
+
 /**
  * @brief Default constructor.
  *
@@ -47,10 +52,16 @@ ev::loop::beanstalkd::Looper::Looper (const ev::Loggable::Data& a_loggable_data,
     beanstalk_ = nullptr;
     job_ptr_   = nullptr;
     EV_LOOP_BEANSTALK_IF_LOG_ENABLED({
-        ev::LoggerV2::GetInstance().Register(logger_client_, { "queue" });
+        ev::LoggerV2::GetInstance().Register(logger_client_, { "queue", "pmf" });
     });
-    polling_.timeout_ = -1.0;
-    polling_.set_     = false;
+    polling_.timeout_    = -1.0;
+    polling_.set_        = false;
+    phys_mem_.pid_       = 0;
+    phys_mem_.limit_     = 0;
+    phys_mem_.size_      = 0;
+    phys_mem_.check_     = false;
+    phys_mem_.enforce_   = false;
+    phys_mem_.triggered_ = false;
 }
 
 /**
@@ -76,9 +87,11 @@ ev::loop::beanstalkd::Looper::~Looper ()
  *
  * @param a_shared_config
  * @param a_aborted
+ *
+ * @return Exit code, 0 success else an error occurred.
  */
-void ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig& a_shared_config,
-                                        volatile bool& a_aborted)
+int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig& a_shared_config,
+                                       volatile bool& a_aborted)
 {   
     Beanstalk::Job job;
     std::string    uri;
@@ -87,7 +100,25 @@ void ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig
     bool           already_ran;
     bool           deferred;
     uint16_t       http_status_code;
-        
+    
+    // ... use mem limits?
+    if ( true == a_shared_config.pmf_.enabled_ ) {
+        // ... set physical memory footprint settings ...
+        phys_mem_.pid_       = a_shared_config.pid_;
+        phys_mem_.limit_     = a_shared_config.pmf_.limit_;
+        phys_mem_.size_      = 0;
+        phys_mem_.check_     = ( 0 != phys_mem_.pid_ && 0 != phys_mem_.limit_ );
+        phys_mem_.enforce_   = ( true == phys_mem_.check_ && false == sys::bsd::Process::IsProcessBeingDebugged(phys_mem_.pid_) );
+        phys_mem_.triggered_ = false;
+        // ... write to permanent log ...
+        if ( true == phys_mem_.check_ && a_shared_config.pmf_.log_level_ >= 0 ) {
+            EV_LOOP_BEANSTALK_LOG("pmf",
+                                  "limit    : " SIZET_FMT " bytes // " SIZET_FMT " KB // " SIZET_FMT " MB",
+                                  phys_mem_.limit_, ( phys_mem_.limit_ / 1024 ), ( ( phys_mem_.limit_ / 1024 ) / 1024 )
+            );
+        }
+    }
+
     // ... try to connect to beanstalkd ...
     beanstalk_ = new ::ev::beanstalk::Consumer();
     beanstalk_->Connect(a_shared_config.beanstalk_,
@@ -435,14 +466,50 @@ void ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig
         
         // ... next job ...
         Idle(/* a_fake */ true);
+        
+#ifdef __APPLE__
+        if ( true == phys_mem_.check_ ) {
+            const ssize_t mem_used = sys::bsd::Process::MemPhysicalFootprint(phys_mem_.pid_);
+            if ( -1 != mem_used ) {
+                // ... keep track of PMF current size ...
+                phys_mem_.size_ = static_cast<size_t>(mem_used);
+                // ... log?
+                if (  a_shared_config.pmf_.log_level_ >= 2 ) {
+                    // ... write to permanent log ...
+                    EV_LOOP_BEANSTALK_LOG("pmf",
+                                          "used     : " SIZET_FMT " bytes // " SIZET_FMT " KB // " SIZET_FMT " MB",
+                                          phys_mem_.size_, ( phys_mem_.size_ / 1024 ), ( ( phys_mem_.size_ / 1024 ) / 1024 )
+                    );
+                }
+                // ... limit reached?
+                if ( phys_mem_.size_ >= phys_mem_.limit_ ) {
+                    // ... log?
+                    if ( a_shared_config.pmf_.log_level_ >= 0 ) {
+                        // ... write to permanent log ...
+                        EV_LOOP_BEANSTALK_LOG("pmf",
+                                              "triggered: " SIZET_FMT " bytes // " SIZET_FMT " KB // " SIZET_FMT " MB - %senforced",
+                                              phys_mem_.size_, ( phys_mem_.size_ / 1024 ), ( ( phys_mem_.size_ / 1024 ) / 1024 ),
+                                              ( false == phys_mem_.enforce_ ? "NOT " : "" )
+                        );
+                    }
+                    // ... enforce limit?
+                    if ( true == phys_mem_.enforce_ ) {
+                        // ... done ...
+                        phys_mem_.triggered_ = true;
+                        break;
+                    }
+                }
+            }
+        }
+#endif
     }
     
     loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
     
     // ... write to permanent log ...
     EV_LOOP_BEANSTALK_LOG("queue",
-                          "%s",
-                          "Stopped..."
+                          "Stopped%s...",
+                          ( true == phys_mem_.enforce_ && true == phys_mem_.triggered_ ? ": physical memory limit reached" : "")
     );
     
     //
@@ -460,6 +527,9 @@ void ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig
         delete it.second;
     }
     cache_.clear();
+    
+    // ... done ...
+    return ( true == phys_mem_.triggered_ ? 254 : 0 );
 }
 
 /**

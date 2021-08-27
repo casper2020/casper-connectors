@@ -63,6 +63,12 @@ ev::loop::beanstalkd::Runner::Runner ()
     consumer_cv_              = nullptr;
     startup_config_           = nullptr;
     shared_config_            = new ev::loop::beanstalkd::SharedConfig({
+        /* pid_            */ 0,
+        /* pmf_            */ {
+            /* limit_     */ 0,
+            /* log_level_ */ 0,
+            /* enabled_   */ false
+        },
         /* ip_addr_ */ "",
         /* directories_ */ {
             /* log_    */ "",
@@ -114,6 +120,7 @@ ev::loop::beanstalkd::Runner::Runner ()
     http_          = nullptr;
     looper_ptr_    = nullptr;
     running_       = false;
+    rv_            = 0;
 }
 
 /**
@@ -311,6 +318,9 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
         fn_ci_component = '.' + std::to_string(startup_config_->instance_);
     }
 
+    // ... keep track of process pid ...
+    shared_config_->pid_ = a_process.pid_;
+
     //
     // Work directories:
     //
@@ -415,6 +425,35 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
         /* process specific config */
         const Json::Value&  p_cfg = read_config[a_process.name_];
         if ( false == p_cfg.isNull() ) {
+            /* pmf */
+            const Json::Value pmf = p_cfg.get("pmf", Json::Value::null);
+            if ( false == pmf.isNull() ) {
+                if ( false == pmf.isObject() ) {
+                    throw ev::Exception("An error occurred while loading configuration - invalid pmf object!");
+                } else {
+                    const Json::Value limit = pmf.get("limit", Json::Value::null);
+                    if ( false == limit.isNull() ) {
+                        if ( false == limit.isNumeric() ) {
+                            throw ev::Exception("An error occurred while loading configuration - invalid pmf limit value!");
+                        }
+                        shared_config_->pmf_.limit_ = static_cast<uint64_t>(limit.asUInt64());
+                    }
+                    const Json::Value enabled = pmf.get("enabled", Json::Value::null);
+                    if ( false == enabled.isNull() ) {
+                        if ( false == enabled.isBool() ) {
+                            throw ev::Exception("An error occurred while loading configuration - invalid pmf enabled value!");
+                        }
+                        shared_config_->pmf_.enabled_ = enabled.asBool();
+                    }
+                    const Json::Value log_level = pmf.get("log_level", Json::Value::null);
+                    if ( false == log_level.isNull() ) {
+                        if ( false == log_level.isNumeric() ) {
+                            throw ev::Exception("An error occurred while loading configuration - invalid pmf log_level value!");
+                        }
+                        shared_config_->pmf_.log_level_ = static_cast<uint8_t>(log_level.asUInt());
+                    }
+                }
+            }
             /* host / ip address */
             if ( true == p_cfg.isMember("host") && true == p_cfg["host"].isString() ) {
                 shared_config_->ip_addr_ = p_cfg["host"].asString();
@@ -515,7 +554,7 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
         o_logs.push_back({ /* token_ */ token ,/* uri_ */ shared_config_->directories_.log_ + token + fn_ci_component + ".log", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 1 });
     }
     // ... v2 ...
-    for ( auto token : { "signals", "queue" } ) {
+    for ( auto token : { "signals", "queue", "pmf" } ) {
         o_logs.push_back({ /* token_ */ token ,/* uri_ */ shared_config_->directories_.log_ + token + fn_ci_component + ".log", /* conditional_ */ false, /* enabled_ */ true, /* version_ */ 2 });
     }
     
@@ -629,8 +668,10 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
  *
  * @param a_polling_timeout Consumer's loop polling timeout in millseconds, if < 0 will use defaults.
  * @param a_at_main_thread True if this will run at main thread.
+ *
+ * @return Exit code, 0 success else an error occurred.
  */
-void ev::loop::beanstalkd::Runner::Run (const float& a_polling_timeout, const bool a_at_main_thread)
+int ev::loop::beanstalkd::Runner::Run (const float& a_polling_timeout, const bool a_at_main_thread)
 {
     consumer_cv_     = new osal::ConditionVariable();
     consumer_thread_ = new std::thread(&ev::loop::beanstalkd::Runner::ConsumerLoop, this, a_polling_timeout);
@@ -649,6 +690,8 @@ void ev::loop::beanstalkd::Runner::Run (const float& a_polling_timeout, const bo
         delete consumer_thread_;
         consumer_thread_ = nullptr;
     }
+    
+    return rv_;
 }
 
 /**
@@ -724,7 +767,7 @@ void ev::loop::beanstalkd::Runner::Shutdown (int a_sig_no)
     cleanup_cv.Wait();
         
     // ... casper-connectors // third party libraries cleanup ...
-    ::cc::global::Initializer::GetInstance().Shutdown(/* a_for_cleanup_only */ false);
+    ::cc::global::Initializer::GetInstance().Shutdown(rv_, /* a_for_cleanup_only */ false);
 }
 
 #ifdef __APPLE__
@@ -882,8 +925,9 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop (const float& a_polling_timeout)
         looper_mutex_.unlock();
         
         looper_ptr_->SetPollingTimeout(a_polling_timeout);
-        looper_ptr_->Run(*shared_config_, quit_);
         
+        rv_ = looper_ptr_->Run(*shared_config_, quit_);
+                
         running_ = false;
         
     } catch (const Beanstalk::ConnectException& a_beanstalk_exception) {

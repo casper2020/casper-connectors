@@ -641,9 +641,10 @@ void cc::global::Initializer::Startup (const cc::global::Initializer::Signals& a
 /**
  * @brief Dealloc previously allocated memory ( if any ).
  *
+ * @param a_signo            Signal number.
  * @param a_for_cleanup_only True if it's for clean up.
  */
-void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
+void cc::global::Initializer::Shutdown (const int a_signo, bool a_for_cleanup_only)
 {
     const cc::global::Process process = *process_;
     const pid_t               c_pid   = getpid();
@@ -707,7 +708,12 @@ void cc::global::Initializer::Shutdown (bool a_for_cleanup_only)
     //
     CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s %s...\n",
                               log_line_prefix.c_str(), ( true == a_for_cleanup_only ?  "cleaned up" : "going down" )
-   );
+    );
+    if ( false == a_for_cleanup_only && false == forked ) {
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s exit code %d...\n",
+                                  log_line_prefix.c_str(), a_signo
+        );
+    }
     
     // ... log final step ...
     if ( false == forked ) {

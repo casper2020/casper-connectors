@@ -53,8 +53,9 @@ namespace sys
 
         public: // Static Method(s)  / Function(s)
             
-            static bool IsProcessBeingDebugged (const pid_t& a_pid);
-            
+            static bool    IsProcessBeingDebugged (const pid_t& a_pid);
+            static ssize_t MemPhysicalFootprint   (const pid_t& a_pid);
+
         }; // end of class 'Process'
 
     } // end of namespace 'bsd'

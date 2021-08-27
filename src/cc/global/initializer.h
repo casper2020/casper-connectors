@@ -116,7 +116,7 @@ namespace cc
                            const std::string a_log_fn_component = "");
 
             void Startup  (const Signals& a_signals, const Callbacks& a_callbacks);
-            void Shutdown (bool a_for_cleanup_only);
+            void Shutdown (const int a_signo, bool a_for_cleanup_only);
             
         public: // Method(s) / Function(s)
             
@@ -126,6 +126,8 @@ namespace cc
             ev::Loggable::Data& loggable_data   ();
             
             const Directories& directories () const;
+            
+            const Process*     process () const;
             
         private: //
             
@@ -168,6 +170,14 @@ namespace cc
         {
             CC_DEBUG_ASSERT(nullptr != directories_);
             return *directories_;
+        }
+    
+        /**
+         * @return R/O access to process info.
+         */
+        inline const Process* Initializer::process () const
+        {
+            return process_;
         }
 
     } // end of namespace 'global'

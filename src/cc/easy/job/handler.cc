@@ -148,7 +148,7 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
 
     const auto clean_shutdown = [this] () {
         
-        runner_->Shutdown(SIGQUIT);
+        runner_->Shutdown(( rv_ != 0 ? rv_ : SIGQUIT) );
         
     };
     
@@ -231,7 +231,10 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
         factories_ = &a_factories;
 
         // ... run ...
-        runner_->Run(a_polling_timeout, /* a_at_main_thread */ true);
+        const int tmp = runner_->Run(a_polling_timeout, /* a_at_main_thread */ true);
+        if ( -1 != rv_ ) {
+            rv_ = tmp;
+        }
         
         // ... shutdown ...
         clean_shutdown();
