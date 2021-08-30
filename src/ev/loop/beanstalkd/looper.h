@@ -76,12 +76,13 @@ namespace ev
                 Polling polling_;
                 
                 typedef struct {
-                    pid_t  pid_;      //!< Process PID.
-                    size_t limit_;    //!< Usage limit, in bytes.
-                    size_t size_;     //!< Last check, physical memory footprint size.
-                    bool   check_;    //!< True if checks should be performed, false othewise.
-                    bool   enforce_;  //!< True if it's limit should be enforced, false otheriwse.
-                    bool   triggered_;//!< True when limit was triggered.
+                    pid_t  pid_;       //!< Process PID.
+                    size_t limit_;     //!< Usage limit, in bytes.
+                    size_t size_;      //!< Last check, physical memory footprint size.
+                    size_t purgeable_; //!< Last check, 'purgeable' memory size.
+                    bool   check_;     //!< True if checks should be performed, false othewise.
+                    bool   enforce_;   //!< True if it's limit should be enforced, false otheriwse.
+                    bool   triggered_; //!< True when limit was triggered.
                 } PhysMemFP;
                 PhysMemFP phys_mem_;
                 

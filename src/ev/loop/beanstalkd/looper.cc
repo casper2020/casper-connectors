@@ -60,6 +60,7 @@ ev::loop::beanstalkd::Looper::Looper (const ev::Loggable::Data& a_loggable_data,
     phys_mem_.pid_       = 0;
     phys_mem_.limit_     = 0;
     phys_mem_.size_      = 0;
+    phys_mem_.purgeable_ = 0;
     phys_mem_.check_     = false;
     phys_mem_.enforce_   = false;
     phys_mem_.triggered_ = false;
@@ -109,6 +110,7 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
         phys_mem_.pid_       = a_shared_config.pid_;
         phys_mem_.limit_     = a_shared_config.pmf_.limit_;
         phys_mem_.size_      = 0;
+        phys_mem_.purgeable_ = 0;
         phys_mem_.check_     = ( 0 != phys_mem_.pid_ && 0 != phys_mem_.limit_ );
         phys_mem_.enforce_   = ( true == phys_mem_.check_ && false == sys::bsd::Process::IsProcessBeingDebugged(phys_mem_.pid_) );
         phys_mem_.triggered_ = false;
@@ -483,26 +485,26 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
         
 #ifdef __APPLE__
         if ( true == phys_mem_.check_ ) {
-            const ssize_t mem_used = sys::bsd::Process::MemPhysicalFootprint(phys_mem_.pid_);
-            if ( -1 != mem_used ) {
+            const ssize_t purgeable_mem = sys::bsd::Process::PurgeableVolatile(phys_mem_.pid_);
+            if ( -1 != purgeable_mem ) {
                 // ... keep track of PMF current size ...
-                phys_mem_.size_ = static_cast<size_t>(mem_used);
+                phys_mem_.purgeable_ = static_cast<size_t>(purgeable_mem);
                 // ... log?
                 if (  a_shared_config.pmf_.log_level_ >= 2 ) {
                     // ... write to permanent log ...
                     EV_LOOP_BEANSTALK_LOG("pmf",
-                                          "used     : " SIZET_FMT " bytes // " SIZET_FMT " KB // " SIZET_FMT " MB",
-                                          phys_mem_.size_, ( phys_mem_.size_ / 1024 ), ( ( phys_mem_.size_ / 1024 ) / 1024 )
+                                          "purgeable: " SIZET_FMT " bytes // " SIZET_FMT " KB // " SIZET_FMT " MB",
+                                          phys_mem_.purgeable_, ( phys_mem_.purgeable_ / 1024 ), ( ( phys_mem_.purgeable_ / 1024 ) / 1024 )
                     );
                 }
                 // ... limit reached?
-                if ( phys_mem_.size_ >= phys_mem_.limit_ ) {
+                if ( phys_mem_.purgeable_ >= phys_mem_.limit_ ) {
                     // ... log?
                     if ( a_shared_config.pmf_.log_level_ >= 0 ) {
                         // ... write to permanent log ...
                         EV_LOOP_BEANSTALK_LOG("pmf",
                                               "triggered: " SIZET_FMT " bytes // " SIZET_FMT " KB // " SIZET_FMT " MB - %senforced",
-                                              phys_mem_.size_, ( phys_mem_.size_ / 1024 ), ( ( phys_mem_.size_ / 1024 ) / 1024 ),
+                                              phys_mem_.purgeable_, ( phys_mem_.purgeable_ / 1024 ), ( ( phys_mem_.purgeable_ / 1024 ) / 1024 ),
                                               ( false == phys_mem_.enforce_ ? "NOT " : "" )
                         );
                     }

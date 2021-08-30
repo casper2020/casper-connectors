@@ -289,3 +289,27 @@ ssize_t sys::bsd::Process::MemPhysicalFootprint (const pid_t& a_pid)
     }
     return static_cast<ssize_t>(vm_info.phys_footprint);
 }
+
+/**
+ * @brief Obtain 'purgeable volatile' memory usage for a process by pid.
+ *
+ * @param a_pid Process pid.
+ *
+ * @return 'Purgeable volatile' memory usage for the provided process id.
+ */
+ssize_t sys::bsd::Process::PurgeableVolatile (const pid_t& a_pid)
+{
+    task_t task;
+    
+    kern_return_t error = task_for_pid(mach_task_self(), a_pid, &task);
+    if ( KERN_SUCCESS != error ) {
+        return -1;
+    }
+    task_vm_info_data_t vm_info;
+    mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+    error = task_info(task, TASK_VM_INFO, (task_info_t) &vm_info, &count);
+    if ( KERN_SUCCESS != error ) {
+        return -1;
+    }
+    return static_cast<ssize_t>(vm_info.ledger_purgeable_volatile + vm_info.ledger_purgeable_volatile_compressed);
+}

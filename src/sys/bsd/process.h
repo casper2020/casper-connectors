@@ -55,6 +55,7 @@ namespace sys
             
             static bool    IsProcessBeingDebugged (const pid_t& a_pid);
             static ssize_t MemPhysicalFootprint   (const pid_t& a_pid);
+            static ssize_t PurgeableVolatile      (const pid_t& a_pid);
 
         }; // end of class 'Process'
 
