@@ -29,6 +29,7 @@
 #include "json/json.h"
 
 #include "cc/macros.h"
+#include "cc/i18n/singleton.h"
 
 #ifdef __APPLE__
     #include "sys/bsd/process.h"
@@ -415,18 +416,28 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
         }
         
         loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
+        
+        const bool bury = ( a_shared_config.dnbe_.end() == std::find(a_shared_config.dnbe_.begin(), a_shared_config.dnbe_.end(), http_status_code) );
 
         // ... check print result ...
-        if ( true == success || true == cancelled || true == already_ran || true == deferred || 404 == http_status_code ) {
+        if ( true == success || true == cancelled || true == already_ran || true == deferred || false == bury ) {
             
             // ... write to permanent log?
             if ( false == deferred ) {
                 // ... write it ...
-                if ( 404 == http_status_code ) {
-                    EV_LOOP_BEANSTALK_LOG("queue",
-                                          "Job #" INT64_FMT_MAX_RA " ~> %s...",
-                                          job.id(), "NOT FOUND"
-                    );
+                if ( false == bury ) {
+                    const auto it = ::cc::i18n::Singleton::k_http_status_codes_map_.find(http_status_code);
+                    if ( ::cc::i18n::Singleton::k_http_status_codes_map_.end() != it  ) {
+                        EV_LOOP_BEANSTALK_LOG("queue",
+                                              "Job #" INT64_FMT_MAX_RA " ~> %s: %s triggered...",
+                                              job.id(), it->second.c_str(), "do not bury exception"
+                        );
+                    } else {
+                        EV_LOOP_BEANSTALK_LOG("queue",
+                                              "Job #" INT64_FMT_MAX_RA " ~> " UINT16_FMT ": %s triggered...",
+                                              job.id(), http_status_code, "do not bury exception"
+                        );
+                    }
                 } else {
                     EV_LOOP_BEANSTALK_LOG("queue",
                                           "Job #" INT64_FMT_MAX_RA " ~> %s...",

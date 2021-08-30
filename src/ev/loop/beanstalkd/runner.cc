@@ -113,7 +113,8 @@ ev::loop::beanstalkd::Runner::Runner ()
             /* sessionless_tubes_ */ {},
             /* action_tubes_      */ {}
         },
-        /* device_limits_ */ {}
+        /* device_limits_      */ {},
+        /* dnbe_               */ {}
     });
     loggable_data_ = nullptr;
     factory_       = nullptr;
@@ -452,6 +453,20 @@ void ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted (const ::cc::
                         }
                         shared_config_->pmf_.log_level_ = static_cast<uint8_t>(log_level.asUInt());
                     }
+                }
+            }
+            /* dnbe */
+            const Json::Value dnbe = p_cfg.get("dnbe", Json::Value::null);
+            if ( false == dnbe.isNull() ) {
+                if ( false == dnbe.isArray() ) {
+                    throw ev::Exception("An error occurred while loading configuration - invalid dnbe array of uint16_t!");
+                }
+                for ( Json::ArrayIndex idx = 0 ; idx < dnbe.size() ; ++idx ) {
+                    const auto& value = dnbe[idx];
+                    if ( false == value.isUInt() ) {
+                        throw ev::Exception("An error occurred while loading configuration - invalid dnbe array element %d !", (int)( idx + 1 ));
+                    }
+                    shared_config_->dnbe_.push_back(static_cast<uint16_t>(value.asUInt()));
                 }
             }
             /* host / ip address */

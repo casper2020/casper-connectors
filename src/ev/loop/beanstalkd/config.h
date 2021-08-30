@@ -56,6 +56,8 @@ namespace ev
                 uint8_t log_level_; //!< 0 no log, 1 minimum, 2 verbose
                 bool    enabled_;   //!< true when this feature should be enabled
             } PMFTrigger;
+        
+            typedef std::vector<size_t> DoNotBuryExceptions;
 
             typedef struct _SharedConfig {
                 
@@ -68,11 +70,13 @@ namespace ev
                 ev::postgresql::Config             postgres_;
                 ev::beanstalk::Config              beanstalk_;
                 DeviceLimitsMap                    device_limits_;
+                DoNotBuryExceptions                dnbe_;
                 
                 _SharedConfig(const pid_t a_pid, const PMFTrigger a_pmf,
                               const std::string& a_ip_addr,
                               const ev::Directories& a_directories, const std::map<std::string, std::string>& a_log_tokens,
-                              const ev::redis::Config& a_redis, const ev::postgresql::Config& a_postgres, const ev::beanstalk::Config& a_beanstalk, const DeviceLimitsMap& a_device_limits)
+                              const ev::redis::Config& a_redis, const ev::postgresql::Config& a_postgres, const ev::beanstalk::Config& a_beanstalk, const DeviceLimitsMap& a_device_limits,
+                              const DoNotBuryExceptions& a_dnbe)
                 {
                     pid_            = a_pid;
                     pmf_            = a_pmf;
@@ -89,6 +93,10 @@ namespace ev
                     
                     for ( auto it : a_device_limits ) {
                         device_limits_[it.first] = it.second;
+                    }
+
+                    for ( auto it : a_dnbe ) {
+                        dnbe_.push_back(it);
                     }
                 }
 
@@ -109,6 +117,10 @@ namespace ev
                     
                     for ( auto it : a_config.device_limits_ ) {
                         device_limits_[it.first] = it.second;
+                    }
+                    
+                    for ( auto it : a_config.dnbe_ ) {
+                        dnbe_.push_back(it);
                     }
                 }
                 
