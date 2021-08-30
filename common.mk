@@ -73,24 +73,28 @@ endif
 
 OUT_DIR_FOR_TARGET = $(OUT_DIR)/$(TARGET)
 
+# postgresql
 ifndef PG_CONFIG
-PG_CONFIG                      := $(shell which pg_config)
+  ifeq (Darwin, $(PLATFORM))
+    PG_CONFIG:= ../casper-packager/postgresql/darwin/pkg/$(TARGET_LC)/11.4/usr/local/casper/postgresql/bin/pg_config
+  else
+    PG_CONFIG:= ../casper-packager/postgresql/linux/pkg/$(TARGET_LC)/11.4/usr/local/casper/postgresql/bin/pg_config
+  endif
 endif
 POSTGRESQL_HEADERS_DIR         := $(shell $(PG_CONFIG) --includedir)
 POSTGRESQL_HEADERS_SERVER_DIR  := $(shell $(PG_CONFIG) --includedir-server)
 POSTGRESQL_HEADERS_OTHER_C_DIR := $(shell $(PG_CONFIG) --pkgincludedir)
 
-CURL_HEADERS_DIR := 
+# libevent, openssl and cURL
 ifeq (Darwin, $(PLATFORM))
+  LIBEVENT2_HEADERS_DIR := ../casper-packager/libevent2/darwin/pkg/${TARGET_LC}/libevent2/usr/local/casper/libevent2/include
+  OPENSSL_HEADERS_DIR := ../casper-packager/openssl/darwin/pkg/${TARGET_LC}/openssl/usr/local/casper/openssl/include
   CURL_HEADERS_DIR := ../casper-packager/curl/darwin/pkg/$(TARGET)/curl/usr/local/casper/curl/include
-else
-  CURL_HEADERS_DIR := ../casper-packager/curl/linux/pkg/$(TARGET)/curl/usr/local/casper/curl/include
-endif
-
-LIBUNWIND_HEADERS_DIR :=
-ifeq (Darwin, $(PLATFORM))
   LIBUNWIND_HEADERS_DIR := ../casper-packager/libunwind/darwin/pkg/$(TARGET)/libunwind/usr/local/casper/libunwind/include
 else
+  LIBEVENT2_HEADERS_DIR := ../casper-packager/libevent2/linux/pkg/${TARGET_LC}/libevent2/usr/local/casper/libevent2/include
+  OPENSSL_HEADERS_DIR   := ../casper-packager/openssl/linux/pkg/${TARGET_LC}/openssl/usr/local/casper/openssl/include
+  CURL_HEADERS_DIR     := ../casper-packager/curl/linux/pkg/$(TARGET)/curl/usr/local/casper/curl/include
   LIBUNWIND_HEADERS_DIR := ../casper-packager/libunwind/linux/pkg/$(TARGET)/libunwind/usr/local/casper/libunwind/include
 endif
 
@@ -195,13 +199,11 @@ endif
 
 ifeq (Darwin, $(PLATFORM))
   INCLUDE_DIRS += \
-	         -I /usr/local/include              \
-	         -I /usr/local/opt/libevent/include \
-             -I /usr/local/opt/openssl/include
+	         -I /usr/local/include
 endif
 
-# cURL
-INCLUDE_DIRS += -I$(CURL_HEADERS_DIR) -I$(LIBUNWIND_HEADERS_DIR)
+# libevent, openssl and cURL
+INCLUDE_DIRS += -I $(LIBEVENT2_HEADERS_DIR) -I $(OPENSSL_HEADERS_DIR) -I$(CURL_HEADERS_DIR) -I$(LIBUNWIND_HEADERS_DIR)
 
 # ngx dependency?
 ifdef NGX_DIR
