@@ -107,6 +107,18 @@ void cc::easy::job::Handler::InnerStartup  (const ::cc::global::Process& a_proce
             Json::Value config = a_job_config[pname.c_str()];
             // ... merge with 'tube' config ...
             MergeJSONValue(config, tube_cfg);
+            // ... dnbe ...
+            std::set<uint16_t> dnbe;
+            if ( true == config.isMember("dnbe") ) {
+                const Json::Value& array = config["dnbe"];
+                for ( auto idx = 0 ; idx < array.size() ; ++idx ) {
+                    const Json::Value& value = array[idx];
+                    if ( false == value.isUInt() ) {
+                        throw ev::Exception("An error occurred while loading configuration - invalid dnbe array element at position %d !", (int)( idx + 1 ));
+                    }
+                    dnbe.insert(static_cast<uint16_t>(value.asUInt()));
+                }
+            }
 
             // ... create new tube instance and we're done ...
             return it->second(runner_->loggable_data(), {
@@ -118,7 +130,8 @@ void cc::easy::job::Handler::InnerStartup  (const ::cc::global::Process& a_proce
                 /* min_progress_      */ config.get("min_progress",                     3).asInt(),
                 /* log_level_         */ config.get("log_level"    , CC_JOB_LOG_LEVEL_INF).asInt(),
                 /* log_token_         */ LogToken(a_tube, cluster, instance),
-                /* other_             */ config
+                /* other_             */ config,
+                /* dnbe_              */ dnbe
             });
 
         }
@@ -269,6 +282,10 @@ void cc::easy::job::Handler::MergeJSONValue (Json::Value& a_lhs, const Json::Val
     for ( const auto& k : a_rhs.getMemberNames() ) {
         if ( true == a_lhs[k].isObject() && true == a_rhs[k].isObject() ) {
             MergeJSONValue(a_lhs[k], a_rhs[k]);
+        } else if ( true == a_lhs[k].isArray() && true == a_rhs[k].isArray() ) {
+            for ( Json::Value::ArrayIndex idx = 0 ; idx < a_rhs[k].size() ; ++idx ) {
+                a_lhs[k].append(a_rhs[k][idx]);
+            }
         } else {
             a_lhs[k] = a_rhs[k];
         }

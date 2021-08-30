@@ -95,15 +95,16 @@ namespace ev
                     
                 protected: // Data
                     
-                    pid_t        pid_;
-                    uint64_t     instance_;
-                    int          cluster_;
-                    std::string  service_id_;
-                    bool         transient_;
-                    int          min_progress_;
-                    int          log_level_;
-                    std::string  log_token_;
-                    Json::Value  other_;
+                    pid_t              pid_;
+                    uint64_t           instance_;
+                    int                cluster_;
+                    std::string        service_id_;
+                    bool               transient_;
+                    int                min_progress_;
+                    int                log_level_;
+                    std::string        log_token_;
+                    Json::Value        other_;
+                    std::set<uint16_t> dnbe_;
                     
                 public: // Constructor(s) / Destructor
                     
@@ -121,14 +122,15 @@ namespace ev
                      * @param a_log_level
                      * @param a_log_token
                      * @param a_other
+                     * @param a_dnbe
                      */
                     Config (const pid_t& a_pid, const uint64_t& a_instance, const int& a_cluster, const std::string& a_service_id, const bool a_transient,
                             const int a_min_progress,
                             const int a_log_level,
                             const std::string& a_log_token,
-                            const Json::Value& a_other)
+                            const Json::Value& a_other, const std::set<uint16_t>& a_dnbe)
                         : pid_(a_pid), instance_(a_instance), cluster_(a_cluster), service_id_(a_service_id), transient_(a_transient), min_progress_(a_min_progress),
-                          log_level_(a_log_level), log_token_(a_log_token), other_(a_other)
+                          log_level_(a_log_level), log_token_(a_log_token), other_(a_other), dnbe_(a_dnbe)
                     {
                         /* empty */
                     }
@@ -140,7 +142,7 @@ namespace ev
                      */
                     Config (const Config& a_config)
                     : pid_(a_config.pid_), instance_(a_config.instance_), cluster_(a_config.cluster_), service_id_(a_config.service_id_), transient_(a_config.transient_),   min_progress_(a_config.min_progress_),
-                        log_level_(a_config.log_level_), log_token_(a_config.log_token_), other_(a_config.other_)
+                        log_level_(a_config.log_level_), log_token_(a_config.log_token_), other_(a_config.other_), dnbe_(a_config.dnbe_)
                     {
                         /* empty */
                     }
@@ -163,6 +165,7 @@ namespace ev
                         log_level_    = a_config.log_level_;
                         log_token_    = a_config.log_token_;
                         other_        = a_config.other_;
+                        dnbe_         = a_config.dnbe_;
                         return *this;
                     }
                     
@@ -298,6 +301,18 @@ namespace ev
                         min_progress_ = a_value;
                     }
                     
+                    /**
+                     * @param Check if this job should be buried or not.
+                     *
+                     * @param a_code HTTP status code.
+                     *
+                     * @return True if job should be buried, false otherwise.
+                     */
+                    inline const bool Bury (const uint16_t a_code) const
+                    {
+                        return ( dnbe_.end() == dnbe_.find(a_code) );
+                    }
+                    
                 }; // end of class 'Config';
                 
                 typedef std::function<void(const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code)> CompletedCallback;
@@ -421,11 +436,12 @@ namespace ev
                 
             public:
                 
-                const int64_t& ID       () const;
-                const int64_t& Validity () const;
-                const std::string& RJNR () const;
-                const std::string& RJID () const;
-                const std::string& RCID () const;
+                const int64_t&     ID      () const;
+                const int64_t&     Validity() const;
+                const std::string& RJNR    () const;
+                const std::string& RJID    () const;
+                const std::string& RCID    () const;
+                const bool         Bury    (const uint16_t a_code) const;
                 
             public: // Method(s) / Function(s)
                 
@@ -664,6 +680,18 @@ namespace ev
             inline const std::string& Job::RCID () const
             {
                 return rcid_;
+            }
+        
+            /**
+             * @param Check if this job should be buried or not.
+             *
+             * @param a_code HTTP status code.
+             *
+             * @return True if job should be buried, false otherwise.
+             */
+            inline const bool Job::Bury (const uint16_t a_code) const
+            {
+                return config_.Bury(a_code);
             }
 
             /**

@@ -100,6 +100,7 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
     bool           success;
     bool           already_ran;
     bool           deferred;
+    bool           bury;
     uint16_t       http_status_code;
     
     // ... use mem limits?
@@ -230,11 +231,13 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
                               job.body().length()
         );
         
-        uri          = "";
-        cancelled    = false;
-        success      = false;
-        already_ran  = false;
-        deferred     = false;
+        uri              = "";
+        cancelled        = false;
+        success          = false;
+        already_ran      = false;
+        deferred         = false;
+        bury             = true;
+        http_status_code = 400;
         
         Json::Value job_payload = Json::Value();
         Json::Reader json_reader;
@@ -373,6 +376,8 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
                 );
                 // ... WAIT for job completion ...
                 job_cv.Wait();
+                // ... check if it should be burried ...                
+                bury = ( false == success && true == job_ptr_->Bury(http_status_code) );
             } catch (...) {
                 // .. FAILURE ...
                 try {
@@ -397,6 +402,7 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
                 cancelled        = false;
                 already_ran      = false;
                 deferred         = false;
+                bury             = true;
                 http_status_code = 500;
                 // ... forget it  ...
                 delete job_ptr_;
@@ -412,14 +418,11 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
             cancelled        = false;
             already_ran      = false;
             deferred         = false;
+            bury             = true;
             http_status_code = 500;
         }
         
-        loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
-        
-        const bool bury = ( a_shared_config.dnbe_.end() == std::find(a_shared_config.dnbe_.begin(), a_shared_config.dnbe_.end(), http_status_code) );
-
-        // ... check print result ...
+        // ... check job result ...
         if ( true == success || true == cancelled || true == already_ran || true == deferred || false == bury ) {
             
             // ... write to permanent log?
