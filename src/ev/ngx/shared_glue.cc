@@ -44,6 +44,7 @@ std::string ev::ngx::SharedGlue::s_job_id_key_ = "";
     /* port_              */  11300,
     /* timeout_           */  0.0,
     /* abort_polling_     */ 3,
+    /* max_attempts_      */ 1,
     /* tubes_             */ {
         "default"
     },    
