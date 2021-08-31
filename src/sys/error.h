@@ -25,8 +25,8 @@
 
 #include <string>
 
-#ifdef __APPLE
-  #include <errno.h>  // errno_t
+#ifdef __APPLE__
+  #include <sys/_types/_errno_t.h>  // errno_t
 #else
   #define errno_t int
 #endif
