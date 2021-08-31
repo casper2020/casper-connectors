@@ -55,15 +55,15 @@ ev::loop::beanstalkd::Looper::Looper (const ev::Loggable::Data& a_loggable_data,
     EV_LOOP_BEANSTALK_IF_LOG_ENABLED({
         ev::LoggerV2::GetInstance().Register(logger_client_, { "queue", "pmf" });
     });
-    polling_.timeout_    = -1.0;
-    polling_.set_        = false;
-    phys_mem_.pid_       = 0;
-    phys_mem_.limit_     = 0;
-    phys_mem_.size_      = 0;
-    phys_mem_.purgeable_ = 0;
-    phys_mem_.check_     = false;
-    phys_mem_.enforce_   = false;
-    phys_mem_.triggered_ = false;
+    polling_.timeout_ = -1.0;
+    polling_.set_     = false;
+    pmf_.pid_         = 0;
+    pmf_.limit_       = 0;
+    pmf_.size_        = 0;
+    pmf_.purgeable_   = 0;
+    pmf_.check_       = false;
+    pmf_.enforce_     = false;
+    pmf_.triggered_   = false;
 }
 
 /**
@@ -107,18 +107,18 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
     // ... use mem limits?
     if ( true == a_shared_config.pmf_.enabled_ ) {
         // ... set physical memory footprint settings ...
-        phys_mem_.pid_       = a_shared_config.pid_;
-        phys_mem_.limit_     = a_shared_config.pmf_.limit_;
-        phys_mem_.size_      = 0;
-        phys_mem_.purgeable_ = 0;
-        phys_mem_.check_     = ( 0 != phys_mem_.pid_ && 0 != phys_mem_.limit_ );
-        phys_mem_.enforce_   = ( true == phys_mem_.check_ && false == sys::bsd::Process::IsProcessBeingDebugged(phys_mem_.pid_) );
-        phys_mem_.triggered_ = false;
+        pmf_.pid_       = a_shared_config.pid_;
+        pmf_.limit_     = a_shared_config.pmf_.limit_;
+        pmf_.size_      = 0;
+        pmf_.purgeable_ = 0;
+        pmf_.check_     = ( 0 != pmf_.pid_ && 0 != pmf_.limit_ );
+        pmf_.enforce_   = ( true == pmf_.check_ && false == sys::bsd::Process::IsProcessBeingDebugged(pmf_.pid_) );
+        pmf_.triggered_ = false;
         // ... write to permanent log ...
-        if ( true == phys_mem_.check_ && a_shared_config.pmf_.log_level_ >= 0 ) {
+        if ( true == pmf_.check_ && a_shared_config.pmf_.log_level_ >= 0 ) {
             EV_LOOP_BEANSTALK_LOG("pmf",
                                   "limit    : " SIZET_FMT " bytes // " SIZET_FMT " KB // " SIZET_FMT " MB",
-                                  phys_mem_.limit_, ( phys_mem_.limit_ / 1024 ), ( ( phys_mem_.limit_ / 1024 ) / 1024 )
+                                  pmf_.limit_, ( pmf_.limit_ / 1024 ), ( ( pmf_.limit_ / 1024 ) / 1024 )
             );
         }
     }
@@ -484,34 +484,34 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
         Idle(/* a_fake */ true);
         
 #ifdef __APPLE__
-        if ( true == phys_mem_.check_ ) {
-            const ssize_t purgeable_mem = sys::bsd::Process::PurgeableVolatile(phys_mem_.pid_);
+        if ( true == pmf_.check_ ) {
+            const ssize_t purgeable_mem = sys::bsd::Process::PurgeableVolatile(pmf_.pid_);
             if ( -1 != purgeable_mem ) {
                 // ... keep track of PMF current size ...
-                phys_mem_.purgeable_ = static_cast<size_t>(purgeable_mem);
+                pmf_.purgeable_ = static_cast<size_t>(purgeable_mem);
                 // ... log?
                 if (  a_shared_config.pmf_.log_level_ >= 2 ) {
                     // ... write to permanent log ...
                     EV_LOOP_BEANSTALK_LOG("pmf",
                                           "purgeable: " SIZET_FMT " bytes // " SIZET_FMT " KB // " SIZET_FMT " MB",
-                                          phys_mem_.purgeable_, ( phys_mem_.purgeable_ / 1024 ), ( ( phys_mem_.purgeable_ / 1024 ) / 1024 )
+                                          pmf_.purgeable_, ( pmf_.purgeable_ / 1024 ), ( ( pmf_.purgeable_ / 1024 ) / 1024 )
                     );
                 }
                 // ... limit reached?
-                if ( phys_mem_.purgeable_ >= phys_mem_.limit_ ) {
+                if ( pmf_.purgeable_ >= pmf_.limit_ ) {
                     // ... log?
                     if ( a_shared_config.pmf_.log_level_ >= 0 ) {
                         // ... write to permanent log ...
                         EV_LOOP_BEANSTALK_LOG("pmf",
                                               "triggered: " SIZET_FMT " bytes // " SIZET_FMT " KB // " SIZET_FMT " MB - %senforced",
-                                              phys_mem_.purgeable_, ( phys_mem_.purgeable_ / 1024 ), ( ( phys_mem_.purgeable_ / 1024 ) / 1024 ),
-                                              ( false == phys_mem_.enforce_ ? "NOT " : "" )
+                                              pmf_.purgeable_, ( pmf_.purgeable_ / 1024 ), ( ( pmf_.purgeable_ / 1024 ) / 1024 ),
+                                              ( false == pmf_.enforce_ ? "NOT " : "" )
                         );
                     }
                     // ... enforce limit?
-                    if ( true == phys_mem_.enforce_ ) {
+                    if ( true == pmf_.enforce_ ) {
                         // ... done ...
-                        phys_mem_.triggered_ = true;
+                        pmf_.triggered_ = true;
                         break;
                     }
                 }
@@ -525,7 +525,7 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
     // ... write to permanent log ...
     EV_LOOP_BEANSTALK_LOG("queue",
                           "Stopped%s...",
-                          ( true == phys_mem_.enforce_ && true == phys_mem_.triggered_ ? ": physical memory limit reached" : "")
+                          ( true == pmf_.enforce_ && true == pmf_.triggered_ ? ": physical memory limit reached" : "")
     );
     
     //
@@ -545,7 +545,7 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
     cache_.clear();
     
     // ... done ...
-    return ( true == phys_mem_.triggered_ ? 254 : 0 );
+    return ( true == pmf_.triggered_ ? 254 : 0 );
 }
 
 /**

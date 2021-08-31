@@ -83,8 +83,8 @@ namespace ev
                     bool   check_;     //!< True if checks should be performed, false othewise.
                     bool   enforce_;   //!< True if it's limit should be enforced, false otheriwse.
                     bool   triggered_; //!< True when limit was triggered.
-                } PhysMemFP;
-                PhysMemFP phys_mem_;
+                } PMF;
+                PMF pmf_;
                 
             public: // Data Type(s)
                 
