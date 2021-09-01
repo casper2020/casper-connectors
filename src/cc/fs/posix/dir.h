@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 
 #include <string>
+#include <functional>
 
 #include "cc/non-copyable.h"
 #include "cc/non-movable.h"
