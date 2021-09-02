@@ -413,7 +413,21 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         }
 
     // ... ICU ...
-    #ifndef CASPER_REQUIRE_STANDALONE_ICU
+    #if defined(CASPER_REQUIRE_STANDALONE_ICU)
+        #undef CASPER_ICU_REQUIRE_DATA_FILE
+    #elif defined(V8_MAJOR_VERSION) && defined(V8_MINOR_VERSION) && ( V8_MAJOR_VERSION >= 9 && V8_MINOR_VERSION >= 2 )
+        #undef CASPER_ICU_REQUIRE_DATA_FILE
+    #else
+        #define CASPER_ICU_REQUIRE_DATA_FILE 1
+    #endif
+
+    // ... bonehead mistake check ...
+    #if ( defined(__APPLE__) && defined(CASPER_ICU_REQUIRE_DATA_FILE) ) || ( defined(CASPER_REQUIRE_STANDALONE_ICU) && defined(CASPER_ICU_REQUIRE_DATA_FILE) )
+        #error WTF?
+    #endif
+
+    // ... set ICU dat file ( if required ) ...
+    #if defined(CASPER_ICU_REQUIRE_DATA_FILE)
         #ifdef __APPLE__
             const std::string icu_dat_file_uri = ::cc::fs::Dir::Normalize(directories_->share_) + CC_IF_DEBUG_ELSE("icu/debug/icudtl.dat", "icu/icudtl.dat");
         #else
@@ -431,9 +445,13 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
             v8_config_ = new cc::global::Initializer::V8({/* required_ */ a_v8.required_, /* runs_on_main_thread_ */ a_v8.runs_on_main_thread_});
             // ... V8 ...
             CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", ::v8::V8::GetVersion());
+        #if defined(CASPER_ICU_REQUIRE_DATA_FILE)
             cc::v8::Singleton::GetInstance().Startup(/* a_exec_uri     */ sys::Process::GetExecURI(process_->pid_).c_str(),
                                                      /* a_icu_data_uri */ icu_dat_file_uri.c_str()
             );
+        #else
+            cc::v8::Singleton::GetInstance().Startup();
+        #endif
             // ... initialize V8 now?
             if ( true == v8_config_->runs_on_main_thread_ ) {
                 ::cc::v8::Singleton::GetInstance().Initialize();
@@ -441,7 +459,9 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
             // ... ICU ...
             CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "ICU");
             CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", U_ICU_VERSION);
+        #if defined(CASPER_ICU_REQUIRE_DATA_FILE)
             CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DATA FILE", icu_dat_file_uri.c_str());
+        #endif
         } else {
             const char* const process_type = ( false == process_->is_master_ ? "worker" : "master" );
             // ... if required ...
@@ -462,7 +482,7 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "ICU");
         CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION", U_ICU_VERSION);
         
-        #ifndef CASPER_REQUIRE_STANDALONE_ICU
+        #if defined(CASPER_ICU_REQUIRE_DATA_FILE)
             CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "DATA FILE", icu_dat_file_uri.c_str());
             const UErrorCode icu_error_code = ::cc::icu::Initializer::GetInstance().Load(icu_dat_file_uri);
         #else

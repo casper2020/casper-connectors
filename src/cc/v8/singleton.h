@@ -60,6 +60,7 @@ namespace cc
             
         public: // Method(s) / Function(s) - Oneshot call only!!!
             
+            void Startup  ();
             void Startup  (const char* const a_exec_uri, const char* const a_icu_data_uri);
             void Shutdown ();
             void Initialize ();

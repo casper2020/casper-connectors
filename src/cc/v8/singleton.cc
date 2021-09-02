@@ -60,6 +60,34 @@ cc::v8::Initializer::~Initializer ()
 
 /**
  * @brief This method must ( and can only ) be called once to initialize V8 engine.
+ */
+void cc::v8::Singleton::Startup ()
+{
+    // ... if already initialized ...
+    if ( true == initialized_ ) {
+        // ... can't be initialized twice ...
+        throw std::runtime_error("v8 singleton already initialized!");
+    }
+    // ... try to initialize ICU ...
+    if ( false == ::v8::V8::InitializeICU() ) {
+        throw std::runtime_error("v8 ICU initialization failure!");
+    }
+    // ... create new platform ..
+    platform_ = ::v8::platform::NewDefaultPlatform();
+    if ( nullptr == platform_ ) {
+        throw std::runtime_error("v8 default platform creation failure!");
+    }
+    // ... initialize platform ...
+    ::v8::V8::InitializePlatform(platform_.get());
+    if ( false == ::v8::V8::Initialize() ) {
+        throw std::runtime_error("v8 ICU default platform initialization failure!");
+    }
+    // ... we're done ...
+    initialized_ = true;
+}
+
+/**
+ * @brief This method must ( and can only ) be called once to initialize V8 engine.
  *
  * @param a_exec_uri
  * @param a_icu_data_uri
