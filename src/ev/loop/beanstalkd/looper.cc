@@ -112,7 +112,11 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
         pmf_.size_      = 0;
         pmf_.purgeable_ = 0;
         pmf_.check_     = ( 0 != pmf_.pid_ && 0 != pmf_.limit_ );
+#ifdef __APPLE__
         pmf_.enforce_   = ( true == pmf_.check_ && false == sys::bsd::Process::IsProcessBeingDebugged(pmf_.pid_) );
+#else
+        pmf_.enforce_   = false;
+#endif
         pmf_.triggered_ = false;
         // ... write to permanent log ...
         if ( true == pmf_.check_ && a_shared_config.pmf_.log_level_ >= 0 ) {
