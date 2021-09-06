@@ -106,6 +106,14 @@ namespace cc
             what_ = length > 0 ? std::string { temp.data(), length } : "";
         }
         
+        /**
+         * @brief Destructor.
+         */
+        virtual ~Exception ()
+        {
+            /* empty */
+        }
+        
     public: // overrides
         
         /**
@@ -161,7 +169,75 @@ namespace cc
                 }
             }
         }
-    };
+        
+    protected: // Method(s) / Function(s)
+        
+        /**
+         * @brief Set the exception message.
+         *
+         * @param a_format printf like format followed by a variable number of arguments.
+         * @param a_list   Variable arguments list.
+         */
+        void SetMessage (const char* const a_format, va_list a_list)
+        {
+            std::va_list args;
+            va_copy(args, a_list);
+            auto temp   = std::vector<char> {};
+            auto length = std::size_t { 512 };
+            while ( temp.size() <= length ) {
+                temp.resize(length + 1);
+                va_copy(args, a_list);
+                const auto status = std::vsnprintf(temp.data(), temp.size(), a_format, args);
+                va_end(args);
+                if ( status < 0 ) {
+                    throw std::runtime_error {"string formatting error"};
+                }
+                length = static_cast<std::size_t>(status);
+            }
+            what_ = length > 0 ? std::string { temp.data(), length } : "";
+            va_end(args);
+        }
+        
+    }; // end of class 'Exception'
+
+    class CodedException : public cc::Exception
+    {
+        
+    public: // Const Data
+        
+        const uint16_t code_;
+        
+    public: // constructor / destructor
+        
+        CodedException (const std::string& a_message)                                          = delete;
+        CodedException (const char* const a_format, ...) __attribute__((format(printf, 2, 3))) = delete;
+        
+        /**
+         * @brief A constructor that provides the reason of the fault origin.
+         *
+         * @param a_code   uint16_t error code.
+         * @param a_format printf like format followed by a variable number of arguments.
+         * param ...
+         */
+        CodedException (const uint16_t a_code, const char* const a_format, ...) __attribute__((format(printf, 3, 4)))
+         : Exception(""),
+           code_(a_code)
+        {
+            std::va_list args;
+            va_start(args, a_format);
+            SetMessage(a_format, args);
+            va_end(args);
+        }
+        
+        /**
+         * @brief Destructor.
+         */
+        virtual ~CodedException ()
+        {
+            /* empty */
+        }
+        
+    }; // end of class 'CodedException'
 
 }
 

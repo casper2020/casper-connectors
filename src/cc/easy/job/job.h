@@ -124,10 +124,14 @@ namespace cc
                 // 4xx
                 uint16_t SetBadRequest                  (const I18N* a_i18n, const InternalError& a_error, Json::Value& o_payload);
                 uint16_t SetBadRequest                  (const I18N* a_i18n, Json::Value& o_payload);
-                uint16_t SetTimeout                     (const I18N* a_i18n, Json::Value& o_payload);
+                uint16_t SetForbidden                   (const I18N* a_i18n, Json::Value& o_payload);
+                uint16_t SetForbidden                   (const I18N* a_i18n, const InternalError& a_error, Json::Value& o_payload);
                 uint16_t SetNotFound                    (const I18N* a_i18n, Json::Value& o_payload);
                 uint16_t SetNotFound                    (const I18N* a_i18n, const InternalError& a_error, Json::Value& o_payload);
-                
+                uint16_t SetNotAcceptable               (const I18N* a_i18n, Json::Value& o_payload);
+                uint16_t SetNotAcceptable               (const I18N* a_i18n, const InternalError& a_error, Json::Value& o_payload);
+                uint16_t SetTimeout                     (const I18N* a_i18n, Json::Value& o_payload);
+
                 // 5xx
                 uint16_t SetInternalServerError         (const I18N* a_i18n, Json::Value& o_payload);
                 uint16_t SetInternalServerError         (const I18N* a_i18n, const InternalError& a_error        , Json::Value& o_payload);

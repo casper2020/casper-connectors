@@ -330,6 +330,47 @@ uint16_t cc::easy::job::Job::SetBadRequest (const I18N* a_i18n, const easy::job:
 }
 
 /**
+ * @brief Fill a 'forbidden' payload ( 403 - Forbidden ).
+ *
+ * @param a_i18n    I18 message.
+ * @param o_payload Payload object to create.
+ *
+ * @return HTTP status code.
+ */
+uint16_t cc::easy::job::Job::SetForbidden (const easy::job::I18N* a_i18n, Json::Value& o_payload)
+{
+    if ( nullptr != a_i18n ) {
+        return SetI18NMessage(403, *a_i18n, o_payload);
+    }
+    return SetI18NMessage(403, /* a_i18n */ { /* a_key*/ "i18n_forbidden", /* a_args */ {} }, o_payload);
+}
+
+/**
+ * @brief Fill a 'forbidden' payload ( 403 - Forbidden ).
+ *
+ * @param a_i18n    I18 message.
+ * @param o_payload Payload object to create.
+ *
+ * @return HTTP status code.
+ */
+uint16_t cc::easy::job::Job::SetForbidden (const I18N* a_i18n, const easy::job::InternalError& a_error, Json::Value& o_payload)
+{
+    if ( nullptr != a_i18n ) {
+        (void)SetI18NMessage(403, *a_i18n, o_payload);
+    } else {
+        (void) SetI18NMessage(403, /* a_i18n */ { /* a_key*/ "i18n_forbidden", /* a_args */ {} }, o_payload);
+    }
+    o_payload["meta"]["internal-error"] = Json::Value(Json::ValueType::objectValue);
+    if ( nullptr != a_error.code_ ) {
+        o_payload["meta"]["internal-error"]["code"] = a_error.code_;
+    } else {
+        o_payload["meta"]["internal-error"]["code"] = "403 - Forbidden";
+    }
+    o_payload["meta"]["internal-error"]["why"]   = a_error.why_;
+    return 403;
+}
+
+/**
  * @brief Fill a 'not found' payload ( 404 - Not Found ).
  *
  * @param a_i18n    I18 message.
@@ -368,6 +409,47 @@ uint16_t cc::easy::job::Job::SetNotFound (const I18N* a_i18n, const easy::job::I
     }
     o_payload["meta"]["internal-error"]["why"]   = a_error.why_;
     return 404;
+}
+
+/**
+ * @brief Fill a 'forbidden' payload ( 406 - Not Acceptable ).
+ *
+ * @param a_i18n    I18 message.
+ * @param o_payload Payload object to create.
+ *
+ * @return HTTP status code.
+ */
+uint16_t cc::easy::job::Job::SetNotAcceptable (const easy::job::I18N* a_i18n, Json::Value& o_payload)
+{
+    if ( nullptr != a_i18n ) {
+        return SetI18NMessage(406, *a_i18n, o_payload);
+    }
+    return SetI18NMessage(406, /* a_i18n */ { /* a_key*/ "i18n_not_acceptable", /* a_args */ {} }, o_payload);
+}
+
+/**
+ * @brief Fill a 'forbidden' payload ( 403 - Forbidden ).
+ *
+ * @param a_i18n    I18 message.
+ * @param o_payload Payload object to create.
+ *
+ * @return HTTP status code.
+ */
+uint16_t cc::easy::job::Job::SetNotAcceptable (const I18N* a_i18n, const easy::job::InternalError& a_error, Json::Value& o_payload)
+{
+    if ( nullptr != a_i18n ) {
+        (void)SetI18NMessage(406, *a_i18n, o_payload);
+    } else {
+        (void) SetI18NMessage(406, /* a_i18n */ { /* a_key*/ "i18n_not_acceptable", /* a_args */ {} }, o_payload);
+    }
+    o_payload["meta"]["internal-error"] = Json::Value(Json::ValueType::objectValue);
+    if ( nullptr != a_error.code_ ) {
+        o_payload["meta"]["internal-error"]["code"] = a_error.code_;
+    } else {
+        o_payload["meta"]["internal-error"]["code"] = "406 - Not Acceptable";
+    }
+    o_payload["meta"]["internal-error"]["why"]   = a_error.why_;
+    return 406;
 }
 
 /**
