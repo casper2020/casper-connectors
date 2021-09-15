@@ -310,7 +310,7 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
             } catch (...) {
                 // .. CRITICAL FAILURE ...
                 try {
-                    ::cc::Exception::Rethrow(/* a_unhandled */ true, __FILE__, __LINE__, __FUNCTION__);
+                    ::cc::Exception::Rethrow(/* a_unhandled */ false, __FILE__, __LINE__, __FUNCTION__);
                 } catch (const ::cc::Exception& a_cc_exception) {
                     // ... write to permanent log ...
                     EV_LOOP_BEANSTALK_LOG("queue",
