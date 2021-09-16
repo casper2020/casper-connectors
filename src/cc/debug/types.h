@@ -64,7 +64,7 @@
     #define CC_DEBUG_FAIL_IF_NOT_AT_THREAD(a_id) \
         CC_DEBUG_ASSERT(cc::debug::Threading::GetInstance().CurrentThreadID() == a_id)
 
-    #define CC_IF_DEBUG(a_code) a_code
+    #define CC_IF_DEBUG(...) __VA_ARGS__
     #define CC_IF_DEBUG_ELSE(a_debug, a_release) a_debug
 
     #define CC_IF_DEBUG_DECLARE_VAR(a_type, a_name) a_type a_name
@@ -96,9 +96,9 @@
     #define CC_DEBUG_LOG_RECYCLE() \
         ::cc::debug::Logger::GetInstance().Recycle()
 
-    #define CC_DEBUG_LOG_IF_REGISTERED_RUN(a_token, a_code) \
+    #define CC_DEBUG_LOG_IF_REGISTERED_RUN(a_token, ...) \
         if ( true == ::cc::debug::Logger::GetInstance().IsRegistered(a_token) ) { \
-            a_code; \
+            __VA_ARGS__ \
         }
 
 #else
