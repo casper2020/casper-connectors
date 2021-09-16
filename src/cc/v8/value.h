@@ -222,6 +222,11 @@ namespace cc
                         );
             }
             
+            inline bool IsString () const
+            {
+                return ( true == IsSet() && Type::String == type_ );
+            }
+            
             inline bool IsObject () const
             {
                 return ( true == IsSet() && Type::Object == type_ );
