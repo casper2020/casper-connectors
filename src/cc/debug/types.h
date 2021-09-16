@@ -112,7 +112,7 @@
     #define CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD()
     #define CC_DEBUG_FAIL_IF_NOT_AT_THREAD(a_id)
 
-    #define CC_IF_DEBUG(a_code)
+    #define CC_IF_DEBUG(...)
     #define CC_IF_DEBUG_ELSE(a_debug, a_release) a_release
 
     #define CC_IF_DEBUG_DECLARE_VAR(a_type, a_name)
@@ -134,7 +134,7 @@
     #define CC_DEBUG_LOG_MSG(a_token, a_format, ...)
     #define CC_DEBUG_LOG_TRACE(a_token, a_format, ...)
     #define CC_DEBUG_LOG_RECYCLE()
-    #define CC_DEBUG_LOG_IF_REGISTERED_RUN(a_token, a_code)
+    #define CC_DEBUG_LOG_IF_REGISTERED_RUN(a_token, ...)
 
 #endif
 
