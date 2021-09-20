@@ -23,6 +23,8 @@
 
 #include "cc/fs/exception.h"
 
+#include "cc/utc_time.h"
+
 #include <sys/errno.h>
 #include <stdio.h>
 
@@ -433,4 +435,30 @@ void cc::fs::posix::Dir::ListFiles (const std::string& a_path, const std::string
     }
     // ... close handle ...
     closedir(handle);
+}
+
+/**
+ * @brief Ensure output directory is created, using the following pattern <a_parent>/YYYY-MM-DD.
+ *
+ * @param a_parent   Parent path.
+ * @param a_validity In seconds.
+ */
+std::string cc::fs::posix::Dir::EnsureOutputDir (const std::string& a_parent, const int64_t a_validity)
+{
+    // ... get time w/offset ...
+    cc::UTCTime::HumanReadable now_hrt = cc::UTCTime::ToHumanReadable(cc::UTCTime::OffsetBy(a_validity));
+    
+    // ... setup new output directory name ...
+    char buffer [27] = { '\0' };
+    const int w = snprintf(buffer, 26, "%04d-%02d-%02d/",
+                           static_cast<int>(now_hrt.year_), static_cast<int>(now_hrt.month_), static_cast<int>(now_hrt.day_)
+    );
+    if ( w < 0 || w > 26 ) {
+        throw cc::Exception("Unable to change output directory - buffer write error!");
+    }
+    const std::string dir = Normalize(a_parent) + buffer;
+    // ... ensure it's created ...
+    Make(dir);
+    // ... done ...
+    return dir;
 }

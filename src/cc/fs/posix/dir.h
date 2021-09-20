@@ -84,6 +84,8 @@ namespace cc
                 static void        ListFiles (const std::string& a_path, const std::string& a_pattern,
                                               const std::function<bool(const std::string& a_uri)> a_callback);
                 
+                static std::string EnsureOutputDir (const std::string& a_parent, const int64_t a_validity);
+                
             }; // end of class 'dir'
             
         } // end of namespace 'posix'
