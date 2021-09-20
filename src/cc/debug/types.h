@@ -187,8 +187,8 @@
     #define CC_MEASURE_DECLARE(a_type)
     #define CC_MEASURE_RESET(a_name)
     #define CC_MEASURE_GET(a_name)
-    #define CC_MEASURE_CALLBACK(a_callback, a_name) \
-        a_callback();
+    #define CC_MEASURE_CALLBACK(a_code, a_name) \
+        a_code;
     #define CC_MEASURE_CALL(a_code, o_trace) \
         do { \
             a_code; \
