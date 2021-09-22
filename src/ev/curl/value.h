@@ -141,7 +141,7 @@ namespace ev
          */
         inline std::string Value::header (const char* const a_name) const
         {
-            const auto p = headers_.find(a_name);
+            const auto p = std::find_if(headers_.begin(), headers_.end(), ev::curl::Object::cURLHeaderMapKeyComparator(a_name));
             if ( headers_.end() != p ) {
                 return ( p->first + ":" + ( p->second.front().length() > 0 ? " " + p->second.front() : "" ) );
             } else {
@@ -158,7 +158,7 @@ namespace ev
          */
         inline std::string Value::header_value (const char* const a_name) const
         {
-            const auto p = headers_.find(a_name);
+            const auto p = std::find_if(headers_.begin(), headers_.end(), ev::curl::Object::cURLHeaderMapKeyComparator(a_name));
             if ( headers_.end() != p ) {
                 return p->second.front();
             } else {
@@ -177,7 +177,7 @@ namespace ev
         inline size_t Value::header_values (const char* const a_name, std::set<std::string>& o_values) const
         {
             o_values.clear();
-            const auto p = headers_.find(a_name);
+            const auto p = std::find_if(headers_.begin(), headers_.end(), ev::curl::Object::cURLHeaderMapKeyComparator(a_name));
             if ( headers_.end() != p ) {
                 for ( auto it : p->second ) {
                     o_values.insert(it);

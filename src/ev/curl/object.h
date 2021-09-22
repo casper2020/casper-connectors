@@ -26,6 +26,7 @@
 
 #include <string>
 #include <map>
+#include <vector>
 
 #include <strings.h> // strcasecmp
 
@@ -55,7 +56,30 @@ namespace ev
                     return ( 0 == strcasecmp(value_.c_str(), a_value.first.c_str()) );
                 }
                 
-            } HeaderMapKeyComparator;            
+            } HeaderMapKeyComparator;
+            
+            typedef struct _cURLHeaderMapKeyComparator {
+                
+                const std::string value_;
+                
+                _cURLHeaderMapKeyComparator (const char* const a_value)
+                    : value_(a_value)
+                {
+                    /* empty */
+                }
+
+                _cURLHeaderMapKeyComparator (const std::string& a_value)
+                    : value_(a_value)
+                {
+                    /* empty */
+                }
+
+                bool operator() (const std::pair<std::string, std::vector<std::string>>& a_value) const
+                {
+                    return ( 0 == strcasecmp(value_.c_str(), a_value.first.c_str()) );
+                }
+                
+            } cURLHeaderMapKeyComparator;
 
             #define EV_CURL_HEADERS_MAP std::map<std::string, std::vector<std::string>>
             
