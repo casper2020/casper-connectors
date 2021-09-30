@@ -27,6 +27,7 @@
 #include <vector>
 #include <set>
 #include <string>
+#include <algorithm> // std::find_if
 
 #include <string.h>   // strlen
 

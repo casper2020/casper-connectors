@@ -25,6 +25,8 @@
 
 #include "json/json.h"
 
+#include <limits> // std::numeric_limits
+
 /**
  * @brief Default constructor.
  *
