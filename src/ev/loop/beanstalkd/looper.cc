@@ -64,6 +64,7 @@ ev::loop::beanstalkd::Looper::Looper (const ev::Loggable::Data& a_loggable_data,
     pmf_.check_       = false;
     pmf_.enforce_     = false;
     pmf_.triggered_   = false;
+    fatal_.exception_ = nullptr;
 }
 
 /**
@@ -82,6 +83,9 @@ ev::loop::beanstalkd::Looper::~Looper ()
         delete idle_callbacks_.queue_.top();
     }
     idle_callbacks_.cancelled_.clear();
+    if ( nullptr != fatal_.exception_ ) {
+        delete fatal_.exception_;
+    }
 }
 
 /**
@@ -211,7 +215,7 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
     //
     // consumer loop
     //
-    while ( false == a_aborted ) {
+    while ( false == a_aborted && nullptr == fatal_.exception_ ) {
         
         // ... test abort flag, every n seconds ...
         if ( false == beanstalk_->Reserve(job, polling_timeout) ) {
@@ -529,7 +533,7 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
     // ... write to permanent log ...
     EV_LOOP_BEANSTALK_LOG("queue",
                           "Stopped%s...",
-                          ( true == pmf_.enforce_ && true == pmf_.triggered_ ? ": physical memory limit reached" : "")
+                          ( true == pmf_.enforce_ && true == pmf_.triggered_ ? ": physical memory limit reached" : nullptr != fatal_.exception_ ? "fatal exception" : "" )
     );
     
     //
@@ -549,7 +553,7 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
     cache_.clear();
     
     // ... done ...
-    return ( true == pmf_.triggered_ ? 254 : 0 );
+    return ( true == pmf_.triggered_ ? 254 : nullptr != fatal_.exception_ ? 253 : 0 );
 }
 
 /**
@@ -606,7 +610,7 @@ void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
         // ... process as many as we can ...
         const auto   start         = std::chrono::steady_clock::now();
         const size_t exec_timeout = ( a_fake ? 100 : 50 );
-        while ( idle_callbacks_.queue_.size() > 0 ) {
+        while ( idle_callbacks_.queue_.size() > 0 && nullptr == fatal_.exception_ ) {
             // ... pick next callback ...
             auto callback = idle_callbacks_.queue_.top();
             // ... check if it was cancelled ...
@@ -624,7 +628,16 @@ void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
                     break;
                 }
                 // ... perform it ...
-                callback->function_(callback->id_);
+                try {
+                    callback->function_(callback->id_);
+                } catch (...) {
+                    // ... track exception ...
+                    try {
+                        ::cc::Exception::Rethrow(/* a_unhandled */ true, __FILE__, __LINE__, __FUNCTION__);
+                    } catch (const ::cc::Exception& a_cc_exception) {
+                        fatal_.exception_ = new ::cc::Exception(a_cc_exception);
+                    }
+                }
                 // ... recurrent?
                 if ( true == callback->recurrent_ ) {
                     // ... yes, reschedule it ...
@@ -643,14 +656,18 @@ void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
             }
         }
     } catch (...) {
-        // ... write to permanent log ...
-        try {
-            ::cc::Exception::Rethrow(/* a_unhandled */ true, __FILE__, __LINE__, __FUNCTION__);
-        } catch (const ::cc::Exception& a_cc_exception) {
-           EV_LOOP_BEANSTALK_LOG("queue",
-                                 "ERROR %s",
-                                 a_cc_exception.what()
-           );
+        if ( nullptr == fatal_.exception_ ) {
+            try {
+                ::cc::Exception::Rethrow(/* a_unhandled */ true, __FILE__, __LINE__, __FUNCTION__);
+            } catch (const ::cc::Exception& a_cc_exception) {
+                fatal_.exception_ = new ::cc::Exception(a_cc_exception);
+            }
         }
+    }
+    if ( nullptr != fatal_.exception_ ) {
+        EV_LOOP_BEANSTALK_LOG("queue",
+                              "ERROR %s",
+                              fatal_.exception_->what()
+        );
     }
 }

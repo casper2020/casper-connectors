@@ -86,6 +86,11 @@ namespace ev
                 } PMF;
                 PMF pmf_;
                 
+                typedef struct {
+                    ::cc::Exception* exception_;
+                } Fatal;
+                Fatal fatal_;
+                
             public: // Data Type(s)
                 
                 typedef std::function<void(const std::string&)> IdleCallback;
