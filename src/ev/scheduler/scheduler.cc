@@ -111,10 +111,7 @@ void ev::scheduler::Scheduler::Scheduler::Start (const std::string& a_name,
                         //
                         // ... check if it was 'detached' ...
                         //
-                        const auto detached_it = std::find_if(detached_.begin(), detached_.end(), [object](const ev::scheduler::Object* a_s_object) {
-                            return ( a_s_object == object );
-                        });
-                        if ( detached_.end() != detached_it ) {
+                        if ( true == IsDetached(object) ) {
                             // ... object is detached ...
                             ReleaseObject(object);
                             // ... a_result not accepted ...
@@ -346,7 +343,9 @@ void ev::scheduler::Scheduler::Unregister (ev::scheduler::Client* a_client)
         return;
     }
     for ( auto object : *it->second ) {
-        detached_.push_back(object);
+        if ( false == IsZombie(object) ) {
+            detached_.push_back(object);
+        }
     }
     delete it->second;
     clients_to_objects_map_.erase(it);
@@ -446,31 +445,9 @@ void ev::scheduler::Scheduler::KillZombies ()
  */
 void ev::scheduler::Scheduler::ReleaseObject (ev::scheduler::Object* a_object)
 {
-    // ... first check if this object is a 'zombie'
-    for ( auto it = zombies_.begin(); zombies_.end() != it ; ++it ) {
-        if ( a_object == (*it) ) {
-            // ... it's a zombie ...
-            delete *it;
-            zombies_.erase(it);
-            // ... done ...
-            return;
-        }
-    }
-
-    // ... not a zombie, check if it was detached ...
-    for ( auto it = detached_.begin(); detached_.end() != it ; ++it ) {
-        if ( a_object == (*it) ) {
-            // ... it's detached ...
-            delete *it;
-            detached_.erase(it);
-            // ... done ...
-            return;
-        }
-    }
-    
-    bool is_attached = false;
     
     // ... check if it's attached to a client ...
+    bool was_attached = false;
     auto objects_to_client_map_it = object_to_client_map_.find(a_object->UniqueID());
     if ( object_to_client_map_.end() != objects_to_client_map_it ) {
         auto clients_to_objects_map_it = clients_to_objects_map_.find(objects_to_client_map_it->second->id());
@@ -478,7 +455,7 @@ void ev::scheduler::Scheduler::ReleaseObject (ev::scheduler::Object* a_object)
             for ( auto clients_objects_it = clients_to_objects_map_it->second->begin(); clients_to_objects_map_it->second->end() != clients_objects_it ; ++clients_objects_it ) {
                 if ( (*clients_objects_it) == a_object ) {
                     clients_to_objects_map_it->second->erase(clients_objects_it);
-                    is_attached = true;
+                    was_attached = true;
                     break;
                 }
             }
@@ -490,11 +467,42 @@ void ev::scheduler::Scheduler::ReleaseObject (ev::scheduler::Object* a_object)
     if ( ids_to_object_map_.end() != ids_to_object_map_it ) {
         ids_to_object_map_.erase(ids_to_object_map_it);
     }
+ 
+    // ... first check if this object is a 'zombie'
+    bool was_zombie = false;
+    for ( auto it = zombies_.begin(); zombies_.end() != it ; ++it ) {
+        if ( a_object == (*it) ) {
+            // ... it's a zombie ...
+            delete *it;
+            zombies_.erase(it);
+            // ... done ...
+            was_zombie = true;
+            break;
+        }
+    }
+
+    // ... then, check if it was detached ...
+    bool was_detached = false;
+    for ( auto it = detached_.begin(); detached_.end() != it ; ++it ) {
+        if ( a_object == (*it) ) {
+            // ... it's detached ...
+            delete *it;
+            detached_.erase(it);
+            // ... done ...
+            was_detached = true;
+            break;
+        }
+    }
     
-    // ... is a zombie or can be deleted now?
-    if ( false == is_attached ) {
-        zombies_.push_back(a_object);
-    } else {
-        delete a_object;
+    // ... NOT a zombie and NOT detached?
+    if ( false == was_zombie && false == was_detached ) {
+        // ... is NOT attached?
+        if ( false == was_attached ) {
+            // ... track it as a zombie ...
+            zombies_.push_back(a_object);
+        } else {
+            // ... can be deleted now ...
+            delete a_object;
+        }
     }
 }

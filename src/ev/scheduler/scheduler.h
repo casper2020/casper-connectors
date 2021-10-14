@@ -122,6 +122,9 @@ namespace ev
             
         protected: // Method(s) / Function(s)
             
+            bool IsDetached     (const scheduler::Object* a_object) const;
+            bool IsZombie       (const scheduler::Object* a_object) const;
+            
             void KillZombies    ();
             void ReleaseObject  (scheduler::Object* a_object);
             
@@ -134,7 +137,37 @@ namespace ev
         {
             return nullptr != hub_;
         }
-
+        
+        /**
+         * @brief Check if an object was tracked as 'detached'.
+         *
+         * @param a_object Object to check.
+         *
+         * @return True of object was tracked as a 'detached', false otherwise.
+         */
+        inline bool Scheduler::IsDetached (const scheduler::Object* a_object) const
+        {
+            const auto it = std::find_if(detached_.begin(), detached_.end(), [a_object](const ev::scheduler::Object* a_s_object) {
+                return ( a_s_object == a_object );
+            });
+            return detached_.end() != it;
+        }
+        
+        /**
+         * @brief Check if an object was tracked as 'zombie'.
+         *
+         * @param a_object Object to check.
+         *
+         * @return True of object was tracked as a 'zombie', false otherwise.
+         */
+        inline bool Scheduler::IsZombie (const scheduler::Object* a_object) const
+        {
+            const auto it = std::find_if(zombies_.begin(), zombies_.end(), [a_object](const ev::scheduler::Object* a_s_object) {
+                return ( a_s_object == a_object );
+            });
+            return zombies_.end() != it;
+        }
+        
     } // end of namespace 'scheduler'
     
 } // end of namespace ev
