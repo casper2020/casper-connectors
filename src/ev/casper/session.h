@@ -62,6 +62,8 @@ namespace ev
             void                            SetJSON_API_URL (const std::string& a_url);
             const std::string&              JSON_API_URL    () const;
             
+            void                            SetValue        (const std::string& a_key, const std::string& a_value);
+            
             const std::string               GetValue        (const std::string& a_key, const std::string& a_if_empty) const;
             const char*                     GetValueCstr    (const char* a_key, const char* a_if_empty) const;
             
@@ -80,6 +82,18 @@ namespace ev
             void               Patch           (const std::string& a_name, Json::Value& a_object, const std::map<std::string, std::string>& a_patchables) const;
             
         };
+        
+        
+        /**
+         * @brief Set or override a value for a key.
+         *
+         * @param a_key
+         * @param a_value
+         */
+        inline void Session::SetValue (const std::string& a_key, const std::string& a_value)
+        {
+            data_.payload_[a_key] = a_value;
+        }
         
         /**
          * @brief Search for a \link std::string \link value for a key.
