@@ -378,6 +378,7 @@ namespace ev
                 const std::string         redis_key_prefix_;
                 const std::string         redis_channel_prefix_;
                 
+                const Json::Value         default_ttr_;
                 const Json::Value         default_validity_;
                 
             private: // Data
@@ -386,7 +387,9 @@ namespace ev
                 std::string               rjnr_;                //!< REDIS job id.
                 std::string               rjid_;                //!< REDIS job key.
                 std::string               rcid_;                //!< REDIS job channel.
+                int64_t                   ttr_;
                 int64_t                   validity_;
+                int64_t                   expires_in_;
                 bool                      transient_;
                 ProgressReport            progress_report_;
                 bool                      cancelled_;
@@ -436,8 +439,12 @@ namespace ev
                 
             public:
                 
+                void               SetTTRAndValidity (const uint64_t& a_ttr, const uint64_t& a_validity);
+                const int64_t&     TTR               () const;
+                const int64_t&     Validity          () const;
+                const int64_t&     ExpiresIn         () const;
+
                 const int64_t&     ID      () const;
-                const int64_t&     Validity() const;
                 const std::string& RJNR    () const;
                 const std::string& RJID    () const;
                 const std::string& RCID    () const;
@@ -511,13 +518,13 @@ namespace ev
                 void Finished          (const Json::Value& a_response,
                                         const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback);
 
-                void Relay             (const uint64_t& a_id, const std::string& a_fq_channel, const Json::Value& a_object);
-                void Finished          (const uint64_t& a_id, const std::string& a_fq_channel, const Json::Value& a_response,
+                void Relay             (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key, const Json::Value& a_object);
+                void Finished          (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key, const Json::Value& a_response,
                                         const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback);
-                void Publish           (const uint64_t& a_id, const std::string& a_fq_channel, const Progress& a_progress);
+                void Publish           (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key, const Progress& a_progress);
                 void Broadcast         (const uint64_t& a_id, const std::string& a_fq_channel, const Status a_status);
                 
-                void Cancel            (const uint64_t& a_id, const std::string& a_fq_channel,
+                void Cancel            (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key,
                                         const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr);
 
                 bool  WasCancelled      () const;
@@ -541,8 +548,10 @@ namespace ev
 
             private: // REDIS Helper Method(s) / Function(s)
 
-                void Publish (const uint64_t& a_id, const std::string& a_fq_channel, const Json::Value& a_object,
-                              const std::function<void()> a_success_callback = nullptr, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr);
+                void Publish (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key, const Json::Value& a_object,
+                              const std::function<void()> a_success_callback = nullptr,
+                              const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr,
+                              const bool a_final = false);
                 
                 void Publish (const Json::Value& a_object,
                               const std::function<void()> a_success_callback = nullptr, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr);
@@ -643,12 +652,25 @@ namespace ev
             }; // end of class 'Job'
             
             /**
-             * @return Current job ID.
+             * @brief Override TTR and validity values.
+             *
+             * @param a_ttr      TTR in seconds.
+             * @param a_validity Validity in seconds.
              */
-            inline const int64_t& Job::ID () const
+            inline void Job::SetTTRAndValidity (const uint64_t& a_ttr, const uint64_t& a_validity)
             {
-                return bjid_;
-            }            
+                ttr_        = a_ttr;
+                validity_   = a_validity;
+                expires_in_ = ttr_ + validity_;
+            }
+            
+            /**
+             * @return Current job ttr.
+             */
+            inline const int64_t& Job::TTR () const
+            {
+                return ttr_;
+            }
 
             /**
              * @return Current job validity.
@@ -657,7 +679,23 @@ namespace ev
             {
                 return validity_;
             }
-        
+            
+            /**
+             * @return Current job expires in.
+             */
+            inline const int64_t& Job::ExpiresIn () const
+            {
+                return expires_in_;
+            }
+
+            /**
+             * @return Current job ID.
+             */
+            inline const int64_t& Job::ID () const
+            {
+                return bjid_;
+            }
+
             /**
              * @return REDIS job number.
              */
