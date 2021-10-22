@@ -138,6 +138,7 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
                 }
                 throw ev::Exception("Unable to append request headers - nullptr!");
             }
+            CC_IF_DEBUG(tx_headers_[h_it->first] = h_it->second);
         }
         initialization_error_ += curl_easy_setopt(handle_, CURLOPT_HTTPHEADER, headers_);
     }

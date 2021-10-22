@@ -64,6 +64,12 @@ namespace cc
                 const char* const code_;
                 const std::string why_;
             } InternalError;
+            
+            typedef struct {
+                const char* const content_type_;
+                const char* const code_;
+                const std::string why_;
+            } Error;
 
             typedef struct {
                 const char* const     code_;

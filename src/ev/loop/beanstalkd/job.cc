@@ -1216,6 +1216,36 @@ void ev::loop::beanstalkd::Job::HTTPGetFile (const std::string& a_url, const EV_
 }
 
 /**
+ * @brief Perform an HTTP POST request.
+ *
+ * param a_url
+ * param a_headers
+ * param a_body
+ * param a_success_callback
+ * param a_failure_callback
+ */
+void ev::loop::beanstalkd::Job::HTTPPost (const std::string& a_url, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body,
+                                          EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+{
+    HTTPSyncExec([this, &a_url, &a_headers, &a_body] (EV_CURL_HTTP_SUCCESS_CALLBACK a_a, EV_CURL_HTTP_FAILURE_CALLBACK a_b) {
+        
+        http_.POST(loggable_data_,
+                   /* a_url */
+                   a_url,
+                   /* a_headers */
+                   &a_headers,
+                   /* a_body */
+                   &a_body,
+                   /* a_success_callback */
+                   a_a,
+                   /* a_failure_callback */
+                   a_b
+        );
+        
+    }, a_success_callback, a_failure_callback);
+}
+
+/**
  * @brief Perform an HTTP request and write the file to the temporary directory.
  *
  * param a_uri

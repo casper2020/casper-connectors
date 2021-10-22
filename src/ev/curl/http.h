@@ -28,10 +28,14 @@
 
 #include "ev/curl/value.h"
 #include "ev/curl/request.h"
+#include "ev/curl/error.h"
 
 #include <functional> // std::function
 #include <string>     // std::string
 #include <map>        // std::map
+
+#include "cc/macros.h"
+#include "cc/debug/types.h"
 
 namespace ev
 {
@@ -94,6 +98,16 @@ namespace ev
             void                   Async   (::ev::curl::Request* a_request,
                                             EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback);
             ::ev::scheduler::Task* NewTask (const EV_TASK_PARAMS& a_callback);
+            
+        public: // DEBUG ONLY: Helper Method(s) / Function(s)
+            
+#if defined(__APPLE__) && defined(CC_DEBUG_ON)
+               static void DumpRequest   (const std::string& a_token, const std::string& a_id, const ::ev::curl::Request* a_request);
+               static void DumpResponse  (const std::string& a_token, const std::string& a_id, const std::string& a_method, const std::string& a_url,
+                                          const ::ev::curl::Value& a_value);
+               static void DumpException (const std::string& a_token, const std::string& a_id, const std::string& a_method, const std::string& a_url,
+                                          const ::ev::Exception& a_exception);
+#endif
 
         }; // end of class 'HTTP'
 

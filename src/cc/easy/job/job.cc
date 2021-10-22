@@ -27,6 +27,8 @@
 
 #include "cc/i18n/singleton.h"
 
+#include "cc/easy/json.h"
+
 /**
  * @brief Default constructor.
  *
@@ -282,10 +284,48 @@ uint16_t cc::easy::job::Job::SetError (const uint16_t& a_code, const I18N* a_i18
     if ( nullptr != a_error.code_ ) {
         o_payload["meta"]["internal-error"]["code"] = a_error.code_;
     } else {
-        o_payload["meta"]["internal-error"]["code"] = "400 - Bad Request";
+        const auto it = cc::i18n::Singleton::k_http_status_codes_map_.find(a_code);
+        if ( cc::i18n::Singleton::k_http_status_codes_map_.end() != it ) {
+            o_payload["meta"]["internal-error"]["code"] = std::to_string(a_code) + " - " + it->second;
+        } else {
+            o_payload["meta"]["internal-error"]["code"] = "400 - Bad Request";
+        }
     }
-    o_payload["meta"]["internal-error"]["why"] = a_error.why_;
+    if ( a_error.why_.length() > 0 ) {
+        o_payload["meta"]["internal-error"]["why"] = a_error.why_;
+    }
     return a_code;
+}
+
+/**
+ * @brief Fill a 'error' payload ( != 200 - Ok ).
+ *
+ * @param a_code    HTTP status code.
+ * @param a_i18n    I18 message.
+ * @param a_error   Internal error.
+ * @param o_payload Payload object to create.
+ *
+ * @return HTTP status code.
+ */
+uint16_t cc::easy::job::Job::SetError (const uint16_t& a_code, const I18N* a_i18n, const easy::job::Error& a_error, Json::Value& o_payload)
+{
+    if ( nullptr != a_error.content_type_ &&
+        ( 0 == strncasecmp(a_error.content_type_, "application/vnd.api+json", 24 * sizeof(char))
+            ||
+          0 == strncasecmp(a_error.content_type_, "application/json", 16 * sizeof(char))
+        )
+    ) {
+        // ... set common payload ...
+        const uint16_t rv = SetError(a_code, a_i18n, easy::job::InternalError({ a_error.code_, "" }), o_payload);
+        // ... json ...
+        const ::cc::easy::JSON<::cc::Exception> json; Json::Value why; json.Parse(a_error.why_, why);
+        // ... override 'why' ...
+        o_payload["meta"]["internal-error"]["why"] = why;
+        // ... done ...
+        return rv;
+    } else {
+        return SetError(a_code, a_i18n, easy::job::InternalError({ a_error.code_, a_error.why_ }), o_payload);
+    }
 }
 
 /**

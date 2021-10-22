@@ -24,6 +24,12 @@
 #include "ev/curl/reply.h"
 #include "ev/curl/error.h"
 
+#include <iomanip> // std::left, std::setfill, etc...
+
+#include "cc/macros.h"
+#include "cc/debug/types.h"
+#include "cc/easy/json.h"
+
 /**
  * @brief Default constructor.
  */
@@ -223,11 +229,20 @@ void ev::curl::HTTP::DELETE (const Loggable::Data& a_loggable_data,
 void ::ev::curl::HTTP::Async (::ev::curl::Request* a_request,
                               EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
 {
-    NewTask([a_request] () -> ::ev::Object* {
-
+    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, url   , a_request->url());
+    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, method, a_request->method());
+    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, token , CC_QUALIFIED_CLASS_NAME(this));
+    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, id    , CC_OBJECT_HEX_ADDRESS(a_request));
+    
+    NewTask([CC_IF_DEBUG(token, id,)a_request] () -> ::ev::Object* {
+        
+        // ... dump request ...
+        CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpRequest(token, id, a_request););
+        
+        // ...
         return a_request;
 
-    })->Then([] (::ev::Object* a_object) -> ::ev::Object* {
+    })->Then([CC_IF_DEBUG(id, token, url, method)] (::ev::Object* a_object) -> ::ev::Object* {
 
         ::ev::Result* result = dynamic_cast<::ev::Result*>(a_object);
         if ( nullptr == result ) {
@@ -238,12 +253,17 @@ void ::ev::curl::HTTP::Async (::ev::curl::Request* a_request,
         if ( nullptr == reply ) {
             const ::ev::curl::Error* error = dynamic_cast<const ::ev::curl::Error*>(result->DataObject());
             if ( nullptr != error ) {
+                // ... throw exception with error message ...
                 throw ::ev::Exception(error->message());
             } else {
+                // ... throw exception ...
                 throw ::ev::Exception("Unexpected CURL reply object: nullptr!");
             }
         }
-
+        
+        // ... dump response ...
+        CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpResponse(token, id, method.c_str(), url, reply->value()););
+        
         // ... same as reply, but it was detached ...
         return result->DetachDataObject();
 
@@ -262,9 +282,141 @@ void ::ev::curl::HTTP::Async (::ev::curl::Request* a_request,
 
         a_success_callback(value);
 
-    })->Catch([a_failure_callback] (const ::ev::Exception& a_ev_exception) {
+    })->Catch([CC_IF_DEBUG(id, token, url, method,)a_failure_callback] (const ::ev::Exception& a_ev_exception) {
 
+        // ... dump response ...
+        CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpException(token, id, method.c_str(), url, a_ev_exception););
+
+        // ... notify ...
         a_failure_callback(a_ev_exception);
 
     });
 }
+
+// MARK: - DEBUG ONLY: Helper Method(s) / Function(s)
+
+#if defined(__APPLE__) && defined(CC_DEBUG_ON)
+            
+/**
+ * @brief Call this method to dump an HTTP request data before it's execution.
+ *
+ * @param a_token   Debug token.
+ * @param a_id      ID.
+ * @param a_request Request object.
+ */
+void ::ev::curl::HTTP::DumpRequest (const std::string& a_token, const std::string& a_id, const ::ev::curl::Request* a_request)
+{
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    
+    const char* const token_c_str = a_token.c_str();
+    
+    CC_DEBUG_LOG_PRINT(token_c_str, "%s\n", std::string(80, '-').c_str());
+    CC_DEBUG_LOG_PRINT(token_c_str, "%s // %s // %s // %s\n", a_id.c_str(), a_token.c_str(), a_request->method(), "REQUEST");
+    CC_DEBUG_LOG_PRINT(token_c_str, "%s\n", std::string(80, '-').c_str());
+    CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: %s\n", "ID", a_id.c_str());
+    CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: %s\n", "Method", a_request->method());
+    CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: %s\n", "URL", a_request->url().c_str());
+    if ( a_request->tx_headers().size() > 0 ) {
+        CC_DEBUG_LOG_PRINT(token_c_str, "%-7s:\n", "Headers");
+        std::stringstream ss;
+        for ( auto header : a_request->tx_headers() ) {
+            ss.str("");
+            ss << '\t' << std::right << std::setfill(' ') << std::setw(25) << header.first << ": ";
+            for ( auto value : header.second ) {
+                ss << value << ' ';
+            }
+            CC_DEBUG_LOG_PRINT(token_c_str, "%s\n", ss.str().c_str());
+        }
+    }
+    if ( 0 != strcasecmp(a_request->method(), "GET") ) {
+        // ... JSON?
+        if ( 0 == strncasecmp("application/json", a_request->tx_header_value("content-type").c_str(), sizeof(char)* 16) ) {
+            try {
+                const ::cc::easy::JSON<::ev::Exception> json; Json::Value tmp; json.Parse(a_request->tx_body().c_str(),tmp);
+                CC_DEBUG_LOG_PRINT(token_c_str, "%-7s:\n%s", "Body", tmp.toStyledString().c_str());
+            } catch (...) {
+                CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: %s, " SIZET_FMT " byte(s)\n", "Body",
+                                   a_request->tx_body().length() ? "redacted" : "empty", a_request->tx_body().length()
+                );
+            }
+        } else {
+            CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: %s, " SIZET_FMT " byte(s)\n", "Body",
+                               a_request->tx_body().length() ? "redacted" : "empty", a_request->tx_body().length()
+            );
+        }
+    }
+    CC_DEBUG_LOG_PRINT(token_c_str, "%s\n", std::string(80, '.').c_str());
+}
+
+/**
+ * @brief Call this method to dump an HTTP response value.
+ *
+ * @param a_token  Debug token.
+ * @param a_id     ID.
+ * @param a_method Method name.
+ * @param a_url    URL.
+ * @param a_value  Value object.
+ */
+void ::ev::curl::HTTP::DumpResponse (const std::string& a_token, const std::string& a_id, const std::string& a_method, const std::string& a_url,
+                                     const ::ev::curl::Value& a_value)
+{
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    
+    const char* const token_c_str = a_token.c_str();
+    
+    CC_DEBUG_LOG_PRINT(token_c_str, "%s\n", std::string(80, '-').c_str());
+    CC_DEBUG_LOG_PRINT(token_c_str, "%s // %s // %s // %s\n", a_id.c_str(), a_token.c_str(), a_method.c_str(), "RESPONSE");
+    CC_DEBUG_LOG_PRINT(token_c_str, "%s\n", std::string(80, '-').c_str());
+    CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: %s\n", "ID", a_id.c_str());
+    CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: %s\n", "Method", a_method.c_str());
+    CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: %s\n", "URL", a_url.c_str());
+    if ( a_value.headers().size() > 0 ) {
+        CC_DEBUG_LOG_PRINT(token_c_str, "%-7s:\n", "Headers");
+        std::stringstream ss;
+        for ( auto header : a_value.headers() ) {
+            ss.str("");
+            ss << '\t' << std::right << std::setfill(' ') << std::setw(25) << header.first << ": ";
+            for ( auto value : header.second ) {
+                ss << value << ' ';
+            }
+            CC_DEBUG_LOG_PRINT(token_c_str, "%s\n", ss.str().c_str());
+        }
+    }
+    // ... JSON?
+    if ( 0 == strncasecmp("application/json", a_value.header_value("content-type").c_str(), sizeof(char)* 16) ) {
+        const ::cc::easy::JSON<::ev::Exception> json; Json::Value tmp; json.Parse(a_value.body(),tmp);
+        CC_DEBUG_LOG_PRINT(token_c_str, "%-7s:\n%s", "Body", tmp.toStyledString().c_str());
+    } else {
+        CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: " SIZET_FMT " byte(s), %s\n", "Body", a_value.body().length(), a_value.body().length() ? "redacted" : "empty");
+    }
+    CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: %d\n", "Status", a_value.code());
+    CC_DEBUG_LOG_PRINT(token_c_str, "%s\n", std::string(80, '.').c_str());
+}
+
+/**
+ * @brief Call this method to dump an HTTP response error data.
+ *
+ * @param a_token     Debug token.
+ * @param a_id        ID.
+ * @param a_method    Method name.
+ * @param a_url       URL.
+ * @param a_exception Exception object.
+ */
+void ::ev::curl::HTTP::DumpException (const std::string& a_token, const std::string& a_id, const std::string& a_method, const std::string& a_url,
+                                      const ::ev::Exception& a_exception)
+{
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    
+    const char* const token_c_str = a_token.c_str();
+    
+    CC_DEBUG_LOG_PRINT(token_c_str, "%s\n", std::string(80, '-').c_str());
+    CC_DEBUG_LOG_PRINT(token_c_str, "%s // %s // %s // %s\n", a_id.c_str(), a_token.c_str(), a_method.c_str(), "EXCEPTION");
+    CC_DEBUG_LOG_PRINT(token_c_str, "%s\n", std::string(80, '-').c_str());
+    CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: %s\n", "ID", a_id.c_str());
+    CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: %s\n", "Method", a_method.c_str());
+    CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: %s\n", "URL", a_url.c_str());
+    CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: %s\n", "Exception", a_exception.what());
+    CC_DEBUG_LOG_PRINT(token_c_str, "%s\n", std::string(80, '.').c_str());
+}
+
+#endif 

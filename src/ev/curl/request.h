@@ -36,6 +36,9 @@
 #include "cc/fs/file.h"
 #include "cc/fs/exception.h"
 
+#include "cc/macros.h"
+#include "cc/debug/types.h"
+
 namespace ev
 {
     namespace curl
@@ -104,6 +107,13 @@ namespace ev
         private: // Const Data
 
             std::string                        dummy_;                //!<
+                                                                      //!
+        
+        private: // FOR DEBUG LOGGING PROPOSES ONLY ONLY
+            
+            CC_IF_DEBUG(
+                EV_CURL_HEADERS_MAP tx_headers_;
+            );
 
         public: // Constructor(s) / Destructor
 
@@ -121,6 +131,7 @@ namespace ev
 
             CURL*                      easy_handle ();
             const std::string&         url         () const;
+            
             const EV_CURL_HEADERS_MAP& rx_headers  () const;
             
             const ::cc::fs::Exception* rx_exp      () const;
@@ -134,6 +145,39 @@ namespace ev
             void                       SetFinished ();
             size_t                     Elapsed     ();
 
+            CC_IF_DEBUG(
+                inline const EV_CURL_HEADERS_MAP& tx_headers   () const { return tx_headers_; }
+                inline std::string tx_header_value (const char* const a_name) const
+                {
+                    const auto p = std::find_if(tx_headers_.begin(), tx_headers_.end(), ev::curl::Object::cURLHeaderMapKeyComparator(a_name));
+                    if ( tx_headers_.end() != p ) {
+                        return p->second.front();
+                    } else {
+                        return "";
+                    }
+                }
+                inline const std::string& tx_body () const { return tx_body_;    }
+                inline const char* const method () const
+                {
+                    switch(http_request_type_) {
+                        case HTTPRequestType::GET:
+                            return "GET";
+                        case HTTPRequestType::PUT:
+                            return "PUT";
+                        case HTTPRequestType::DELETE:
+                            return "DELETE";
+                        case HTTPRequestType::POST:
+                            return "POST";
+                        case HTTPRequestType::PATCH:
+                            return "PATCH";
+                        case HTTPRequestType::HEAD:
+                            return "HEAD";
+                        default:
+                            return "???";
+                    }
+                }
+            );
+            
         protected:
 
             virtual size_t OnHeaderReceived             (void* a_ptr, size_t a_size, size_t a_nm_elem);

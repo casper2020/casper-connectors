@@ -234,13 +234,6 @@ namespace cc
             ::ev::scheduler::Task*    NewTask     (const EV_TASK_PARAMS& a_callback);
             const ::ev::curl::Reply*  EnsureReply (::ev::Object* a_object);
 
-        private: // DEBUG ONLY: Helper Method(s) / Function(s)
-            
-            CC_IF_DEBUG(
-               void DumpRequest  (const char* const a_method, const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string* a_body) const;
-               void DumpResponse (const char* const a_method, const std::string& a_url, const ::ev::curl::Value& a_value) const;
-            );
-
         }; // end of class 'OAuth2HTTP'
     
         /**

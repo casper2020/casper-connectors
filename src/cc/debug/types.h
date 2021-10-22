@@ -142,6 +142,28 @@
         static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - a_start_tp).count());
     #define CC_MEASURE_UNITS "ms" // "µs"
 
+    #define CC_CLASS_NAME(a_ptr) [] () -> std::string { \
+        std::string tmp = CC_DEMANGLE(typeid(a_ptr).name()); \
+        tmp.pop_back(); \
+        const size_t p = tmp.rfind("::"); \
+        if ( std::string::npos != p ) { \
+            return std::string(tmp.c_str() + p + ( sizeof(char) * 2 ) ); \
+        } \
+        return tmp;\
+    } ()
+
+    #define CC_QUALIFIED_CLASS_NAME(a_ptr) [] () -> std::string { \
+        std::string tmp = CC_DEMANGLE(typeid(a_ptr).name()); \
+        tmp.pop_back(); \
+        return tmp; \
+    } ()
+
+    #define CC_OBJECT_HEX_ADDRESS(a_ptr) [&] () -> std::string { \
+        std::stringstream ss; \
+        ss << std::hex << static_cast<void*>(a_ptr); \
+        return ss.str(); \
+    } ()
+
 #if 1
 
     typedef struct {
