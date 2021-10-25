@@ -481,8 +481,8 @@ void ev::loop::beanstalkd::Job::SetProgress (const ev::loop::beanstalkd::Job::Pr
     
     Json::Value i18n_array = Json::Value(Json::ValueType::arrayValue);
     i18n_array.append(key);
+    Json::Value& object = i18n_array.append(Json::Value(Json::ValueType::objectValue));
     for ( auto arg : a_progress.args_ ) {
-        Json::Value& object = i18n_array.append(Json::Value(Json::ValueType::objectValue));
         object[arg.first] = arg.second;
     }
     o_progress["message"]  = i18n_array;
