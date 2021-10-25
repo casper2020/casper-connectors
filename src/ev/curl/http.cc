@@ -295,7 +295,7 @@ void ::ev::curl::HTTP::Async (::ev::curl::Request* a_request,
 
 // MARK: - DEBUG ONLY: Helper Method(s) / Function(s)
 
-#if defined(__APPLE__) && defined(CC_DEBUG_ON)
+#if defined(CC_DEBUG_ON)
             
 /**
  * @brief Call this method to dump an HTTP request data before it's execution.
@@ -419,4 +419,4 @@ void ::ev::curl::HTTP::DumpException (const std::string& a_token, const std::str
     CC_DEBUG_LOG_PRINT(token_c_str, "%s\n", std::string(80, '.').c_str());
 }
 
-#endif 
+#endif // defined(CC_DEBUG_ON)

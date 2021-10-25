@@ -101,7 +101,7 @@ namespace ev
             
         public: // DEBUG ONLY: Helper Method(s) / Function(s)
             
-#if defined(__APPLE__) && defined(CC_DEBUG_ON)
+#if defined(CC_DEBUG_ON)
                static void DumpRequest   (const std::string& a_token, const std::string& a_id, const ::ev::curl::Request* a_request);
                static void DumpResponse  (const std::string& a_token, const std::string& a_id, const std::string& a_method, const std::string& a_url,
                                           const ::ev::curl::Value& a_value);
