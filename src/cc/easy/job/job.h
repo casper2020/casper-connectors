@@ -26,6 +26,7 @@
 
 #include "cc/easy/job/types.h"
 
+#include "cc/macros.h"
 #include "cc/debug/types.h"
 
 #include "ev/logger_v2.h"

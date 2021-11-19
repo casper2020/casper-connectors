@@ -33,15 +33,16 @@
  * @param a_type
  * @param a_payload
  * @param a_headers
+ * @param a_timeouts
  */
 ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
                             const ev::curl::Request::HTTPRequestType& a_type, const std::string& a_url,
-                            const EV_CURL_HEADERS_MAP* a_headers, const std::string* a_body)
+                            const EV_CURL_HEADERS_MAP* a_headers, const std::string* a_body, const Request::Timeouts* a_timeouts)
     : ev::Request(a_loggable_data, ev::Object::Target::CURL, ev::Request::Mode::OneShot), http_request_type_(a_type)
 {
     url_                  = a_url;
-    connection_timeout_   = 30;
-    operation_timeout_    = 3600;
+    timeouts_.connection_ = ( nullptr != a_timeouts && -1 != a_timeouts->connection_ ? std::max(5l, a_timeouts->connection_) :   30 );
+    timeouts_.operation_  = ( nullptr != a_timeouts && -1 != a_timeouts->operation_  ? std::max(5l, a_timeouts->operation_)  : 3600 );
     low_speed_limit_      = 0; // 0 - disabled
     low_speed_time_       = 0; // 0 - disabled
     max_recv_speed_       = 0; // 0 - disabled
@@ -56,8 +57,8 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
     // ... setup common handle options ...
     initialization_error_  = curl_easy_setopt(handle_, CURLOPT_URL                 , url_.c_str());
     initialization_error_ += curl_easy_setopt(handle_, CURLOPT_NOSIGNAL            , 1);
-    initialization_error_ += curl_easy_setopt(handle_, CURLOPT_CONNECTTIMEOUT      , connection_timeout_);
-    initialization_error_ += curl_easy_setopt(handle_, CURLOPT_TIMEOUT             , operation_timeout_);
+    initialization_error_ += curl_easy_setopt(handle_, CURLOPT_CONNECTTIMEOUT      , timeouts_.connection_);
+    initialization_error_ += curl_easy_setopt(handle_, CURLOPT_TIMEOUT             , timeouts_.operation_);
     initialization_error_ += curl_easy_setopt(handle_, CURLOPT_XFERINFOFUNCTION    , ProgressCallbackWrapper);
     initialization_error_ += curl_easy_setopt(handle_, CURLOPT_PROGRESSDATA        , this);
     initialization_error_ += curl_easy_setopt(handle_, CURLOPT_NOPROGRESS          , 0);

@@ -58,14 +58,16 @@ ev::curl::HTTP::~HTTP ()
  * @param a_headers          HTTP Headers.
  * @param a_success_callback Function to call on success ( REQUEST EXECUTED, DOES NOT MEAN THE GOT A 200 FAMILY STATUS CODE ).
  * @param a_failure_callback Function to call when an exception was raised ( REQUEST NOT EXECUTED ).
+ * @param a_timeouts         See \link EV_CURL_HTTP_TIMEOUTS \link
  */
  void ev::curl::HTTP::GET (const Loggable::Data& a_loggable_data,
                           const std::string& a_url,
                           const EV_CURL_HTTP_HEADERS* a_headers,
-                          EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+                          EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                           const EV_CURL_HTTP_TIMEOUTS* a_timeouts)
 {
     Async(new ::ev::curl::Request(a_loggable_data,
-                                  curl::Request::HTTPRequestType::GET, a_url, a_headers, /* a_body */ nullptr
+                                  curl::Request::HTTPRequestType::GET, a_url, a_headers, /* a_body */ nullptr, a_timeouts
           ),
           a_success_callback, a_failure_callback
     );
@@ -80,15 +82,17 @@ ev::curl::HTTP::~HTTP ()
  * @param a_success_callback Function to call on success ( REQUEST EXECUTED, DOES NOT MEAN THE GOT A 200 FAMILY STATUS CODE ).
  * @param a_failure_callback Function to call when an exception was raised ( REQUEST NOT EXECUTED ).
  * @param a_uri              Local file URI where response will be written to.
+ * @param a_timeouts         See \link EV_CURL_HTTP_TIMEOUTS \link
  */
 void ev::curl::HTTP::GET (const Loggable::Data& a_loggable_data,
                           const std::string& a_url,
                           const EV_CURL_HTTP_HEADERS* a_headers,
                           EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
-                          const std::string& a_uri)
+                          const std::string& a_uri,
+                          const EV_CURL_HTTP_TIMEOUTS* a_timeouts)
 {
     ::ev::curl::Request* request = new ::ev::curl::Request(a_loggable_data,
-                                                           curl::Request::HTTPRequestType::GET, a_url, a_headers, /* a_body */ nullptr
+                                                           curl::Request::HTTPRequestType::GET, a_url, a_headers, /* a_body */ nullptr, a_timeouts
     );
     request->SetWriteResponseBodyTo(a_uri);
     Async(request,
@@ -99,17 +103,19 @@ void ev::curl::HTTP::GET (const Loggable::Data& a_loggable_data,
 /**
  * @brief Perforn an HTTP PUT request.
  *
- * @param a_url
- * @param a_success_callback
- * @param a_failure_callback
+ * @param a_url              URL
+ * @param a_success_callback Function to call on success ( REQUEST EXECUTED, DOES NOT MEAN THE GOT A 200 FAMILY STATUS CODE ).
+ * @param a_failure_callback Function to call when an exception was raised ( REQUEST NOT EXECUTED ).
+ * @param a_timeouts         See \link EV_CURL_HTTP_TIMEOUTS \link
  */
 void ev::curl::HTTP::PUT (const Loggable::Data& a_loggable_data,
                           const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                           const std::string* a_body,
-                          EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+                          EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                          const EV_CURL_HTTP_TIMEOUTS* a_timeouts)
 {
     Async(new ::ev::curl::Request(a_loggable_data,
-                                  curl::Request::HTTPRequestType::PUT, a_url, a_headers, a_body
+                                  curl::Request::HTTPRequestType::PUT, a_url, a_headers, a_body, a_timeouts
           ),
           a_success_callback, a_failure_callback
     );
@@ -124,14 +130,16 @@ void ev::curl::HTTP::PUT (const Loggable::Data& a_loggable_data,
  * @param a_body             Body to send.
  * @param a_success_callback Function to call on success ( REQUEST EXECUTED, DOES NOT MEAN THE GOT A 200 FAMILY STATUS CODE ).
  * @param a_failure_callback Function to call when an exception was raised ( REQUEST NOT EXECUTED ).
+ * @param a_timeouts         See \link EV_CURL_HTTP_TIMEOUTS \link
  */
  void ev::curl::HTTP::POST (const Loggable::Data& a_loggable_data,
                             const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                             const std::string* a_body,
-                            EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+                            EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                            const EV_CURL_HTTP_TIMEOUTS* a_timeouts)
 {
     Async(new ::ev::curl::Request(a_loggable_data,
-                                  curl::Request::HTTPRequestType::POST, a_url, a_headers, a_body
+                                  curl::Request::HTTPRequestType::POST, a_url, a_headers, a_body, a_timeouts
           ),
           a_success_callback, a_failure_callback
     );
@@ -147,14 +155,16 @@ void ev::curl::HTTP::PUT (const Loggable::Data& a_loggable_data,
  * @param a_body             Body to send.
  * @param a_success_callback Function to call on success ( REQUEST EXECUTED, DOES NOT MEAN THE GOT A 200 FAMILY STATUS CODE ).
  * @param a_failure_callback Function to call when an exception was raised ( REQUEST NOT EXECUTED ).
+ * @param a_timeouts         See \link EV_CURL_HTTP_TIMEOUTS \link
  */
 void ev::curl::HTTP::POST (const Loggable::Data& a_loggable_data,
                            const std::string& a_uri,
                            const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
-                           EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+                           EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                           const EV_CURL_HTTP_TIMEOUTS* a_timeouts)
 {
     ::ev::curl::Request* request = new ::ev::curl::Request(a_loggable_data,
-                                                           curl::Request::HTTPRequestType::POST, a_url, a_headers, nullptr
+                                                           curl::Request::HTTPRequestType::POST, a_url, a_headers, /* a_body */ nullptr, a_timeouts
     );
     request->SetReadBodyFrom(a_uri);
     Async(request,
@@ -166,17 +176,22 @@ void ev::curl::HTTP::POST (const Loggable::Data& a_loggable_data,
  * @brief Perforn an HTTP PATCH request.
  *
  * @param a_loggable_data
- * @param a_url
- * @param a_success_callback
- * @param a_failure_callback
+ * @param a_uri              Local file URI where body will be read from.
+ * @param a_url              URL
+ * @param a_headers          HTTP Headers.
+ * @param a_body             Body to send.
+ * @param a_success_callback Function to call on success ( REQUEST EXECUTED, DOES NOT MEAN THE GOT A 200 FAMILY STATUS CODE ).
+ * @param a_failure_callback Function to call when an exception was raised ( REQUEST NOT EXECUTED ).
+ * @param a_timeouts         See \link EV_CURL_HTTP_TIMEOUTS \link
  */
 void ev::curl::HTTP::PATCH (const ::ev::Loggable::Data& a_loggable_data,
                             const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                             const std::string* a_body,
-                            EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+                            EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                            const EV_CURL_HTTP_TIMEOUTS* a_timeouts)
 {
     Async(new ::ev::curl::Request(a_loggable_data,
-                                  curl::Request::HTTPRequestType::PATCH, a_url, a_headers, a_body
+                                  curl::Request::HTTPRequestType::PATCH, a_url, a_headers, a_body, a_timeouts
           ),
           a_success_callback, a_failure_callback
     );
@@ -185,17 +200,23 @@ void ev::curl::HTTP::PATCH (const ::ev::Loggable::Data& a_loggable_data,
 /**
  * @brief Perforn an HTTP DELETE request.
  *
- * @param a_url
- * @param a_success_callback
- * @param a_failure_callback
+ * @param a_loggable_data
+ * @param a_uri              Local file URI where body will be read from.
+ * @param a_url              URL
+ * @param a_headers          HTTP Headers.
+ * @param a_body             Body to send.
+ * @param a_success_callback Function to call on success ( REQUEST EXECUTED, DOES NOT MEAN THE GOT A 200 FAMILY STATUS CODE ).
+ * @param a_failure_callback Function to call when an exception was raised ( REQUEST NOT EXECUTED ).
+ * @param a_timeouts         See \link EV_CURL_HTTP_TIMEOUTS \link
  */
 void ev::curl::HTTP::DELETE (const Loggable::Data& a_loggable_data,
                              const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                              const std::string* a_body,
-                             EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+                             EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                             const EV_CURL_HTTP_TIMEOUTS* a_timeouts)
 {
     Async(new ::ev::curl::Request(a_loggable_data,
-                                  curl::Request::HTTPRequestType::DELETE, a_url, a_headers, a_body
+                                  curl::Request::HTTPRequestType::DELETE, a_url, a_headers, a_body, a_timeouts
           ),
           a_success_callback, a_failure_callback
     );
@@ -345,6 +366,9 @@ void ::ev::curl::HTTP::DumpRequest (const std::string& a_token, const std::strin
             );
         }
     }
+    CC_DEBUG_LOG_PRINT(token_c_str, "%-7s:\n", "Timeouts");
+    CC_DEBUG_LOG_PRINT(token_c_str, "\t%13s: %ld\n", "Connection", a_request->timeouts().connection_);
+    CC_DEBUG_LOG_PRINT(token_c_str, "\t%13s: %ld\n", "Operation" , a_request->timeouts().operation_);
     CC_DEBUG_LOG_PRINT(token_c_str, "%s\n", std::string(80, '.').c_str());
 }
 
@@ -390,6 +414,7 @@ void ::ev::curl::HTTP::DumpResponse (const std::string& a_token, const std::stri
         CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: " SIZET_FMT " byte(s), %s\n", "Body", a_value.body().length(), a_value.body().length() ? "redacted" : "empty");
     }
     CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: %d\n", "Status", a_value.code());
+    CC_DEBUG_LOG_PRINT(token_c_str, "%-7s: " SIZET_FMT "ms\n", "RTT", a_value.rtt());
     CC_DEBUG_LOG_PRINT(token_c_str, "%s\n", std::string(80, '.').c_str());
 }
 

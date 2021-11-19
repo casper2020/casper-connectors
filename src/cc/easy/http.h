@@ -42,7 +42,8 @@ namespace cc
         class HTTPClient : public ::cc::NonCopyable, public ::cc::NonMovable
         {
             
-        #define CC_HTTP_HEADERS EV_CURL_HEADERS_MAP
+        #define CC_HTTP_HEADERS  EV_CURL_HEADERS_MAP
+        #define CC_HTTP_TIMEOUTS EV_CURL_HTTP_TIMEOUTS
             
         public: // Data Type(s)
             
@@ -53,6 +54,17 @@ namespace cc
                 SuccessCallback on_success_;
                 FailureCallback on_failure_;
             } Callbacks;
+
+            typedef ::ev::curl::Value                         RawValue;
+            typedef std::function<void(const RawValue&)>      RawSuccessCallback;
+            typedef std::function<void(const cc::Exception&)> RawFailureCallback;
+
+            typedef struct {
+                RawSuccessCallback on_success_;
+                RawFailureCallback on_failure_;
+            } RawCallbacks;
+            
+            typedef ::ev::curl::Request::Timeouts Timeouts;
 
         private: // Const Data
             
@@ -70,8 +82,17 @@ namespace cc
             
         public: // Method(s) / Function(s)
             
-            void GET  (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, Callbacks a_callbacks);
-            void POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body, Callbacks a_callbacks);
+            void GET  (const std::string& a_url, const CC_HTTP_HEADERS& a_headers,
+                       Callbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
+            
+            void POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
+                       Callbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
+
+            void GET  (const std::string& a_url, const CC_HTTP_HEADERS& a_headers,
+                       RawCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
+
+            void POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
+                       RawCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
         }; // end of class 'HTTP'
     
@@ -223,7 +244,7 @@ namespace cc
                                         OAuth2HTTPClient::POSTCallbacks a_callbacks);
 
             void POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
-                       OAuth2HTTPClient::POSTCallbacks a_callbacks);
+                       OAuth2HTTPClient::POSTCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
             
         public: // Inline Method(s) / Function(s)
             

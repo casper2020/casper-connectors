@@ -39,9 +39,10 @@
  * @param a_tube
  * @param a_config
  * @param a_response_flags
+ * @param a_mode
  */
 ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const std::string& a_tube, const Job::Config& a_config,
-                                const Job::ResponseFlags& a_response_flags)
+                                const Job::ResponseFlags a_response_flags)
     : ::ev::loop::beanstalkd::Object(a_loggable_data),
     tube_(a_tube), config_(a_config),
     redis_signal_channel_(config_.service_id() + ":job-signal"),
@@ -80,6 +81,7 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
     owner_log_callback_       = nullptr;
     
     response_flags_           = a_response_flags;
+    mode_                     = Job::Mode::Default;
     
     ev::LoggerV2::GetInstance().Register(logger_client_, { "queue" });
 }
@@ -734,36 +736,51 @@ void ev::loop::beanstalkd::Job::Publish (const std::vector<ev::loop::beanstalkd:
  * @param a_failure_callback
  * @param a_final
  */
-void ev::loop::beanstalkd::Job::Publish (const uint64_t& /* a_id */, const std::string& a_fq_channel, const std::string& a_fq_key,
+void ev::loop::beanstalkd::Job::Publish (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key,
                                          const Json::Value& a_object,
                                          const std::function<void()> a_success_callback,
                                          const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback,
                                          const bool a_final)
 {
-    Json::FastWriter jfw; jfw.omitEndingLineFeed();
+}
 
+/**
+ * @brief Publish a message using a REDIS channel.
+ *
+ * @param a_id
+ * @param a_fq_channel
+ * @param a_object
+ * @param a_success_callback
+ * @param a_failure_callback
+ * @param a_final
+ */
+void ev::loop::beanstalkd::Job::Publish (const uint64_t& /* a_id */, const std::string& a_fq_channel, const std::string& a_fq_key,
+                                         const std::string& a_message, const std::string& a_status,
+                                         const std::function<void()> a_success_callback,
+                                         const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback,
+                                         const bool a_final)
+{
     osal::ConditionVariable cv;
     ev::Exception*          exception = nullptr;
         
     const std::string redis_channel = a_fq_channel;
     const std::string redis_key     = a_fq_key;
-    const std::string redis_message = jfw.write(a_object);
 
-    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("PUBLISH", "%s", redis_message.c_str());
+    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("PUBLISH", "%s", a_message.c_str());
     
-    ExecuteOnMainThread([this, &cv, &redis_channel, &redis_key, &redis_message, &exception, &a_final, &a_object] {
+    ExecuteOnMainThread([this, &cv, &redis_channel, &redis_key, &a_message, &a_status, &exception, &a_final] {
         // ... srtart by publishing a message ....
-        ev::scheduler::Task* t = NewTask([this, &redis_channel, redis_message] () -> ::ev::Object* {
+        ev::scheduler::Task* t = NewTask([this, &redis_channel, a_message] () -> ::ev::Object* {
 
             return new ev::redis::Request(loggable_data_,
-                                          "PUBLISH", { redis_channel, redis_message }
+                                          "PUBLISH", { redis_channel, a_message }
             );
 
         });
         // ... and if NOT transient ...
         if ( false == transient_ && 0 != redis_key.length()) {
             // ... ser a permantent key ...
-            t->Then([this, redis_key, redis_message] (::ev::Object* a_object) -> ::ev::Object* {
+            t->Then([this, redis_key, a_message] (::ev::Object* a_object) -> ::ev::Object* {
                 // ... an integer reply is expected ...
                 ev::redis::Reply::EnsureIntegerReply(a_object);
                 // ... make it permanent ...
@@ -771,7 +788,7 @@ void ev::loop::beanstalkd::Job::Publish (const uint64_t& /* a_id */, const std::
                                               "HSET",
                                               {
                                                   /* key   */ redis_key,
-                                                  /* field */ "status", redis_message
+                                                  /* field */ "status", a_message
                                               }
                 );
             });
@@ -822,7 +839,7 @@ void ev::loop::beanstalkd::Job::Publish (const uint64_t& /* a_id */, const std::
             // ( since job's "status" key is always set with initial value as "queued" we must set the final value here )
             if ( true == a_final ) {
                 // ... set a permanent key ...
-                t->Then([this, redis_key, redis_message, &a_object] (::ev::Object* a_r_object) -> ::ev::Object* {
+                t->Then([this, redis_key, &a_status] (::ev::Object* a_r_object) -> ::ev::Object* {
                     // ... an integer reply is expected ...
                     ev::redis::Reply::EnsureIntegerReply(a_r_object);
                     // ... make it permanent ...
@@ -830,7 +847,7 @@ void ev::loop::beanstalkd::Job::Publish (const uint64_t& /* a_id */, const std::
                                                   "HSET",
                                                   {
                                                       /* key   */ redis_key,
-                                                      /* field */ "status", "{\"status\":\"" + a_object.get("status", WasCancelled() ? "cancelled" : "unknown").asString() + "\"}"
+                                                      /* field */ "status", "{\"status\":\"" + a_status + "\"}"
                                                   }
                     );
                 });

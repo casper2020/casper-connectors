@@ -30,6 +30,7 @@
 #include <vector> // std::vector
 #include <map>    // std::map
 #include <chrono>
+#include <algorithm>
 
 #include <curl/curl.h>
 
@@ -51,6 +52,7 @@ namespace ev
 
             enum class HTTPRequestType : uint8_t
             {
+                NotSet = 0x00,
                 GET,
                 PUT,
                 DELETE,
@@ -58,7 +60,14 @@ namespace ev
                 PATCH,
                 HEAD
             }; // end of enum 'HTTPRequestType'
-
+            
+            typedef struct {
+                long connection_; //!< Number of seconds to consider connection timeout, 0 disabled.
+                long operation_;  //!< Number of seconds to consider operation timeout, 0 disabled.
+            } Timeouts;
+            
+            typedef EV_CURL_HEADERS_MAP Headers;
+            
         private: // Data Types
 
             enum class Step : uint8_t
@@ -77,8 +86,7 @@ namespace ev
         private: // Data
 
             std::string                        url_;                  //!< Request URL.
-            long                               connection_timeout_;   //!< Number of seconds to consider connection timeout, 0 disabled.
-            long                               operation_timeout_;    //!< Number of seconds to consider operation timeout, 0 disabled.
+            Timeouts                           timeouts_;             //!< See \link Timeouts \link.
             long                               low_speed_limit_;      //!< Low speed limit in bytes per second, 0 disabled.
             long                               low_speed_time_;       //!< Low speed limit time period, 0 disabled.
             curl_off_t                         max_recv_speed_;       //!< Rate limit data download speed, 0 disabled.
@@ -119,7 +127,7 @@ namespace ev
 
             Request (const Loggable::Data& a_loggable_data,
                      const HTTPRequestType& a_type, const std::string& a_url,
-                     const EV_CURL_HEADERS_MAP* a_headers = nullptr, const std::string* a_body = nullptr);
+                     const EV_CURL_HEADERS_MAP* a_headers = nullptr, const std::string* a_body = nullptr, const Timeouts* a_timeouts = nullptr);
             virtual ~Request();
 
         public: // Inherited Virtual Method(s) / Function(s)
@@ -131,12 +139,12 @@ namespace ev
 
             CURL*                      easy_handle ();
             const std::string&         url         () const;
-            
+            const Timeouts&            timeouts    () const;
+
             const EV_CURL_HEADERS_MAP& rx_headers  () const;
             
             const ::cc::fs::Exception* rx_exp      () const;
             const ::cc::fs::Exception* tx_exp      () const;
-            
             void                       SetReadBodyFrom        (const std::string& a_uri);
             void                       SetWriteResponseBodyTo (const std::string& a_uri);
             void                       Close                  ();
@@ -214,6 +222,14 @@ namespace ev
         {
             return url_;
         }
+        
+        /**
+         * @return Readonly access to timeouts info.
+         */
+        inline const Request::Timeouts& Request::timeouts () const
+        {
+            return timeouts_;
+        }
 
         /**
          * @return Received headers.
@@ -237,7 +253,7 @@ namespace ev
         inline const ::cc::fs::Exception* Request::tx_exp () const
         {
             return tx_exp_;
-        }    
+        }
 
         /**
          * @brief Send body from a file.

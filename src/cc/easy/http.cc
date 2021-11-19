@@ -60,9 +60,10 @@ cc::easy::HTTPClient::~HTTPClient ()
  * @param a_callbacks Set of callbacks to report successfull or failed execution.
  *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
  *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ * @param a_timeouts See \link HTTPClient::Timeouts \link.
  */
 void cc::easy::HTTPClient::GET (const std::string& a_url, const CC_HTTP_HEADERS& a_headers,
-                                 HTTPClient::Callbacks a_callbacks)
+                                HTTPClient::Callbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts)
 {
     http_.GET(loggable_data_,
                a_url, &a_headers,
@@ -71,7 +72,8 @@ void cc::easy::HTTPClient::GET (const std::string& a_url, const CC_HTTP_HEADERS&
                },
                /* a_failure_callback */ [a_callbacks] (const ::ev::Exception& a_ev_exception) {
                     a_callbacks.on_failure_(::cc::Exception("%s", a_ev_exception.what()));
-               }
+               },
+              a_timeouts
     );
 }
 
@@ -84,18 +86,73 @@ void cc::easy::HTTPClient::GET (const std::string& a_url, const CC_HTTP_HEADERS&
  * @param a_callbacks Set of callbacks to report successfull or failed execution.
  *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
  *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ * @param a_timeouts  See \link HTTPClient::Timeouts \link.
  */
 void cc::easy::HTTPClient::POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
-                                 HTTPClient::Callbacks a_callbacks)
+                                 HTTPClient::Callbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts)
 {
     http_.POST(loggable_data_,
                a_url, &a_headers, &a_body,
-               /* a_success_callback */ [a_callbacks] (const ::ev::curl::Value& a_value) {
+               /* a_success_callback */ [a_callbacks] (const ::ev::curl::Value& a_value) {        
                     a_callbacks.on_success_(a_value.code(), a_value.header_value("Content-Type"), a_value.body(), a_value.rtt());
                },
                /* a_failure_callback */ [a_callbacks] (const ::ev::Exception& a_ev_exception) {
                     a_callbacks.on_failure_(::cc::Exception("%s", a_ev_exception.what()));
-               }
+               },
+               a_timeouts
+    );
+}
+
+/**
+ * @brief Perform an HTTP GET request.
+ *
+ * @param a_url      URL.
+ * @param a_headers  HTTP Headers.
+ * @param a_callbacks Set of callbacks to report successfull or failed execution.
+ *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
+ *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ * @param a_timeouts See \link HTTPClient::Timeouts \link.
+ */
+void cc::easy::HTTPClient::GET (const std::string& a_url, const CC_HTTP_HEADERS& a_headers,
+                                HTTPClient::RawCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts)
+{
+    http_.GET(loggable_data_,
+               a_url, &a_headers,
+               /* a_success_callback */ [a_callbacks] (const ::ev::curl::Value& a_value) {
+                    a_callbacks.on_success_(a_value);
+               },
+               /* a_failure_callback */ [a_callbacks] (const ::ev::Exception& a_ev_exception) {
+                    a_callbacks.on_failure_(::cc::Exception("%s", a_ev_exception.what()));
+               },
+              a_timeouts
+    );
+}
+
+/**
+ * @brief Perform an HTTP POST request.
+ *
+ * @param a_url      URL.
+ * @param a_headers  HTTP Headers.
+ * @param a_body     BODY string representation.
+ * @param a_callbacks Set of callbacks to report successfull or failed execution.
+ *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
+ *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ * @param a_timeouts  See \link HTTPClient::Timeouts \link.
+ */
+void cc::easy::HTTPClient::POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
+                                 HTTPClient::RawCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts)
+{
+    http_.POST(loggable_data_,
+               a_url, &a_headers, &a_body,
+               /* a_success_callback */
+               [a_callbacks] (const ::ev::curl::Value& a_value) {
+                    std::map<std::string, std::string> headers;
+                    a_callbacks.on_success_(a_value);
+               },
+               /* a_failure_callback */ [a_callbacks] (const ::ev::Exception& a_ev_exception) {
+                    a_callbacks.on_failure_(::cc::Exception("%s", a_ev_exception.what()));
+               },
+               a_timeouts
     );
 }
 
@@ -184,9 +241,11 @@ void cc::easy::OAuth2HTTPClient::AutorizationCodeGrant (const std::string& a_cod
  * @param a_callbacks Set of callbacks to report successfull or failed execution.
  *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
  *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ *
+ * @param a_timeouts See \link HTTPClient::ClientTimeouts \link.
  */
 void cc::easy::OAuth2HTTPClient::POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
-                                       OAuth2HTTPClient::POSTCallbacks a_callbacks)
+                                       OAuth2HTTPClient::POSTCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts)
 {
     // ... copy original header ...
     CC_HTTP_HEADERS headers;
@@ -202,7 +261,7 @@ void cc::easy::OAuth2HTTPClient::POST (const std::string& a_url, const CC_HTTP_H
         nsi_ptr_->OnHTTPRequestHeaderSet(headers);
     }
     // ... perform request ...
-    ::ev::curl::Request* request = new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, a_url, &headers, &a_body);
+    ::ev::curl::Request* request = new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, a_url, &headers, &a_body, a_timeouts);
     
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, url   , request->url());
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, method, request->method());

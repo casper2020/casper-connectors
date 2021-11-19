@@ -62,17 +62,17 @@ namespace ev
 
         public: // Method(s) / Function(s)
             
-            int                        code              () const;
-            const EV_CURL_HEADERS_MAP& headers           () const;
-            const std::string&         body              () const;
-            const size_t               rtt               () const;
-            void                       set_last_modified (int64_t a_timestamp);
-            int64_t                    last_modified     () const;
-            std::string                header            (const char* const a_name) const;
-            std::string                header_value      (const char* const a_name) const;
-            size_t                     header_values     (const char* const a_name, std::set<std::string>& o_values) const;
-            void                       headers_as_map    (std::map<std::string, std::string>& o_map) const;
-
+            int                                       code              () const;
+            const EV_CURL_HEADERS_MAP&                headers           () const;
+            const std::string&                        body              () const;
+            const size_t                              rtt               () const;
+            void                                      set_last_modified (int64_t a_timestamp);
+            int64_t                                   last_modified     () const;
+            std::string                               header            (const char* const a_name) const;
+            std::string                               header_value      (const char* const a_name) const;
+            size_t                                    header_values     (const char* const a_name, std::set<std::string>& o_values) const;
+            const std::map<std::string, std::string>& headers_as_map    (std::map<std::string, std::string>& o_map) const;
+            
         public:
             
             inline Value& operator=(const Value&) = delete;
@@ -190,12 +190,15 @@ namespace ev
          * @brief Rebuild headers map.
          *
          * @param o_map Rebuilt value.
+         *
+         * @return o_map
          */
-        inline void Value::headers_as_map (std::map<std::string, std::string>& o_map) const
+        inline const std::map<std::string, std::string>& Value::headers_as_map (std::map<std::string, std::string>& o_map) const
         {
             for ( auto p : headers_ ) {
                 o_map[p.first] = ( p.second.front().length() > 0 ? " " + p.second.front() : "" );
             }
+            return o_map;
         }
 
     } // end of namespace 'curl'

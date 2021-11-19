@@ -344,6 +344,11 @@ namespace ev
                     Cancelled,
                 };
                 
+                enum class Mode : uint8_t {
+                    Default,
+                    Gateway
+                };
+                
                 typedef struct {
                     const char* const                         key_;
                     const std::map<std::string, Json::Value>& args_;
@@ -407,7 +412,8 @@ namespace ev
                 std::string                logs_directory_;
                 std::string                shared_directory_;
                 ResponseFlags              response_flags_;
-                
+                Mode                       mode_;
+
             private: // Helpers
                 
                 ev::curl::HTTP             http_;
@@ -434,7 +440,7 @@ namespace ev
                 
                 Job () = delete;
                 Job (const ev::Loggable::Data& a_loggable_data, const std::string& a_tube, const Config& a_config,
-                     const ResponseFlags& a_response_flags = ResponseFlags::All);
+                     const ResponseFlags a_response_flags = ResponseFlags::All);
                 virtual ~Job ();
                 
             public:
@@ -545,10 +551,18 @@ namespace ev
                 void Reset (const ResponseFlags& a_flag);
                 void Set   (const ResponseFlags& a_flag);
                 void Unset (const ResponseFlags& a_flag);
+                
+                void Set   (const Mode a_mode);
 
             private: // REDIS Helper Method(s) / Function(s)
 
                 void Publish (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key, const Json::Value& a_object,
+                              const std::function<void()> a_success_callback = nullptr,
+                              const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr,
+                              const bool a_final = false);
+
+                void Publish (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key,
+                              const std::string& a_message, const std::string& a_status,
                               const std::function<void()> a_success_callback = nullptr,
                               const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr,
                               const bool a_final = false);
@@ -871,6 +885,16 @@ namespace ev
             inline void Job::Unset (const Job::ResponseFlags& a_flag)
             {
                 response_flags_ &= ~(a_flag);
+            }
+        
+            /**
+             * @brief Set job response mode.
+             *
+             * @param a_flag \link Job::Mode \link.
+             */
+            inline void Job::Set (const Job::Mode a_mode)
+            {
+                mode_ = a_mode;
             }
         
             /**
