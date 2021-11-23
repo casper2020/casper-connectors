@@ -96,6 +96,7 @@ void cc::easy::HTTPClient::POST (const std::string& a_url, const CC_HTTP_HEADERS
                /* a_success_callback */ [a_callbacks] (const ::ev::curl::Value& a_value) {        
                     a_callbacks.on_success_(a_value.code(), a_value.header_value("Content-Type"), a_value.body(), a_value.rtt());
                },
+               /* a_error_callback */ nullptr,
                /* a_failure_callback */ [a_callbacks] (const ::ev::Exception& a_ev_exception) {
                     a_callbacks.on_failure_(::cc::Exception("%s", a_ev_exception.what()));
                },
@@ -148,6 +149,9 @@ void cc::easy::HTTPClient::POST (const std::string& a_url, const CC_HTTP_HEADERS
                [a_callbacks] (const ::ev::curl::Value& a_value) {
                     std::map<std::string, std::string> headers;
                     a_callbacks.on_success_(a_value);
+               },
+               /* a_error_callback */ [a_callbacks] (const ::ev::curl::Error& a_error) {
+                    a_callbacks.on_error_(a_error);
                },
                /* a_failure_callback */ [a_callbacks] (const ::ev::Exception& a_ev_exception) {
                     a_callbacks.on_failure_(::cc::Exception("%s", a_ev_exception.what()));

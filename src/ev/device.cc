@@ -31,6 +31,7 @@
 ev::Device::Device (const ::ev::Loggable::Data& a_loggable_data)
     : loggable_data_(a_loggable_data)
 {
+    last_error_code_   = -1;
     listener_ptr_      = nullptr;
     handler_ptr_       = nullptr;
     event_base_ptr_    = nullptr;

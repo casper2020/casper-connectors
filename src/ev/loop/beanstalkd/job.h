@@ -412,7 +412,6 @@ namespace ev
                 std::string                logs_directory_;
                 std::string                shared_directory_;
                 ResponseFlags              response_flags_;
-                Mode                       mode_;
 
             private: // Helpers
                 
@@ -526,7 +525,8 @@ namespace ev
 
                 void Relay             (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key, const Json::Value& a_object);
                 void Finished          (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key, const Json::Value& a_response,
-                                        const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback);
+                                        const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback,
+                                        const Mode a_mode = Mode::Default);
                 void Publish           (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key, const Progress& a_progress);
                 void Broadcast         (const uint64_t& a_id, const std::string& a_fq_channel, const Status a_status);
                 
@@ -551,15 +551,14 @@ namespace ev
                 void Reset (const ResponseFlags& a_flag);
                 void Set   (const ResponseFlags& a_flag);
                 void Unset (const ResponseFlags& a_flag);
-                
-                void Set   (const Mode a_mode);
 
             private: // REDIS Helper Method(s) / Function(s)
 
-                void Publish (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key, const Json::Value& a_object,
+                void Publish (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key,
+                              const Json::Value& a_object,
                               const std::function<void()> a_success_callback = nullptr,
                               const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr,
-                              const bool a_final = false);
+                              const bool a_final = false, const Mode a_mode = Mode::Default);
 
                 void Publish (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key,
                               const std::string& a_message, const std::string& a_status,
@@ -885,16 +884,6 @@ namespace ev
             inline void Job::Unset (const Job::ResponseFlags& a_flag)
             {
                 response_flags_ &= ~(a_flag);
-            }
-        
-            /**
-             * @brief Set job response mode.
-             *
-             * @param a_flag \link Job::Mode \link.
-             */
-            inline void Job::Set (const Job::Mode a_mode)
-            {
-                mode_ = a_mode;
             }
         
             /**

@@ -41,8 +41,8 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
     : ev::Request(a_loggable_data, ev::Object::Target::CURL, ev::Request::Mode::OneShot), http_request_type_(a_type)
 {
     url_                  = a_url;
-    timeouts_.connection_ = ( nullptr != a_timeouts && -1 != a_timeouts->connection_ ? std::max(5l, a_timeouts->connection_) :   30 );
-    timeouts_.operation_  = ( nullptr != a_timeouts && -1 != a_timeouts->operation_  ? std::max(5l, a_timeouts->operation_)  : 3600 );
+    timeouts_.connection_ = ( nullptr != a_timeouts && -1 != a_timeouts->connection_ ? std::max(1l, a_timeouts->connection_) :   30 );
+    timeouts_.operation_  = ( nullptr != a_timeouts && -1 != a_timeouts->operation_  ? std::max(1l, a_timeouts->operation_)  : 3600 );
     low_speed_limit_      = 0; // 0 - disabled
     low_speed_time_       = 0; // 0 - disabled
     max_recv_speed_       = 0; // 0 - disabled

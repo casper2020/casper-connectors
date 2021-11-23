@@ -56,11 +56,14 @@ namespace cc
             } Callbacks;
 
             typedef ::ev::curl::Value                         RawValue;
+            typedef ::ev::curl::Error                         RawError;
             typedef std::function<void(const RawValue&)>      RawSuccessCallback;
+            typedef std::function<void(const RawError&)>      RawErrorCallback;
             typedef std::function<void(const cc::Exception&)> RawFailureCallback;
 
             typedef struct {
                 RawSuccessCallback on_success_;
+                RawErrorCallback   on_error_;
                 RawFailureCallback on_failure_;
             } RawCallbacks;
             

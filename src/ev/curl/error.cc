@@ -27,14 +27,26 @@
 #include <stdexcept>  // std::runtime_error
 
 /**
- * @brief Default constructor.
+ * @brief Constructor with error message.
  *
  * @param a_message
  */
 ev::curl::Error::Error (const std::string& a_message)
-    : ::ev::Error(::ev::Object::Target::CURL, a_message)
+    : ::ev::Error(::ev::Object::Target::CURL, a_message), code_(CURLcode::CURL_LAST)
 {
-    message_ = a_message;
+    /* empty */
+}
+
+/**
+ * @brief Constructor with error code and message.
+ *
+ * @param a_code
+ * @param a_message
+ */
+ev::curl::Error::Error (const CURLcode a_code, const std::string& a_message)
+: ::ev::Error(::ev::Object::Target::CURL, a_message), code_(a_code)
+{
+    /* empty */
 }
 
 /**
@@ -44,7 +56,7 @@ ev::curl::Error::Error (const std::string& a_message)
  * @param ...
  */
 ev::curl::Error::Error (const char* const a_format, ...)
-    : ::ev::Error(::ev::Object::Target::CURL, "")
+    : ::ev::Error(::ev::Object::Target::CURL, ""),  code_(CURLcode::CURL_LAST)
 {
     auto temp   = std::vector<char> {};
     auto length = std::size_t { 512 };

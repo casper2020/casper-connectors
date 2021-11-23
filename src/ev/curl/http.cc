@@ -69,7 +69,7 @@ ev::curl::HTTP::~HTTP ()
     Async(new ::ev::curl::Request(a_loggable_data,
                                   curl::Request::HTTPRequestType::GET, a_url, a_headers, /* a_body */ nullptr, a_timeouts
           ),
-          a_success_callback, a_failure_callback
+          a_success_callback, nullptr, a_failure_callback
     );
 }
 
@@ -96,7 +96,7 @@ void ev::curl::HTTP::GET (const Loggable::Data& a_loggable_data,
     );
     request->SetWriteResponseBodyTo(a_uri);
     Async(request,
-          a_success_callback, a_failure_callback
+          a_success_callback, nullptr, a_failure_callback
     );
 }
 
@@ -117,7 +117,7 @@ void ev::curl::HTTP::PUT (const Loggable::Data& a_loggable_data,
     Async(new ::ev::curl::Request(a_loggable_data,
                                   curl::Request::HTTPRequestType::PUT, a_url, a_headers, a_body, a_timeouts
           ),
-          a_success_callback, a_failure_callback
+          a_success_callback, nullptr, a_failure_callback
     );
 }
 
@@ -130,18 +130,19 @@ void ev::curl::HTTP::PUT (const Loggable::Data& a_loggable_data,
  * @param a_body             Body to send.
  * @param a_success_callback Function to call on success ( REQUEST EXECUTED, DOES NOT MEAN THE GOT A 200 FAMILY STATUS CODE ).
  * @param a_failure_callback Function to call when an exception was raised ( REQUEST NOT EXECUTED ).
+ * @param a_error_callback   Function to call when an error ocurred  ( REQUEST NOT EXECUTED ).
  * @param a_timeouts         See \link EV_CURL_HTTP_TIMEOUTS \link
  */
  void ev::curl::HTTP::POST (const Loggable::Data& a_loggable_data,
                             const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                             const std::string* a_body,
-                            EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                            EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_ERROR_CALLBACK a_error_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
                             const EV_CURL_HTTP_TIMEOUTS* a_timeouts)
 {
     Async(new ::ev::curl::Request(a_loggable_data,
                                   curl::Request::HTTPRequestType::POST, a_url, a_headers, a_body, a_timeouts
           ),
-          a_success_callback, a_failure_callback
+          a_success_callback, a_error_callback, a_failure_callback
     );
 }
 
@@ -168,7 +169,7 @@ void ev::curl::HTTP::POST (const Loggable::Data& a_loggable_data,
     );
     request->SetReadBodyFrom(a_uri);
     Async(request,
-          a_success_callback, a_failure_callback
+          a_success_callback, nullptr, a_failure_callback
     );
 }
 
@@ -193,7 +194,7 @@ void ev::curl::HTTP::PATCH (const ::ev::Loggable::Data& a_loggable_data,
     Async(new ::ev::curl::Request(a_loggable_data,
                                   curl::Request::HTTPRequestType::PATCH, a_url, a_headers, a_body, a_timeouts
           ),
-          a_success_callback, a_failure_callback
+          a_success_callback, nullptr, a_failure_callback
     );
 }
 
@@ -218,7 +219,7 @@ void ev::curl::HTTP::DELETE (const Loggable::Data& a_loggable_data,
     Async(new ::ev::curl::Request(a_loggable_data,
                                   curl::Request::HTTPRequestType::DELETE, a_url, a_headers, a_body, a_timeouts
           ),
-          a_success_callback, a_failure_callback
+          a_success_callback, nullptr, a_failure_callback
     );
 }
 
@@ -245,10 +246,11 @@ void ev::curl::HTTP::DELETE (const Loggable::Data& a_loggable_data,
  *
  * @param a_request
  * @param a_success_callback
+ * @param a_error_callback
  * @param a_failure_callback
  */
 void ::ev::curl::HTTP::Async (::ev::curl::Request* a_request,
-                              EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+                              EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_ERROR_CALLBACK a_error_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
 {
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, url   , a_request->url());
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, method, a_request->method());
@@ -263,7 +265,7 @@ void ::ev::curl::HTTP::Async (::ev::curl::Request* a_request,
         // ...
         return a_request;
 
-    })->Then([CC_IF_DEBUG(id, token, url, method)] (::ev::Object* a_object) -> ::ev::Object* {
+    })->Then([a_error_callback CC_IF_DEBUG(, id, token, url, method)] (::ev::Object* a_object) -> ::ev::Object* {
 
         ::ev::Result* result = dynamic_cast<::ev::Result*>(a_object);
         if ( nullptr == result ) {
@@ -274,8 +276,16 @@ void ::ev::curl::HTTP::Async (::ev::curl::Request* a_request,
         if ( nullptr == reply ) {
             const ::ev::curl::Error* error = dynamic_cast<const ::ev::curl::Error*>(result->DataObject());
             if ( nullptr != error ) {
-                // ... throw exception with error message ...
-                throw ::ev::Exception(error->message());
+                // ... notify or throw?
+                if ( nullptr != a_error_callback ) {
+                    // ... notify ...
+                    a_error_callback(*error);
+                    // ... done here ...
+                    return nullptr;
+                } else {
+                    // ... throw exception with error message ...
+                    throw ::ev::Exception(error->message());
+                }
             } else {
                 // ... throw exception ...
                 throw ::ev::Exception("Unexpected CURL reply object: nullptr!");
@@ -288,7 +298,13 @@ void ::ev::curl::HTTP::Async (::ev::curl::Request* a_request,
         // ... same as reply, but it was detached ...
         return result->DetachDataObject();
 
-    })->Finally([a_success_callback] (::ev::Object* a_object) {
+    })->Finally([a_error_callback, a_success_callback] (::ev::Object* a_object) {
+        
+        // ... error set and was already reported?
+        if ( nullptr == a_object && nullptr != a_error_callback  ) {
+            // ... done here ...
+            return;
+        }
 
         const ::ev::curl::Reply* reply = dynamic_cast<const ::ev::curl::Reply*>(a_object);
         if ( nullptr == reply ) {

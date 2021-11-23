@@ -181,7 +181,11 @@ ev::curl::Device::Status ev::curl::Device::Execute (ev::curl::Device::ExecuteCal
 ev::Error* ev::curl::Device::DetachLastError ()
 {
     if ( 0 != last_error_msg_.length() ) {
-        return new ev::curl::Error(last_error_msg_);
+        if ( CURLE_OK != last_error_code_ ) {
+            return new ev::curl::Error((CURLcode)last_error_code_, last_error_msg_);
+        } else {
+            return new ev::curl::Error(last_error_msg_);
+        }
     } else {
         return nullptr;
     }
@@ -414,35 +418,44 @@ void ev::curl::Device::MultiContext::Process (ev::curl::Device::MultiContext* a_
 
         // ... from now one, don't call curl_easy_cleanup(easy) - it's owned by ev::curl::Request instance !
         ev::Result* result = new ev::Result(ev::Object::Target::CURL);
-
-        switch(last_exec_code_) {
-            case CURLE_OK:
-                break;
-            case CURLE_URL_MALFORMAT:
-                device_ptr_->last_error_msg_ = "CURLE_URL_MALFORMAT";
-                break;
-            case CURLE_COULDNT_RESOLVE_HOST:
-                device_ptr_->last_error_msg_ = "CURLE_COULDNT_RESOLVE_HOST";
-                break;
-            case CURLE_COULDNT_RESOLVE_PROXY:
-                device_ptr_->last_error_msg_ = "CURLE_COULDNT_RESOLVE_PROXY";
-                break;
-            case CURLE_COULDNT_CONNECT:
-                device_ptr_->last_error_msg_ = "CURLE_COULDNT_CONNECT";
-                break;
-            case CURLE_OPERATION_TIMEDOUT:
-                device_ptr_->last_error_msg_ = "CURLE_OPERATION_TIMEDOUT";
-                break;
-            case CURLE_HTTP_POST_ERROR:
-                device_ptr_->last_error_msg_ = "CURLE_HTTP_POST_ERROR";
-                break;
-            case CURLE_ABORTED_BY_CALLBACK:
-                device_ptr_->last_error_msg_ = "CURLE_ABORTED_BY_CALLBACK";
-                break;
-            default:
-                device_ptr_->last_error_msg_ = "CURLE : " + std::to_string(last_exec_code_);
-                break;
+        
+        device_ptr_->last_error_code_ = (int64_t)last_exec_code_;
+        if ( CURLE_OK != last_exec_code_ ) {
+            const char* error_c_str = curl_easy_strerror(last_exec_code_);
+            if ( nullptr != error_c_str && '\0' != error_c_str[0] ) {
+                device_ptr_->last_error_msg_ = error_c_str;
+            } else {
+                switch(last_exec_code_) {
+                    case CURLE_OK:
+                        break;
+                    case CURLE_URL_MALFORMAT:
+                        device_ptr_->last_error_msg_ = "CURLE_URL_MALFORMAT";
+                        break;
+                    case CURLE_COULDNT_RESOLVE_HOST:
+                        device_ptr_->last_error_msg_ = "CURLE_COULDNT_RESOLVE_HOST";
+                        break;
+                    case CURLE_COULDNT_RESOLVE_PROXY:
+                        device_ptr_->last_error_msg_ = "CURLE_COULDNT_RESOLVE_PROXY";
+                        break;
+                    case CURLE_COULDNT_CONNECT:
+                        device_ptr_->last_error_msg_ = "CURLE_COULDNT_CONNECT";
+                        break;
+                    case CURLE_OPERATION_TIMEDOUT:
+                        device_ptr_->last_error_msg_ = "CURLE_OPERATION_TIMEDOUT";
+                        break;
+                    case CURLE_HTTP_POST_ERROR:
+                        device_ptr_->last_error_msg_ = "CURLE_HTTP_POST_ERROR";
+                        break;
+                    case CURLE_ABORTED_BY_CALLBACK:
+                        device_ptr_->last_error_msg_ = "CURLE_ABORTED_BY_CALLBACK";
+                        break;
+                    default:
+                        device_ptr_->last_error_msg_ = "CURLE : " + std::to_string(last_exec_code_);
+                        break;
+                }
+            }
         }
+
         // ... flush ...
         it->second.request_ptr_->Close();
         

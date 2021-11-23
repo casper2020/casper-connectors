@@ -135,6 +135,7 @@ namespace ev
 
     protected: // Data
         
+        int64_t                last_error_code_;
         std::string            last_error_msg_;
         ConnectedCallback      connected_callback_;
         DisconnectedCallback   disconnected_callback_;

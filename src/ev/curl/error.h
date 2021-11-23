@@ -24,6 +24,8 @@
 
 #include "ev/error.h"
 
+#include "curl/curl.h" // CURLcode
+
 namespace ev
 {
     
@@ -33,9 +35,14 @@ namespace ev
         class Error final : public ::ev::Error
         {
             
+        public: // Const Data
+            
+            const CURLcode code_;
+            
         public: // Constructor(s) / Destructor
             
             Error(const std::string& a_message);
+            Error (const CURLcode a_code, const std::string& a_message);
             Error(const char* const a_format, ...) __attribute__((format(printf, 2, 3)));
             virtual ~Error ();
             

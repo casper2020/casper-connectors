@@ -49,6 +49,7 @@ namespace ev
         public: //
 
             #define EV_CURL_HTTP_SUCCESS_CALLBACK std::function<void(const ::ev::curl::Value&)>
+            #define EV_CURL_HTTP_ERROR_CALLBACK   std::function<void(const ::ev::curl::Error&)>
             #define EV_CURL_HTTP_FAILURE_CALLBACK std::function<void(const ::ev::Exception&)>
             #define EV_CURL_HTTP_HEADERS          EV_CURL_HEADERS_MAP
             #define EV_CURL_HTTP_TIMEOUTS         ::ev::curl::Request::Timeouts
@@ -80,7 +81,7 @@ namespace ev
             void POST   (const Loggable::Data& a_loggable_data,
                          const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                          const std::string* a_body,
-                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_ERROR_CALLBACK a_error_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,                         
                          const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
             void POST   (const Loggable::Data& a_loggable_data,
@@ -104,7 +105,7 @@ namespace ev
         private: // Method(s) / Function(s)
 
             void                   Async   (::ev::curl::Request* a_request,
-                                            EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback);
+                                            EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_ERROR_CALLBACK a_error_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback);
             ::ev::scheduler::Task* NewTask (const EV_TASK_PARAMS& a_callback);
             
         public: // DEBUG ONLY: Helper Method(s) / Function(s)

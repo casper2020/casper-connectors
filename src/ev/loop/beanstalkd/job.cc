@@ -81,7 +81,6 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
     owner_log_callback_       = nullptr;
     
     response_flags_           = a_response_flags;
-    mode_                     = Job::Mode::Default;
     
     ev::LoggerV2::GetInstance().Register(logger_client_, { "queue" });
 }
@@ -554,13 +553,15 @@ void ev::loop::beanstalkd::Job::Relay (const uint64_t& a_id, const std::string& 
  * @param a_response
  * @param a_success_callback
  * @param a_failure_callback
+ * @param a_mode
  */
 void ev::loop::beanstalkd::Job::Finished (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key,
                                           const Json::Value& a_response,
-                                          const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
+                                          const std::function<void()> a_success_callback, const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback,
+                                          const Job::Mode a_mode)
 {
     // ... publish response ...
-    Publish(a_id, a_fq_channel, a_fq_key, a_response, a_success_callback, a_failure_callback, /* a_final */ true);
+    Publish(a_id, a_fq_channel, a_fq_key, a_response, a_success_callback, a_failure_callback, /* a_final */ true, a_mode);
     
     // ... reset throttle timer ...
     progress_report_.last_tp_ = std::chrono::steady_clock::time_point::max();
@@ -735,13 +736,26 @@ void ev::loop::beanstalkd::Job::Publish (const std::vector<ev::loop::beanstalkd:
  * @param a_success_callback
  * @param a_failure_callback
  * @param a_final
+ * @param a_mode
  */
 void ev::loop::beanstalkd::Job::Publish (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key,
                                          const Json::Value& a_object,
                                          const std::function<void()> a_success_callback,
                                          const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback,
-                                         const bool a_final)
+                                         const bool a_final, const Job::Mode a_mode)
 {
+    if ( true == a_final && Mode::Gateway == a_mode ) {
+        const Json::Value action = a_object.get("action", Json::Value::null);
+        if ( not ( true == action.isString() && 0 == strcasecmp("response", action.asCString()) ) ) {
+            throw ::ev::Exception("%s", "Unsupported or missing action value for gateway response mode!");
+        }
+        const std::string redis_message = a_object["response"]["data"].asString();
+        Publish(a_id, a_fq_channel, a_fq_key, redis_message, a_object.get("status", WasCancelled() ? "cancelled" : "unknown").asString(), a_success_callback, a_failure_callback, a_final);
+    } else {
+        Json::FastWriter jfw; jfw.omitEndingLineFeed();
+        const std::string redis_message = jfw.write(a_object);
+        Publish(a_id, a_fq_channel, a_fq_key, redis_message, a_object.get("status", WasCancelled() ? "cancelled" : "unknown").asString(), a_success_callback, a_failure_callback, a_final);
+    }
 }
 
 /**
@@ -1255,6 +1269,8 @@ void ev::loop::beanstalkd::Job::HTTPPost (const std::string& a_url, const EV_CUR
                    &a_body,
                    /* a_success_callback */
                    a_a,
+                   /* a_error_callback */
+                   nullptr,
                    /* a_failure_callback */
                    a_b
         );
