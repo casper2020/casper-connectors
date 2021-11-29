@@ -83,7 +83,7 @@ std::string cc::UTCTime::NowISO8601DateTime ()
     const cc::UTCTime::HumanReadable hr = cc::UTCTime::ToHumanReadable(cc::UTCTime::Now());
     
     char buff[27] = {0};
-    const int w = snprintf(buff, 26, "%04d-%02d-%02d %02d:%02d:%02dZ",
+    const int w = snprintf(buff, 26, "%04d-%02d-%02dT%02d:%02d:%02dZ",
                            static_cast<int>(hr.year_ ), static_cast<int>(hr.month_  ), static_cast<int>(hr.day_    ),
                            static_cast<int>(hr.hours_), static_cast<int>(hr.minutes_), static_cast<int>(hr.seconds_)
     );
