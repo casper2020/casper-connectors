@@ -44,11 +44,13 @@ namespace ev
 
         private: // Const Data
             
-            const size_t rtt_;
+            const int            code_;          //!< > 0 HTTP code, < 0 CURL ERROR CODE.
+            const size_t         rtt_;
 
         private: // Data
 
-           int                  code_;          //!< > 0 HTTP code, < 0 CURL ERROR CODE.
+           float                http_version_;  //!< HTTP version.
+           std::string          url_;           //!< Request effective URL ( mainly for follow redirect requests ).
            EV_CURL_HEADERS_MAP  headers_;       //!< Collected headers.
            std::string          body_;          //!< Collected text data, nullptr if none.
            int64_t              last_modified_; //!< Last modified date.
@@ -61,8 +63,12 @@ namespace ev
             virtual ~Value ();
 
         public: // Method(s) / Function(s)
-            
+
+            void                                      SetInfo            (const float& a_info, const std::string& a_url);
+
             int                                       code              () const;
+            float                                     http_version      () const;
+            const std::string&                        url               () const;
             const EV_CURL_HEADERS_MAP&                headers           () const;
             const std::string&                        body              () const;
             const size_t                              rtt               () const;
@@ -81,14 +87,41 @@ namespace ev
             
             bool content_disposition (std::string* o_disposition, std::string* o_field_name, std::string* o_file_name) const;
             
-        };
-
+        }; // end of class 'Value'
+    
+        /**
+         * @brief Set URL.
+         *
+         * @param a_URL string representation.
+         */
+        inline void Value::SetInfo (const float& a_http_version, const std::string& a_url)
+        {
+            http_version_ = a_http_version;
+            url_          = a_url;
+        }
+    
         /**
          * @return R/O access to received code.
          */
         inline int Value::code () const
         {
             return code_;
+        }
+    
+        /**
+         * @return R/O access to received HTTP version.
+         */
+        inline float Value::http_version () const
+        {
+            return http_version_;
+        }
+    
+        /**
+         * @return R/O access to effective URL.
+         */
+        inline const std::string& Value::url () const
+        {
+            return url_;
         }
 
         /**

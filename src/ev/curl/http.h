@@ -45,6 +45,13 @@ namespace ev
 
         class HTTP : public ::ev::scheduler::Client
         {
+            
+        public: // Data Type(s)
+                        
+            typedef struct {
+                std::function<void(const ::ev::curl::Request&, const std::string&)> log_request_;
+                std::function<void(const ::ev::curl::Value&, const std::string&)  > log_response_;
+            } cURLedCallbacks;
 
         public: //
 
@@ -58,6 +65,11 @@ namespace ev
 
             HTTP ();
             virtual ~HTTP();
+            
+        private: // Data
+            
+            cURLedCallbacks cURLed_callbacks_;
+            bool            cURLed_redact_;
 
         public: // Method(s) / Function(s)
 
@@ -101,6 +113,14 @@ namespace ev
                          const std::string* a_body,
                          EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
                          const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
+            
+        public: // Inline Method(s) / Function(s)
+            
+            inline void Set (cURLedCallbacks a_callbacks, bool a_redact)
+            {
+                cURLed_callbacks_ = a_callbacks;
+                cURLed_redact_    = a_redact;
+            }
 
         private: // Method(s) / Function(s)
 
@@ -117,6 +137,9 @@ namespace ev
                static void DumpException (const std::string& a_token, const std::string& a_id, const std::string& a_method, const std::string& a_url,
                                           const ::ev::Exception& a_exception);
 #endif
+            static std::string cURLRequest  (const std::string& a_id, const ::ev::curl::Request* a_request, const bool a_redact);
+            static std::string cURLResponse (const std::string& a_id, const std::string& a_method,
+                                             const ::ev::curl::Value& a_value, const bool a_redact);
 
         }; // end of class 'HTTP'
 

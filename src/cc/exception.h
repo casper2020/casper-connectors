@@ -30,6 +30,8 @@
 #include <sstream>    // std::stringstream
 #include <functional> // std::bad_function_call
 
+#include "cc/codes.h"
+
 #if defined(__APPLE__) || defined(__clang__)
     #define STD_CPP_GENERIC_EXCEPTION_TRACE() \
         [&] () -> std::string { \
@@ -238,6 +240,33 @@ namespace cc
         }
         
     }; // end of class 'CodedException'
+
+#define CC_EXCEPTION_DECLARE(a_name, a_code) \
+    class a_name final : public cc::CodedException \
+    { \
+    public: \
+        a_name (const std::string& a_message) \
+            : ::cc::CodedException(a_code, "%s", a_message.c_str()) \
+        { \
+            what_ = a_message; \
+        } \
+        a_name (const char* const a_format, ...) __attribute__((format(printf, 2, 3))) \
+        : ::cc::CodedException(a_code, "") \
+        { \
+            std::va_list args; \
+            va_start(args, a_format); \
+            SetMessage(a_format, args); \
+            va_end(args); \
+        } \
+        virtual ~a_name () { } \
+    }
+
+// 4xx client errors
+CC_EXCEPTION_DECLARE(BadRequest         , CC_STATUS_CODE_BAD_REQUEST);
+// 5xx server errors
+CC_EXCEPTION_DECLARE(InternalServerError, CC_STATUS_CODE_INTERNAL_SERVER_ERROR);
+CC_EXCEPTION_DECLARE(NotImplemented     , CC_STATUS_CODE_NOT_IMPLEMENTED);
+CC_EXCEPTION_DECLARE(GatewayTimeout     , CC_STATUS_CODE_GATEWAY_TIMEOUT);
 
 }
 

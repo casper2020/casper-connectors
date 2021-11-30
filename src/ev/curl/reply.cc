@@ -35,7 +35,7 @@
  * @param a_body
  * @param a_rtt
  */
-ev::curl::Reply::Reply (int a_code, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body,
+ev::curl::Reply::Reply (const int a_code, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body,
                         size_t a_rtt)
     : ev::curl::Object(ev::curl::Object::Type::Reply),
     value_(a_code, a_headers, a_body, a_rtt)
@@ -84,4 +84,49 @@ ev::curl::Reply::Reply (int a_code, const EV_CURL_HEADERS_MAP& a_headers, const 
 ev::curl::Reply::~Reply ()
 {
     /* empty */
+}
+
+/**
+ * @brief Load info from a cURL easy handle.
+ *
+ * @param a_handle cURL easy handle.
+ */
+void ev::curl::Reply::SetInfo (const CURL* a_handle)
+{
+    std::map<CURLINFO, std::string> string_info = {
+        { CURLINFO_EFFECTIVE_URL, "" },
+    };
+    for ( auto& it : string_info ) {
+        char* value = nullptr;
+        if ( CURLE_OK != curl_easy_getinfo((CURL*)a_handle, it.first, &value) || nullptr == value ) {
+            it.second = "???";
+        } else {
+            it.second = value;
+        }
+    }
+    float version = 0.0;
+    {
+        std::map<CURLINFO, long> long_info = {
+            { CURLINFO_HTTP_VERSION , -1 }
+        };
+        for ( auto& it : long_info ) {
+            if ( CURLE_OK != curl_easy_getinfo((CURL*)a_handle, it.first, &it.second) ) {
+                it.second = -1;
+            }
+        }
+        switch(long_info[CURLINFO_HTTP_VERSION]) {
+            case CURL_HTTP_VERSION_1_0:
+                version = 1.0f;
+                break;
+            case CURL_HTTP_VERSION_1_1:
+                version = 1.1f;
+                break;
+            case CURL_HTTP_VERSION_2_0:
+                version = 2.0f;
+                break;
+            default:
+                break;
+        }
+    }
+    value_.SetInfo(version, string_info[CURLINFO_EFFECTIVE_URL]);
 }

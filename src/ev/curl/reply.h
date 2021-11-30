@@ -25,6 +25,8 @@
 #include "ev/curl/object.h"
 #include "ev/curl/value.h"
 
+#include "curl/curl.h" // CURL
+
 #include <string>
 
 namespace ev
@@ -36,19 +38,25 @@ namespace ev
         class Reply final : public ev::curl::Object
         {
             
-        protected:
+        private: // Data
 
             Value value_;
 
         public: // Constructor(s) / Destructor
 
-            Reply (int a_code, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body, size_t a_rtt);
+            Reply (const int a_code,
+                   const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body, size_t a_rtt);
             virtual ~Reply();
 
         public: // Method(s) / Function(s)
 
             const Value& value () const;
-        };
+
+        public: // Method(s) / Function(s)
+            
+            void SetInfo (const CURL* a_handle);
+            
+        }; // end of class 'Reply'
 
         /**
          * @return Read-only access to collected value.

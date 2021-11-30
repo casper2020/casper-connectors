@@ -463,13 +463,15 @@ void ev::curl::Device::MultiContext::Process (ev::curl::Device::MultiContext* a_
         it->second.request_ptr_->SetFinished();
 
         // ... attach result or error ...
-        if ( 0 == device_ptr_->last_error_msg_.length() ) {
-            // ... result ...
-            result->AttachDataObject(new ev::curl::Reply(static_cast<int>(last_http_status_code_),
-                                                         it->second.request_ptr_->rx_headers(),
-                                                         it->second.request_ptr_->AsString(),
-                                                         it->second.request_ptr_->Elapsed())
+        if ( 0 == device_ptr_->last_error_msg_.length() ) {            
+            auto reply = new ev::curl::Reply(static_cast<int>(last_http_status_code_),
+                                             it->second.request_ptr_->rx_headers(),
+                                             it->second.request_ptr_->AsString(),
+                                             it->second.request_ptr_->Elapsed()
             );
+            reply->SetInfo(easy);
+            // ... result ...
+            result->AttachDataObject(reply);
         } else {
             // ... error ...
             result->AttachDataObject(device_ptr_->DetachLastError());

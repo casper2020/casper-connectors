@@ -28,6 +28,7 @@
 #include "json/json.h"
 
 #include <functional>
+#include <set>
 
 namespace cc
 {
@@ -57,7 +58,9 @@ namespace cc
             const Json::Value& Get  (const Json::Value& a_array, const Json::ArrayIndex a_index, const Json::ValueType& a_type, const Json::Value* a_default,
                                      const char* const a_error_prefix_msg = "Invalid or missing ") const;
 
-            void               Merge (Json::Value& a_lhs, const Json::Value& a_rhs) const;
+            void               Merge  (Json::Value& a_lhs, const Json::Value& a_rhs) const;
+            void               Redact (const std::set<std::string>& a_fields, Json::Value& a_object) const;
+            void               Redact (const std::string& a_redactable, const std::string& a_field, Json::Value& a_object) const;
             
             void               Patch (Json::Value& a_object, const std::map<std::string, std::string>& a_patchables) const;
             void               Patch (const std::string& a_name, Json::Value& a_object, const std::map<std::string, std::string>& a_patchables) const;
@@ -71,6 +74,23 @@ namespace cc
         public: // Inline Method(s) / Function(s)
             
             const char* const ValueTypeAsCString (const Json::ValueType& a_type) const;
+            
+        public: // Static Method(s) / Function(s)
+            
+            /**
+             * @brief Check if an HTTP 'Content-Type' header value is JSON.
+             *
+             * @param a_content_type HTTP Content-Type header value.
+             *
+             * @return True if the provided header value should be considered JSON.
+             */
+            inline static bool IsJSON (const std::string& a_content_type)
+            {
+                return ( std::string::npos != a_content_type.find("application/json")
+                            ||
+                        std::string::npos != a_content_type.find("application/vnd.api+json")
+                );
+            }
             
         }; // end of class 'JSON'
     
@@ -368,6 +388,59 @@ namespace cc
                     } else {
                         a_lhs[k] = a_rhs[k];
                     }
+                }
+            } catch (const Json::Exception& a_json_exception ) {
+                throw E("%s", a_json_exception.what());
+            }
+        }
+    
+        /**
+         * @brief Redact a JSON Value.
+         *
+         * @param a_fields Fields to redact.
+         * @param a_value  Object to inspect.
+         */
+        template <class E>
+        void cc::easy::JSON<E>::Redact (const std::set<std::string>& a_fields, Json::Value& a_object) const
+        {
+            for ( const auto& field : a_fields ) {
+                Redact(field, "", a_object);
+            }
+        }
+    
+        /**
+         * @brief Recursively redact a JSON object's field value.
+         *
+         * @param a_name       Object name to redact, "" if it's root.
+         * @param a_redactable If field name matches this one, should be redacted.
+         * @param a_object     Object object redact.
+         */
+        template <class E>
+        void cc::easy::JSON<E>::Redact (const std::string& a_redactable, const std::string& a_name, Json::Value& a_object) const
+        {
+            try {
+                switch ( a_object.type() ) {
+                    case Json::ValueType::objectValue: // object value (collection of name/value pairs)
+                        for( auto member : a_object.getMemberNames()) {
+                            Redact(a_redactable, member, a_object[member]);
+                        }
+                        break;
+                    case Json::ValueType::arrayValue:    // array value (ordered list)
+                        for ( auto ait = a_object.begin(); ait != a_object.end(); ++ait ) {
+                            Redact(a_redactable, "", *ait);
+                        }
+                        break;
+                    case Json::ValueType::stringValue:  // UTF-8 string value
+                    case Json::ValueType::nullValue:    // 'null' value
+                    case Json::ValueType::intValue:     // signed integer value
+                    case Json::ValueType::uintValue:    // unsigned integer value
+                    case Json::ValueType::realValue:    // double value
+                    case Json::ValueType::booleanValue: // bool value
+                    default:
+                        if ( 0 == strcasecmp(a_redactable.c_str(), a_name.c_str()) ) {
+                            a_object = "<redacted>";
+                        }
+                        break;
                 }
             } catch (const Json::Exception& a_json_exception ) {
                 throw E("%s", a_json_exception.what());

@@ -34,6 +34,7 @@
  * @brief Default constructor.
  */
 ev::curl::HTTP::HTTP ()
+: cURLed_redact_(true)
 {
     ::ev::scheduler::Scheduler::GetInstance().Register(this);
 }
@@ -252,20 +253,25 @@ void ev::curl::HTTP::DELETE (const Loggable::Data& a_loggable_data,
 void ::ev::curl::HTTP::Async (::ev::curl::Request* a_request,
                               EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_ERROR_CALLBACK a_error_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
 {
+    const std::string id = CC_OBJECT_HEX_ADDRESS(a_request);
+
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, url   , a_request->url());
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, method, a_request->method());
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, token , CC_QUALIFIED_CLASS_NAME(this));
-    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, id    , CC_OBJECT_HEX_ADDRESS(a_request));
     
-    NewTask([CC_IF_DEBUG(token, id,)a_request] () -> ::ev::Object* {
-        
+    NewTask([CC_IF_DEBUG(token, )id, a_request, this] () -> ::ev::Object* {
+
+        // ... log request?
+        if ( nullptr != cURLed_callbacks_.log_request_ ) {
+            cURLed_callbacks_.log_request_(*a_request, cURLRequest(id, a_request, cURLed_redact_));
+        }
         // ... dump request ...
         CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpRequest(token, id, a_request););
         
         // ...
         return a_request;
 
-    })->Then([a_error_callback CC_IF_DEBUG(, id, token, url, method)] (::ev::Object* a_object) -> ::ev::Object* {
+    })->Then([a_error_callback CC_IF_DEBUG(,token, url, method), id, this] (::ev::Object* a_object) -> ::ev::Object* {
 
         ::ev::Result* result = dynamic_cast<::ev::Result*>(a_object);
         if ( nullptr == result ) {
@@ -291,10 +297,12 @@ void ::ev::curl::HTTP::Async (::ev::curl::Request* a_request,
                 throw ::ev::Exception("Unexpected CURL reply object: nullptr!");
             }
         }
-        
+        // ... log response?
+        if ( nullptr != cURLed_callbacks_.log_response_ ) {
+            cURLed_callbacks_.log_response_(reply->value(), cURLResponse(id, method, reply->value(), cURLed_redact_));
+        }
         // ... dump response ...
         CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpResponse(token, id, method.c_str(), url, reply->value()););
-        
         // ... same as reply, but it was detached ...
         return result->DetachDataObject();
 
@@ -461,3 +469,118 @@ void ::ev::curl::HTTP::DumpException (const std::string& a_token, const std::str
 }
 
 #endif // defined(CC_DEBUG_ON)
+
+/**
+ * @brief Call this method to dump ( via callback ) an HTTP request data before it's execution.
+ *
+ * @param a_id      ID.
+ * @param a_request Request object.
+ * @param a_redact  Try to redact sensitive data when possible.
+ */
+std::string ev::curl::HTTP::cURLRequest (const std::string& a_id, const ::ev::curl::Request* a_request, const bool a_redact)
+{
+    std::stringstream ss;
+    // ... cmd ...
+    ss << "## " << a_id << " @ " << ::cc::UTCTime::NowISO8601DateTime() << " // " << a_request->method() << " // REQUEST" << '\n';
+    ss << "curl";
+    // ...method?
+    ss << " -X '" << a_request->method() << "' \\\n";
+    // ... headers ...
+    const auto& headers = a_request->tx_headers();
+    if ( headers.size() > 0 ) {
+        std::stringstream tmp;
+        for ( auto header : headers ) {
+            tmp << header.first << ": ";
+            if ( false == a_redact || ( true == a_redact && not ( 0 == strcasecmp(header.first.c_str(), "Authorization") ) ) ) {
+                for ( auto idx = 0 ; idx < header.second.size(); ++idx ) {
+                    tmp << header.second[idx];
+                    if ( idx < ( header.second.size() - 1 ) ) {
+                        tmp << ' ';
+                    }
+                }
+            } else {
+                ss << "<redacted>";
+            }
+            ss << "     -H '" << tmp.str() << "' \\\n";
+            tmp.str("");
+        }
+    }
+    // ... body?
+    const auto& body = a_request->tx_body();
+    if ( body.length() > 0 ) {
+        // ... try to redact JSON body ...
+        if ( true == ::cc::easy::JSON<::ev::Exception>::IsJSON(a_request->tx_header_value("Content-Type")) && 0 != strcasestr(body.c_str(), "token_") ) {
+            const ::cc::easy::JSON<::ev::Exception> json;
+            try {
+                Json::Value object;
+                json.Parse(body, object);
+                json.Redact({ "password", "access_token", "refresh_token"}, object);
+                // ... write redacted object ...
+                ss << "     -d $'" << json.Write(object) << "' \\\n";
+            } catch (...) {
+                // ... don't know how to redact it ...
+                ss << "     -d $'" << a_request->tx_body() << "' \\\n";
+            }
+        } else {
+            // ... don't know how to redact it ...
+            ss << "     -d $'" << a_request->tx_body() << "' \\\n";
+        }
+    }
+    // ... timeouts ...
+    if ( -1 != a_request->timeouts().connection_ ) {
+        ss << "     --connect-timeout " << a_request->timeouts().connection_ << " \\\n";
+    }
+    if ( -1 != a_request->timeouts().operation_ ) {
+        ss << "     --max-time " << a_request->timeouts().operation_ << " \\\n";
+    }
+    // ... url ...
+    ss << " '" << a_request->url() << "'";
+    // ... done ...
+    return ss.str();
+}
+
+/**
+ * @brief Call this method to dump ( via callback ) an HTTP response value.
+ *
+ * @param a_id     ID.
+ * @param a_method Method name.
+ * @param a_value  Value object.
+ * @param a_redact Try to redact sensitive data when possible.
+ */
+std::string ev::curl::HTTP::cURLResponse (const std::string& a_id, const std::string& a_method,
+                                          const ::ev::curl::Value& a_value, const bool a_redact)
+{
+    std::stringstream ss;
+    // ...
+    ss << "## " << a_id << " @ " << ::cc::UTCTime::NowISO8601DateTime() << " // " << a_method << " // RESPONSE" << '\n';
+    // ... method & url ...
+    ss << "> " << a_method << ' ' << a_value.url() << '\n';
+    // ... headers ...
+    ss << "< HTTP/" << a_value.http_version() << ' ' << a_value.code() << '\n';
+    for ( const auto& header : a_value.headers() ) {
+        ss << "< " << header.first << ":";
+        for ( const auto& value : header.second ) {
+            ss << ' ' << value;
+        }
+        ss << '\n';
+    }
+    // ... try to redact JSON body ...
+    if ( true == ::cc::easy::JSON<::ev::Exception>::IsJSON(a_value.header_value("Content-Type")) && 0 != strcasestr(a_value.body().c_str(), "token_") ) {
+        const ::cc::easy::JSON<::ev::Exception> json;
+        try {
+            Json::Value object;
+            json.Parse(a_value.body(), object);
+            json.Redact({ "password", "access_token", "refresh_token"}, object);
+            // ... write redacted object ...
+            ss << json.Write(object) << '\n';
+        } catch (...) {
+            // ... don't know how to redact it ...
+            ss << a_value.body() << '\n';
+        }
+    } else {
+        // ... don't know how to redact it ...
+        ss << a_value.body() << '\n';
+    }
+    // ... done ...
+    return ss.str();
+}

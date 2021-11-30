@@ -62,7 +62,6 @@
         a_tube.c_str(), "Job #" INT64_FMT ", " a_format, a_id, __VA_ARGS__ \
     );
 
-
 namespace cc
 {
 

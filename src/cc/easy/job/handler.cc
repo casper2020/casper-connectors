@@ -26,7 +26,8 @@
 
 #include "cc/easy/job/job.h"
 
-#include "cc/debug/types.h" //  CC_DEBUG_ON
+#include "cc/macros.h" //  CC_DEBUG_ON
+#include "cc/debug/types.h"
 
 #ifdef __APPLE__
 #pragma mark - cc::easy::job::JobInitializer
