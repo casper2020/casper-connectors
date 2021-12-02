@@ -186,7 +186,7 @@ cc::easy::OAuth2HTTPClient::~OAuth2HTTPClient ()
 /**
  * @brief Perform an HTTP POST request to obtains tokens from an 'autorization code' grant flow.
  *
- * @param a_code     OAuth2 Auhtorization code.
+ * @param a_code     OAuth2 auhtorization code.
  * @param a_callbacks Set of callbacks to report successfull or failed execution.
  *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
  *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
@@ -194,6 +194,139 @@ cc::easy::OAuth2HTTPClient::~OAuth2HTTPClient ()
 void cc::easy::OAuth2HTTPClient::AutorizationCodeGrant (const std::string& a_code,
                                                         OAuth2HTTPClient::POSTCallbacks a_callbacks)
 {
+    AutorizationCodeGrant(a_code, {
+        [a_callbacks] (const HTTPClient::RawValue& a_value) {
+            a_callbacks.on_success_(a_value.code(), a_value.header_value("Content-Type"), a_value.body(), a_value.rtt());
+        },
+        nullptr,
+        a_callbacks.on_failure_
+    });
+}
+
+/**
+ * @brief Perform an HTTP POST request.
+ *
+ * @param a_url      URL.
+ * @param a_headers  HTTP Headers.
+ * @param a_body     BODY string representation.
+ * @param a_callbacks Set of callbacks to report successfull or failed execution.
+ *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
+ *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ *
+ * @param a_timeouts See \link HTTPClient::ClientTimeouts \link.
+ */
+void cc::easy::OAuth2HTTPClient::POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
+                                       OAuth2HTTPClient::POSTCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts)
+{
+    POST(a_url, a_headers, a_body,
+         {
+            [a_callbacks] (const HTTPClient::RawValue& a_value) {
+                a_callbacks.on_success_(a_value.code(), a_value.header_value("Content-Type"), a_value.body(), a_value.rtt());
+            },
+            nullptr,
+            a_callbacks.on_failure_
+        },
+         a_timeouts
+    );
+}
+
+/**
+ * @brief Perform an HTTP POST request to obtains tokens.
+ *
+ * @param a_callbacks Set of callbacks to report successfull or failed execution.
+ *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
+ *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ */
+void cc::easy::OAuth2HTTPClient::AuthorizationRequest (OAuth2HTTPClient::RAWCallbacks a_callbacks)
+{
+    std::string url;
+    SetURLQuery(config_.oauth2_.urls_.authorization_, {
+        { "response_type", "code"                                      },
+        { "client_id"    , config_.oauth2_.credentials_.client_id_     },
+        { "redirect_uri" , config_.oauth2_.redirect_uri_               },
+        { "scope"        , config_.oauth2_.scope_                      }
+    }, url);
+    
+    const CC_HTTP_HEADERS headers = {
+        { "Content-Type" , { "application/x-www-form-urlencoded" } }
+    };
+    
+    const std::string redirect_uri = config_.oauth2_.redirect_uri_;
+    const std::string tokens_uri   = config_.oauth2_.urls_.token_;
+    
+    Async(new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::GET, url, &headers, nullptr),
+          {
+            [this, redirect_uri, tokens_uri](::ev::Object* a_object) -> ::ev::Object* {
+                // ... always expecting a reply object ...
+                const ::ev::curl::Reply* reply = EnsureReply(a_object);
+                const ::ev::curl::Value& value = reply->value();
+                // ... expected code?
+                if ( 302 != value.code() ) {
+                    // ... no, error not handled here ...
+                    return a_object;
+                }
+                // ... intercept 'Location' header ...
+                const std::string location = value.header_value("Location");
+                if ( 0 == location.size() ) {
+                    throw ::cc::Exception("Missing '%s' header: not compliant with RFC6749!", "Location");
+                }
+                // ... extract query ...
+                std::smatch match;
+                const std::regex url_expr("(.[^&?]+)?(.+)");
+                if ( false == std::regex_match(location, match, url_expr) && 3 == match.size() ) {
+                    throw ::cc::Exception("Invalid '%s' header value!", "Location");
+                }
+                // ... extract arguments ...
+                const std::string args = match[2].str();
+                // ... error?
+                const std::regex error_expr("(\\?|&)(error=([^/&?]+))", std::regex_constants::ECMAScript | std::regex_constants::icase);
+                if ( true == std::regex_match(args, match, error_expr) ) {
+                    // TODO: CPW should catch coded exception
+                    if ( 4 == match.size() ) {
+                        throw ::cc::CodedException(404, "%s", match[3].str().c_str());
+                    } else {
+                        throw ::cc::Exception("Invalid '%s' header value: unable to verify if '%s' argument is present!", "Location", "error");
+                    }
+                }
+                // ... code?
+                const std::regex code_expr("(\\?|&)(code=([^/&?]+))", std::regex_constants::ECMAScript | std::regex_constants::icase);
+                if ( true == std::regex_match(args, match, code_expr) ) {
+                    if ( 4 == match.size() ) {                        
+                        std::string url;
+                        SetURLQuery(tokens_uri, {
+                            { "grant_type"   , "authorization_code"                        },
+                            { "code"         , match[3].str()                              },
+                        }, url);
+                        const CC_HTTP_HEADERS headers = {
+                            { "Authorization", { "Basic " + ::cc::base64_url_unpadded::encode((config_.oauth2_.credentials_.client_id_ + ':' + config_.oauth2_.credentials_.client_secret_)) } },
+                            { "Content-Type" , { "application/x-www-form-urlencoded" } }
+                        };
+                        // ...perform 'access token request' ...
+                        return new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::GET, url, &headers, nullptr);
+                    } else {
+                        throw ::cc::Exception("Invalid '%s' header value: unable to verify if '%s' argument is present!", "Location", "code");
+                    }
+                }
+                // ... null to break the chain, if object will be used as is ...
+                return a_object;
+            }
+        },
+        a_callbacks
+    );
+}
+
+/**
+ * @brief Perform an HTTP POST request to obtains tokens from an 'autorization code' grant flow.
+ *
+ * @param a_code     OAuth2 authorization code.
+ * @param a_callbacks Set of callbacks to report successfull or failed execution.
+ *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
+ *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ */
+void cc::easy::OAuth2HTTPClient::AutorizationCodeGrant (const std::string& a_code,
+                                                        OAuth2HTTPClient::RAWCallbacks a_callbacks)
+{
+    //  TODO: review - standard or not - if not move it from here to the proper class?
     CURL *curl = curl_easy_init();
     if ( nullptr == curl ) {
         throw ::ev::Exception("Unexpected cURL handle: nullptr!");
@@ -226,14 +359,85 @@ void cc::easy::OAuth2HTTPClient::AutorizationCodeGrant (const std::string& a_cod
         
     })->Finally([this, a_callbacks] (::ev::Object* a_object) {
 
-        const ::ev::curl::Reply* reply = EnsureReply(a_object);;
-        const ::ev::curl::Value& value = reply->value();
-        // ... notify ...
-        a_callbacks.on_success_(value.code(), value.header_value("Content-Type"), value.body(), value.rtt());
+        if ( nullptr == a_callbacks.on_error_ ) {
+            // ... no error handler ...
+            const ::ev::curl::Reply* reply = EnsureReply(a_object);
+            const ::ev::curl::Value& value = reply->value();
+            // ... notify ...
+            a_callbacks.on_success_(value);
+        } else {
+            const ::ev::Result*       result = EnsureResult(a_object);
+            const ::ev::curl::Reply*  reply = dynamic_cast<const ::ev::curl::Reply*>(result->DataObject());
+            if ( nullptr != reply ) {
+                a_callbacks.on_success_(reply->value());
+            } else {
+                const ::ev::curl::Error* error = dynamic_cast<const ::ev::curl::Error*>(result->DataObject());
+                if ( nullptr != error ) {
+                    a_callbacks.on_error_(*error);
+                } else {
+                    throw ::ev::Exception("Unexpected CURL reply object: nullptr!");
+                }
+            }
+        }
         
     })->Catch([a_callbacks] (const ::ev::Exception& a_ev_exception) {
         a_callbacks.on_failure_(a_ev_exception);
-    });    
+    });
+}
+
+/**
+ * @brief Perform an HTTP HEAD request.
+ *
+ * @param a_url      URL.
+ * @param a_headers  HTTP Headers.
+ * @param a_callbacks Set of callbacks to report successfull or failed execution.
+ *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
+ *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ *
+ * @param a_timeouts See \link HTTPClient::ClientTimeouts \link.
+ */
+void cc::easy::OAuth2HTTPClient::HEAD (const std::string& a_url, const CC_HTTP_HEADERS& a_headers,
+                                       OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts)
+{
+
+    Async(::ev::curl::Request::HTTPRequestType::HEAD, a_url, a_headers, /* a_body */ nullptr, a_callbacks, a_timeouts);
+}
+
+/**
+ * @brief Perform an HTTP GET request.
+ *
+ * @param a_url      URL.
+ * @param a_headers  HTTP Headers.
+ * @param a_callbacks Set of callbacks to report successfull or failed execution.
+ *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
+ *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ *
+ * @param a_timeouts See \link HTTPClient::ClientTimeouts \link.
+ */
+void cc::easy::OAuth2HTTPClient::GET (const std::string& a_url, const CC_HTTP_HEADERS& a_headers,
+                                       OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts)
+{
+
+    Async(::ev::curl::Request::HTTPRequestType::GET, a_url, a_headers, /* a_body */ nullptr, a_callbacks, a_timeouts);
+}
+
+/**
+ * @brief Perform an HTTP DELETE request.
+ *
+ * @param a_url      URL.
+ * @param a_headers  HTTP Headers.
+ * @param a_body     BODY string representation ( optional ).
+ * @param a_callbacks Set of callbacks to report successfull or failed execution.
+ *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
+ *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ *
+ * @param a_timeouts See \link HTTPClient::ClientTimeouts \link.
+ */
+void cc::easy::OAuth2HTTPClient::DELETE (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string* a_body,
+                                       OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts)
+{
+
+    Async(::ev::curl::Request::HTTPRequestType::DELETE, a_url, a_headers, /* a_body */ nullptr, a_callbacks, a_timeouts);
 }
 
 /**
@@ -249,152 +453,203 @@ void cc::easy::OAuth2HTTPClient::AutorizationCodeGrant (const std::string& a_cod
  * @param a_timeouts See \link HTTPClient::ClientTimeouts \link.
  */
 void cc::easy::OAuth2HTTPClient::POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
-                                       OAuth2HTTPClient::POSTCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts)
+                                       OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts)
 {
-    // ... copy original header ...
-    CC_HTTP_HEADERS headers;
-    for ( auto it : a_headers ) {
-        for ( auto it2 : it.second ) {
-            headers[it.first].push_back(it2);
-        }
-    }
-    // ... apply new access token ...
-    headers["Authorization"].push_back("Bearer " + tokens_.access_);
-    // ... notify interceptor?
-    if ( nullptr != nsi_ptr_ ) {
-        nsi_ptr_->OnHTTPRequestHeaderSet(headers);
-    }
-    // ... perform request ...
-    ::ev::curl::Request* request = new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, a_url, &headers, &a_body, a_timeouts);
-    
-    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, url   , request->url());
-    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, method, request->method());
-    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, token , CC_QUALIFIED_CLASS_NAME(this));
-    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, id    , CC_OBJECT_HEX_ADDRESS(request));
-    
-    NewTask([CC_IF_DEBUG(token, id,)request] () -> ::ev::Object* {
+    Async(::ev::curl::Request::HTTPRequestType::POST, a_url, a_headers, &a_body, a_callbacks, a_timeouts);
+}
 
-        // ... dump request ...
-        CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpRequest(token, id, request););
+/**
+ * @brief Perform an HTTP PUT request.
+ *
+ * @param a_url      URL.
+ * @param a_headers  HTTP Headers.
+ * @param a_body     BODY string representation.
+ * @param a_callbacks Set of callbacks to report successfull or failed execution.
+ *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
+ *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ *
+ * @param a_timeouts See \link HTTPClient::ClientTimeouts \link.
+ */
+void cc::easy::OAuth2HTTPClient::PUT (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
+                                       OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts)
+{
+    Async(::ev::curl::Request::HTTPRequestType::PUT, a_url, a_headers, &a_body, a_callbacks, a_timeouts);
+}
 
-        // ... perform request ...
-        return request;
-        
-    })->Then([CC_IF_DEBUG(token, id, method,)this, a_url] (::ev::Object* a_object) -> ::ev::Object* {
-        
-        const ::ev::curl::Reply* reply = EnsureReply(a_object);
-        const ::ev::curl::Value& value = reply->value();
-        
-        // ... unauthorized?
-        const bool unauthorized = ( 401 == value.code() || ( nullptr != nsi_ptr_ && nsi_ptr_->OnHTTPRequestReturned(value.code(), value.headers(), value.body()) ) );
-        if ( true == unauthorized ) {
-            // ... dump response ...
-            CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpResponse(token, id, method, a_url, reply->value()););
-            // ... notify interceptor?
-            if ( nullptr != nsi_ptr_ ) {
-                // ... abort refresh?
-                if ( false == nsi_ptr_->OnUnauthorizedShouldRefresh(a_url, value.headers()) ) {
-                    // ... yes ...
-                    return dynamic_cast<::ev::Result*>(a_object)->DetachDataObject();
-                }
+/**
+ * @brief Perform an HTTP PATCH request.
+ *
+ * @param a_url      URL.
+ * @param a_headers  HTTP Headers.
+ * @param a_body     BODY string representation.
+ * @param a_callbacks Set of callbacks to report successfull or failed execution.
+ *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
+ *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ *
+ * @param a_timeouts See \link HTTPClient::ClientTimeouts \link.
+ */
+void cc::easy::OAuth2HTTPClient::PATCH (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
+                                       OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts)
+{
+    Async(::ev::curl::Request::HTTPRequestType::PATCH, a_url, a_headers, &a_body, a_callbacks, a_timeouts);
+}
+
+// MARK: - [PRIVATE] - Helper Method(s)
+
+/**
+ * @brief Fill an URL with a query from params map.
+ *
+ * @param a_url    Base URL.
+ * @param a_params Parameters map.
+ * @param a_url    Final URL.
+ */
+void cc::easy::OAuth2HTTPClient::SetURLQuery (const std::string& a_url, const std::map<std::string, std::string>& a_params, std::string& o_url)
+{
+    o_url = a_url;
+    // ... nothing to do?
+    if ( 0 == a_params.size() ) {
+        // ... done ...
+        return;;
+    }
+    // ... prepare 'escape' helper ...
+    CURL *curl = curl_easy_init();
+    if ( nullptr == curl ) {
+        throw ::ev::Exception("Unexpected cURL handle: nullptr!");
+    }
+    // ... escape and append all params ...
+    char* escaped = nullptr;
+    try {
+        // ... first ...
+        const auto& first = a_params.begin();
+        {
+            char* escaped = curl_easy_escape(curl, first->second.c_str(), static_cast<int>(first->second.length()));
+            o_url += "?" + first->first + '=' + escaped;
+            if ( nullptr == escaped ) {
+                curl_easy_cleanup(curl);
+                throw ::ev::Exception("Unexpected cURL easy escape: nullptr!");
             }
-            // ... yes, refresh tokens now ...
-            CC_HTTP_HEADERS headers = {
-                { "Authorization", { "Basic " + ::cc::base64_url_unpadded::encode((config_.oauth2_.credentials_.client_id_ + ':' + config_.oauth2_.credentials_.client_secret_)) } },
-                { "Content-Type" , { "application/x-www-form-urlencoded" } }
-            };
-            std::string body = "grant_type=refresh_token&refresh_token=" + ( tokens_.refresh_ );
-            // ... notify interceptor?
-            if ( nullptr != nsi_ptr_ ) {
-                nsi_ptr_->OnOAuth2RequestSet(headers, body);
+            curl_free(escaped);
+        }
+        // ... all other ...
+        for ( auto param = ( std::next(first) ) ; a_params.end() != param ; ++param ) {
+            if ( 0 == param->second.length() ) {
+                continue;
             }
-            // ... new request ...
-            ::ev::curl::Request* request = new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, config_.oauth2_.urls_.token_, &headers, &body);
-            // ... dump request ...
-            CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpRequest(token, id, request););
-            // ... perform request ...
-            return request;
-        } else {
-            // ... no, continue ..
-            return dynamic_cast<::ev::Result*>(a_object)->DetachDataObject();
-        }
-        
-    })->Then([CC_IF_DEBUG(token, id, method,)this, a_callbacks, a_url, a_headers, a_body] (::ev::Object* a_object) -> ::ev::Object* {
-        
-        const ::ev::curl::Reply* reply = dynamic_cast<const ::ev::curl::Reply*>(a_object);
-        if ( nullptr != reply ) {
-            // ... redirect to 'Finally' ...
-            return a_object;
-        } else {
-            // ...  OAuth2 tokens refresh request response is expected ...
-            const ::ev::curl::Reply* reply = EnsureReply(a_object);
-            const ::ev::curl::Value& value = reply->value();
-            // ... success?
-            if ( 200 == value.code() ) {
-                // ... dump response ...
-                CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpResponse(token, id, method, a_url, reply->value()););
-                // ... keep track of new tokens ...
-                if ( nullptr != nsi_ptr_ ) {
-                    nsi_ptr_->OnOAuth2RequestReturned(value.headers(), value.body(), tokens_.scope_, tokens_.access_, tokens_.refresh_, tokens_.expires_in_);
-                } else {
-                    // ... expecting JSON response ...
-                    cc::easy::JSON<::ev::Exception> json;
-                    Json::Value                     response;
-                    json.Parse(value.body(), response);
-                    // ... keep track of new tokens ...
-                    tokens_.scope_      = json.Get(response, "scope"        , Json::ValueType::stringValue, /* a_default */ nullptr).asString();
-                    tokens_.access_     = json.Get(response, "access_token" , Json::ValueType::stringValue, /* a_default */ nullptr).asString();
-                    tokens_.refresh_    = json.Get(response, "refresh_token", Json::ValueType::stringValue, /* a_default */ nullptr).asString();
-                    // ... optinal value, no default value ...
-                    if ( true == response.isMember("expires_in") && response.isNumeric() ) {
-                        tokens_.expires_in_ = response["expires_in"].asInt64();
-                    } else {
-                        tokens_.expires_in_ = 0;
-                    }
-                }
-                // ... notify tokens changed ...
-                if ( nullptr != tokens_.on_change_ ) {
-                    tokens_.on_change_();
-                }
-                
-                // ... copy original header ...
-                CC_HTTP_HEADERS headers;
-                for ( auto it : a_headers ) {
-                    for ( auto it2 : it.second ) {
-                        headers[it.first].push_back(it2);
-                    }
-                }
-                // ... apply new access token ...
-                headers["Authorization"].push_back("Bearer " + tokens_.access_);
-                // ... notify interceptor?
-                if ( nullptr != nsi_ptr_ ) {
-                    nsi_ptr_->OnHTTPRequestHeaderSet(headers);
-                }
-                // ... new request ...
-                ::ev::curl::Request* request = new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, a_url, &headers, &a_body);
-                // ... dump request ...
-                CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpRequest(token, id, request););
-                // ... the original request must be performed again ...
-                return request;
-            } else {
-                // ... redirect to 'Finally' with OAuth2 error response ...
-                return a_object;
+            escaped = curl_easy_escape(curl, param->second.c_str(), static_cast<int>(param->second.length()));
+            if ( nullptr == escaped ) {
+                curl_easy_cleanup(curl);
+                throw ::ev::Exception("Unexpected cURL easy escape: nullptr!");
             }
+            o_url += "&" + param->first + "=" + std::string(escaped);
+            curl_free(escaped);
+            escaped = nullptr;
         }
-        
-    })->Finally([CC_IF_DEBUG(token, id, method, url,)this, a_callbacks]  (::ev::Object* a_object) {
-        
-        const ::ev::curl::Reply* reply = dynamic_cast<const ::ev::curl::Reply*>(a_object);
-        // ... if not a 'reply' it must be a 'result' object ...
-        if ( nullptr == reply ) {
-            reply = EnsureReply(a_object);
+        // ... cleanup ...
+        curl_easy_cleanup(curl);
+    } catch (...) {
+        // ... cleanup ...
+        if ( nullptr != escaped ) {
+            curl_free(escaped);
         }
-        const ::ev::curl::Value& value = reply->value();
-        // ... dump response ...
-        CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpResponse(token, id, method, url, value););
+        curl_easy_cleanup(curl);
         // ... notify ...
-        a_callbacks.on_success_(value.code(), value.header_value("Content-Type"), value.body(), value.rtt());
-        
+        ::cc::Exception::Rethrow(/* a_unhandled */ false, __FILE__, __LINE__, __FUNCTION__);
+    }
+}
+
+/**
+ * @brief Perform an HTTP request.
+ *
+ * @param a_request  Request to execute.
+ * @param a_then     Set of functions to call on sequence.
+ * @param a_callbacks Set of callbacks to report successfull or failed execution.
+ *                    If the request was perform and the server replied ( we don't care about status code ) success function is called,
+ *                    otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ */
+void cc::easy::OAuth2HTTPClient::Async (::ev::curl::Request* a_request, const std::vector<EV_TASK_CALLBACK> a_then,
+                                        OAuth2HTTPClient::RAWCallbacks a_callbacks)
+{
+    
+    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, url   , a_request->url());
+    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, method, a_request->method());
+    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, token , CC_QUALIFIED_CLASS_NAME(this));
+    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, id    , CC_OBJECT_HEX_ADDRESS(a_request));
+    
+    // ... prepare task ...
+    ::ev::scheduler::Task* t = NewTask([CC_IF_DEBUG(token, id,)a_request, this] () -> ::ev::Object* {
+        // ... log request?
+        if ( nullptr != cURLed_callbacks_.log_request_ ) {
+            cURLed_callbacks_.log_request_(*a_request, ::ev::curl::HTTP::cURLRequest(id, a_request, http_.cURLedShouldRedact()));
+        }
+        // ... dump request ...
+        CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpRequest(token, id, a_request););
+        // ... perform request ...
+        return a_request;
+    });
+    // ... chain events ...
+    for ( const auto& then : a_then ) {
+        t->Then(then);
+    }
+    // ... common closure ...
+    t->Finally([CC_IF_DEBUG(token, id, method, url,)this, a_callbacks]  (::ev::Object* a_object) {
+        if ( nullptr == a_callbacks.on_error_ ) {
+            // ... no error handler ...
+            const ::ev::curl::Reply* reply = dynamic_cast<const ::ev::curl::Reply*>(a_object);
+            // ... if not a 'reply' it must be a 'result' object ...
+            if ( nullptr == reply ) {
+                reply = EnsureReply(a_object);
+            }
+            const ::ev::curl::Value& value = reply->value();
+            // ... log response?
+            if ( nullptr != cURLed_callbacks_.log_response_ ) {
+                cURLed_callbacks_.log_response_(reply->value(), ::ev::curl::HTTP::cURLResponse(id, method, reply->value(), http_.cURLedShouldRedact()));
+            }
+            // ... dump response ...
+            CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpResponse(token, id, method, url, value););
+            // ... notify ...
+            a_callbacks.on_success_(value);
+        } else {
+            // ... if not a 'reply' it must be a 'result' object ...
+            const ::ev::curl::Reply* reply = dynamic_cast<const ::ev::curl::Reply*>(a_object);
+            if ( nullptr != reply ) {
+                const ::ev::curl::Value& value = reply->value();
+                // ... log response?
+                if ( nullptr != cURLed_callbacks_.log_response_ ) {
+                    cURLed_callbacks_.log_response_(reply->value(), ::ev::curl::HTTP::cURLResponse(id, method, reply->value(), http_.cURLedShouldRedact()));
+                }
+                // ... dump response ...
+                CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpResponse(token, id, method, url, value););
+                // ... notify ...
+                a_callbacks.on_success_(value);
+            } else {
+                // ... must be a result!
+                const ev::Result* result = dynamic_cast<const ::ev::Result*>(a_object);
+                if ( nullptr == result ) {
+                    throw ::ev::Exception("Unexpected CURL result object: nullptr!");
+                }
+                // ... can be a reply or an error ...
+                const ::ev::curl::Reply* reply = dynamic_cast<const ::ev::curl::Reply*>(result->DataObject());
+                if ( nullptr != reply ) {
+                    const ::ev::curl::Value& value = reply->value();
+                    // ... log response?
+                    if ( nullptr != cURLed_callbacks_.log_response_ ) {
+                        cURLed_callbacks_.log_response_(reply->value(), ::ev::curl::HTTP::cURLResponse(id, method, reply->value(), http_.cURLedShouldRedact()));
+                    }
+                    // ... dump response ...
+                    CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpResponse(token, id, method, url, value););
+                    // ... notify ...
+                    a_callbacks.on_success_(value);
+                } else {
+                    // ... error?
+                    const ::ev::curl::Error* error = dynamic_cast<const ::ev::curl::Error*>(result->DataObject());
+                    if ( nullptr != error ) {
+                        a_callbacks.on_error_(*error);
+                    } else {
+                        throw ::ev::Exception("Unexpected CURL reply object: nullptr!");
+                    }
+                }
+            }
+        }
     })->Catch([CC_IF_DEBUG(token, id, method, url,)a_callbacks] (const ::ev::Exception& a_ev_exception) {
         // ... dump response ...
         CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpException(token, id, method, url, a_ev_exception););
@@ -403,7 +658,179 @@ void cc::easy::OAuth2HTTPClient::POST (const std::string& a_url, const CC_HTTP_H
     });
 }
 
-// MARK: - [PRIVATE] - Helper Method(s)
+/**
+ * @brief Perform an HTTP request.
+ *
+ * @param a_type     Request type, one of \link ::ev::curl::Request::HTTPRequestType \link.
+ * @param a_url      URL.
+ * @param a_headers  HTTP Headers.
+ * @param a_body     BODY string representation.
+ * @param a_callbacks Set of callbacks to report successfull or failed execution.
+ *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
+ *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ *
+ * @param a_timeouts See \link HTTPClient::ClientTimeouts \link.
+ */
+void cc::easy::OAuth2HTTPClient::Async (const ::ev::curl::Request::HTTPRequestType a_type,
+                                        const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string* a_body,
+                                        OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts)
+{
+    const std::string token_type = ( tokens_.type_.length() > 0 ? tokens_.type_ : "Bearer" );
+    // ... copy original header ...
+    CC_HTTP_HEADERS headers;
+    for ( auto it : a_headers ) {
+        for ( auto it2 : it.second ) {
+            headers[it.first].push_back(it2);
+        }
+    }
+    // ... apply new access token ...
+    headers["Authorization"].push_back(token_type + " " + tokens_.access_);
+    // ... notify interceptor?
+    if ( nullptr != nsi_ptr_ ) {
+        nsi_ptr_->OnHTTPRequestHeaderSet(headers);
+    }
+    
+    const std::string tx_body = ( nullptr != a_body ? *a_body : "");
+    
+    // ... perform request ...
+    ::ev::curl::Request* request = new ::ev::curl::Request(loggable_data_, a_type, a_url, &headers, &tx_body, a_timeouts);
+    
+    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, url   , request->url());
+    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, method, request->method());
+    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, token , CC_QUALIFIED_CLASS_NAME(this));
+    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, id    , CC_OBJECT_HEX_ADDRESS(request));
+    
+    Async(new ::ev::curl::Request(loggable_data_, a_type, a_url, &headers, &tx_body, a_timeouts),
+          {
+            [CC_IF_DEBUG(token, id, method,)this, a_url] (::ev::Object* a_object) -> ::ev::Object* {
+                
+                const ::ev::curl::Reply* reply = EnsureReply(a_object);
+                const ::ev::curl::Value& value = reply->value();
+                
+                // ... unauthorized?
+                const bool unauthorized = ( 401 == value.code() || ( nullptr != nsi_ptr_ && nsi_ptr_->OnHTTPRequestReturned(value.code(), value.headers(), value.body()) ) );
+                if ( true == unauthorized ) {
+                    // ... log response?
+                    if ( nullptr != cURLed_callbacks_.log_response_ ) {
+                        cURLed_callbacks_.log_response_(reply->value(), ::ev::curl::HTTP::cURLResponse(id, method, reply->value(), http_.cURLedShouldRedact()));
+                    }
+                    // ... dump response ...
+                    CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpResponse(token, id, method, a_url, reply->value()););
+                    // ... notify interceptor?
+                    if ( nullptr != nsi_ptr_ ) {
+                        // ... abort refresh?
+                        if ( false == nsi_ptr_->OnUnauthorizedShouldRefresh(a_url, value.headers()) ) {
+                            // ... yes ...
+                            return dynamic_cast<::ev::Result*>(a_object)->DetachDataObject();
+                        }
+                    }
+                    // ... yes, refresh tokens now ...
+                    CC_HTTP_HEADERS headers = {
+                        { "Authorization", { "Basic " + ::cc::base64_url_unpadded::encode((config_.oauth2_.credentials_.client_id_ + ':' + config_.oauth2_.credentials_.client_secret_)) } },
+                        { "Content-Type" , { "application/x-www-form-urlencoded" } }
+                    };
+                    std::string body = "grant_type=refresh_token&refresh_token=" + ( tokens_.refresh_ );
+                    // ... notify interceptor?
+                    if ( nullptr != nsi_ptr_ ) {
+                        nsi_ptr_->OnOAuth2RequestSet(headers, body);
+                    }
+                    // ... new request ...
+                    ::ev::curl::Request* request = new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, config_.oauth2_.urls_.token_, &headers, &body);
+                    // ... log request?
+                    if ( nullptr != cURLed_callbacks_.log_request_ ) {
+                        cURLed_callbacks_.log_request_(*request, ::ev::curl::HTTP::cURLRequest(id, request, http_.cURLedShouldRedact()));
+                    }
+                    // ... dump request ...
+                    CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpRequest(token, id, request););
+                    // ... perform request ...
+                    return request;
+                } else {
+                    // ... no, continue ..
+                    return dynamic_cast<::ev::Result*>(a_object)->DetachDataObject();
+                }
+            },
+            [CC_IF_DEBUG(token, id, method,)this, a_type, a_callbacks, a_url, a_headers, tx_body, token_type] (::ev::Object* a_object) -> ::ev::Object* {
+                
+                const ::ev::curl::Reply* reply = dynamic_cast<const ::ev::curl::Reply*>(a_object);
+                if ( nullptr != reply ) {
+                    // ... redirect to 'Finally' ...
+                    return a_object;
+                } else {
+                    // ...  OAuth2 tokens refresh request response is expected ...
+                    const ::ev::curl::Reply* reply = EnsureReply(a_object);
+                    const ::ev::curl::Value& value = reply->value();
+                    // ... success?
+                    if ( 200 == value.code() ) {
+                        // ... log response?
+                        if ( nullptr != cURLed_callbacks_.log_response_ ) {
+                            cURLed_callbacks_.log_response_(reply->value(), ::ev::curl::HTTP::cURLResponse(id, method, reply->value(), http_.cURLedShouldRedact()));
+                        }
+                        // ... dump response ...
+                        CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpResponse(token, id, method, a_url, reply->value()););
+                        // ... keep track of new tokens ...
+                        if ( nullptr != nsi_ptr_ ) {
+                            nsi_ptr_->OnOAuth2RequestReturned(value.headers(), value.body(), tokens_.scope_, tokens_.access_, tokens_.refresh_, tokens_.expires_in_);
+                        } else {
+                            // ... expecting JSON response ...
+                            const cc::easy::JSON<::ev::Exception> json;
+                            Json::Value                           response;
+                            json.Parse(value.body(), response);
+                            // ... keep track of new tokens ...
+                            tokens_.access_ = json.Get(response, "access_token" , Json::ValueType::stringValue, /* a_default */ nullptr).asString();
+                            // ... optional value, no default value ...
+                            if ( true == response.isMember("refresh_token") && true == response.isString() ) {
+                                tokens_.refresh_ = json.Get(response, "refresh_token", Json::ValueType::stringValue, /* a_default */ nullptr).asString();
+                            }
+                            // ... optional value, no default value ...
+                            if ( true == response.isMember("token_type") && true == response.isNumeric() ) {
+                                tokens_.type_ = response["token_type"].asInt64();
+                            }
+                            // ... optional value, no default value ...
+                            if ( true == response.isMember("expires_in") && true == response.isNumeric() ) {
+                                // ... accept it ...
+                                tokens_.expires_in_ = response["expires_in"].asInt64();
+                            } else {
+                                // ... unknown, reset ...
+                                tokens_.expires_in_ = 0;
+                            }
+                        }
+                        // ... notify tokens changed ...
+                        if ( nullptr != tokens_.on_change_ ) {
+                            tokens_.on_change_();
+                        }
+                        // ... copy original header ...
+                        CC_HTTP_HEADERS headers;
+                        for ( auto it : a_headers ) {
+                            for ( auto it2 : it.second ) {
+                                headers[it.first].push_back(it2);
+                            }
+                        }
+                        // ... apply new access token ...
+                        headers["Authorization"].push_back(token_type + " " + tokens_.access_);
+                        // ... notify interceptor?
+                        if ( nullptr != nsi_ptr_ ) {
+                            nsi_ptr_->OnHTTPRequestHeaderSet(headers);
+                        }
+                        // ... new request ...
+                        ::ev::curl::Request* request = new ::ev::curl::Request(loggable_data_, a_type, a_url, &headers, &tx_body);
+                        // ... log request?
+                        if ( nullptr != cURLed_callbacks_.log_request_ ) {
+                            cURLed_callbacks_.log_request_(*request, ::ev::curl::HTTP::cURLRequest(id, request, http_.cURLedShouldRedact()));
+                        }
+                        // ... dump request ...
+                        CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpRequest(token, id, request););
+                        // ... the original request must be performed again ...
+                        return request;
+                    } else {
+                        // ... redirect to 'Finally' with OAuth2 error response ...
+                        return a_object;
+                    }
+                }
+            }
+        },
+        a_callbacks
+    );
+}
 
 /**
  * @brief Create a new task.
@@ -417,6 +844,21 @@ void cc::easy::OAuth2HTTPClient::POST (const std::string& a_url, const CC_HTTP_H
                                          ::ev::scheduler::Scheduler::GetInstance().Push(this, a_task);
                                      }
     );
+}
+
+
+/**
+ * @brief Ensure a valud HTTP reply.
+ *
+ * @param a_object Test subject.
+ */
+const ::ev::Result* cc::easy::OAuth2HTTPClient::EnsureResult (::ev::Object* a_object)
+{
+    ::ev::Result* result = dynamic_cast<::ev::Result*>(a_object);
+    if ( nullptr == result ) {
+        throw ::ev::Exception("Unexpected CURL result object: nullptr!");
+    }
+    return result;
 }
 
 /**

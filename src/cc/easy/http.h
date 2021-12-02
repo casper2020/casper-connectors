@@ -30,6 +30,18 @@
 
 #include "ev/scheduler/scheduler.h"
 
+#include <regex>   // std::regex
+
+#include "cc/codes.h"
+
+#define CC_EASY_HTTP_OK                    CC_STATUS_CODE_OK
+#define CC_EASY_HTTP_MOVED_TEMPORARILY     CC_STATUS_CODE_MOVED_TEMPORARILY
+#define CC_EASY_HTTP_BAD_REQUEST           CC_STATUS_CODE_BAD_REQUEST
+#define CC_EASY_HTTP_UNAUTHORIZED          CC_STATUS_CODE_UNAUTHORIZED
+#define CC_EASY_HTTP_NOT_FOUND             CC_STATUS_CODE_NOT_FOUND
+#define CC_EASY_HTTP_INTERNAL_SERVER_ERROR CC_STATUS_CODE_INTERNAL_SERVER_ERROR
+#define CC_EASY_HTTP_GATEWAY_TIMEOUT       CC_STATUS_CODE_GATEWAY_TIMEOUT
+
 namespace cc
 {
 
@@ -67,7 +79,8 @@ namespace cc
                 RawFailureCallback on_failure_;
             } RawCallbacks;
             
-            typedef ::ev::curl::Request::Timeouts Timeouts;
+            typedef ::ev::curl::Request::Timeouts     Timeouts;
+            typedef ::ev::curl::HTTP::cURLedCallbacks cURLedCallbacks;
 
         private: // Const Data
             
@@ -75,7 +88,8 @@ namespace cc
             
         private: // Helper(s)
             
-            ev::curl::HTTP http_;
+            ev::curl::HTTP                  http_;
+            ev::curl::HTTP::cURLedCallbacks cURLed_callbacks_;
 
         public: // Constructor / Destructor
 
@@ -96,6 +110,28 @@ namespace cc
 
             void POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
                        RawCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
+            
+        public: // Inline Method(s) / Function(s) - one-shot call
+            
+            /**
+             * @brief Set log callbacks and if sensitive data should be redacted or not.
+             *
+             * @param a_callbacks See \link cURLedCallbacks \link.
+             * @param a_redact    True if should try to redact data, false otherwise.
+             */
+            inline void SetcURLedCallbacks (cURLedCallbacks a_callbacks, bool a_redact)
+            {
+                http_.Set(a_callbacks, a_redact);
+                cURLed_callbacks_ = a_callbacks;
+            }
+            
+            /**
+             * @return True if loggable data should be reacted, false otherwise.
+             */
+            inline bool cURLedShouldRedact () const
+            {
+                return http_.cURLedShouldRedact();
+            }
 
         }; // end of class 'HTTP'
     
@@ -195,9 +231,11 @@ namespace cc
             } Credentials;
             
             typedef struct {
+                bool        m2m_;
                 URLs        urls_;
                 Credentials credentials_;
                 std::string redirect_uri_;
+                std::string scope_;
             } OAuth2;
             
             typedef struct {
@@ -213,11 +251,13 @@ namespace cc
                 std::function<void()> on_change_;  //!< Function to call when values changes.
             } Tokens;
             
-            typedef HTTPClient::Callbacks POSTCallbacks;
+            typedef HTTPClient::Callbacks       POSTCallbacks;
+            typedef HTTPClient::RawCallbacks    RAWCallbacks;
+            typedef HTTPClient::cURLedCallbacks cURLedCallbacks;
   
         private: // Const Data
             
-            const ev::Loggable::Data    loggable_data_;
+            const ev::Loggable::Data loggable_data_;
 
         private: // Const Refs
             
@@ -229,7 +269,8 @@ namespace cc
 
         private: // Helper(s)
             
-            HTTPClient http_;
+            HTTPClient      http_;
+            cURLedCallbacks cURLed_callbacks_;
 
         private: // Callbacks
             
@@ -243,22 +284,56 @@ namespace cc
             
         public: // Method(s) / Function(s)
 
+            void AuthorizationRequest (OAuth2HTTPClient::RAWCallbacks a_callbacks);
+
             void AutorizationCodeGrant (const std::string& a_code,
                                         OAuth2HTTPClient::POSTCallbacks a_callbacks);
 
             void POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
                        OAuth2HTTPClient::POSTCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
-            
+
+            void AutorizationCodeGrant (const std::string& a_code,
+                                        OAuth2HTTPClient::RAWCallbacks a_callbacks);
+
+            void HEAD (const std::string& a_url, const CC_HTTP_HEADERS& a_headers,
+                       OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
+
+            void GET (const std::string& a_url, const CC_HTTP_HEADERS& a_headers,
+                       OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
+
+            void DELETE (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string* a_body,
+                         OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
+
+            void POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
+                       OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
+
+            void PUT (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
+                       OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
+
+            void PATCH (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
+                       OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
+
         public: // Inline Method(s) / Function(s)
             
             void SetNonStandardRequestInterceptor (const NonStandardRequestInterceptor* a_interceptor);
+            void SetcURLedCallbacks               (cURLedCallbacks a_callbacks, bool a_redact);
             
         private: // Helper Method(s) / Function(s)
             
-            ::ev::scheduler::Task*    NewTask     (const EV_TASK_PARAMS& a_callback);
-            const ::ev::curl::Reply*  EnsureReply (::ev::Object* a_object);
+            void SetURLQuery (const std::string& a_url, const std::map<std::string, std::string>& a_params, std::string& o_url);
 
-        }; // end of class 'OAuth2HTTP'
+            void Async   (::ev::curl::Request* a_request, const std::vector<EV_TASK_CALLBACK> a_then,
+                          OAuth2HTTPClient::RAWCallbacks a_callbacks);
+            
+            void Async   (const ::ev::curl::Request::HTTPRequestType a_type,
+                          const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string* a_body,
+                          OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts);
+
+            ::ev::scheduler::Task*    NewTask     (const EV_TASK_PARAMS& a_callback);
+            const ::ev::Result*       EnsureResult (::ev::Object* a_object);
+            const ::ev::curl::Reply*  EnsureReply  (::ev::Object* a_object);
+
+        }; // end of class 'OAuth2HTTPClient'
     
         /**
          * Set non-standard request interceptor.
@@ -270,6 +345,18 @@ namespace cc
             nsi_ptr_ = a_interceptor;
         }
     
+        /**
+         * @brief Set log callbacks and if sensitive data should be redacted or not.
+         *
+         * @param a_callbacks See \link cURLedCallbacks \link.
+         * @param a_redact    True if should try to redact data, false otherwise.
+         */
+        inline void OAuth2HTTPClient::SetcURLedCallbacks (OAuth2HTTPClient::cURLedCallbacks a_callbacks, bool a_redact)
+        {
+            cURLed_callbacks_ = a_callbacks;
+            http_.SetcURLedCallbacks(a_callbacks, a_redact);
+        }
+
     }  // end of namespace 'easy'
 
 } // end of namespace 'cc'

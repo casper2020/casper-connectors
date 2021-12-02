@@ -499,7 +499,7 @@ std::string ev::curl::HTTP::cURLRequest (const std::string& a_id, const ::ev::cu
                     }
                 }
             } else {
-                ss << "<redacted>";
+                tmp << "<redacted>";
             }
             ss << "     -H '" << tmp.str() << "' \\\n";
             tmp.str("");
@@ -508,21 +508,29 @@ std::string ev::curl::HTTP::cURLRequest (const std::string& a_id, const ::ev::cu
     // ... body?
     const auto& body = a_request->tx_body();
     if ( body.length() > 0 ) {
-        // ... try to redact JSON body ...
-        if ( true == ::cc::easy::JSON<::ev::Exception>::IsJSON(a_request->tx_header_value("Content-Type")) && 0 != strcasestr(body.c_str(), "token_") ) {
-            const ::cc::easy::JSON<::ev::Exception> json;
-            try {
-                Json::Value object;
-                json.Parse(body, object);
-                json.Redact({ "password", "access_token", "refresh_token"}, object);
-                // ... write redacted object ...
-                ss << "     -d $'" << json.Write(object) << "' \\\n";
-            } catch (...) {
-                // ... don't know how to redact it ...
-                ss << "     -d $'" << a_request->tx_body() << "' \\\n";
+        // ... redact ...
+        if ( true == a_redact ) {
+            if ( true == ::cc::easy::JSON<::ev::Exception>::IsJSON(a_request->tx_header_value("Content-Type"))
+                &&
+                ( 0 != strcasestr(body.c_str(), "token_") || 0 != strcasestr(body.c_str(), "password") )
+            ) {
+                const ::cc::easy::JSON<::ev::Exception> json;
+                try {
+                    Json::Value object;
+                    json.Parse(body, object);
+                    json.Redact({ "password", "access_token", "refresh_token"}, object);
+                    // ... write redacted object ...
+                    ss << "     -d $'" << json.Write(object) << "' \\\n";
+                } catch (...) {
+                    // ... don't know how to partially redact it, so redact it all ...
+                    ss << "     -d $'<redacted>' \\\n";
+                }
+            } else {
+                // ... don't know how to partially redact it, so redact it all ...
+                ss << "     -d $'<redacted>' \\\n";
             }
         } else {
-            // ... don't know how to redact it ...
+            // ... NOT redacted ...
             ss << "     -d $'" << a_request->tx_body() << "' \\\n";
         }
     }
@@ -564,22 +572,30 @@ std::string ev::curl::HTTP::cURLResponse (const std::string& a_id, const std::st
         }
         ss << '\n';
     }
-    // ... try to redact JSON body ...
-    if ( true == ::cc::easy::JSON<::ev::Exception>::IsJSON(a_value.header_value("Content-Type")) && 0 != strcasestr(a_value.body().c_str(), "token_") ) {
-        const ::cc::easy::JSON<::ev::Exception> json;
-        try {
-            Json::Value object;
-            json.Parse(a_value.body(), object);
-            json.Redact({ "password", "access_token", "refresh_token"}, object);
-            // ... write redacted object ...
-            ss << json.Write(object) << '\n';
-        } catch (...) {
-            // ... don't know how to redact it ...
-            ss << a_value.body() << '\n';
+    // ... redact ...
+    if ( true == a_redact ) {
+        if ( true == ::cc::easy::JSON<::ev::Exception>::IsJSON(a_value.header_value("Content-Type"))
+            &&
+            ( 0 != strcasestr(a_value.body().c_str(), "token_") || 0 != strcasestr(a_value.body().c_str(), "password") )
+        ) {
+            const ::cc::easy::JSON<::ev::Exception> json;
+            try {
+                Json::Value object;
+                json.Parse(a_value.body(), object);
+                json.Redact({ "password", "access_token", "refresh_token"}, object);
+                // ... write redacted object ...
+                ss << json.Write(object);
+            } catch (...) {
+                // ... don't know how to partially redact it, so redact it all ...
+                ss << "<redacted>";
+            }
+        } else {
+            // ... don't know how to partially redact it, so redact it all ...
+            ss << "<redacted>";
         }
     } else {
-        // ... don't know how to redact it ...
-        ss << a_value.body() << '\n';
+        // ... NOT redacted ...
+        ss << a_value.body();
     }
     // ... done ...
     return ss.str();

@@ -116,10 +116,24 @@ namespace ev
             
         public: // Inline Method(s) / Function(s)
             
+            /**
+             * @brief Set log callbacks and if sensitive data should be redacted or not.
+             *
+             * @param a_callbacks See \link cURLedCallbacks \link.
+             * @param a_redact    True if should try to redact data, false otherwise.
+             */
             inline void Set (cURLedCallbacks a_callbacks, bool a_redact)
             {
                 cURLed_callbacks_ = a_callbacks;
                 cURLed_redact_    = a_redact;
+            }
+            
+            /**
+             * @return True if loggable data should be reacted, false otherwise.
+             */
+            inline bool cURLedShouldRedact () const
+            {
+                return cURLed_redact_;
             }
 
         private: // Method(s) / Function(s)
