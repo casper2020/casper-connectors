@@ -253,12 +253,12 @@ void ev::curl::HTTP::DELETE (const Loggable::Data& a_loggable_data,
 void ::ev::curl::HTTP::Async (::ev::curl::Request* a_request,
                               EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_ERROR_CALLBACK a_error_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
 {
-    const std::string id = CC_OBJECT_HEX_ADDRESS(a_request);
-
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, url   , a_request->url());
-    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, method, a_request->method());
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, token , CC_QUALIFIED_CLASS_NAME(this));
-    
+
+    const std::string id     = CC_OBJECT_HEX_ADDRESS(a_request);
+    const std::string method = a_request->method();
+
     NewTask([CC_IF_DEBUG(token, )id, a_request, this] () -> ::ev::Object* {
 
         // ... log request?
@@ -271,7 +271,7 @@ void ::ev::curl::HTTP::Async (::ev::curl::Request* a_request,
         // ...
         return a_request;
 
-    })->Then([a_error_callback CC_IF_DEBUG(,token, url, method), id, this] (::ev::Object* a_object) -> ::ev::Object* {
+    })->Then([a_error_callback CC_IF_DEBUG(,token, url), id, method, this] (::ev::Object* a_object) -> ::ev::Object* {
 
         ::ev::Result* result = dynamic_cast<::ev::Result*>(a_object);
         if ( nullptr == result ) {

@@ -119,9 +119,7 @@ namespace ev
         
         private: // FOR DEBUG LOGGING PROPOSES ONLY ONLY
             
-            CC_IF_DEBUG(
-                EV_CURL_HEADERS_MAP tx_headers_;
-            );
+            EV_CURL_HEADERS_MAP tx_headers_;
 
         public: // Constructor(s) / Destructor
 
@@ -153,38 +151,36 @@ namespace ev
             void                       SetFinished ();
             size_t                     Elapsed     ();
 
-            CC_IF_DEBUG(
-                inline const EV_CURL_HEADERS_MAP& tx_headers   () const { return tx_headers_; }
-                inline std::string tx_header_value (const char* const a_name) const
-                {
-                    const auto p = std::find_if(tx_headers_.begin(), tx_headers_.end(), ev::curl::Object::cURLHeaderMapKeyComparator(a_name));
-                    if ( tx_headers_.end() != p ) {
-                        return p->second.front();
-                    } else {
-                        return "";
-                    }
+            inline const EV_CURL_HEADERS_MAP& tx_headers   () const { return tx_headers_; }
+            inline std::string tx_header_value (const char* const a_name) const
+            {
+                const auto p = std::find_if(tx_headers_.begin(), tx_headers_.end(), ev::curl::Object::cURLHeaderMapKeyComparator(a_name));
+                if ( tx_headers_.end() != p ) {
+                    return p->second.front();
+                } else {
+                    return "";
                 }
-                inline const std::string& tx_body () const { return tx_body_;    }
-                inline const char* const method () const
-                {
-                    switch(http_request_type_) {
-                        case HTTPRequestType::GET:
-                            return "GET";
-                        case HTTPRequestType::PUT:
-                            return "PUT";
-                        case HTTPRequestType::DELETE:
-                            return "DELETE";
-                        case HTTPRequestType::POST:
-                            return "POST";
-                        case HTTPRequestType::PATCH:
-                            return "PATCH";
-                        case HTTPRequestType::HEAD:
-                            return "HEAD";
-                        default:
-                            return "???";
-                    }
+            }
+            inline const std::string& tx_body () const { return tx_body_;    }
+            inline const char* const method () const
+            {
+                switch(http_request_type_) {
+                    case HTTPRequestType::GET:
+                        return "GET";
+                    case HTTPRequestType::PUT:
+                        return "PUT";
+                    case HTTPRequestType::DELETE:
+                        return "DELETE";
+                    case HTTPRequestType::POST:
+                        return "POST";
+                    case HTTPRequestType::PATCH:
+                        return "PATCH";
+                    case HTTPRequestType::HEAD:
+                        return "HEAD";
+                    default:
+                        return "???";
                 }
-            );
+            }
             
         protected:
 

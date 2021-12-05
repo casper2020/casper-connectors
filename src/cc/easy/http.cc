@@ -571,12 +571,12 @@ void cc::easy::OAuth2HTTPClient::Async (::ev::curl::Request* a_request, const st
 {
     
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, url   , a_request->url());
-    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, method, a_request->method());
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, token , CC_QUALIFIED_CLASS_NAME(this));
-    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, id    , CC_OBJECT_HEX_ADDRESS(a_request));
-    
+    const std::string id     = CC_OBJECT_HEX_ADDRESS(a_request);
+    const std::string method = a_request->method();
+
     // ... prepare task ...
-    ::ev::scheduler::Task* t = NewTask([CC_IF_DEBUG(token, id,)a_request, this] () -> ::ev::Object* {
+    ::ev::scheduler::Task* t = NewTask([CC_IF_DEBUG(token, )a_request, id, this] () -> ::ev::Object* {
         // ... log request?
         if ( nullptr != cURLed_callbacks_.log_request_ ) {
             cURLed_callbacks_.log_request_(*a_request, ::ev::curl::HTTP::cURLRequest(id, a_request, http_.cURLedShouldRedact()));
@@ -591,7 +591,7 @@ void cc::easy::OAuth2HTTPClient::Async (::ev::curl::Request* a_request, const st
         t->Then(then);
     }
     // ... common closure ...
-    t->Finally([CC_IF_DEBUG(token, id, method, url,)this, a_callbacks]  (::ev::Object* a_object) {
+    t->Finally([CC_IF_DEBUG(token, url,)this, a_callbacks, id, method]  (::ev::Object* a_object) {
         if ( nullptr == a_callbacks.on_error_ ) {
             // ... no error handler ...
             const ::ev::curl::Reply* reply = dynamic_cast<const ::ev::curl::Reply*>(a_object);
@@ -696,13 +696,13 @@ void cc::easy::OAuth2HTTPClient::Async (const ::ev::curl::Request::HTTPRequestTy
     ::ev::curl::Request* request = new ::ev::curl::Request(loggable_data_, a_type, a_url, &headers, &tx_body, a_timeouts);
     
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, url   , request->url());
-    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, method, request->method());
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, token , CC_QUALIFIED_CLASS_NAME(this));
-    CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, id    , CC_OBJECT_HEX_ADDRESS(request));
-    
+    const std::string id     = CC_OBJECT_HEX_ADDRESS(request);
+    const std::string method = request->method();
+
     Async(new ::ev::curl::Request(loggable_data_, a_type, a_url, &headers, &tx_body, a_timeouts),
           {
-            [CC_IF_DEBUG(token, id, method,)this, a_url] (::ev::Object* a_object) -> ::ev::Object* {
+            [CC_IF_DEBUG(token, )this, a_url, id, method] (::ev::Object* a_object) -> ::ev::Object* {
                 
                 const ::ev::curl::Reply* reply = EnsureReply(a_object);
                 const ::ev::curl::Value& value = reply->value();
@@ -749,7 +749,7 @@ void cc::easy::OAuth2HTTPClient::Async (const ::ev::curl::Request::HTTPRequestTy
                     return dynamic_cast<::ev::Result*>(a_object)->DetachDataObject();
                 }
             },
-            [CC_IF_DEBUG(token, id, method,)this, a_type, a_callbacks, a_url, a_headers, tx_body, token_type] (::ev::Object* a_object) -> ::ev::Object* {
+            [CC_IF_DEBUG(token, )this, a_type, a_callbacks, a_url, a_headers, tx_body, token_type, id, method] (::ev::Object* a_object) -> ::ev::Object* {
                 
                 const ::ev::curl::Reply* reply = dynamic_cast<const ::ev::curl::Reply*>(a_object);
                 if ( nullptr != reply ) {
