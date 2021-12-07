@@ -27,7 +27,8 @@
 namespace ev
 {
     
-    typedef ::cc::Exception Exception;
+    typedef ::cc::Exception      Exception;
+    typedef ::cc::CodedException CodedException;
     
 } // end of namespace 'ev'
 

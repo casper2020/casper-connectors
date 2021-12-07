@@ -231,7 +231,7 @@ namespace cc
             } Credentials;
             
             typedef struct {
-                bool        m2m_;
+                std::string grant_type_;
                 URLs        urls_;
                 Credentials credentials_;
                 std::string redirect_uri_;
@@ -283,18 +283,20 @@ namespace cc
             virtual ~OAuth2HTTPClient();
             
         public: // Method(s) / Function(s)
-
-            void AuthorizationRequest (OAuth2HTTPClient::RAWCallbacks a_callbacks);
-
-            void AutorizationCodeGrant (const std::string& a_code,
-                                        OAuth2HTTPClient::POSTCallbacks a_callbacks);
+            
+            void AuthorizationCodeGrant (const std::string& a_code,
+                                         OAuth2HTTPClient::POSTCallbacks a_callbacks);
 
             void POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
                        OAuth2HTTPClient::POSTCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
-            void AutorizationCodeGrant (const std::string& a_code,
-                                        OAuth2HTTPClient::RAWCallbacks a_callbacks);
+            void AuthorizationCodeGrant (const std::string& a_code,
+                                         OAuth2HTTPClient::RAWCallbacks a_callbacks);
 
+            void AuthorizationCodeGrant (OAuth2HTTPClient::RAWCallbacks a_callbacks);
+
+            void ClientCredentialsGrant (OAuth2HTTPClient::RAWCallbacks a_callbacks);
+            
             void HEAD (const std::string& a_url, const CC_HTTP_HEADERS& a_headers,
                        OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
 

@@ -191,10 +191,10 @@ cc::easy::OAuth2HTTPClient::~OAuth2HTTPClient ()
  *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
  *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
  */
-void cc::easy::OAuth2HTTPClient::AutorizationCodeGrant (const std::string& a_code,
-                                                        OAuth2HTTPClient::POSTCallbacks a_callbacks)
+void cc::easy::OAuth2HTTPClient::AuthorizationCodeGrant (const std::string& a_code,
+                                                         OAuth2HTTPClient::POSTCallbacks a_callbacks)
 {
-    AutorizationCodeGrant(a_code, {
+    AuthorizationCodeGrant(a_code, {
         [a_callbacks] (const HTTPClient::RawValue& a_value) {
             a_callbacks.on_success_(a_value.code(), a_value.header_value("Content-Type"), a_value.body(), a_value.rtt());
         },
@@ -231,13 +231,83 @@ void cc::easy::OAuth2HTTPClient::POST (const std::string& a_url, const CC_HTTP_H
 }
 
 /**
- * @brief Perform an HTTP POST request to obtains tokens.
+ * @brief Perform an HTTP POST request to obtains tokens from an 'autorization code' grant flow.
+ *
+ * @param a_code     OAuth2 authorization code.
+ * @param a_callbacks Set of callbacks to report successfull or failed execution.
+ *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
+ *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ */
+void cc::easy::OAuth2HTTPClient::AuthorizationCodeGrant (const std::string& a_code,
+                                                         OAuth2HTTPClient::RAWCallbacks a_callbacks)
+{
+    //  TODO: review - standard or not - if not move it from here to the proper class?
+    CURL *curl = curl_easy_init();
+    if ( nullptr == curl ) {
+        throw ::ev::Exception("Unexpected cURL handle: nullptr!");
+    }
+
+    std::string url = config_.oauth2_.urls_.token_ + "?grant_type=authorization_code";
+
+    const std::map<std::string, std::string> map = {
+        { "code"         , a_code                                      },
+        { "client_id"    , config_.oauth2_.credentials_.client_id_     },
+        { "client_secret", config_.oauth2_.credentials_.client_secret_ },
+        { "redirect_uri" , config_.oauth2_.redirect_uri_               },
+    };
+    
+    for ( auto param : map ) {
+        char *output = curl_easy_escape(curl, param.second.c_str(), static_cast<int>(param.second.length()));
+        if ( nullptr == output ) {
+            curl_easy_cleanup(curl);
+            throw ::ev::Exception("Unexpected cURL easy escape: nullptr!");
+        }
+        url += "&" + param.first + "=" + std::string(output);
+        curl_free(output);
+    }
+    
+    curl_easy_cleanup(curl);
+    
+    NewTask([this, url] () -> ::ev::Object* {
+        
+        return new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, url, nullptr, nullptr);
+        
+    })->Finally([this, a_callbacks] (::ev::Object* a_object) {
+
+        if ( nullptr == a_callbacks.on_error_ ) {
+            // ... no error handler ...
+            const ::ev::curl::Reply* reply = EnsureReply(a_object);
+            const ::ev::curl::Value& value = reply->value();
+            // ... notify ...
+            a_callbacks.on_success_(value);
+        } else {
+            const ::ev::Result*       result = EnsureResult(a_object);
+            const ::ev::curl::Reply*  reply = dynamic_cast<const ::ev::curl::Reply*>(result->DataObject());
+            if ( nullptr != reply ) {
+                a_callbacks.on_success_(reply->value());
+            } else {
+                const ::ev::curl::Error* error = dynamic_cast<const ::ev::curl::Error*>(result->DataObject());
+                if ( nullptr != error ) {
+                    a_callbacks.on_error_(*error);
+                } else {
+                    throw ::ev::Exception("Unexpected CURL reply object: nullptr!");
+                }
+            }
+        }
+        
+    })->Catch([a_callbacks] (const ::ev::Exception& a_ev_exception) {
+        a_callbacks.on_failure_(a_ev_exception);
+    });
+}
+
+/**
+ * @brief Perform an HTTP POST request to obtains tokens from an 'autorization code' grant flow.
  *
  * @param a_callbacks Set of callbacks to report successfull or failed execution.
  *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
  *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
  */
-void cc::easy::OAuth2HTTPClient::AuthorizationRequest (OAuth2HTTPClient::RAWCallbacks a_callbacks)
+void cc::easy::OAuth2HTTPClient::AuthorizationCodeGrant (OAuth2HTTPClient::RAWCallbacks a_callbacks)
 {
     std::string url;
     SetURLQuery(config_.oauth2_.urls_.authorization_, {
@@ -291,7 +361,7 @@ void cc::easy::OAuth2HTTPClient::AuthorizationRequest (OAuth2HTTPClient::RAWCall
                 // ... code?
                 const std::regex code_expr("(\\?|&)(code=([^/&?]+))", std::regex_constants::ECMAScript | std::regex_constants::icase);
                 if ( true == std::regex_match(args, match, code_expr) ) {
-                    if ( 4 == match.size() ) {                        
+                    if ( 4 == match.size() ) {
                         std::string url;
                         SetURLQuery(tokens_uri, {
                             { "grant_type"   , "authorization_code"                        },
@@ -316,73 +386,31 @@ void cc::easy::OAuth2HTTPClient::AuthorizationRequest (OAuth2HTTPClient::RAWCall
 }
 
 /**
- * @brief Perform an HTTP POST request to obtains tokens from an 'autorization code' grant flow.
+ * @brief Perform an HTTP POST request to obtains tokens from an 'client credentials' grant flow.
  *
- * @param a_code     OAuth2 authorization code.
  * @param a_callbacks Set of callbacks to report successfull or failed execution.
- *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
- *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
+ *                    If the request was perform and the server replied ( we don't care about status code ) success function is called,
+ *                    otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
  */
-void cc::easy::OAuth2HTTPClient::AutorizationCodeGrant (const std::string& a_code,
-                                                        OAuth2HTTPClient::RAWCallbacks a_callbacks)
+void cc::easy::OAuth2HTTPClient::ClientCredentialsGrant (OAuth2HTTPClient::RAWCallbacks a_callbacks)
 {
-    //  TODO: review - standard or not - if not move it from here to the proper class?
-    CURL *curl = curl_easy_init();
-    if ( nullptr == curl ) {
-        throw ::ev::Exception("Unexpected cURL handle: nullptr!");
-    }
-
-    std::string url = config_.oauth2_.urls_.token_ + "?grant_type=authorization_code";
-
-    const std::map<std::string, std::string> map = {
-        { "code"         , a_code                                      },
+    std::string query;
+    SetURLQuery(query, {
+        { "grant_type"   , "client_credentials"                        },
         { "client_id"    , config_.oauth2_.credentials_.client_id_     },
         { "client_secret", config_.oauth2_.credentials_.client_secret_ },
-        { "redirect_uri" , config_.oauth2_.redirect_uri_               }
+        { "scope"        , config_.oauth2_.scope_                      }
+    }, query);
+        
+    const CC_HTTP_HEADERS headers = {
+        { "Content-Type" , { "application/x-www-form-urlencoded" } }
     };
-    
-    for ( auto param : map ) {
-        char *output = curl_easy_escape(curl, param.second.c_str(), static_cast<int>(param.second.length()));
-        if ( nullptr == output ) {
-            curl_easy_cleanup(curl);
-            throw ::ev::Exception("Unexpected cURL easy escape: nullptr!");
-        }
-        url += "&" + param.first + "=" + std::string(output);
-        curl_free(output);
-    }
-    
-    curl_easy_cleanup(curl);
-    
-    NewTask([this, url] () -> ::ev::Object* {
+    const std::string     body = std::string(query.c_str() + sizeof(char));
         
-        return new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, url, nullptr, nullptr);
-        
-    })->Finally([this, a_callbacks] (::ev::Object* a_object) {
-
-        if ( nullptr == a_callbacks.on_error_ ) {
-            // ... no error handler ...
-            const ::ev::curl::Reply* reply = EnsureReply(a_object);
-            const ::ev::curl::Value& value = reply->value();
-            // ... notify ...
-            a_callbacks.on_success_(value);
-        } else {
-            const ::ev::Result*       result = EnsureResult(a_object);
-            const ::ev::curl::Reply*  reply = dynamic_cast<const ::ev::curl::Reply*>(result->DataObject());
-            if ( nullptr != reply ) {
-                a_callbacks.on_success_(reply->value());
-            } else {
-                const ::ev::curl::Error* error = dynamic_cast<const ::ev::curl::Error*>(result->DataObject());
-                if ( nullptr != error ) {
-                    a_callbacks.on_error_(*error);
-                } else {
-                    throw ::ev::Exception("Unexpected CURL reply object: nullptr!");
-                }
-            }
-        }
-        
-    })->Catch([a_callbacks] (const ::ev::Exception& a_ev_exception) {
-        a_callbacks.on_failure_(a_ev_exception);
-    });
+    Async(new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, config_.oauth2_.urls_.token_, &headers, &body),
+          { },
+          a_callbacks
+    );
 }
 
 /**
