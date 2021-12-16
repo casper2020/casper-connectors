@@ -469,7 +469,12 @@ void ev::curl::Device::MultiContext::Process (ev::curl::Device::MultiContext* a_
                                              it->second.request_ptr_->AsString(),
                                              it->second.request_ptr_->Elapsed()
             );
-            reply->SetInfo(easy);
+            CC_IF_DEBUG_ELSE({
+                const auto& debug = it->second.request_ptr_->debug();
+                reply->SetInfo(easy, ( true == debug.enabled_ ? &debug.data_ : nullptr ));
+            }, {
+                reply->SetInfo(easy);
+            });
             // ... result ...
             result->AttachDataObject(reply);
         } else {

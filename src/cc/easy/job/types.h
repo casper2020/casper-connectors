@@ -28,6 +28,7 @@
 #define CC_JOB_LOG_LEVEL_INF 4 // INFO
 #define CC_JOB_LOG_LEVEL_VBS 5 // VERBOSE
 #define CC_JOB_LOG_LEVEL_DBG 6 // DEBUG
+#define CC_JOB_LOG_LEVEL_PRN 7 // PARANOID
 
 #define CC_JOB_LOG_STEP_IN        "IN"
 #define CC_JOB_LOG_STEP_OUT       "OUT"

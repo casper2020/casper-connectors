@@ -90,8 +90,9 @@ ev::curl::Reply::~Reply ()
  * @brief Load info from a cURL easy handle.
  *
  * @param a_handle cURL easy handle.
+ * @param a_debug  cURL debug data.
  */
-void ev::curl::Reply::SetInfo (const CURL* a_handle)
+void ev::curl::Reply::SetInfo (const CURL* a_handle CC_IF_DEBUG(, const std::vector<std::string>* a_debug))
 {
     std::map<CURLINFO, std::string> string_info = {
         { CURLINFO_EFFECTIVE_URL, "" },
@@ -129,4 +130,9 @@ void ev::curl::Reply::SetInfo (const CURL* a_handle)
         }
     }
     value_.SetInfo(version, string_info[CURLINFO_EFFECTIVE_URL]);
+    CC_IF_DEBUG(
+        if ( nullptr != a_debug ) {
+            debug_ = (*a_debug);
+        }
+    )
 }

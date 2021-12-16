@@ -46,6 +46,7 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
     low_speed_limit_      = 0; // 0 - disabled
     low_speed_time_       = 0; // 0 - disabled
     max_recv_speed_       = 0; // 0 - disabled
+    max_send_speed_       = 0; // 0 - disabled
     initialization_error_ = CURLE_FAILED_INIT;
     aborted_              = false;
     headers_              = nullptr;
@@ -65,6 +66,7 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
     initialization_error_ += curl_easy_setopt(handle_, CURLOPT_LOW_SPEED_LIMIT     , low_speed_limit_);
     initialization_error_ += curl_easy_setopt(handle_, CURLOPT_LOW_SPEED_TIME      , low_speed_time_);
     initialization_error_ += curl_easy_setopt(handle_, CURLOPT_MAX_RECV_SPEED_LARGE, max_recv_speed_);
+    initialization_error_ += curl_easy_setopt(handle_, CURLOPT_MAX_SEND_SPEED_LARGE, max_send_speed_);
     initialization_error_ += curl_easy_setopt(handle_, CURLOPT_HEADERFUNCTION      , HeaderFunctionCallbackWrapper);
     initialization_error_ += curl_easy_setopt(handle_, CURLOPT_HEADERDATA          , this);
     initialization_error_ += curl_easy_setopt(handle_, CURLOPT_FORBID_REUSE        , 1L);
@@ -179,6 +181,14 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
     
     s_tp_ = std::chrono::steady_clock::now();
     e_tp_ = s_tp_;
+    
+    CC_IF_DEBUG(
+        debug_.enabled_         = false;
+        debug_.callback_        = nullptr;
+        debug_.progress_        = nullptr;
+        debug_.percentage_up_   = 0.0;
+        debug_.percentage_down_ = 0.0;
+    )
 }
 
 /**
@@ -300,13 +310,37 @@ size_t ev::curl::Request::OnHeaderReceived (void* a_ptr, size_t a_size, size_t a
  * @param a_ul_total
  * @param a_ul_now
  */
-int ev::curl::Request::OnProgressChanged (curl_off_t /* a_dl_total */, curl_off_t /* a_dl_now */, curl_off_t /* a_ul_total */, curl_off_t /* a_ul_now */)
+int ev::curl::Request::OnProgressChanged (curl_off_t a_dl_total, curl_off_t a_dl_now, curl_off_t a_ul_total, curl_off_t a_ul_now)
 {
     OSALITE_DEBUG_TRACE("curl",
                         "%p : %s ...",
                         this, url_.c_str()
     );
-
+    
+    OSALITE_DEBUG_TRACE("curl",
+                        "UP: %" CURL_FORMAT_CURL_OFF_T " of %" CURL_FORMAT_CURL_OFF_T "  DOWN: %" CURL_FORMAT_CURL_OFF_T " of %" CURL_FORMAT_CURL_OFF_T,
+                        a_ul_now, a_ul_total, a_dl_now, a_dl_total);
+    
+    CC_IF_DEBUG(
+        if ( ev::curl::Request::Step::NotSet != step_ && nullptr != debug_.progress_ ) {
+            if ( ev::curl::Request::Step::ReadingBody == step_ && 0 != a_dl_total ) {
+                // ... upload done, report download progress ...
+                const uint8_t value = uint8_t( float(a_dl_now * 100) / float(a_dl_total) );
+                if ( debug_.percentage_down_ != value ) {
+                    debug_.percentage_down_ = value;
+                    debug_.progress_(*this, debug_.percentage_down_, false);
+                }
+            } else if ( ev::curl::Request::Step::WritingBody == step_ && 0 != a_ul_total ) {
+                // ... upload in progress ...
+                const uint8_t value = uint8_t( float(a_ul_now * 100) / float(a_ul_total) );
+                if ( debug_.percentage_up_ != value ) {
+                    debug_.percentage_up_ = value;
+                    debug_.progress_(*this, debug_.percentage_up_, true);
+                }
+            }
+        }
+    )
+        
     if ( true == aborted_ ) {
         return -1; // ... abort now ..
     } else {
@@ -484,6 +518,71 @@ size_t ev::curl::Request::ReadDataCallbackWrapper (char* o_buffer, size_t a_size
 {
     return static_cast<ev::curl::Request*>(a_self)->OnSendBody(o_buffer, a_size, a_nm_elem);
 }
+
+// MARK: -
+
+CC_IF_DEBUG(
+/**
+ * @brief This function gets called by libcurl for debug proposes.
+ *
+ *        https://curl.se/libcurl/c/CURLOPT_DEBUGFUNCTION.html
+ *
+ * @param a_handle
+ * @param a_type
+ * @param a_data
+ * @param a_size
+ * @param a_self
+ */
+int ev::curl::Request::DebugCallbackWrapper (CURL* a_handle, curl_infotype a_type, char* a_data, size_t a_size, void* a_self)
+{
+    CC_ASSERT(nullptr != a_self);
+
+    ev::curl::Request* instance = static_cast<ev::curl::Request*>(a_self);
+        
+    (void)a_handle;
+    bool done = false;
+    switch (a_type) {
+        case CURLINFO_HEADER_OUT:
+            instance->debug_.tmp_ = "=> Send header";
+            break;
+        case CURLINFO_DATA_OUT:
+            instance->debug_.tmp_ = "=> Send data";
+            break;
+        case CURLINFO_SSL_DATA_OUT:
+            instance->debug_.tmp_ = "=> Send SSL data";
+            break;
+        case CURLINFO_HEADER_IN:
+            instance->debug_.tmp_ = "<= Recv header";
+            break;
+        case CURLINFO_DATA_IN:
+            instance->debug_.tmp_ = "<= Recv data";
+            break;
+        case CURLINFO_SSL_DATA_IN:
+            instance->debug_.tmp_ = "<= Recv SSL data";
+            break;
+        case CURLINFO_TEXT:
+            instance->debug_.tmp_ = "== Info: " + std::string(reinterpret_cast<const char*>(a_data), a_size);
+        default:
+            done = true;
+            break;
+    }
+    // ... notify or keep track of it ...
+    if ( nullptr != instance->debug_.callback_ ) {
+        instance->debug_.callback_(*instance, instance->debug_.tmp_);
+        if ( false == done ) {
+            instance->debug_.tmp_ = "== Data: " + std::string(reinterpret_cast<const char*>(a_data), a_size);
+            instance->debug_.callback_(*instance, instance->debug_.tmp_);
+        }
+    } else {
+        instance->debug_.data_.push_back(instance->debug_.tmp_);
+        if ( false == done ) {
+            instance->debug_.data_.push_back("== Data: " + std::string(reinterpret_cast<const char*>(a_data), a_size));
+        }
+    }
+    // ... done ..
+    return 0;
+}
+)
 
 // MARK: -
 

@@ -655,6 +655,15 @@ void cc::easy::OAuth2HTTPClient::Async (::ev::curl::Request* a_request, const st
     const std::string id     = CC_OBJECT_HEX_ADDRESS(a_request);
     const std::string method = a_request->method();
 
+    CC_IF_DEBUG(
+        if ( nullptr != cURLed_callbacks_.debug_ ) {
+            a_request->EnableDebug(cURLed_callbacks_.debug_);
+        }
+        if ( nullptr != cURLed_callbacks_.progress_ ) {
+            a_request->EnableDebugProgress(cURLed_callbacks_.progress_);
+        }
+    )
+    
     // ... prepare task ...
     ::ev::scheduler::Task* t = NewTask([CC_IF_DEBUG(token, )a_request, id, this] () -> ::ev::Object* {
         // ... log request?

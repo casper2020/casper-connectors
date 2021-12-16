@@ -78,6 +78,18 @@ namespace ev
                 WritingHeaders,
                 WritingBody
             }; // end of enum 'Step'
+            
+            CC_IF_DEBUG(
+                typedef struct {
+                    std::string                                                    tmp_;
+                    std::vector<std::string>                                       data_;
+                    bool                                                           enabled_;
+                    std::function<void(const Request&, const std::string&)>        callback_;
+                    std::function<void(const Request&, const uint8_t, const bool)> progress_;
+                    uint8_t                                                        percentage_up_;
+                    uint8_t                                                        percentage_down_;
+                } Debug;
+            )
 
         private: // Const Data
 
@@ -90,6 +102,7 @@ namespace ev
             long                               low_speed_limit_;      //!< Low speed limit in bytes per second, 0 disabled.
             long                               low_speed_time_;       //!< Low speed limit time period, 0 disabled.
             curl_off_t                         max_recv_speed_;       //!< Rate limit data download speed, 0 disabled.
+            curl_off_t                         max_send_speed_;       //!< Rate limit data upload speed, 0 disabled.
             int                                initialization_error_; //!< Error codes accumulator.
             bool                               aborted_;              //!< When true the current request must be aborder a.s.a.p.
             struct curl_slist*                 headers_;              //!< Request out headers.
@@ -112,10 +125,13 @@ namespace ev
             std::chrono::steady_clock::time_point s_tp_;
             std::chrono::steady_clock::time_point e_tp_;
 
-        private: // Const Data
+        private: // Data
 
-            std::string                        dummy_;                //!<
-                                                                      //!
+            std::string             dummy_;                 //!<
+            
+        private: // Debug Data
+            
+            CC_IF_DEBUG(Debug       debug_;)                //!<
         
         private: // FOR DEBUG LOGGING PROPOSES ONLY ONLY
             
@@ -145,6 +161,11 @@ namespace ev
             const ::cc::fs::Exception* tx_exp      () const;
             void                       SetReadBodyFrom        (const std::string& a_uri);
             void                       SetWriteResponseBodyTo (const std::string& a_uri);
+            CC_IF_DEBUG(
+                void                   EnableDebug            (std::function<void(const Request&, const std::string&)> a_callback);
+                void                   EnableDebugProgress    (std::function<void(const Request&, const float,  const bool)> a_callback);
+                const Debug&           debug                  () const;
+            );
             void                       Close                  ();
             
             void                       SetStarted  ();
@@ -196,6 +217,10 @@ namespace ev
 
             static size_t WriteDataCallbackWrapper      (char* a_buffer, size_t a_size, size_t a_nm_elem, void* a_self);
             static size_t ReadDataCallbackWrapper       (char* o_buffer, size_t a_size, size_t a_nm_elem, void* a_self);
+            
+            CC_IF_DEBUG(
+                static int DebugCallbackWrapper          (CURL* a_handle, curl_infotype a_type, char* a_data, size_t a_size, void* a_self);
+            )                    
             
         public: // Static Method(s) / Function(s)
             
@@ -272,6 +297,46 @@ namespace ev
             rx_uri_ = a_uri;
             rx_fw_.Open(rx_uri_, ::cc::fs::file::Writer::Mode::Write);
         }
+    
+        CC_IF_DEBUG(
+            /**
+             * @brief Enable debug.
+             *
+             * @param a_callback Function to call to deliver each debug line.
+             */
+            inline void Request::EnableDebug (std::function<void(const Request&, const std::string&)> a_callback)
+            {
+                if ( CURLE_OK == initialization_error_ ) {
+                    // ... debug ( DEBUGFUNCTION has no effect until we enable VERBOSE ) ...
+                    initialization_error_ += curl_easy_setopt(handle_, CURLOPT_VERBOSE      , 1L);
+                    initialization_error_ += curl_easy_setopt(handle_, CURLOPT_DEBUGDATA    , this);
+                    initialization_error_ += curl_easy_setopt(handle_, CURLOPT_DEBUGFUNCTION, DebugCallbackWrapper);
+                }
+                if ( true == ( debug_.enabled_ = ( CURLE_OK == initialization_error_ ) ) ) {
+                    debug_.callback_ = a_callback;
+                }
+            }
+
+            /**
+             * @brief Enable progress callback.
+             *
+             * @param a_callback Function to call to deliver each debug line.
+             */
+            inline void Request::EnableDebugProgress (std::function<void(const Request&, const float,  const bool)> a_callback)
+            {
+                debug_.progress_ = a_callback;
+            }
+        )
+        
+        CC_IF_DEBUG(
+        /*
+         * @return R/O access to debug data.
+         */
+        inline const Request::Debug& Request::debug () const
+        {
+            return debug_;
+        }
+        )
     
         /**
          * @brief Close all open files ( if any ).

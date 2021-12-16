@@ -27,6 +27,8 @@
 
 #include "curl/curl.h" // CURL
 
+#include "cc/debug/types.h"
+
 #include <string>
 
 namespace ev
@@ -40,7 +42,13 @@ namespace ev
             
         private: // Data
 
-            Value value_;
+            Value                    value_;
+        
+        private: // Debug Data
+            
+        CC_IF_DEBUG(
+            std::vector<std::string> debug_;
+        )
 
         public: // Constructor(s) / Destructor
 
@@ -54,7 +62,7 @@ namespace ev
 
         public: // Method(s) / Function(s)
             
-            void SetInfo (const CURL* a_handle);
+            void SetInfo (const CURL* a_handle CC_IF_DEBUG(, const std::vector<std::string>* a_debug = nullptr));
             
         }; // end of class 'Reply'
 
