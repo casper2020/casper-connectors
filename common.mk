@@ -63,9 +63,10 @@ CONNECTORS_CC_DEBUG_SRC:= \
  $(PROJECT_SRC_DIR)/src/cc/debug/types.cc
 
 CONNECTORS_CC_V8_SRC := \
-  $(PROJECT_SRC_DIR)/src/cc/v8/script.cc  \
-  $(PROJECT_SRC_DIR)/src/cc/v8/context.cc \
-  $(PROJECT_SRC_DIR)/src/cc/v8/singleton.cc
+  $(PROJECT_SRC_DIR)/src/cc/v8/script.cc          \
+  $(PROJECT_SRC_DIR)/src/cc/v8/context.cc         \
+  $(PROJECT_SRC_DIR)/src/cc/v8/singleton.cc       \
+  $(PROJECT_SRC_DIR)/src/cc/v8/basic/evaluator.cc
 
 CONNECTORS_CC_LOGS_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/logs/basic.cc
