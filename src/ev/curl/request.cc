@@ -293,7 +293,7 @@ size_t ev::curl::Request::OnHeaderReceived (void* a_ptr, size_t a_size, size_t a
 }
 
 /**
- * @brief This callback function gets called by libcurl as soon as there is data received that needs to be saved.
+ * @brief This function gets called by libcurl as soon as there is data received that needs to be saved.
  *
  * @param a_dl_total
  * @param a_dl_now
@@ -315,7 +315,7 @@ int ev::curl::Request::OnProgressChanged (curl_off_t /* a_dl_total */, curl_off_
 }
 
 /**
- * @brief This callback function gets called by libcurl as soon as there is data received that needs to be saved.
+ * @brief This function gets called by libcurl as soon as there is data received that needs to be saved.
  *
  * @param a_buffer
  * @param a_size
@@ -354,7 +354,7 @@ size_t ev::curl::Request::OnBodyReceived (char* a_buffer, size_t a_size, size_t 
 }
 
 /**
- * @brief This callback function gets called by libcurl as soon as it needs to read data in order to send it to the peer.
+ * @brief This function gets called by libcurl as soon as it needs to read data in order to send it to the peer.
  *
  *        https://curl.haxx.se/libcurl/c/CURLOPT_READFUNCTION.html
  *
@@ -440,7 +440,7 @@ size_t ev::curl::Request::HeaderFunctionCallbackWrapper (void* a_ptr, size_t a_s
 }
 
 /**
- * @brief This callback function gets called by libcurl as soon as there is data received that needs to be saved.
+ * @brief This function gets called by libcurl as soon as there is data received that needs to be saved.
  *
  *        https://curl.haxx.se/libcurl/c/CURLOPT_XFERINFOFUNCTION.html
  *
@@ -456,7 +456,7 @@ int ev::curl::Request::ProgressCallbackWrapper (void* a_self, curl_off_t a_dl_to
 }
 
 /**
- * @brief This callback function gets called by libcurl as soon as there is data received that needs to be saved.
+ * @brief This function gets called by libcurl as soon as there is data received that needs to be saved.
  *
  *        https://curl.haxx.se/libcurl/c/CURLOPT_WRITEFUNCTION.html
  *
@@ -471,7 +471,7 @@ size_t ev::curl::Request::WriteDataCallbackWrapper (char* a_buffer, size_t a_siz
 }
 
 /**
- * @brief This callback function gets called by libcurl as soon as it needs to read data in order to send it to the peer.
+ * @brief This function gets called by libcurl as soon as it needs to read data in order to send it to the peer.
  *
  *        https://curl.haxx.se/libcurl/c/CURLOPT_READFUNCTION.html
  *
