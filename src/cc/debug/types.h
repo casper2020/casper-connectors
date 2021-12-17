@@ -158,12 +158,6 @@
         return tmp; \
     } ()
 
-    #define CC_OBJECT_HEX_ADDRESS(a_ptr) [&] () -> std::string { \
-        std::stringstream ss; \
-        ss << std::hex << static_cast<void*>(a_ptr); \
-        return ss.str(); \
-    } ()
-
 #if 1
 
     typedef struct {

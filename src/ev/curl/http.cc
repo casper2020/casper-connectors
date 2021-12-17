@@ -256,7 +256,7 @@ void ::ev::curl::HTTP::Async (::ev::curl::Request* a_request,
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, url   , a_request->url());
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, token , CC_QUALIFIED_CLASS_NAME(this));
 
-    const std::string id     = CC_OBJECT_HEX_ADDRESS(a_request);
+    const std::string id     = CC_OBJECT_HEX_ADDR(a_request);
     const std::string method = a_request->method();
 
     NewTask([CC_IF_DEBUG(token, )id, a_request, this] () -> ::ev::Object* {
