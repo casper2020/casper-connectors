@@ -90,6 +90,8 @@ namespace ev
                     uint8_t                                                        percentage_down_;
                 } Debug;
             )
+            
+            typedef std::function<void()> OneShotSetup;
 
         private: // Const Data
 
@@ -113,6 +115,8 @@ namespace ev
             std::string                        rx_body_;              //!<
             std::string                        tx_body_;              //!<
             size_t                             tx_count_;             //!<
+            EV_CURL_FORM_FIELDS                tx_fields_;            //!< for POST to be used instead of tx_body
+            struct curl_httppost*              tx_post_;
             
             ::cc::fs::file::Writer             rx_fw_;                //!< Response file writer.
             std::string                        rx_uri_;               //!< FILE URI where the received response will be written to.
@@ -124,6 +128,8 @@ namespace ev
             
             std::chrono::steady_clock::time_point s_tp_;
             std::chrono::steady_clock::time_point e_tp_;
+            
+            OneShotSetup                          post_setup_;
 
         private: // Data
 
@@ -138,11 +144,22 @@ namespace ev
             EV_CURL_HEADERS_MAP tx_headers_;
 
         public: // Constructor(s) / Destructor
-
+            
             Request (const Loggable::Data& a_loggable_data,
                      const HTTPRequestType& a_type, const std::string& a_url,
                      const EV_CURL_HEADERS_MAP* a_headers = nullptr, const std::string* a_body = nullptr, const Timeouts* a_timeouts = nullptr);
+
+            Request (const Loggable::Data& a_loggable_data, const std::string& a_url, const EV_CURL_HEADERS_MAP* a_headers, const EV_CURL_FORM_FIELDS& a_form_fields, const Timeouts* a_timeouts = nullptr);
+
             virtual ~Request();
+            
+        public: // Method(s) / Function(s)
+            
+            CURL* Setup ();
+            
+        private: // Method(s) / Function(s)
+                        
+            void Initialize (const std::string& a_url, const EV_CURL_HEADERS_MAP* a_headers, const Request::Timeouts* a_timeouts, const std::function<void()> a_callback);
 
         public: // Inherited Virtual Method(s) / Function(s)
 
@@ -151,7 +168,6 @@ namespace ev
 
         public: // Inline Method(s) / Function(s)
 
-            CURL*                      easy_handle ();
             const std::string&         url         () const;
             const Timeouts&            timeouts    () const;
 
@@ -159,6 +175,8 @@ namespace ev
             
             const ::cc::fs::Exception* rx_exp      () const;
             const ::cc::fs::Exception* tx_exp      () const;
+            void                       SetUserAgent           (const std::string& a_value);
+            void                       SetFollowLocation      ();
             void                       SetReadBodyFrom        (const std::string& a_uri);
             void                       SetWriteResponseBodyTo (const std::string& a_uri);
             CC_IF_DEBUG(
@@ -202,7 +220,7 @@ namespace ev
                         return "???";
                 }
             }
-            
+
         protected:
 
             virtual size_t OnHeaderReceived             (void* a_ptr, size_t a_size, size_t a_nm_elem);
@@ -227,14 +245,6 @@ namespace ev
             static std::string Escape (const std::string& a_value);
 
         }; // end of class 'Request'
-
-        /**
-         * @return Access to CURL easy handle.
-         */
-        inline CURL* Request::easy_handle ()
-        {
-            return handle_;
-        }
 
         /**
          * @return Readonly access to URL.
@@ -275,6 +285,28 @@ namespace ev
         {
             return tx_exp_;
         }
+    
+        /**
+         * @brief Set to allow follow any Locaotion header.
+         */
+        inline void Request::SetFollowLocation ()
+        {
+            if ( CURLE_FAILED_INIT == initialization_error_ || CURLE_OK == initialization_error_ ) {
+                initialization_error_ += curl_easy_setopt(Setup(), CURLOPT_FOLLOWLOCATION, 1L);
+            }
+        }
+        
+        /**
+         * @brief Set User-Agent header value.
+         *
+         * @param a_value User-Agent header value.
+         */
+        inline void Request::SetUserAgent (const std::string& a_value)
+        {
+            if ( CURLE_FAILED_INIT == initialization_error_ || CURLE_OK == initialization_error_ ) {
+                initialization_error_ += curl_easy_setopt(Setup(), CURLOPT_USERAGENT, a_value.c_str());
+            }
+        }
 
         /**
          * @brief Send body from a file.
@@ -306,11 +338,11 @@ namespace ev
              */
             inline void Request::EnableDebug (std::function<void(const Request&, const std::string&)> a_callback)
             {
-                if ( CURLE_OK == initialization_error_ ) {
+                if ( CURLE_FAILED_INIT == initialization_error_ || CURLE_OK == initialization_error_ ) {
                     // ... debug ( DEBUGFUNCTION has no effect until we enable VERBOSE ) ...
-                    initialization_error_ += curl_easy_setopt(handle_, CURLOPT_VERBOSE      , 1L);
-                    initialization_error_ += curl_easy_setopt(handle_, CURLOPT_DEBUGDATA    , this);
-                    initialization_error_ += curl_easy_setopt(handle_, CURLOPT_DEBUGFUNCTION, DebugCallbackWrapper);
+                    initialization_error_ += curl_easy_setopt(Setup(), CURLOPT_VERBOSE      , 1L);
+                    initialization_error_ += curl_easy_setopt(Setup(), CURLOPT_DEBUGDATA    , this);
+                    initialization_error_ += curl_easy_setopt(Setup(), CURLOPT_DEBUGFUNCTION, DebugCallbackWrapper);
                 }
                 if ( true == ( debug_.enabled_ = ( CURLE_OK == initialization_error_ ) ) ) {
                     debug_.callback_ = a_callback;

@@ -73,8 +73,15 @@ namespace ev
             
             cURLedCallbacks cURLed_callbacks_;
             bool            cURLed_redact_;
+            bool            follow_location_;
+            std::string     user_agent_;
 
         public: // Method(s) / Function(s)
+
+            void HEAD   (const Loggable::Data& a_loggable_data,
+                         const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
+                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                         const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
             void GET    (const Loggable::Data& a_loggable_data,
                          const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
@@ -85,6 +92,12 @@ namespace ev
                          const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                          EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
                          const std::string& a_uri,
+                         const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
+
+            void PUT   (const Loggable::Data& a_loggable_data,
+                         const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
+                         const std::string* a_body,
+                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_ERROR_CALLBACK a_error_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
                          const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
             void PUT    (const Loggable::Data& a_loggable_data,
@@ -105,6 +118,12 @@ namespace ev
                          EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
                          const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
+            void PATCH   (const Loggable::Data& a_loggable_data,
+                         const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
+                         const std::string* a_body,
+                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_ERROR_CALLBACK a_error_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                         const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
+
             void PATCH  (const Loggable::Data& a_loggable_data,
                          const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                          const std::string* a_body,
@@ -116,8 +135,32 @@ namespace ev
                          const std::string* a_body,
                          EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
                          const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
-            
+
+            void DELETE (const Loggable::Data& a_loggable_data,
+                         const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
+                         const std::string* a_body,
+                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_ERROR_CALLBACK a_error_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                         const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
+
         public: // Inline Method(s) / Function(s)
+            
+            /**
+             * @brief Set User-Agent header value.
+             *
+             * @param a_value User-Agent header value.
+             */
+            inline void SetUserAgent (const char* const a_value)
+            {
+                user_agent_ = ( nullptr != a_value ? a_value : "" );
+            }
+            
+            /**
+             * @brief Set to allow follow any Locaotion header.
+             */
+            inline void SetFollowLocation ()
+            {
+                follow_location_ = true;
+            }
             
             /**
              * @brief Set log callbacks and if sensitive data should be redacted or not.

@@ -139,7 +139,7 @@ ev::curl::Device::Status ev::curl::Device::Execute (ev::curl::Device::ExecuteCal
         return ev::curl::Device::Status::Error;
     }
 
-    CURL* easy_handle = curl_request->easy_handle();
+    CURL* easy_handle = curl_request->Setup();
     if ( nullptr == easy_handle ) {
         // ... set error message ...
         last_error_msg_   = "Easy handle not set!";

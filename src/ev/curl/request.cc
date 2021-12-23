@@ -25,6 +25,7 @@
 
 #include "osal/osalite.h"
 
+
 /**
  * @brief Default constructor.
  *
@@ -40,21 +41,80 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
                             const EV_CURL_HEADERS_MAP* a_headers, const std::string* a_body, const Request::Timeouts* a_timeouts)
     : ev::Request(a_loggable_data, ev::Object::Target::CURL, ev::Request::Mode::OneShot), http_request_type_(a_type)
 {
-    url_                  = a_url;
-    timeouts_.connection_ = ( nullptr != a_timeouts && -1 != a_timeouts->connection_ ? std::max(1l, a_timeouts->connection_) :   30 );
-    timeouts_.operation_  = ( nullptr != a_timeouts && -1 != a_timeouts->operation_  ? std::max(1l, a_timeouts->operation_)  : 3600 );
-    low_speed_limit_      = 0; // 0 - disabled
-    low_speed_time_       = 0; // 0 - disabled
-    max_recv_speed_       = 0; // 0 - disabled
-    max_send_speed_       = 0; // 0 - disabled
-    initialization_error_ = CURLE_FAILED_INIT;
-    aborted_              = false;
-    headers_              = nullptr;
-    handle_               = curl_easy_init();
+    Initialize(a_url, a_headers, a_timeouts, [this] () {
+        // ... standard POST ...
+        initialization_error_ += curl_easy_setopt(handle_, CURLOPT_POSTFIELDSIZE   , (curl_off_t)tx_body_.size());
+        initialization_error_ += curl_easy_setopt(handle_, CURLOPT_READDATA        , this);
+        initialization_error_ += curl_easy_setopt(handle_, CURLOPT_READFUNCTION    , ReadDataCallbackWrapper);
+    });
+    tx_body_ = ( nullptr != a_body ? *a_body : "" );
+}
+
+/**
+ * @brief Default constructor.
+ *
+ * @param a_loggable_data
+ * @param a_logger_module
+ * @param a_type
+ * @param a_payload
+ * @param a_headers
+ * @param a_timeouts
+ */
+ev::curl::Request::Request (const Loggable::Data& a_loggable_data, const std::string& a_url, const EV_CURL_HEADERS_MAP* a_headers, const EV_CURL_FORM_FIELDS& a_form_fields, const Timeouts* a_timeouts)
+: ev::Request(a_loggable_data, ev::Object::Target::CURL, ev::Request::Mode::OneShot), http_request_type_(ev::curl::Request::HTTPRequestType::POST)
+{
+    CC_DEBUG_ASSERT(0 != a_form_fields.size());
+    Initialize(a_url, a_headers, a_timeouts, [this] () {
+        // ... form POST ...
+        struct curl_httppost *lastptr = nullptr;
+        for ( const auto& field : tx_fields_ ) {
+            initialization_error_ += curl_formadd(&tx_post_, &lastptr, CURLFORM_COPYNAME, field.name_.c_str(), CURLFORM_PTRCONTENTS, field.value_.c_str(), CURLFORM_END);
+        }
+        initialization_error_ += curl_easy_setopt(handle_, CURLOPT_HTTPPOST, tx_post_);
+    });
+    tx_fields_ = a_form_fields;
+}
+
+/**
+ * @brief Destructor
+ */
+ev::curl::Request::~Request ()
+{
+    if ( nullptr != headers_ ) {
+        curl_slist_free_all(headers_);
+    }
+    if ( nullptr != handle_ ) {
+        curl_easy_cleanup(handle_);
+    }
+    if ( nullptr != rx_exp_ ) {
+        delete rx_exp_;
+    }
+    if ( nullptr != tx_exp_ ) {
+        delete tx_exp_;
+    }
+    if ( nullptr != tx_post_ ) {
+        curl_formfree(tx_post_);
+    }
+}
+
+// MARK: -
+
+/**
+ * @brief Setup request to run.
+ *
+ * @return Access to CURL easy handle.
+ */
+CURL* ev::curl::Request::Setup ()
+{
+    // ... already initialized?
+    if ( nullptr != handle_ ) {
+        return handle_;
+    }
+    // ... initialize it now ...
+    handle_ = curl_easy_init();
     if ( nullptr == handle_ ) {
         throw ev::Exception("Failed to initialize a CURL handle!");
     }
-
     // ... setup common handle options ...
     initialization_error_  = curl_easy_setopt(handle_, CURLOPT_URL                 , url_.c_str());
     initialization_error_ += curl_easy_setopt(handle_, CURLOPT_NOSIGNAL            , 1);
@@ -95,19 +155,18 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
             curl_easy_cleanup(handle_);
             handle_ = nullptr;
             throw ev::Exception("Unsupported HTTP request type " UINT8_FMT,
-				static_cast<uint8_t>(http_request_type_)
-	    );
+                static_cast<uint8_t>(http_request_type_)
+        );
     }
-
-    tx_body_ = nullptr != a_body ? *a_body : "";
-
     // ... setup handle callbacks according to HTTP request type ...
     switch ( http_request_type_ ) {
         case ev::curl::Request::HTTPRequestType::POST:
         {
-            initialization_error_ += curl_easy_setopt(handle_, CURLOPT_POSTFIELDSIZE   , (curl_off_t)tx_body_.size());
-            initialization_error_ += curl_easy_setopt(handle_, CURLOPT_READDATA        , this);
-            initialization_error_ += curl_easy_setopt(handle_, CURLOPT_READFUNCTION    , ReadDataCallbackWrapper);
+            // ... sanity check ...
+            CC_DEBUG_ASSERT(nullptr != post_setup_);
+            // ... setup POST ...
+            post_setup_();
+            // ... setuo common POST ...
             initialization_error_ += curl_easy_setopt(handle_, CURLOPT_WRITEDATA       , this);
             initialization_error_ += curl_easy_setopt(handle_, CURLOPT_WRITEFUNCTION   , WriteDataCallbackWrapper);
         }
@@ -128,10 +187,9 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
         default:
             break;
     }
-
-    // ... append headers?
-    if ( nullptr != a_headers && a_headers->size() > 0 ) {
-        for ( auto h_it = a_headers->begin() ; a_headers->end() != h_it ; ++h_it ) {
+    // ... set headers ...
+    if ( tx_headers_.size() > 0 ) {
+        for ( auto h_it = tx_headers_.begin() ; tx_headers_.end() != h_it ; ++h_it ) {
             const std::string header = h_it->first + ":" + ( h_it->second.front().length() > 0 ? " " + h_it->second.front() : "" );
             headers_ = curl_slist_append(headers_, header.c_str());
             if ( nullptr == headers_ ) {
@@ -141,13 +199,10 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
                 }
                 throw ev::Exception("Unable to append request headers - nullptr!");
             }
-            tx_headers_[h_it->first] = h_it->second;
         }
-        initialization_error_ += curl_easy_setopt(handle_, CURLOPT_HTTPHEADER, headers_);
     }
-
-
-    if ( ev::curl::Request::HTTPRequestType::POST == http_request_type_ ) {
+    // ... override header(s) ...
+    if ( ev::curl::Request::HTTPRequestType::POST == http_request_type_ && nullptr == tx_post_ ) {
         const std::string content_length = "Content-Length: " + std::to_string(tx_body_.size());
         headers_ = curl_slist_append(headers_, content_length.c_str());
         if ( nullptr == headers_ ) {
@@ -158,10 +213,10 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
             throw ev::Exception("Unable to append request headers - nullptr!");
         }
     }
-    
-    step_     = ev::curl::Request::Step::NotSet;
-    tx_count_ = 0;
-
+    // ... set final headers ...
+    if ( nullptr != headers_ ) {
+        initialization_error_ += curl_easy_setopt(handle_, CURLOPT_HTTPHEADER, headers_);
+    }
     // ... check for error(s) ...
     if ( initialization_error_ != CURLE_OK ) {
         if ( nullptr != headers_ ) {
@@ -175,12 +230,49 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
         tx_body_ = "";
         throw ev::Exception("Unable to initializer CURL handle - error code %d!", initialization_error_);
     }
+    // ... done ...
+    return handle_;
+}
+
+// MARK: -
+/**
+ * @brief Initialize class members.
+ *
+ * @param a_url
+ * @param a_headers
+ * @param a_timeouts
+ * @param a_callback
+ */
+void ev::curl::Request::Initialize (const std::string& a_url, const EV_CURL_HEADERS_MAP* a_headers, const Request::Timeouts* a_timeouts, const std::function<void()> a_callback)
+{
+    url_                  = a_url;
+    timeouts_.connection_ = ( nullptr != a_timeouts && -1 != a_timeouts->connection_ ? std::max(1l, a_timeouts->connection_) :   30 );
+    timeouts_.operation_  = ( nullptr != a_timeouts && -1 != a_timeouts->operation_  ? std::max(1l, a_timeouts->operation_)  : 3600 );
+    low_speed_limit_      = 0; // 0 - disabled
+    low_speed_time_       = 0; // 0 - disabled
+    max_recv_speed_       = 0; // 0 - disabled
+    max_send_speed_       = 0; // 0 - disabled
+    initialization_error_ = CURLE_FAILED_INIT;
+    aborted_              = false;
+    headers_              = nullptr;
+    handle_               = nullptr;
+    tx_post_              = nullptr;
+    if ( nullptr != a_headers && a_headers->size() > 0 ) {
+        for ( auto h_it = a_headers->begin() ; a_headers->end() != h_it ; ++h_it ) {
+            const std::string header = h_it->first + ":" + ( h_it->second.front().length() > 0 ? " " + h_it->second.front() : "" );
+            tx_headers_[h_it->first] = h_it->second;
+        }
+    }
+    step_     = ev::curl::Request::Step::NotSet;
+    tx_count_ = 0;
     
     rx_exp_ = nullptr;
     tx_exp_ = nullptr;
     
     s_tp_ = std::chrono::steady_clock::now();
     e_tp_ = s_tp_;
+    
+    post_setup_ = a_callback;
     
     CC_IF_DEBUG(
         debug_.enabled_         = false;
@@ -189,25 +281,8 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
         debug_.percentage_up_   = 0.0;
         debug_.percentage_down_ = 0.0;
     )
-}
 
-/**
- * @brief Destructor
- */
-ev::curl::Request::~Request ()
-{
-    if ( nullptr != headers_ ) {
-        curl_slist_free_all(headers_);
-    }
-    if ( nullptr != handle_ ) {
-        curl_easy_cleanup(handle_);
-    }
-    if ( nullptr != rx_exp_ ) {
-        delete rx_exp_;
-    }
-    if ( nullptr != tx_exp_ ) {
-        delete tx_exp_;
-    }
+    CC_DEBUG_ASSERT(CURLE_FAILED_INIT == initialization_error_);
 }
 
 #ifdef __APPLE__

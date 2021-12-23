@@ -94,7 +94,7 @@ namespace cc
         public: // Constructor / Destructor
 
             HTTPClient () = delete;
-            HTTPClient (const ev::Loggable::Data& a_loggable_data);
+            HTTPClient (const ev::Loggable::Data& a_loggable_data, const char* const a_user_agent = nullptr);
             virtual ~HTTPClient();
             
         public: // Method(s) / Function(s)
@@ -105,12 +105,28 @@ namespace cc
             void POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
                        Callbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
+            void HEAD (const std::string& a_url, const CC_HTTP_HEADERS& a_headers,
+                       RawCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
+
             void GET  (const std::string& a_url, const CC_HTTP_HEADERS& a_headers,
+                       RawCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
+
+            void PUT (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
                        RawCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
             void POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
                        RawCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
+
+            void PATCH (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
+                       RawCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
+
+            void DELETE (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string* a_body,
+                         RawCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
             
+        public: // Static Method(s) / Function(s)
+            
+            static void SetURLQuery (const std::string& a_url, const std::map<std::string, std::string>& a_params, std::string& o_url);
+
         public: // Inline Method(s) / Function(s) - one-shot call
             
             /**
@@ -131,6 +147,14 @@ namespace cc
             inline bool cURLedShouldRedact () const
             {
                 return http_.cURLedShouldRedact();
+            }
+            
+            /**
+             * @brief Set to allow follow any Locaotion header.
+             */
+            inline void SetFollowLocation ()
+            {
+                http_.SetFollowLocation();
             }
 
         }; // end of class 'HTTP'
@@ -230,17 +254,26 @@ namespace cc
                 std::string client_secret_;
             } Credentials;
             
-            typedef struct {
-                std::string id_;
-                bool        rfc_6749_strict_;
-            } GrantType;
+            enum class GrantType : uint8_t {
+                NotSet = 0x00,
+                AuthorizationCode,
+                ClientCredentials,
+            };
             
             typedef struct {
-                GrantType   grant_type_;
-                URLs        urls_;
-                Credentials credentials_;
-                std::string redirect_uri_;
-                std::string scope_;
+                std::string name_;
+                GrantType   type_;
+                bool        rfc_6749_strict_;
+                bool        formpost_;
+                bool        auto_;
+            } GrantTypeConfig;
+            
+            typedef struct {
+                GrantTypeConfig grant_;
+                URLs            urls_;
+                Credentials     credentials_;
+                std::string     redirect_uri_;
+                std::string     scope_;
             } OAuth2;
             
             typedef struct {
@@ -284,23 +317,30 @@ namespace cc
         public: // Constructor / Destructor
 
             OAuth2HTTPClient () = delete;            
-            OAuth2HTTPClient (const ev::Loggable::Data& a_loggable_data, const Config& a_config, Tokens& a_tokens);
+            OAuth2HTTPClient (const ev::Loggable::Data& a_loggable_data, const Config& a_config, Tokens& a_tokens, const char* const a_user_agent = nullptr);
             virtual ~OAuth2HTTPClient();
             
         public: // Method(s) / Function(s)
             
             void AuthorizationCodeGrant (const std::string& a_code,
-                                         OAuth2HTTPClient::POSTCallbacks a_callbacks, const bool a_rfc_6749);
+                                         OAuth2HTTPClient::POSTCallbacks a_callbacks, const bool a_rfc_6749, const bool a_formpost = false);
 
             void POST (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
                        OAuth2HTTPClient::POSTCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
+            // MARK: -
+            
             void AuthorizationCodeGrant (const std::string& a_code,
-                                         OAuth2HTTPClient::RAWCallbacks a_callbacks, const bool a_rfc_6749);
+                                         OAuth2HTTPClient::RAWCallbacks a_callbacks, const bool a_rfc_6749, const bool a_formpost = false);
+
+            void AuthorizationCodeGrant (const std::string& a_code, const std::string& a_scope, const std::string& a_state,
+                                         OAuth2HTTPClient::RAWCallbacks a_callbacks, const bool a_rfc_6749, const bool a_formpost);
 
             void AuthorizationCodeGrant (OAuth2HTTPClient::RAWCallbacks a_callbacks);
 
             void ClientCredentialsGrant (OAuth2HTTPClient::RAWCallbacks a_callbacks, const bool a_rfc_6749 = true);
+            
+            // MARK: -
             
             void HEAD (const std::string& a_url, const CC_HTTP_HEADERS& a_headers,
                        OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts = nullptr);
@@ -326,8 +366,6 @@ namespace cc
             void SetcURLedCallbacks               (cURLedCallbacks a_callbacks, bool a_redact);
             
         private: // Helper Method(s) / Function(s)
-            
-            void SetURLQuery (const std::string& a_url, const std::map<std::string, std::string>& a_params, std::string& o_url);
 
             void Async   (::ev::curl::Request* a_request, const std::vector<EV_TASK_CALLBACK> a_then,
                           OAuth2HTTPClient::RAWCallbacks a_callbacks);

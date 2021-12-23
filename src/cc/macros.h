@@ -117,7 +117,7 @@
 #include <sstream>
 #define CC_OBJECT_HEX_ADDR(a_ptr) [&] () -> std::string { \
     std::stringstream ss; \
-    ss << std::hex << static_cast<void*>(a_ptr); \
+    ss << std::hex << static_cast<const void*>(a_ptr); \
     return ss.str(); \
 } ()
 
