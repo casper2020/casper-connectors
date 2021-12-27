@@ -52,7 +52,7 @@ ev::redis::subscriptions::Reply::Reply (const ev::Loggable::Data& a_loggable_dat
     
     ev::LoggerV2::GetInstance().Register(this, { "redis_trace" });
     
-    // ... for debug proposes only ...
+    // ... for debug purposes only ...
     ev::LoggerV2::GetInstance().Log(this, "redis_trace",
                                     "[%-30s] : a_reply = %p, type = %d",
                                     __FUNCTION__,
@@ -64,7 +64,7 @@ ev::redis::subscriptions::Reply::Reply (const ev::Loggable::Data& a_loggable_dat
             
         case REDIS_REPLY_ARRAY: // 2
         {
-            // ... for debug proposes only ...
+            // ... for debug purposes only ...
             ev::LoggerV2::GetInstance().Log(this, "redis_trace",
                                             "[%-30s] : a_reply = %p - 'array': with " SIZET_FMT " element(s)",
                                             __FUNCTION__,
@@ -117,7 +117,7 @@ ev::redis::subscriptions::Reply::Reply (const ev::Loggable::Data& a_loggable_dat
                     ev::redis::subscriptions::Reply::Kind::Unsubscribe;
                 number_of_subscribed_channels_ = static_cast<size_t>(number_of_channels->integer);
                 
-                // ... for debug proposes only ...
+                // ... for debug purposes only ...
                 ev::LoggerV2::GetInstance().Log(this, "redis_trace",
                                                 "[%-30s] : a_reply = %p - 'kind': %s, %s: %s, " SIZET_FMT " subscription(s)",
                                                 __FUNCTION__,
@@ -140,7 +140,7 @@ ev::redis::subscriptions::Reply::Reply (const ev::Loggable::Data& a_loggable_dat
                 kind_    = ev::redis::subscriptions::Reply::Kind::Message;
                 value_   = payload->len > 0 ? std::string(payload->str, payload->len) : "";
                 channel_ = channel_or_pattern->len > 0 ? std::string(channel_or_pattern->str, channel_or_pattern->len) : "";
-                // ... for debug proposes only ...
+                // ... for debug purposes only ...
                 ev::LoggerV2::GetInstance().Log(this, "redis_trace",
                                                 "[%-30s] : a_reply = %p - 'message': %s",
                                                 __FUNCTION__,
@@ -171,7 +171,7 @@ ev::redis::subscriptions::Reply::Reply (const ev::Loggable::Data& a_loggable_dat
                 pattern_ = channel_or_pattern->len > 0 ? std::string(channel_or_pattern->str, channel_or_pattern->len) : "";
                 channel_ = originating_channel->len > 0 ? std::string(originating_channel->str, originating_channel->len) : "";
                 
-                // ... for debug proposes only ...
+                // ... for debug purposes only ...
                 ev::LoggerV2::GetInstance().Log(this, "redis_trace",
                                                 "[%-30s] : a_reply = %p - 'pmessage' %s",
                                                 __FUNCTION__,
@@ -180,7 +180,7 @@ ev::redis::subscriptions::Reply::Reply (const ev::Loggable::Data& a_loggable_dat
                );
                 
             } else {
-                // ... for debug proposes only ...
+                // ... for debug purposes only ...
                 ev::LoggerV2::GetInstance().Log(this, "redis_trace",
                                                 "[%-30s] : a_reply = %p Don't know how to handle '%s'!",
                                                 __FUNCTION__,
@@ -201,14 +201,14 @@ ev::redis::subscriptions::Reply::Reply (const ev::Loggable::Data& a_loggable_dat
             kind_ = ev::redis::subscriptions::Reply::Kind::Status;
             if ( nullptr != a_reply->str && a_reply->len > 0 ) {
                 value_ = std::string(a_reply->str, a_reply->len);
-                // ... for debug proposes only ...
+                // ... for debug purposes only ...
                 ev::LoggerV2::GetInstance().Log(this, "redis_trace",
                                                 "[%-30s] : a_reply = %p - 'status': %s",
                                                 __FUNCTION__,
                                                 a_reply, value_.String().c_str()
                 );
             } else {
-                // ... for debug proposes only ...
+                // ... for debug purposes only ...
                 ev::LoggerV2::GetInstance().Log(this, "redis_trace",
                                                 "[%-30s] : a_reply = %p - 'status': null",
                                                 __FUNCTION__,
@@ -220,7 +220,7 @@ ev::redis::subscriptions::Reply::Reply (const ev::Loggable::Data& a_loggable_dat
             
         default:
         {
-            // ... for debug proposes only ...
+            // ... for debug purposes only ...
             ev::LoggerV2::GetInstance().Log(this, "redis_trace",
                                             "[%-30s] : a_reply = %p Don't know how to handle redis reply type '%d'!",
                                             __FUNCTION__,
@@ -231,7 +231,7 @@ ev::redis::subscriptions::Reply::Reply (const ev::Loggable::Data& a_loggable_dat
         }
     }
     
-    // ... for debug proposes only ...
+    // ... for debug purposes only ...
     ev::LoggerV2::GetInstance().Log(this, "redis_trace",
                                     "[%-30s] : a_reply = %p, type = %d, reply = %p",
                                     __FUNCTION__,

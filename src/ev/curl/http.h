@@ -51,7 +51,7 @@ namespace ev
             typedef struct {
                 std::function<void(const ::ev::curl::Request&, const std::string&)>                    log_request_;
                 std::function<void(const ::ev::curl::Value&, const std::string&)  >                    log_response_;
-                // FOR DEBUG PROPOSES ONLY - NOT READ FOR SAME CONTEXT USAGE AS THE PREVIOUS FUNCTIONS ARE
+                // FOR DEBUG PURPOSES ONLY - NOT READ FOR SAME CONTEXT USAGE AS THE PREVIOUS FUNCTIONS ARE
                 CC_IF_DEBUG(std::function<void(const ::ev::curl::Request&, const uint8_t, const bool)> progress_);
                 CC_IF_DEBUG(std::function<void(const ::ev::curl::Request&, const std::string&)>        debug_   );
             } cURLedCallbacks;

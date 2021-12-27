@@ -598,7 +598,7 @@ size_t ev::curl::Request::ReadDataCallbackWrapper (char* o_buffer, size_t a_size
 
 CC_IF_DEBUG(
 /**
- * @brief This function gets called by libcurl for debug proposes.
+ * @brief This function gets called by libcurl for debug purposes.
  *
  *        https://curl.se/libcurl/c/CURLOPT_DEBUGFUNCTION.html
  *

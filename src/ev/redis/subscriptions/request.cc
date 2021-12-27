@@ -100,7 +100,7 @@ bool ev::redis::subscriptions::Request::Step (ev::Object* a_object, ev::Request*
 
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
-    // ... for debug proposes only ...
+    // ... for debug purposes only ...
     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                     "[%-30s]",
                                     __FUNCTION__
@@ -136,7 +136,7 @@ bool ev::redis::subscriptions::Request::Step (ev::Object* a_object, ev::Request*
                                                     &&
                                                 true == osal::File::Exists(timeout_config_.sigabort_file_uri_.c_str())
                                          );
-                                         // ... for debug proposes only ...
+                                         // ... for debug purposes only ...
                                          ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                                                          "[%-30s] : pending_context_ptr_ = %p, payload = %s : TIMEOUT%s",
                                                                          __FUNCTION__,
@@ -175,7 +175,7 @@ bool ev::redis::subscriptions::Request::Step (ev::Object* a_object, ev::Request*
         }
     }
     
-    // ... for debug proposes only ...
+    // ... for debug purposes only ...
     LogStatus(__FUNCTION__, "\t", 2, 2);
 
     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
@@ -204,13 +204,13 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
 {
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
-    // ... for debug proposes only ...
+    // ... for debug purposes only ...
     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                     "[%-30s]",
                                     __FUNCTION__
     );
 
-    // ... for debug proposes only ...
+    // ... for debug purposes only ...
     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                   "[%-30s] ======= [B] PUBLISH : pending_context_ptr_ = %p, pending_.size() = " SIZET_FMT " =======",
                                   __FUNCTION__,
@@ -220,7 +220,7 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
     // ...
     LogStatus(__FUNCTION__, "\t", 1, 3);
     
-    // ... for debug proposes only ...
+    // ... for debug purposes only ...
     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                     "[%-30s] \ta_results = %p, a_results.size() = " SIZET_FMT,
                                     __FUNCTION__,
@@ -233,7 +233,7 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
         // ... a data object is expected ...
         const ev::Object* data_object = result->DataObject();
 
-        // ... for debug proposes only ...
+        // ... for debug purposes only ...
         cnt++;
         ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                         "[%-30s] \t[ %4d ] %-15s = %p",
@@ -256,7 +256,7 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
         // ... data object must be a Reply object ...
         const ev::redis::subscriptions::Reply* reply = dynamic_cast<const ev::redis::subscriptions::Reply*>(data_object);
 
-        // ... for debug proposes only ...
+        // ... for debug purposes only ...
         ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                         "[%-30s] \t\t %-15s = %p",
                                         __FUNCTION__,
@@ -287,7 +287,7 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
                                                                           ev::redis::subscriptions::Request::Status::Unsubscribed
                 );
 
-                // ... for debug proposes only ...
+                // ... for debug purposes only ...
                 ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                                 "[%-30s] \t\t %-15s = %-40s",
                                                 __FUNCTION__,
@@ -301,7 +301,7 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
                 
                 // ... ensure we have a valid channel or pattern ...
                 if ( 0 == pattern_or_channel_name.length() ) {
-                    // ... for debug proposes only ...
+                    // ... for debug purposes only ...
                     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                                     "[%-30s] ::: WARNING ::: pattern or channel name is '' ::: WARNING :::",
                                                     __FUNCTION__
@@ -311,7 +311,7 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
                 // ... ensure it's an expected context ...
                 UnmapContext(reply, pattern_or_channel_name, &context_ptr, release_context);
 
-                // ... for debug proposes only ...
+                // ... for debug purposes only ...
                 ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                                 "[%-30s] \t\t %-15s = %p",
                                                 __FUNCTION__,
@@ -324,7 +324,7 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
                 );
                 
                 if ( nullptr == context_ptr ) {
-                    // ... for debug proposes only ...
+                    // ... for debug purposes only ...
                     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                                     "[%-30s] ::: WARNING ::: context_ptr is nullptr ::: WARNING :::",
                                                     __FUNCTION__
@@ -363,7 +363,7 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
                     // ... remove timeout ...
                     request_ptr_->SetTimeout(/* a_ms */ 0, /* a_callback */ nullptr);
                 } else {
-                    // ... for debug proposes only ...
+                    // ... for debug purposes only ...
                     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                                     "[%-30s] ::: ERROR ::: pending_context_ptr_ - illegal state! ::: ERROR :::",
                                                     __FUNCTION__
@@ -378,7 +378,7 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
                 // ... message ...
                 const ev::redis::Value& message = reply->value();
                 notify = ( true == message.IsString() && message.String().length() > 0 );
-                // ... for debug proposes only ...
+                // ... for debug purposes only ...
                 ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                                 "[%-30s] \t\t %-15s = %s",
                                                 __FUNCTION__,
@@ -389,7 +389,7 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
             }
             case ev::redis::subscriptions::Reply::Kind::Status:
             {
-                // ... for debug proposes only ...
+                // ... for debug purposes only ...
                 ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                                 "[%-30s] \t\t %-15s = %s",
                                                 __FUNCTION__,
@@ -403,7 +403,7 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
                     // ... forget it  ...
                     delete ping_context_;
                     ping_context_ = nullptr;
-                    // ... for debug proposes only ...
+                    // ... for debug purposes only ...
                     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                                     "[%-30s] ::: INFO ::: PING REPLY ::: INFO :::",
                                                     __FUNCTION__
@@ -414,7 +414,7 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
                 break;
             }
             default:
-                // ... for debug proposes only ...
+                // ... for debug purposes only ...
                 ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                                 "[%-30s] \t\t %-15s",
                                                 "???",
@@ -425,7 +425,7 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
         
         // ... should broadcast reply?
         if ( false == notify ) {
-            // ... for debug proposes only ...
+            // ... for debug purposes only ...
             ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                             "[%-30s] ::: WARNING ::: skipping notification - message is '' ::: WARNING :::",
                                             __FUNCTION__
@@ -441,7 +441,7 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
     // ... schedule next?
     bool scheduled;
     if ( nullptr == pending_context_ptr_ && pending_.size() > 0 ) {
-        // ... for debug proposes only ...
+        // ... for debug purposes only ...
         ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                         "[%-30s] ::: INFO ::: scheduling " SIZET_FMT " pending request(s) ::: INFO :::",
                                         __FUNCTION__,
@@ -454,7 +454,7 @@ void ev::redis::subscriptions::Request::Publish (std::vector<ev::Result *>& a_re
         scheduled = false;
     }
     
-    // ... for debug proposes only ...
+    // ... for debug purposes only ...
     if ( false == scheduled && pending_.size() > 0 ) {
         if ( pending_.size() < 3 ) {
             ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
@@ -507,7 +507,7 @@ bool ev::redis::subscriptions::Request::Disconnected ()
 {
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     
-    // ... for debug proposes only ...
+    // ... for debug purposes only ...
     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                     "[%-30s] ::: WARNING ::: subscriptions connection is down ::: WARNING :::",
                                     __FUNCTION__
@@ -694,7 +694,7 @@ bool ev::redis::subscriptions::Request::Ping ()
     // ... commit this command ...
     commit_callback_(this);
     
-    // ... for debug proposes only ...
+    // ... for debug purposes only ...
     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                     "[%-30s] ::: INFO ::: PING SCHEDULED ::: INFO :::",
                                     __FUNCTION__
@@ -886,13 +886,13 @@ void ev::redis::subscriptions::Request::BuildAndTrackCommand (const char* const 
                                                               ev::redis::subscriptions::Request::ContextMap& a_map,
                                                               ev::redis::subscriptions::Request::POCStatusMap& a_status_map)
 {
-    // ... for debug proposes only ...
+    // ... for debug purposes only ...
     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                     "[%-30s]",
                                     __FUNCTION__
     );
     
-    // ... for debug proposes only ...
+    // ... for debug purposes only ...
     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                     "[%-30s] ======= [B] BUILD : pending_context_ptr_ = %p, pending_.size() = " SIZET_FMT " =======",
                                     __FUNCTION__,
@@ -919,7 +919,7 @@ void ev::redis::subscriptions::Request::BuildAndTrackCommand (const char* const 
             a_map[channel_or_pattern_name] = vector;
         }
 
-        // ... for debug proposes only ...
+        // ... for debug purposes only ...
         ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                         "[%-30s] ~> %-15s %-30s",
                                         __FUNCTION__,
@@ -942,7 +942,7 @@ void ev::redis::subscriptions::Request::BuildAndTrackCommand (const char* const 
     
     LogStatus(__FUNCTION__, "\t", 2, 2);
     
-    // ... for debug proposes only ...
+    // ... for debug purposes only ...
     ev::LoggerV2::GetInstance().Log(this, "redis_subscriptions_trace",
                                     "[%-30s] ======= [E] BUILD : pending_context_ptr_ = %p, pending_.size() = " SIZET_FMT " =======",
                                     __FUNCTION__,
@@ -1049,7 +1049,7 @@ void ev::redis::subscriptions::Request::CleanUpUnsubscribed ()
 void ev::redis::subscriptions::Request::LogStatus (const char* const a_function, const char* const a_prefix,
                                                    const int a_step, const int a_of)
 {
-    // ... for debug proposes only ...
+    // ... for debug purposes only ...
     if ( false == ev::LoggerV2::GetInstance().IsRegistered(this, "redis_subscriptions_trace") ) {
         return;
     }

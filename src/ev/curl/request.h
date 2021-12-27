@@ -139,7 +139,7 @@ namespace ev
             
             CC_IF_DEBUG(Debug       debug_;)                //!<
         
-        private: // FOR DEBUG LOGGING PROPOSES ONLY ONLY
+        private: // FOR DEBUG LOGGING PUPOSES ONLY ONLY
             
             EV_CURL_HEADERS_MAP tx_headers_;
 
