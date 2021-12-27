@@ -166,6 +166,9 @@ namespace cc
                 private: // Const Refs
                     
                     const Config& config_;
+                    
+                    const bool rfc_6749_;
+                    const bool formpost_;
 
                 private: // Refs
                     
@@ -178,20 +181,21 @@ namespace cc
                 public: // Constructor / Destructor
 
                     Client () = delete;
-                    Client (const ev::Loggable::Data& a_loggable_data, const Config& a_config, Tokens& a_tokens, const char* const a_user_agent = nullptr);
+                    Client (const ev::Loggable::Data& a_loggable_data, const Config& a_config, Tokens& a_tokens, const char* const a_user_agent = nullptr,
+                            const bool a_rfc_6749 = true, const bool a_formpost = false);
                     virtual ~Client();
                     
                 public: // Method(s) / Function(s)
                     
                     void AuthorizationCodeGrant (const std::string& a_code,
-                                                 Callbacks a_callbacks, const bool a_rfc_6749, const bool a_formpost = false);
+                                                 Callbacks a_callbacks);
 
                     void AuthorizationCodeGrant (const std::string& a_code, const std::string& a_scope, const std::string& a_state,
-                                                 Callbacks a_callbacks, const bool a_rfc_6749, const bool a_formpost);
+                                                 Callbacks a_callbacks);
 
                     void AuthorizationCodeGrant (Callbacks a_callbacks);
 
-                    void ClientCredentialsGrant (Callbacks a_callbacks, const bool a_rfc_6749 = true);
+                    void ClientCredentialsGrant (Callbacks a_callbacks);
                                         
                 protected: // Inherited Virtual Method(s) / Function(s) - Implementation // Overload
 

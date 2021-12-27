@@ -80,17 +80,17 @@ namespace ev
 
             void HEAD   (const Loggable::Data& a_loggable_data,
                          const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
-                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback,  EV_CURL_HTTP_ERROR_CALLBACK a_error_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
                          const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
             void GET    (const Loggable::Data& a_loggable_data,
                          const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
-                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_ERROR_CALLBACK a_error_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
                          const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
             
             void GET    (const Loggable::Data& a_loggable_data,
                          const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
-                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_ERROR_CALLBACK a_error_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
                          const std::string& a_uri,
                          const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
@@ -98,12 +98,6 @@ namespace ev
                          const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                          const std::string* a_body,
                          EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_ERROR_CALLBACK a_error_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
-                         const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
-
-            void PUT    (const Loggable::Data& a_loggable_data,
-                         const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
-                         const std::string* a_body,
-                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
                          const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
             void POST   (const Loggable::Data& a_loggable_data,
@@ -115,25 +109,13 @@ namespace ev
             void POST   (const Loggable::Data& a_loggable_data,
                          const std::string& a_uri,
                          const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
-                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_ERROR_CALLBACK a_error_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
                          const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
             void PATCH   (const Loggable::Data& a_loggable_data,
                          const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
                          const std::string* a_body,
                          EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_ERROR_CALLBACK a_error_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
-                         const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
-
-            void PATCH  (const Loggable::Data& a_loggable_data,
-                         const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
-                         const std::string* a_body,
-                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
-                         const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
-            
-            void DELETE (const Loggable::Data& a_loggable_data,
-                         const std::string& a_url, const EV_CURL_HTTP_HEADERS* a_headers,
-                         const std::string* a_body,
-                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
                          const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
             void DELETE (const Loggable::Data& a_loggable_data,

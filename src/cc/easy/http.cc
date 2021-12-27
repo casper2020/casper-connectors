@@ -73,6 +73,7 @@ void cc::easy::HTTPClient::GET (const std::string& a_url, const CC_HTTP_HEADERS&
                /* a_success_callback */ [a_callbacks] (const ::ev::curl::Value& a_value) {
                     a_callbacks.on_success_(a_value.code(), a_value.header_value("Content-Type"), a_value.body(), a_value.rtt());
                },
+              /* a_error_callback */ nullptr,
                /* a_failure_callback */ [a_callbacks] (const ::ev::Exception& a_ev_exception) {
                     a_callbacks.on_failure_(::cc::Exception("%s", a_ev_exception.what()));
                },
@@ -127,6 +128,7 @@ void cc::easy::HTTPClient::HEAD (const std::string& a_url, const CC_HTTP_HEADERS
                /* a_success_callback */ [a_callbacks] (const ::ev::curl::Value& a_value) {
                     a_callbacks.on_success_(a_value);
                },
+               /* a_error_callback */ nullptr,
                /* a_failure_callback */ [a_callbacks] (const ::ev::Exception& a_ev_exception) {
                     a_callbacks.on_failure_(::cc::Exception("%s", a_ev_exception.what()));
                },
@@ -152,6 +154,7 @@ void cc::easy::HTTPClient::GET (const std::string& a_url, const CC_HTTP_HEADERS&
                /* a_success_callback */ [a_callbacks] (const ::ev::curl::Value& a_value) {
                     a_callbacks.on_success_(a_value);
                },
+               /* a_error_callback */ nullptr,
                /* a_failure_callback */ [a_callbacks] (const ::ev::Exception& a_ev_exception) {
                     a_callbacks.on_failure_(::cc::Exception("%s", a_ev_exception.what()));
                },
@@ -172,7 +175,7 @@ void cc::easy::HTTPClient::GET (const std::string& a_url, const CC_HTTP_HEADERS&
  * @param a_timeouts See \link HTTPClient::ClientTimeouts \link.
  */
 void cc::easy::HTTPClient::PUT (const std::string& a_url, const CC_HTTP_HEADERS& a_headers, const std::string& a_body,
-                                       OAuth2HTTPClient::RAWCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts)
+                                HTTPClient::RawCallbacks a_callbacks, const CC_HTTP_TIMEOUTS* a_timeouts)
 {
     http_.PUT(loggable_data_,
                a_url, &a_headers, &a_body,

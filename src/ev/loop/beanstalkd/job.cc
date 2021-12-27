@@ -1200,6 +1200,8 @@ void ev::loop::beanstalkd::Job::HTTPGet (const std::string& a_url, const EV_CURL
                   &a_headers,
                   /* a_success_callback */
                   a_a,
+                  /* a_error_callback */
+                  nullptr,
                   /* a_failure_callback */
                   a_b
         );
@@ -1237,6 +1239,8 @@ void ev::loop::beanstalkd::Job::HTTPGetFile (const std::string& a_url, const EV_
                   &a_headers,
                   /* a_success_callback */
                   a_a,
+                  /* a_error_callback */
+                  nullptr,
                   /* a_failure_callback */
                   a_b,
                   /* o_uri */
@@ -1302,6 +1306,8 @@ void ev::loop::beanstalkd::Job::HTTPPostFile (const std::string& a_uri, const st
                    &a_headers,
                    /* a_success_callback */
                    a_a,
+                   /* a_error_callback */
+                   nullptr,
                    /* a_failure_callback */
                    a_b
         );

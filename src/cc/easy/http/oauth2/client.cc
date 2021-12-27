@@ -33,11 +33,14 @@
  * @param a_config        R/O reference to \link http::oauth2::Client::Config \link.
  * @param a_tokens        R/W reference to \link http::oauth2::Client::Tokens \link.
  * @param a_user_agent    User-Agent header value.
+ * @param a_rfc_6749      True when we should follow RFC6749, otherwise will NOT send a 'Authorization' header instead will send client_* data in body URL encoded.
+ * @param a_formpost ...
+
  */
 cc::easy::http::oauth2::Client::Client (const ::ev::Loggable::Data& a_loggable_data, const http::oauth2::Client::Config& a_config,
                                         http::oauth2::Client::Tokens& a_tokens,
-                                        const char* const a_user_agent)
-    : cc::easy::http::Base(a_loggable_data, a_user_agent), config_(a_config), tokens_(a_tokens), nsi_ptr_(nullptr)
+                                        const char* const a_user_agent, const bool a_rfc_6749, const bool a_formpost)
+    : cc::easy::http::Base(a_loggable_data, a_user_agent), config_(a_config), rfc_6749_(a_rfc_6749), formpost_(a_formpost), tokens_(a_tokens), nsi_ptr_(nullptr)
 {
     Enable(this);
 }
@@ -57,14 +60,11 @@ cc::easy::http::oauth2::Client::~Client ()
  * @param a_callbacks Set of callbacks to report successfull or failed execution.
  *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
  *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
- *
- * @param a_rfc_6749 True when we should follow RFC6749, otherwise will NOT send a 'Authorization' header instead will send client_* data in body URL encoded.
- * @param a_formpost ...
  */
 void cc::easy::http::oauth2::Client::AuthorizationCodeGrant (const std::string& a_code,
-                                                             http::oauth2::Client::Callbacks a_callbacks, const bool a_rfc_6749, const bool a_formpost)
+                                                             http::oauth2::Client::Callbacks a_callbacks)
 {
-    AuthorizationCodeGrant(a_code, /* a_scope */ "", /* a_state */ "", a_callbacks, a_rfc_6749, a_formpost);
+    AuthorizationCodeGrant(a_code, /* a_scope */ "", /* a_state */ "", a_callbacks);
 }
 
 /**
@@ -76,12 +76,9 @@ void cc::easy::http::oauth2::Client::AuthorizationCodeGrant (const std::string& 
  * @param a_callbacks Set of callbacks to report successfull or failed execution.
  *                   If the request was perform and the server replied ( we don't care about status code ) success function is called,
  *                   otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
- *
- * @param a_rfc_6749 True when we should follow RFC6749, otherwise will NOT send a 'Authorization' header instead will send client_* data in body URL encoded.s
- * @param a_formpost ...
  */
 void cc::easy::http::oauth2::Client::AuthorizationCodeGrant (const std::string& a_code, const std::string& a_scope, const std::string& a_state,
-                                                             http::oauth2::Client::Callbacks a_callbacks, const bool a_rfc_6749, const bool a_formpost)
+                                                             http::oauth2::Client::Callbacks a_callbacks)
 {
     //
     // ⚠️ 🤬 I 🤬 8 THIS CODE 🤬 ⚠️
@@ -90,7 +87,7 @@ void cc::easy::http::oauth2::Client::AuthorizationCodeGrant (const std::string& 
     std::string url = config_.oauth2_.urls_.token_;
     http::oauth2::Client::Headers headers = { };
     
-    if ( false == a_formpost ) {
+    if ( false == formpost_ ) {
         //
         // ... x-www-form-urlencoded POST ...
         //
@@ -109,13 +106,13 @@ void cc::easy::http::oauth2::Client::AuthorizationCodeGrant (const std::string& 
             params["state"] = a_state;
         }
         // ... perform ...
-        if ( true == a_rfc_6749 ) {
+        if ( true == rfc_6749_ ) {
             // ... set query ...
             SetURLQuery(query, params, query);
             // ... update headers ...
             headers["Authorization"] = { "Basic " + ::cc::base64_url_unpadded::encode((config_.oauth2_.credentials_.client_id_ + ':' + config_.oauth2_.credentials_.client_secret_)) };
             // ... set body ...
-            const std::string body = ( a_rfc_6749 ? std::string(query.c_str() + sizeof(char)) : "" );
+            const std::string body = std::string(query.c_str() + sizeof(char));
             // ... schedule ...
             Base::Async(new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, config_.oauth2_.urls_.token_, &headers, &body),
                         { },
@@ -145,7 +142,7 @@ void cc::easy::http::oauth2::Client::AuthorizationCodeGrant (const std::string& 
             { "code"         , a_code                        },
         };
         // ... perform ...
-        if ( true == a_rfc_6749 ) {
+        if ( true == rfc_6749_ ) {
             // ... update headers ...
             headers["Authorization"] = { "Basic " + ::cc::base64_url_unpadded::encode((config_.oauth2_.credentials_.client_id_ + ':' + config_.oauth2_.credentials_.client_secret_)) };
         } else {
@@ -320,16 +317,14 @@ void cc::easy::http::oauth2::Client::AuthorizationCodeGrant (http::oauth2::Clien
  * @param a_callbacks Set of callbacks to report successfull or failed execution.
  *                    If the request was perform and the server replied ( we don't care about status code ) success function is called,
  *                    otheriwse, failure function is called to report the exception - usually this means client or connectivity errors not server error.
- *
- * @param a_rfc_6749 True when we should follow RFC6749, otherwise will NOT send a 'Authorization' header instead will send client_* data in body URL encoded.s
  */
-void cc::easy::http::oauth2::Client::ClientCredentialsGrant (http::oauth2::Client::Callbacks a_callbacks, const bool a_rfc_6749)
+void cc::easy::http::oauth2::Client::ClientCredentialsGrant (http::oauth2::Client::Callbacks a_callbacks)
 {
     std::string query;
     http::oauth2::Client::Headers headers = {
         { "Content-Type" , { "application/x-www-form-urlencoded" } }
     };
-    if ( true == a_rfc_6749 ) {
+    if ( true == rfc_6749_ ) {
         SetURLQuery(query, {
             { "grant_type"   , "client_credentials"                        },
             { "scope"        , config_.oauth2_.scope_                      }
@@ -418,18 +413,58 @@ void cc::easy::http::oauth2::Client::Async (const cc::easy::http::oauth2::Client
                                     return dynamic_cast<::ev::Result*>(a_object)->DetachDataObject();
                                 }
                             }
-                            // ... yes, refresh tokens now ...
-                            http::oauth2::Client::Headers headers = {
-                                { "Authorization", { "Basic " + ::cc::base64_url_unpadded::encode((config_.oauth2_.credentials_.client_id_ + ':' + config_.oauth2_.credentials_.client_secret_)) } },
-                                { "Content-Type" , { "application/x-www-form-urlencoded" } }
-                            };
-                            std::string body = "grant_type=refresh_token&refresh_token=" + ( tokens_.refresh_ );
-                            // ... notify interceptor?
-                            if ( nullptr != nsi_ptr_ ) {
-                                nsi_ptr_->OnOAuth2RequestSet(headers, body);
+                            ::ev::curl::Request* request ;
+                            // ... refresh tokens now ...
+                            if ( false == formpost_ ) {
+                                // ... headers ...
+                                http::oauth2::Client::Headers headers = {
+                                    { "Content-Type" , { "application/x-www-form-urlencoded" } }
+                                };
+                                
+                                std::map<std::string, std::string> params = {
+                                    { "grant_type"   , "refresh_token" },
+                                    { "refresh_token", tokens_.refresh_ }
+                                };
+                                
+                                if ( true == rfc_6749_ ) {
+                                    headers["Authorization"] = { "Basic " + ::cc::base64_url_unpadded::encode((config_.oauth2_.credentials_.client_id_ + ':' + config_.oauth2_.credentials_.client_secret_)) };
+                                } else {
+                                    params["client_id"] = config_.oauth2_.credentials_.client_id_;
+                                    params["client_secret"] = config_.oauth2_.credentials_.client_secret_;
+                                }
+                                
+                                std::string body;
+                                SetURLQuery(body, params, body);
+                                body = std::string(body.c_str() + sizeof(char));
+                                
+                                // ... notify interceptor?
+                                if ( nullptr != nsi_ptr_ ) {
+                                    nsi_ptr_->OnOAuth2RequestSet(headers, body);
+                                }
+                                // ... new request ...
+                                request = new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, config_.oauth2_.urls_.token_, &headers, &body);
+                            } else {
+                                //
+                                // ... multipart/formdata POST ...
+                                //
+                                EV_CURL_FORM_FIELDS fields = {
+                                    { "grant_type", "refresh_token" },
+                                };
+                                http::oauth2::Client::Headers headers = {};
+                                // ... perform ...
+                                if ( true == rfc_6749_ ) {
+                                    // ... update headers ...
+                                    headers["Authorization"] = { "Basic " + ::cc::base64_url_unpadded::encode((config_.oauth2_.credentials_.client_id_ + ':' + config_.oauth2_.credentials_.client_secret_)) };
+                                } else {
+                                    // ... client_* will be sent in body URL encoded ...
+                                    fields.push_back({ "client_id"    , config_.oauth2_.credentials_.client_id_     });
+                                    fields.push_back({ "client_secret", config_.oauth2_.credentials_.client_secret_ });
+                                }
+                                // ...
+                                fields.push_back({ "refresh_token" , tokens_.refresh_ });
+                                // ... new request ...
+                                request = new ::ev::curl::Request(loggable_data_, config_.oauth2_.urls_.token_, &headers, fields);
                             }
-                            // ... new request ...
-                            ::ev::curl::Request* request = new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, config_.oauth2_.urls_.token_, &headers, &body);
                             // ... log request?
                             if ( nullptr != cURLed_callbacks_.log_request_ ) {
                                 cURLed_callbacks_.log_request_(*request, ::ev::curl::HTTP::cURLRequest(id, request, should_redact_));
