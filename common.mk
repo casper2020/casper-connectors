@@ -52,10 +52,13 @@ CONNECTORS_CC_CRT_SRC := \
   $(PROJECT_SRC_DIR)/src/cc/crt/x509_reader.cc
 
 CONNECTORS_CC_EASY_SRC:= \
-  $(PROJECT_SRC_DIR)/src/cc/easy/beanstalk.cc   \
-  $(PROJECT_SRC_DIR)/src/cc/easy/redis.cc       \
-  $(PROJECT_SRC_DIR)/src/cc/easy/http.cc        \
-  $(PROJECT_SRC_DIR)/src/cc/easy/job/job.cc     \
+  $(PROJECT_SRC_DIR)/src/cc/easy/beanstalk.cc          \
+  $(PROJECT_SRC_DIR)/src/cc/easy/redis.cc              \
+  $(PROJECT_SRC_DIR)/src/cc/easy/http.cc               \
+  $(PROJECT_SRC_DIR)/src/cc/easy/http/base.cc          \
+  $(PROJECT_SRC_DIR)/src/cc/easy/http/oauth2/client.cc \
+  $(PROJECT_SRC_DIR)/src/cc/easy/http/client.cc        \
+  $(PROJECT_SRC_DIR)/src/cc/easy/job/job.cc            \
   $(PROJECT_SRC_DIR)/src/cc/easy/job/handler.cc
 
 CONNECTORS_CC_DEBUG_SRC:= \
