@@ -188,12 +188,12 @@ namespace cc
                 public: // Method(s) / Function(s)
                     
                     void AuthorizationCodeGrant (const std::string& a_code,
-                                                 Callbacks a_callbacks);
+                                                 Callbacks a_callbacks, const bool* a_rfc_6749 = nullptr);
 
                     void AuthorizationCodeGrant (const std::string& a_code, const std::string& a_scope, const std::string& a_state,
-                                                 Callbacks a_callbacks);
+                                                 Callbacks a_callbacks, const bool* a_rfc_6749 = nullptr);
 
-                    void AuthorizationCodeGrant (Callbacks a_callbacks);
+                    void AuthorizationCodeGrant (Callbacks a_callbacks, const bool* a_rfc_6749 = nullptr);
 
                     void ClientCredentialsGrant (Callbacks a_callbacks);
                                         
