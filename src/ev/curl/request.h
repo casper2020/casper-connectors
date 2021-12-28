@@ -190,7 +190,8 @@ namespace ev
             void                       SetFinished ();
             size_t                     Elapsed     ();
 
-            inline const EV_CURL_HEADERS_MAP& tx_headers   () const { return tx_headers_; }
+            inline const EV_CURL_HEADERS_MAP& tx_headers () const { return tx_headers_; }
+            inline const EV_CURL_FORM_FIELDS& tx_fields  () const { return tx_fields_;  }
             inline std::string tx_header_value (const char* const a_name) const
             {
                 const auto p = std::find_if(tx_headers_.begin(), tx_headers_.end(), ev::curl::Object::cURLHeaderMapKeyComparator(a_name));

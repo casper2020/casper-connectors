@@ -1067,15 +1067,15 @@ void cc::easy::OAuth2HTTPClient::Async (const ::ev::curl::Request::HTTPRequestTy
                             // ... keep track of new tokens ...
                             tokens_.access_ = json.Get(response, "access_token" , Json::ValueType::stringValue, /* a_default */ nullptr).asString();
                             // ... optional value, no default value ...
-                            if ( true == response.isMember("refresh_token") && true == response.isString() ) {
+                            if ( true == response.isMember("refresh_token") && true == response["refresh_token"].isString() ) {
                                 tokens_.refresh_ = json.Get(response, "refresh_token", Json::ValueType::stringValue, /* a_default */ nullptr).asString();
                             }
                             // ... optional value, no default value ...
-                            if ( true == response.isMember("token_type") && true == response.isNumeric() ) {
-                                tokens_.type_ = response["token_type"].asInt64();
+                            if ( true == response.isMember("token_type") && true == response["token_type"].isString() ) {
+                                tokens_.type_ = response["token_type"].asString();
                             }
                             // ... optional value, no default value ...
-                            if ( true == response.isMember("expires_in") && true == response.isNumeric() ) {
+                            if ( true == response.isMember("expires_in") && true == response["expires_in"].isNumeric() ) {
                                 // ... accept it ...
                                 tokens_.expires_in_ = response["expires_in"].asInt64();
                             } else {

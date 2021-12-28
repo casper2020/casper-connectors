@@ -544,6 +544,11 @@ std::string ev::curl::HTTP::cURLRequest (const std::string& a_id, const ::ev::cu
             tmp.str("");
         }
     }
+    if ( a_request->tx_fields().size() > 0 ) {
+        for ( auto field : a_request->tx_fields() ) {
+            ss << "     --form '" << field.name_ << "=\"" << field.value_ << "\"'" << "' \\\n" ;
+        }
+    }
     // ... body?
     const auto& body = a_request->tx_body();
     if ( body.length() > 0 ) {
