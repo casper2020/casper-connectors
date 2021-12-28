@@ -67,6 +67,13 @@ namespace ev
             } Timeouts;
             
             typedef EV_CURL_HEADERS_MAP Headers;
+                        
+            typedef struct {
+                std::string name_;
+                std::string value_;
+            } FormField;
+            
+            typedef std::vector<FormField> FormFields;
             
         private: // Data Types
 
@@ -115,7 +122,7 @@ namespace ev
             std::string                        rx_body_;              //!<
             std::string                        tx_body_;              //!<
             size_t                             tx_count_;             //!<
-            EV_CURL_FORM_FIELDS                tx_fields_;            //!< for POST to be used instead of tx_body
+            FormFields                         tx_fields_;            //!< for POST to be used instead of tx_body
             struct curl_httppost*              tx_post_;
             
             ::cc::fs::file::Writer             rx_fw_;                //!< Response file writer.
@@ -149,7 +156,7 @@ namespace ev
                      const HTTPRequestType& a_type, const std::string& a_url,
                      const EV_CURL_HEADERS_MAP* a_headers = nullptr, const std::string* a_body = nullptr, const Timeouts* a_timeouts = nullptr);
 
-            Request (const Loggable::Data& a_loggable_data, const std::string& a_url, const EV_CURL_HEADERS_MAP* a_headers, const EV_CURL_FORM_FIELDS& a_form_fields, const Timeouts* a_timeouts = nullptr);
+            Request (const Loggable::Data& a_loggable_data, const std::string& a_url, const EV_CURL_HEADERS_MAP* a_headers, const FormFields& a_form_fields, const Timeouts* a_timeouts = nullptr);
 
             virtual ~Request();
             
@@ -191,7 +198,7 @@ namespace ev
             size_t                     Elapsed     ();
 
             inline const EV_CURL_HEADERS_MAP& tx_headers () const { return tx_headers_; }
-            inline const EV_CURL_FORM_FIELDS& tx_fields  () const { return tx_fields_;  }
+            inline const          FormFields& tx_fields  () const { return tx_fields_;  }
             inline std::string tx_header_value (const char* const a_name) const
             {
                 const auto p = std::find_if(tx_headers_.begin(), tx_headers_.end(), ev::curl::Object::cURLHeaderMapKeyComparator(a_name));

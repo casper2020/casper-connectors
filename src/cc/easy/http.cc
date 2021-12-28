@@ -1,3 +1,4 @@
+#if 0 // TODO: REMOVE THIS FILE
 /**
  * @file http.cc
  *
@@ -514,7 +515,7 @@ void cc::easy::OAuth2HTTPClient::AuthorizationCodeGrant (const std::string& a_co
         //
         // ... multipart/formdata POST ...
         //
-        EV_CURL_FORM_FIELDS fields = {
+        ::ev::curl::Request::FormFields fields = {
             { "grant_type"   , "authorization_code"          },
             { "code"         , a_code                        },
         };
@@ -1175,3 +1176,4 @@ const ::ev::curl::Reply* cc::easy::OAuth2HTTPClient::EnsureReply (::ev::Object* 
     // ... same as reply, but it was detached ...
     return reply;
 }
+#endif // TODO: REMOVE THIS FILE

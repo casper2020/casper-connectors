@@ -83,13 +83,6 @@ namespace ev
 
             #define EV_CURL_HEADERS_MAP std::map<std::string, std::vector<std::string>>
             
-            typedef struct {
-                std::string name_;
-                std::string value_;
-            } FormField;
-            
-            #define EV_CURL_FORM_FIELDS std::vector<::ev::curl::Object::FormField>
-            
         public: // Constructor(s) / Destructor
 
             Object (const Type& a_type);

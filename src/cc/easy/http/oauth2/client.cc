@@ -137,7 +137,7 @@ void cc::easy::http::oauth2::Client::AuthorizationCodeGrant (const std::string& 
         //
         // ... multipart/formdata POST ...
         //
-        EV_CURL_FORM_FIELDS fields = {
+        ::ev::curl::Request::FormFields fields = {
             { "grant_type"   , "authorization_code"          },
             { "code"         , a_code                        },
         };
@@ -447,7 +447,7 @@ void cc::easy::http::oauth2::Client::Async (const cc::easy::http::oauth2::Client
                                 //
                                 // ... multipart/formdata POST ...
                                 //
-                                EV_CURL_FORM_FIELDS fields = {
+                                ::ev::curl::Request::FormFields fields = {
                                     { "grant_type", "refresh_token" },
                                 };
                                 http::oauth2::Client::Headers headers = {};

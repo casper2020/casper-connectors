@@ -1,3 +1,4 @@
+#if 0 // TODO: REMOVE THIS FILE
 /**
  * @file http.h
  *
@@ -397,3 +398,4 @@ namespace cc
 } // end of namespace 'cc'
 
 #endif // NRS_CC_EASY_HTTP_H_
+#endif // TODO: REMOVE THIS FILE

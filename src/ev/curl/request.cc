@@ -60,7 +60,8 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
  * @param a_headers
  * @param a_timeouts
  */
-ev::curl::Request::Request (const Loggable::Data& a_loggable_data, const std::string& a_url, const EV_CURL_HEADERS_MAP* a_headers, const EV_CURL_FORM_FIELDS& a_form_fields, const Timeouts* a_timeouts)
+ev::curl::Request::Request (const Loggable::Data& a_loggable_data, const std::string& a_url, const EV_CURL_HEADERS_MAP* a_headers,
+                            const ::ev::curl::Request::FormFields& a_form_fields, const Timeouts* a_timeouts)
 : ev::Request(a_loggable_data, ev::Object::Target::CURL, ev::Request::Mode::OneShot), http_request_type_(ev::curl::Request::HTTPRequestType::POST)
 {
     CC_DEBUG_ASSERT(0 != a_form_fields.size());
