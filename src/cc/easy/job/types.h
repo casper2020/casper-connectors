@@ -57,7 +57,7 @@ namespace cc
         {
         
             typedef struct {
-                const char* const                        key_;
+                const std::string                        key_;
                 const std::map<std::string, Json::Value> arguments_;
             } I18N;
 

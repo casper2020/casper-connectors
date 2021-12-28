@@ -198,7 +198,7 @@ void cc::easy::job::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
 uint16_t cc::easy::job::Job::SetI18NMessage (const uint16_t& a_code, const easy::job::I18N& a_i18n, Json::Value& o_payload)
 {
     // ... a_i18n is mandatory!
-    if ( nullptr == a_i18n.key_ ) {
+    if ( 0 == a_i18n.key_.length() ) {
         throw ::cc::Exception("a_i18n can't be nullptr!");
     }
     // ... create 'message' object ...
