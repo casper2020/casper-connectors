@@ -100,3 +100,17 @@ std::string cc::hash::SHA256::FinalEncoded (const SHA256::OutputFormat a_format)
     }
     throw cc::Exception("Requested output format not implemented yet!");
 }
+
+/**
+ * @brief Calculate SHA256.
+ *
+ * @param a_data   Data ( string representation ).
+ * @param a_format Output format, one of \link SHA256::OutputFormat \link.
+ */
+std::string cc::hash::SHA256::Calculate (const std::string& a_data, const SHA256::OutputFormat a_format)
+{
+    ::cc::hash::SHA256 sha256;
+    sha256.Initialize();
+    sha256.Update(reinterpret_cast<const unsigned char*>(a_data.c_str()), a_data.size());
+    return sha256.FinalEncoded(a_format);
+}

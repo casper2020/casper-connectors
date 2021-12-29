@@ -70,6 +70,10 @@ namespace cc
             const unsigned char* const Final        ();
             std::string                FinalEncoded (const OutputFormat a_format = OutputFormat::HEX);
             
+        public: // Static Method(s) / Function(s)
+            
+            static std::string Calculate (const std::string& a_data, const OutputFormat a_format = OutputFormat::HEX);
+            
         }; // end of class 'SHA256'
         
     } // end of namespace 'hash'
