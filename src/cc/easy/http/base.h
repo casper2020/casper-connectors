@@ -182,6 +182,14 @@ namespace cc
                     follow_location_ = true;
                 }
                 
+                /**
+                 * @return R/O access to user agent.
+                 */
+                inline const std::string& user_agent () const
+                {
+                    return user_agent_;
+                }
+                
             protected: // Inline Method(s) / Function(s) - one-shot call
                 
                 /**

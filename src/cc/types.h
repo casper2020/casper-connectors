@@ -67,6 +67,9 @@
 #define SIZET_FMT_BP(d)   "%" #d "zu"
 #define SSIZET_FMT_BP(d)  "%" #d "zd"
 #include <string>
+#include <sstream>
+#include <ios> // std::hex
+#include <cstdlib> // std::strtoull
 
 namespace cc
 {
@@ -92,7 +95,21 @@ namespace cc
         }
         
     } Directories;
-    
+
+    template <class C>
+    static inline std::string ObjectHexAddr(const C* a_object)
+    {
+        std::stringstream ss;
+        ss << std::hex << static_cast<const void*>(a_object);
+        return ss.str();
+    }
+
+    template <class C>
+    static inline C* ObjectFromHexAddr(const std::string& a_addr)
+    {
+        return (C*)(std::strtoull(a_addr.c_str(), nullptr, 16));
+    }
+
 }
 
 #endif // NRS_CC_TYPES_H_

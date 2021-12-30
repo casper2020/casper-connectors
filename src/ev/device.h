@@ -113,9 +113,9 @@ namespace ev
             /**
              * @brief This method will be called when a device received a result object and no one collected it.
              *
-             * @param a_device
-             * @param a_request
-             * @param a_result
+             * @param a_device  Device that received the unhanled data object.
+             * @param a_request Request performed by the device.
+             * @param a_result  Request result object that contains the unhandled data object.
              *
              * @return True when the object ownership is accepted, otherwise it will be relased the this function caller.
              */
@@ -184,7 +184,7 @@ namespace ev
     /**
      * @brief Add a listener.
      *
-     * @param a_listener
+     * @param a_listener See \link ev::Device::Listener \link.
      */
     inline void Device::SetListener (ev::Device::Listener *a_listener)
     {
@@ -193,6 +193,8 @@ namespace ev
     
     /**
      * @brief Set a handler for unhandled events.
+     *
+     * @param a_handler See \link ev::Device::Handler \link.
      */
     inline void Device::SetHandler (ev::Device::Handler* a_handler)
     {

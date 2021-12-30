@@ -101,7 +101,7 @@ namespace ev
                 return pattern_;
             }
 
-        }; // end of namespace 'subscriptions'
+        } // end of namespace 'subscriptions'
         
     } // end of namespace 'redis'
 

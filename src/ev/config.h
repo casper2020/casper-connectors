@@ -62,7 +62,7 @@ namespace ev
                 max_queries_per_conn = a_limits.max_queries_per_conn_;
             } // else { /* ignored */ }
             return max_queries_per_conn;
-        };        
+        }
         
     } DeviceLimits;
 

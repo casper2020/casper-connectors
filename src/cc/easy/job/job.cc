@@ -40,7 +40,7 @@
 cc::easy::job::Job::Job (const ev::Loggable::Data& a_loggable_data, const std::string& a_tube, const Config& a_config)
     : ev::loop::beanstalkd::Job(a_loggable_data, a_tube, a_config),
       CC_IF_DEBUG_CONSTRUCT_SET_VAR(thread_id_, cc::debug::Threading::GetInstance().CurrentThreadID(), ,)
-      log_level_(a_config.other().get("log_level", CC_JOB_LOG_LEVEL_INF).asInt())
+      log_level_(a_config.log_level())
 {
     logger_client_->Unset(ev::LoggerV2::Client::LoggableFlags::IPAddress | ev::LoggerV2::Client::LoggableFlags::OwnerPTR);
     CC_JOB_LOG_REGISTER(tube_);

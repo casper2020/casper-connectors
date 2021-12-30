@@ -128,8 +128,9 @@ void cc::easy::job::Handler::InnerStartup  (const ::cc::global::Process& a_proce
                 /* cluster_           */ cluster,
                 /* service_id_        */ config.get("service_id"   ,        "development").asString(),
                 /* transient_         */ config.get("transient"    ,                false).asBool(),
-                /* min_progress_      */ config.get("min_progress",                     3).asInt(),
+                /* min_progress_      */ config.get("min_progress" ,                     3).asInt(),
                 /* log_level_         */ config.get("log_level"    , CC_JOB_LOG_LEVEL_INF).asInt(),
+                /* log_redact_        */ ( config.get("log_level"    , CC_JOB_LOG_LEVEL_INF).asInt() >= CC_JOB_LOG_LEVEL_DBG ) ? false : config.get("log_redact", true).asBool(),
                 /* log_token_         */ LogToken(a_tube, cluster, instance),
                 /* other_             */ config,
                 /* dnbe_              */ dnbe

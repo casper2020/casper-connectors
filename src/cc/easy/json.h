@@ -116,12 +116,12 @@ namespace cc
         /**
          * @brief Retrieve a JSON value from an array or defaults to the provided value ( if not null ).
          *
-         * @param a_param
-         * @param a_key
-         * @param a_type
-         * @param a_default
+         * @param a_parent  Object to inspect.
+         * @param a_key     Key to search for.
+         * @param a_type    Expected value type.
+         * @param a_default When not null, use as default value if value for key not found.
          *
-         * @return
+         * @return          Reference to the value for key.
          */
         template <class E>
         const Json::Value& cc::easy::JSON<E>::Get (const Json::Value& a_parent, const char* const a_key, const Json::ValueType& a_type, const Json::Value* a_default,
@@ -152,12 +152,13 @@ namespace cc
         /**
          * @brief Retrieve a JSON value from an array or defaults to the provided value ( if not null ).
          *
-         * @param a_param
-         * @param a_key
-         * @param a_types
-         * @param a_default
+         * @param a_parent           Object to inspect.
+         * @param a_key              Key to search for.
+         * @param a_types            Acceptable types.
+         * @param a_default          When not null, use as default value if value for key not found.
+         * @param a_error_prefix_msg On error, exception message to set.
          *
-         * @return
+         * @return          Reference to the value for key.
          */
         template <class E>
         const Json::Value& cc::easy::JSON<E>::Get (const Json::Value& a_parent, const char* const a_key, const std::vector<Json::ValueType>& a_types, const Json::Value* a_default,
@@ -194,12 +195,12 @@ namespace cc
         /**
          * @brief Retrieve a JSON value from an array or defaults to the provided value ( if not null ).
          *
-         * @param a_param
-         * @param a_keys
-         * @param a_type
-         * @param a_default
+         * @param a_parent  Object to inspect.
+         * @param a_keys    Allowed keys, returning value for first key that exists.
+         * @param a_type    Expected value type.
+         * @param a_default When not null, use as default value if no value found for any of the provided keys.
          *
-         * @return
+         * @return          Reference to the value for key.
          */
         template <class E>
         const Json::Value& cc::easy::JSON<E>::Get (const Json::Value& a_parent, const std::vector<std::string>& a_keys, const Json::ValueType& a_type, const Json::Value* a_default,
@@ -233,12 +234,12 @@ namespace cc
         /**
          * @brief Retrieve a JSON value from an array or defaults to the provided value ( if not null ).
          *
-         * @param a_array
-         * @param a_index
-         * @param a_type
-         * @param a_default
+         * @param a_array   Array to inspect.
+         * @param a_index   Array index for instact.
+         * @param a_type    Expected value type.
+         * @param a_default When not null, use as default value if value for key not found.
          *
-         * @return
+         * @return          Reference to the value for key.
          */
         template <class E>
         const Json::Value& cc::easy::JSON<E>::Get (const Json::Value& a_array, const Json::ArrayIndex a_index, const Json::ValueType& a_type, const Json::Value* a_default,
@@ -309,11 +310,11 @@ namespace cc
         }
     
         /**
-         * @brief Serialize a JSON string to a JSON Object.
+         * @brief Parse a stream to a JSON value.
          *
-         * @param a_value JSON string to parse.
-         * @param o_value JSON object to fill.
-         * @param a_error On error callback.
+         * @param a_stream Stream to read and parse.
+         * @param o_value  JSON object to fill.
+         * @param a_error  On error callback.
          */
         template <class E>
         void cc::easy::JSON<E>::Parse (std::istream& a_stream, Json::Value& o_value,
@@ -354,7 +355,7 @@ namespace cc
         /**
          * @brief Serialize a JSON object to a string.
          *
-         * @param o_value JSON object to serialize.
+         * @param a_value JSON object to serialize.
          *
          * @return JSON object as string.
          */
@@ -398,7 +399,7 @@ namespace cc
          * @brief Redact a JSON Value.
          *
          * @param a_fields Fields to redact.
-         * @param a_value  Object to inspect.
+         * @param a_object Object to inspect and redact.
          */
         template <class E>
         void cc::easy::JSON<E>::Redact (const std::set<std::string>& a_fields, Json::Value& a_object) const
@@ -502,6 +503,10 @@ namespace cc
         }
     
         /**
+         * @brief Translate a JSON value type to a string.
+         *
+         * @param a_type One of \link Json::ValueType \link.
+         *
          * @return \link Json::ValueType \link string representation.
          */
         template <class Exception>

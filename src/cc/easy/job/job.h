@@ -87,9 +87,9 @@ namespace cc
                     Json::Value payload_;
                 } Response;
                 
-            protected:
+            protected: // Const Data
                 
-                size_t log_level_;
+                const size_t log_level_;
                 
             public: // Constructor(s) / Destructor
                 
@@ -107,7 +107,7 @@ namespace cc
                 
             protected: // Virtual Method(s) / Function(s)
                 
-                virtual void LogResponse (const Response& /* a_response */, const Json::Value& /* a_payload */) {};
+                virtual void LogResponse (const Response& /* a_response */, const Json::Value& /* a_payload */) {}
                 
             protected: // Method(s) / Function(s)
 

@@ -853,7 +853,7 @@ void cc::easy::OAuth2HTTPClient::Async (::ev::curl::Request* a_request, const st
     
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, url   , a_request->url());
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, token , CC_QUALIFIED_CLASS_NAME(this));
-    const std::string id     = CC_OBJECT_HEX_ADDR(a_request);
+    const std::string id     = ::cc::ObjectHexAddr<::ev::curl::Request>(a_request);
     const std::string method = a_request->method();
 
     CC_IF_DEBUG(
@@ -987,7 +987,7 @@ void cc::easy::OAuth2HTTPClient::Async (const ::ev::curl::Request::HTTPRequestTy
     
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, url   , request->url());
     CC_IF_DEBUG_DECLARE_AND_SET_VAR(const std::string, token , CC_QUALIFIED_CLASS_NAME(this));
-    const std::string id     = CC_OBJECT_HEX_ADDR(request);
+    const std::string id     = ::cc::ObjectHexAddr<::ev::curl::Request>(request);
     const std::string method = request->method();
 
     Async(new ::ev::curl::Request(loggable_data_, a_type, a_url, &headers, &tx_body, a_timeouts),

@@ -100,7 +100,7 @@ namespace cc
                          *        to set or modify non-standard headers.
                          * @param a_headers OAuth2 HTTP standard headers.
                          */
-                        virtual void OnHTTPRequestHeaderSet (oauth2::Client::Headers& /* o_headers */) const {};
+                        virtual void OnHTTPRequestHeaderSet (oauth2::Client::Headers& /* o_headers */) const {}
                         
                         
                         /**
@@ -112,7 +112,7 @@ namespace cc
                          *
                          * @return True if we should consider a 401.
                          */
-                        virtual bool OnHTTPRequestReturned (const uint16_t& /* a_code */, const oauth2::Client::Headers& /* a_headers */, const std::string& /* a_body */) const { return false; };
+                        virtual bool OnHTTPRequestReturned (const uint16_t& /* a_code */, const oauth2::Client::Headers& /* a_headers */, const std::string& /* a_body */) const { return false; }
 
                     };
                     

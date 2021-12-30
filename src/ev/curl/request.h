@@ -190,7 +190,7 @@ namespace ev
                 void                   EnableDebug            (std::function<void(const Request&, const std::string&)> a_callback);
                 void                   EnableDebugProgress    (std::function<void(const Request&, const float,  const bool)> a_callback);
                 const Debug&           debug                  () const;
-            );
+            )
             void                       Close                  ();
             
             void                       SetStarted  ();

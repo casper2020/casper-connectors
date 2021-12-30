@@ -88,9 +88,9 @@ namespace cc
         /**
          * @brief Execute a previously load function.
          *
-         * @param a_callable
+         * @param a_callable Function and it's context to call, see \link cc::v8::Script::LoadedFunction::Callable \link.
          *
-         * @param o_result
+         * @param o_result V8 result object to fill
          */
         inline void cc::v8::Script::CallFunction (const cc::v8::Script::LoadedFunction::Callable& a_callable, ::v8::Persistent<::v8::Value>& o_result) const
         {
@@ -100,7 +100,7 @@ namespace cc
         /**
          * @brief Prepare scope for a v8 context.
          *
-         * @param a_callback
+         * @param a_callback Function to call.
          */
         inline void cc::v8::Script::IsolatedCall (cc::v8::Script::IsolatedCallback a_callback) const
         {
@@ -110,7 +110,7 @@ namespace cc
         /**
          * @brief Check if a value is null at this v8 context.
          *
-         * @param a_object
+         * @param a_object V8 object to test.
          */
         inline bool cc::v8::Script::IsNull (const ::v8::Persistent<::v8::Value>& a_object) const
         {

@@ -47,7 +47,7 @@ namespace cc
                 
             }; // end of class 'Worker'
 
-        }; // end of namespace 'posix'
+        } // end of namespace 'posix'
     
     } // end of namespace 'threading'
 

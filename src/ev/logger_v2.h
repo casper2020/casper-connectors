@@ -447,7 +447,7 @@ namespace ev
         }
     }
 
-    DEFINE_ENUM_WITH_BITWISE_OPERATORS(LoggerV2::Client::LoggableFlags);
+    DEFINE_ENUM_WITH_BITWISE_OPERATORS(LoggerV2::Client::LoggableFlags)
 
     /**
      * @brief Reset the loggable flag value.

@@ -114,12 +114,4 @@
     }()
 #endif
 
-#include <sstream>
-#define CC_OBJECT_HEX_ADDR(a_ptr) [&] () -> std::string { \
-    std::stringstream ss; \
-    ss << std::hex << static_cast<const void*>(a_ptr); \
-    return ss.str(); \
-} ()
-
-#define CC_OBJECT_FROM_HEX_ADDR(a_str, a_klass) (a_klass*)(std::strtoull(a_str, nullptr, 16))
 #endif // NRS_CC_MACROS_H_

@@ -102,6 +102,7 @@ namespace ev
                     bool               transient_;
                     int                min_progress_;
                     int                log_level_;
+                    bool               log_redact_;
                     std::string        log_token_;
                     Json::Value        other_;
                     std::set<uint16_t> dnbe_;
@@ -120,17 +121,17 @@ namespace ev
                      * @param a_transient
                      * @param a_min_progress
                      * @param a_log_level
+                     * @param a_log_redact
                      * @param a_log_token
                      * @param a_other
                      * @param a_dnbe
                      */
                     Config (const pid_t& a_pid, const uint64_t& a_instance, const int& a_cluster, const std::string& a_service_id, const bool a_transient,
                             const int a_min_progress,
-                            const int a_log_level,
-                            const std::string& a_log_token,
+                            const int a_log_level, const bool a_log_redact, const std::string& a_log_token,
                             const Json::Value& a_other, const std::set<uint16_t>& a_dnbe)
                         : pid_(a_pid), instance_(a_instance), cluster_(a_cluster), service_id_(a_service_id), transient_(a_transient), min_progress_(a_min_progress),
-                          log_level_(a_log_level), log_token_(a_log_token), other_(a_other), dnbe_(a_dnbe)
+                          log_level_(a_log_level), log_redact_(a_log_redact), log_token_(a_log_token), other_(a_other), dnbe_(a_dnbe)
                     {
                         /* empty */
                     }
@@ -142,7 +143,7 @@ namespace ev
                      */
                     Config (const Config& a_config)
                     : pid_(a_config.pid_), instance_(a_config.instance_), cluster_(a_config.cluster_), service_id_(a_config.service_id_), transient_(a_config.transient_),   min_progress_(a_config.min_progress_),
-                        log_level_(a_config.log_level_), log_token_(a_config.log_token_), other_(a_config.other_), dnbe_(a_config.dnbe_)
+                        log_level_(a_config.log_level_), log_redact_(a_config.log_redact_), log_token_(a_config.log_token_), other_(a_config.other_), dnbe_(a_config.dnbe_)
                     {
                         /* empty */
                     }
@@ -163,6 +164,7 @@ namespace ev
                         transient_    = a_config.transient_;
                         min_progress_ = a_config.min_progress_;
                         log_level_    = a_config.log_level_;
+                        log_redact_   = a_config.log_redact_;
                         log_token_    = a_config.log_token_;
                         other_        = a_config.other_;
                         dnbe_         = a_config.dnbe_;
@@ -234,6 +236,14 @@ namespace ev
                     }
 
                     /**
+                     * @return R/O Access to \link log_redact_ \link.
+                     */
+                    inline const bool& log_redact () const
+                    {
+                        return log_redact_;
+                    }
+                    
+                    /**
                      * @return R/O Access to \link other_ \link.
                      */
                     inline const Json::Value& other () const
@@ -274,7 +284,7 @@ namespace ev
                     /**
                      * @brief Set service ID.
                      *
-                     * @param Service ID value.
+                     * @param a_service_id ID value.
                      */
                     inline void SetServiceID (const std::string& a_service_id)
                     {
@@ -302,7 +312,7 @@ namespace ev
                     }
                     
                     /**
-                     * @param Check if this job should be buried or not.
+                     * @brief Check if this job should be buried or not.
                      *
                      * @param a_code HTTP status code.
                      *
@@ -854,7 +864,7 @@ namespace ev
                 output_directory_prefix_ = a_prefix;
             }
         
-            DEFINE_ENUM_WITH_BITWISE_OPERATORS(Job::ResponseFlags);
+            DEFINE_ENUM_WITH_BITWISE_OPERATORS(Job::ResponseFlags)
 
             /**
              * @brief Reset the response flag value.
