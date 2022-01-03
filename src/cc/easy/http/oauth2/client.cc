@@ -394,7 +394,7 @@ void cc::easy::http::oauth2::Client::Async (const cc::easy::http::oauth2::Client
     const std::string id     = ::cc::ObjectHexAddr<::ev::curl::Request>(request);
     const std::string method = request->method();
 
-    Base::Async(new ::ev::curl::Request(loggable_data_, a_method, a_url, &headers, &tx_body, a_timeouts),
+    Base::Async(request,
                 {
                     [CC_IF_DEBUG(token, )this, a_url, id, method] (::ev::Object* a_object) -> ::ev::Object* {
                         
