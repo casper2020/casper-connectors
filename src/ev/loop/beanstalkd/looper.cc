@@ -567,7 +567,7 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
 void ev::loop::beanstalkd::Looper::AppendCallback (const std::string& a_id, Looper::IdleCallback a_callback,
                                                    const size_t a_timeout, const bool a_recurrent)
 {
-    std::lock_guard<std::mutex>(idle_callbacks_.mutex_);
+    idle_callbacks_.mutex_.lock();
     idle_callbacks_.queue_.push(new Looper::IdleCallbackData ({
         /* a_id       */ a_id,
         /* timeout_   */ a_timeout,
@@ -575,6 +575,7 @@ void ev::loop::beanstalkd::Looper::AppendCallback (const std::string& a_id, Loop
         /* function_  */ a_callback,
         /* end_tp_    */ std::chrono::steady_clock::now() + std::chrono::milliseconds(a_timeout)
     }));
+    idle_callbacks_.mutex_.unlock();
 }
 
 /**
@@ -584,8 +585,9 @@ void ev::loop::beanstalkd::Looper::AppendCallback (const std::string& a_id, Loop
  */
 void ev::loop::beanstalkd::Looper::RemoveCallback (const std::string& a_id)
 {
-    std::lock_guard<std::mutex>(idle_callbacks_.mutex_);
+    idle_callbacks_.mutex_.lock();
     idle_callbacks_.cancelled_.insert(a_id);
+    idle_callbacks_.mutex_.unlock();
 }
 
 /**
@@ -596,7 +598,36 @@ void ev::loop::beanstalkd::Looper::RemoveCallback (const std::string& a_id)
 void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
 {
     // ... lock, perform and 'dequeue' pending callbacks ...
-    std::lock_guard<std::mutex>(idle_callbacks_.mutex_);
+    idle_callbacks_.mutex_.lock();
+    
+    // ... for the case where unique id is not respected, search and delete canceled duplicated queued entries ...
+    {
+        size_t cancelled = 0;
+        CC_DEBUG_ASSERT(0 == idle_callbacks_.tmp_.size());
+        if ( 0 != idle_callbacks_.cancelled_.size() ) {
+            std::set<std::string> forget;
+            while ( idle_callbacks_.queue_.size() > 0 ) {
+                auto e = idle_callbacks_.queue_.top();
+                if ( idle_callbacks_.cancelled_.end() != idle_callbacks_.cancelled_.find(e->id_.c_str()) ) {
+                    forget.insert(e->id_);
+                    delete e;
+                    cancelled++;
+                } else {
+                    idle_callbacks_.tmp_.push(e);
+                }
+                idle_callbacks_.queue_.pop();
+            }
+            CC_DEBUG_ASSERT(0 == idle_callbacks_.queue_.size() || 0 == idle_callbacks_.tmp_.size());
+            for ( auto id : forget ) {
+                idle_callbacks_.cancelled_.erase(idle_callbacks_.cancelled_.find(id));
+            }
+            while ( idle_callbacks_.tmp_.size() > 0 ) {
+                idle_callbacks_.queue_.push(idle_callbacks_.tmp_.top());
+                idle_callbacks_.tmp_.pop();
+            }
+            CC_DEBUG_ASSERT(0 == idle_callbacks_.tmp_.size());
+        }
+    }
     
     try {
         // ... nothing to do?
@@ -604,6 +635,8 @@ void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
             // ... ⚠️ since we're only expecting to cancel previously registered callbacks ...
             // ... and we're under a mutex, we can safely forget all cancellations ...
             idle_callbacks_.cancelled_.clear();
+            // ... unlock before leaving ....
+            idle_callbacks_.mutex_.unlock();
             // ... we're done ...
             return;
         }
@@ -629,7 +662,22 @@ void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
                 }
                 // ... perform it ...
                 try {
+                    // ... remove callback from queue ...
+                    idle_callbacks_.queue_.pop();
+                    // ... and unlock queue ...
+                    idle_callbacks_.mutex_.unlock();
+                    // ... execute it ...
                     callback->function_(callback->id_);
+                    // ... re-lock queue ...
+                    idle_callbacks_.mutex_.lock();
+                    // ... if cancelled?
+                    if ( idle_callbacks_.cancelled_.end() != idle_callbacks_.cancelled_.find(callback->id_) ) {
+                        // ... reset recurrent flag ...
+                        callback->recurrent_ = false;
+                    } else if ( true == callback->recurrent_ ) {
+                        // ... keep track of it by adding back to the queue ...
+                        idle_callbacks_.queue_.push(callback);
+                    }
                 } catch (...) {
                     // ... track exception ...
                     try {
@@ -644,7 +692,6 @@ void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
                     callback->end_tp_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(callback->timeout_);
                 } else {
                     // ... no, forget it ...
-                    idle_callbacks_.queue_.pop();
                     delete callback;
                 }
             }
@@ -670,4 +717,6 @@ void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
                               fatal_.exception_->what()
         );
     }
+    // ... and unlock queue ...
+    idle_callbacks_.mutex_.unlock();
 }

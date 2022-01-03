@@ -118,6 +118,7 @@ namespace ev
                     std::mutex                                                                                     mutex_;
                     std::priority_queue<IdleCallbackData*, std::vector<IdleCallbackData*>, IdleCallbackComparator> queue_;
                     std::set<std::string>                                                                          cancelled_;
+                    std::priority_queue<IdleCallbackData*, std::vector<IdleCallbackData*>, IdleCallbackComparator> tmp_;
                 } Callbacks;
                 
                 Callbacks idle_callbacks_;
