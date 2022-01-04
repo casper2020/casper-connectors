@@ -621,7 +621,7 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
     idle_callbacks_.mutex_.unlock();
     
     // ... done ...
-    return ( true == pmf_.triggered_ ? 254 : nullptr != fatal_.exception_ ? 253 : 0 );
+    return ( ( true == a_soft_abort || true == pmf_.triggered_ ) ? 254 : nullptr != fatal_.exception_ ? 253 : 0 );
 }
 
 /**
