@@ -57,7 +57,8 @@ ev::loop::beanstalkd::Runner::Runner ()
 {
     initialized_              = false;
     shutting_down_            = false;
-    quit_                     = false;
+    hard_abort_               = false;
+    soft_abort_               = false;
     bridge_                   = nullptr;
     consumer_thread_          = nullptr;
     consumer_cv_              = nullptr;
@@ -262,19 +263,26 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::StartupC
     ::cc::global::Initializer::GetInstance().Startup(
         /* a_signals */
         {
-            /* register_ */ { SIGUSR1, SIGQUIT, SIGTERM, SIGTTIN },
+            /* register_ */ { SIGUSR1, SIGUSR2, SIGQUIT, SIGTERM, SIGTTIN },
             /* on_signal_ */
             [this](const int a_sig_no) { // unhandled signals callback
                 // ... is a 'shutdown' signal?
                 switch(a_sig_no) {
+                    // ... hard ...
                     case SIGQUIT:
                     case SIGTERM:
                     {
-                        Quit();
+                        Quit(/* a_soft */ false);
                     }
-                    return true;
-                default:
-                    return false;
+                        return true;
+                    // ... soft ...
+                    case SIGUSR2:
+                    {
+                        Quit(/* a_soft */ true);
+                    }
+                        return true;
+                    default:
+                        return false;
                 }
             }
         },
@@ -752,7 +760,8 @@ void ev::loop::beanstalkd::Runner::Shutdown (int a_sig_no)
 
         // ... reset initialized flag ...
         initialized_ = false;
-        quit_        = false;
+        hard_abort_  = false;
+        soft_abort_  = false;
         
         // ... done ...
         cleanup_cv.Wake();
@@ -909,7 +918,7 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop (const float& a_polling_timeout)
     try {
         
         ::cc::threading::Worker::SetName(startup_config_->abbr_ + "::Runner");
-        ::cc::threading::Worker::BlockSignals({SIGUSR1, SIGTTIN, SIGTERM, SIGQUIT});
+        ::cc::threading::Worker::BlockSignals({SIGUSR1, SIGUSR2, SIGTTIN, SIGTERM, SIGQUIT});
 
         // ... initialize v8 ...
         #ifdef CASPER_REQUIRE_GOOGLE_V8
@@ -926,7 +935,7 @@ void ev::loop::beanstalkd::Runner::ConsumerLoop (const float& a_polling_timeout)
         
         looper_ptr_->SetPollingTimeout(a_polling_timeout);
         
-        rv_ = looper_ptr_->Run(*shared_config_, quit_);
+        rv_ = looper_ptr_->Run(*shared_config_, hard_abort_, soft_abort_);
                 
         running_ = false;
         

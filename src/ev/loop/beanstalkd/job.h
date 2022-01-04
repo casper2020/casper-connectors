@@ -327,7 +327,9 @@ namespace ev
                 
                 typedef std::function<void(const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code)> CompletedCallback;
                 typedef std::function<void(bool a_already_ran)>                                                                CancelledCallback;
-                typedef std::function<void()>                                                                                  DeferredCallback;
+                
+                typedef std::function<void(const int64_t&, const std::string&)>                                                DeferredCallback;
+                typedef std::function<void(const int64_t&, const std::string&)>                                                FinishedCallback;
 
                 typedef std::function<void(const ev::Exception&)>                                                                                                         FatalExceptionCallback;
                 typedef std::function<void(std::function<void()> a_callback, bool a_blocking)>                                                                            DispatchOnMainThread;
@@ -441,9 +443,10 @@ namespace ev
                 
                 typedef std::function<void(const char* const, const char* const, const std::string&)> OwnerLogCallback;
                 typedef std::function<void(const uint64_t&, const std::string&, const Json::Value&)>  SignalsChannelListerer;
-
+                
                 SignalsChannelListerer signals_channel_listener_;
                 OwnerLogCallback       owner_log_callback_;
+                FinishedCallback       finished_callback_;
                 
             public: // Constructor(s) / Destructor
                 
@@ -468,7 +471,7 @@ namespace ev
             public: // Method(s) / Function(s)
                 
                 void Setup   (const MessagePumpCallbacks* a_callbacks,
-                              const ::ev::loop::beanstalkd::SharedConfig& a_shared_config);
+                              const ::ev::loop::beanstalkd::SharedConfig& a_shared_config, FinishedCallback a_finished);
                 void Dismantle (const ::cc::Exception* a_cc_exception);
                 void Consume (const int64_t& a_id, const Json::Value& a_payload,
                               const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback, const DeferredCallback& a_deferred_callback);
@@ -498,7 +501,6 @@ namespace ev
                 uint16_t FillResponseObject (const uint16_t& a_code, const char* const a_status, const Json::Value& a_response,
                                              Json::Value& o_object,
                                              const char* const a_action = "response")  const;
-                
             protected: // Method(s) / Function(s)
                 
                 // 2xx

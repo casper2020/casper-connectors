@@ -65,7 +65,10 @@ namespace ev
                 ::ev::beanstalk::Consumer* beanstalk_;
                 Cache                      cache_;
                 Job*                       job_ptr_;
+            protected: // Data
                 
+                CC_IF_DEBUG_DECLARE_VAR(cc::debug::Threading::ThreadID, thread_id_);
+
             private: // Control Data
                 
                 typedef struct {
@@ -90,6 +93,12 @@ namespace ev
                     ::cc::Exception* exception_;
                 } Fatal;
                 Fatal fatal_;
+                
+                typedef struct {
+                    int64_t                               bjid_;
+                    std::chrono::steady_clock::time_point started_at_;
+                } Deferred;
+                std::map<std::string, Deferred*> deferred_;
                 
             public: // Data Type(s)
                 
@@ -131,7 +140,7 @@ namespace ev
                 
             public: // Method(s) / Function(s)
                 
-                int Run (const SharedConfig& a_shared_config, volatile bool& a_aborted);
+                int Run (const SharedConfig& a_shared_config, volatile bool& a_hard_abort, volatile bool& a_soft_abort);
                 
                 void AppendCallback (const std::string& a_id, IdleCallback a_callback,
                                      const size_t a_timeout = 0, const bool a_recurrent = false);
@@ -144,6 +153,12 @@ namespace ev
             private: // Method(s) / Function(s)
                 
                 void Idle (const bool a_fake);
+
+            private: // Method(s) / Function(s)
+
+                void OnJobDeferred         (const int64_t& a_bjid, const std::string& a_rjid);
+                void OnDeferredJobFailed   (const int64_t& a_bjid, const std::string& a_rjid);
+                void OnDeferredJobFinished (const int64_t& a_bjid, const std::string& a_rjid);
                 
             }; // end of class 'Looper'
         

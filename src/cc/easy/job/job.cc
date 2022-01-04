@@ -133,7 +133,7 @@ void cc::easy::job::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
                                         "DEFERRED"
         );
         // ... notify deferred ...
-        a_deferred_callback();
+        a_deferred_callback(ID(), RJID());
         // ... we're done, for now ...
         return;
     }

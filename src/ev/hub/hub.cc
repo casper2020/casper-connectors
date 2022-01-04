@@ -416,7 +416,7 @@ void ev::hub::Hub::Loop ()
     CC_IF_DEBUG_SET_VAR(thread_id_, cc::debug::Threading::GetInstance().CurrentThreadID());
     
     ::cc::threading::Worker::SetName(name_ + "::ev::hub");
-    ::cc::threading::Worker::BlockSignals({SIGUSR1, SIGTTIN, SIGTERM, SIGQUIT});
+    ::cc::threading::Worker::BlockSignals({SIGUSR1, SIGUSR2, SIGTTIN, SIGTERM, SIGQUIT});
 
     stepper_.setup_ = [this](ev::Device* a_device) {
         a_device->Setup(event_base_, [this] (const ev::Exception& a_ev_exception) {

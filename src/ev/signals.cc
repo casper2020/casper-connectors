@@ -104,7 +104,8 @@ void ev::Signals::WarmUp (const ev::Loggable::Data& a_loggable_data_ref)
         { SIGQUIT, "SIGQUIT", strsignal(SIGQUIT), "Quit application." },
         { SIGTERM, "SIGTERM", strsignal(SIGTERM), "Terminate application." },
         { SIGTTIN, "SIGTTIN", strsignal(SIGTTIN), "PostgreSQL Connections Invalidation && Gatekeeper Configs Reload." },
-        { SIGUSR1, "SIGUSR1", strsignal(SIGUSR1), "Logs Recycling." }
+        { SIGUSR1, "SIGUSR1", strsignal(SIGUSR1), "Logs Recycling." },
+        { SIGUSR2, "SIGUSR2", strsignal(SIGUSR2), "Soft shutdown." }
     };
 }
 
@@ -245,7 +246,6 @@ bool ev::Signals::OnSignal (const int a_sig_no)
     
     // ... handle signal ...
     switch(a_sig_no) {
-            
         case SIGUSR1:
         {
             ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
@@ -259,7 +259,6 @@ bool ev::Signals::OnSignal (const int a_sig_no)
             rv = true;
         }
             break;
-            
         case SIGTTIN:
         {
             if ( nullptr != callbacks_.call_on_main_thread_ ) {
@@ -296,13 +295,13 @@ bool ev::Signals::OnSignal (const int a_sig_no)
             rv = true;
         }
             break;
-
+        case SIGUSR2:
         case SIGQUIT:
         case SIGTERM:
         {
             ev::LoggerV2::GetInstance().Log(logger_client_, "signals",
-                                          "Signal %2d - Clean shutdown %s special handling.",
-                                          a_sig_no, nullptr != callbacks_.on_signal_ ? "with" : "without"
+                                            "Signal %2d - %s shutdown %s special handling.",
+                                            a_sig_no, SIGUSR2 == a_sig_no ? "Soft" : "Hard" , nullptr != callbacks_.on_signal_ ? "with" : "without"
             );
         }
         default:

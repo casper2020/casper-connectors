@@ -77,6 +77,11 @@ void ev::beanstalk::Consumer::Connect (const ev::beanstalk::Config& a_config, co
             // ... done ...
             break;
         } catch (const Beanstalk::ConnectException& a_c_e) {
+            // ... cleanup ...
+            if ( nullptr != client_ ) {
+                delete client_;
+                client_ = nullptr;
+            }
             // ... notify ...
             a_callbacks.failure_(attempt, max_attempts, a_c_e.what());
             // ... if reached max attempts ...
@@ -88,6 +93,28 @@ void ev::beanstalk::Consumer::Connect (const ev::beanstalk::Config& a_config, co
         const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start_tp ).count();
         if ( static_cast<float>(elapsed) < ( timeout * 1000 ) ) {
             usleep(( ( timeout * 1000 ) - elapsed ) * 1000);
+        }
+    }
+}
+
+/**
+ * @brief Ignore in-use tubes.
+ *
+ * @param a_config    See \link ev::beanstalk::Config \link.
+ */
+void ev::beanstalk::Consumer::Ignore (const ev::beanstalk::Config& a_config)
+{
+    if ( nullptr == client_ ) {
+        return;
+    }
+    // ... in accordance with beanstalkd protocol, at least one tube must be always in the watch list ...
+    if ( false == client_->watch("casper-ignored-tube") ) {
+        throw ev::Exception("%s", "Unable to remove tubes from watch list!");
+    }
+    // ... now we can ignore all other tubes ,,,
+    for ( auto it : a_config.tubes_ ) {
+        if ( it.length() > 0 && false == client_->ignore(it) ) {
+            throw ev::Exception("Unable to remove tube named '%s' from watch list!", it.c_str());
         }
     }
 }

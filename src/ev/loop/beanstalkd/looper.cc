@@ -50,8 +50,9 @@ ev::loop::beanstalkd::Looper::Looper (const ev::Loggable::Data& a_loggable_data,
        factory_(a_factory), callbacks_(a_callbacks)
 {
     logger_client_->Unset(ev::LoggerV2::Client::LoggableFlags::IPAddress | ev::LoggerV2::Client::LoggableFlags::OwnerPTR);
-    beanstalk_ = nullptr;
-    job_ptr_   = nullptr;
+    beanstalk_        = nullptr;
+    job_ptr_          = nullptr;
+    CC_IF_DEBUG_SET_VAR(thread_id_, -1);
     EV_LOOP_BEANSTALK_IF_LOG_ENABLED({
         ev::LoggerV2::GetInstance().Register(logger_client_, { "queue", "pmf" });
     });
@@ -75,14 +76,26 @@ ev::loop::beanstalkd::Looper::~Looper ()
     if ( nullptr != beanstalk_ ) {
         delete beanstalk_;
     }
+
     for ( auto it : cache_ ) {
         delete it.second;
     }
+
     job_ptr_ = nullptr;
+
+    for ( const auto& it : deferred_ ) {
+        delete it.second;
+    }
+    deferred_.clear();
+
+    idle_callbacks_.mutex_.lock();
     while ( idle_callbacks_.queue_.size() > 0 ) {
         delete idle_callbacks_.queue_.top();
+        idle_callbacks_.queue_.pop();
     }
     idle_callbacks_.cancelled_.clear();
+    idle_callbacks_.mutex_.unlock();
+
     if ( nullptr != fatal_.exception_ ) {
         delete fatal_.exception_;
     }
@@ -91,13 +104,14 @@ ev::loop::beanstalkd::Looper::~Looper ()
 /**
  * @brief Consumer loop.
  *
- * @param a_shared_config
- * @param a_aborted
+ * @param a_shared_config Shared config.
+ * @param a_hard_abort    When true a hard quit will be performed ( exit a.s.a.p. ).
+ * @param a_soft_abort    When true a soft quit will be attempted ( exit when no async job is running; @ linux will depend on systemd config ).
  *
  * @return Exit code, 0 success else an error occurred.
  */
 int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig& a_shared_config,
-                                       volatile bool& a_aborted)
+                                       volatile bool& a_hard_abort, volatile bool& a_soft_abort)
 {   
     Beanstalk::Job job;
     std::string    uri;
@@ -107,6 +121,8 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
     bool           deferred;
     bool           bury;
     uint16_t       http_status_code;
+    
+    CC_IF_DEBUG_SET_VAR(thread_id_, cc::debug::Threading::GetInstance().CurrentThreadID());
     
     // ... use mem limits?
     if ( true == a_shared_config.pmf_.enabled_ ) {
@@ -172,11 +188,11 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
                                 }
                             }
                         },
-                        a_aborted
+                        a_hard_abort
     );
 
     // ... established or aborted?
-    if ( false == a_aborted ) { // ... established ...
+    if ( false == a_hard_abort ) { // ... established ...
         // ... write to permanent log ...
         EV_LOOP_BEANSTALK_LOG("queue",
                               "%s",
@@ -212,10 +228,30 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
     //
     const uint32_t polling_timeout = ( true == polling_.set_ ? 0 : static_cast<uint32_t>(a_shared_config.beanstalk_.abort_polling_) );
 
+    bool soft_aborted = false;
+    
     //
     // consumer loop
     //
-    while ( false == a_aborted && nullptr == fatal_.exception_ ) {
+    while ( false == a_hard_abort && nullptr == fatal_.exception_ ) {
+        
+        // ...
+        // ... special case: soft abort
+        // ...               try to wait until all running jobs are completed
+        // ...               by ignoring all tubes and waiting until there are no jobs running
+        // ...
+        if ( true == a_soft_abort ) {
+            // ... ignore all tubes, only once ...
+            if ( false == soft_aborted ) {
+                beanstalk_->Ignore(a_shared_config.beanstalk_);
+                soft_aborted = true;
+            }
+            // ... check number of running jobs ...
+            if ( 0 == deferred_.size() ) {
+                // ... done ...
+                break;
+            }
+        }
         
         // ... test abort flag, every n seconds ...
         if ( false == beanstalk_->Reserve(job, polling_timeout) ) {
@@ -308,7 +344,7 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
                    loggable_data_.Update(loggable_data_.module(), loggable_data_.ip_addr(), "consumer");
                });
                 // ... one-shot setup ...
-                job_ptr_->Setup(&callbacks_, a_shared_config);
+                job_ptr_->Setup(&callbacks_, a_shared_config, std::bind(&Looper::OnDeferredJobFinished, this, std::placeholders::_1, std::placeholders::_2));
                 // ... keep track of it ...
                 cache_[tube] = job_ptr_;
             } catch (...) {
@@ -345,6 +381,9 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
                     cache_.erase(it);
                 }
                 if ( nullptr != job_ptr_ ) {
+                    // ... untrack it ...
+                    OnDeferredJobFailed(job_ptr_->ID(), job_ptr_->RJID());
+                    // ... forget it  ...
                     delete job_ptr_;
                     job_ptr_ = nullptr;
                 }
@@ -365,22 +404,33 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
                 );
                 // ... run it ...
                 job_ptr_->Consume(/* a_id */ job.id(), /* a_body */ job_payload,
-                                  /* on_completed_           */
-                                  [&uri, &http_status_code, &success, &job_cv](const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code) {
+                                  /* on_completed_ */
+                                  [&uri, &http_status_code, &success, &job_cv, this](const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code) {
+                                      // ...
                                       uri              = a_uri;
                                       http_status_code = a_http_status_code;
                                       success          = a_success;
+                                      // ... untrack it ...
+                                      OnDeferredJobFinished(job_ptr_->ID(), job_ptr_->RJID());
                                       job_cv.Wake();
                                   },
-                                  /* on_cancelled_           */
-                                  [&cancelled, &already_ran, &job_cv] (bool a_already_ran) {
+                                  /* on_cancelled_ */
+                                  [&cancelled, &already_ran, &job_cv, this] (bool a_already_ran) {
+                                      // ...
                                       cancelled   = true;
                                       already_ran = a_already_ran;
+                                      // ... untrack it ...
+                                      OnDeferredJobFinished(job_ptr_->ID(), job_ptr_->RJID());
+                                      // ... continue ...
                                       job_cv.Wake();
                                   },
                                   /* a_deferred_callback */
-                                  [&deferred, &job_cv] () {
+                                  [&deferred, &job_cv, this] (const int64_t& a_bjid, const std::string& a_rjid) {
+                                      // ...
                                       deferred = true;
+                                      // ... track it ...
+                                      OnJobDeferred(a_bjid, a_rjid);
+                                      // ... continue ...
                                       job_cv.Wake();
                                   }
                 );
@@ -414,6 +464,8 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
                 deferred         = false;
                 bury             = true;
                 http_status_code = 500;
+                // ... untrack it ...
+                OnDeferredJobFailed(job_ptr_->ID(), job_ptr_->RJID());
                 // ... forget it  ...
                 delete job_ptr_;
                 cache_.erase(cache_.find(tube));
@@ -551,6 +603,22 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
         delete it.second;
     }
     cache_.clear();
+    
+    // ... release deferred jobs ...
+    for ( const auto& it : deferred_ ) {
+        delete it.second;
+    }
+    deferred_.clear();
+
+    // ... clear idle callbacks ...
+    idle_callbacks_.mutex_.lock();
+    while ( idle_callbacks_.queue_.size() > 0 ) {
+        delete idle_callbacks_.queue_.top();
+        idle_callbacks_.queue_.pop();
+    }
+    idle_callbacks_.cancelled_.clear();
+    CC_DEBUG_ASSERT(0 == idle_callbacks_.tmp_.size());
+    idle_callbacks_.mutex_.unlock();
     
     // ... done ...
     return ( true == pmf_.triggered_ ? 254 : nullptr != fatal_.exception_ ? 253 : 0 );
@@ -719,4 +787,54 @@ void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
     }
     // ... and unlock queue ...
     idle_callbacks_.mutex_.unlock();
+}
+
+/**
+ * @brief Called when a deferred job started.
+ *
+ * @param a_bjid BEANSTALKD job id ( for logging proposes ).
+ * @param a_rjid REDIS job key.
+ */
+void ev::loop::beanstalkd::Looper::OnJobDeferred (const int64_t& a_bjid, const std::string& a_rjid)
+{
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    const auto it = deferred_.find(a_rjid);
+    if ( deferred_.end() != it ) {
+        delete it->second;
+        deferred_.erase(it);
+    }
+    deferred_[a_rjid] = new Looper::Deferred({ /* bjid_ */ a_bjid, /* started_at_ */ std::chrono::steady_clock::now() });
+}
+
+
+/**
+ * @brief Called when a deferred job fails to start.
+ *
+ * @param a_bjid BEANSTALKD job id ( for logging proposes ).
+ * @param a_rjid REDIS job key.
+ */
+void ev::loop::beanstalkd::Looper::OnDeferredJobFailed (const int64_t& a_bjid, const std::string& a_rjid)
+{
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    const auto it = deferred_.find(a_rjid);
+    if ( deferred_.end() != it ) {
+        delete it->second;
+        deferred_.erase(it);
+    }
+}
+
+/**
+ * @brief Called when a deferred job execution is now finished.
+ *
+ * @param a_bjid BEANSTALKD job id ( for logging proposes ).
+ * @param a_rjid REDIS job key.
+ */
+void ev::loop::beanstalkd::Looper::OnDeferredJobFinished (const int64_t& a_bjid, const std::string& a_rjid)
+{
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    const auto it = deferred_.find(a_rjid);
+    if ( deferred_.end() != it ) {
+        delete it->second;
+        deferred_.erase(it);
+    }
 }

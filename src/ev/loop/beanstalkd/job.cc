@@ -79,6 +79,7 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
     
     signals_channel_listener_ = nullptr;
     owner_log_callback_       = nullptr;
+    finished_callback_        = nullptr;
     
     response_flags_           = a_response_flags;
     
@@ -102,9 +103,11 @@ ev::loop::beanstalkd::Job::~Job ()
  *
  * @param a_callbacks
  * @param a_shared_config
+ * @param a_finished
  */
 void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callbacks,
-                                       const ::ev::loop::beanstalkd::SharedConfig& a_shared_config)
+                                       const ::ev::loop::beanstalkd::SharedConfig& a_shared_config,
+                                       FinishedCallback a_finished)
 {
     osal::ConditionVariable cv;
     
@@ -113,6 +116,8 @@ void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callba
     output_directory_        = "";
     logs_directory_          = a_shared_config.directories_.log_;
     shared_directory_        = a_shared_config.directories_.shared_;
+    
+    finished_callback_       = a_finished;
 
     ExecuteOnMainThread([this, &cv] {
 
@@ -568,6 +573,9 @@ void ev::loop::beanstalkd::Job::Finished (const uint64_t& a_id, const std::strin
     
     // ... broadcast job finished ...
     Broadcast(a_id, a_fq_channel, ev::loop::beanstalkd::Job::Status::Finished);
+    
+    // ... notify ...
+    finished_callback_(a_id, a_fq_key);
 }
 
 /**

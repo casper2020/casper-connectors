@@ -61,6 +61,7 @@ namespace ev
         public: // Method(s) / Function(s)
             
             void Connect (const ev::beanstalk::Config& a_config, const ConnectCallbacks& a_callbacks, volatile bool& a_abort);
+            void Ignore  (const ev::beanstalk::Config& a_config);
             bool Reserve (::Beanstalk::Job& a_job);
             bool Reserve (::Beanstalk::Job& a_job, uint32_t a_timeout_sec);
             bool Bury    (const ::Beanstalk::Job& a_job, uint32_t a_priority = 1);

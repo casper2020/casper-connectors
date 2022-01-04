@@ -65,7 +65,8 @@ namespace ev
                 
                 bool                     initialized_;
                 bool                     shutting_down_;
-                volatile bool            quit_;
+                volatile bool            hard_abort_;
+                volatile bool            soft_abort_;
                 ev::loop::Bridge*        bridge_;
                 std::thread*             consumer_thread_;
                 osal::ConditionVariable* consumer_cv_;
@@ -106,7 +107,7 @@ namespace ev
                 
             public: // Inline Method(s) / Function(s)
                 
-                void                      Quit          ();
+                void                      Quit          (const bool a_soft);
                 
             public: // Inline Method(s) / Function(s)
                 
@@ -140,9 +141,13 @@ namespace ev
 
             }; // end of class 'Runner'
             
-            inline void Runner::Quit ()
+            inline void Runner::Quit (const bool a_soft)
             {
-                quit_ = true;
+                if ( true == a_soft ) {
+                    soft_abort_ = true;
+                } else {
+                    hard_abort_ = true;
+                }
             }
             
             inline const ev::Loggable::Data& Runner::loggable_data () const
