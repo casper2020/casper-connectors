@@ -45,6 +45,7 @@ namespace cc
         public: // Enum(s)
             
             enum SignOutputFormat {
+                NotSet = -1,
                 BASE64_URL_UNPADDED = 0,
                 BASE64_RFC4648
             };
