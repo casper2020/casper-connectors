@@ -29,6 +29,7 @@
 
 #include <functional>
 #include <set>
+#include <strings.h> // strcasecmp
 
 namespace cc
 {
