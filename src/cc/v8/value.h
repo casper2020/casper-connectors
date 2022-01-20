@@ -194,6 +194,30 @@ namespace cc
                 return type_;
             }
             
+            inline const char* const type_cstr () const
+            {
+                switch (type_) {
+                    case Type::Undefined:
+                        return "Undefined";
+                    case Type::Int32:
+                        return "Int32";
+                    case Type::UInt32:
+                        return "UInt32";
+                    case Type::Double:
+                        return "Double";
+                    case Type::String:
+                        return "String";
+                    case Type::Boolean:
+                        return "Boolean";
+                    case Type::Object:
+                        return "Object";
+                    case Type::Null:
+                        return "Null";
+                    default:
+                        return "???";
+                }
+            }
+            
             inline bool IsSet () const
             {
                 return ( true == set_ && Type::Undefined != type_ );
