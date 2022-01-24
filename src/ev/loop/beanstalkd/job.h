@@ -544,6 +544,10 @@ namespace ev
                 
                 void Cancel            (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key,
                                         const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr);
+                
+                void SetStatus         (const uint64_t& a_id, const std::string& a_fq_key,
+                                        const std::string& a_status, const int64_t* a_expires_in = nullptr,
+                                        const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback = nullptr);
 
                 bool  WasCancelled      () const;
                 bool  AlreadyRan        () const;

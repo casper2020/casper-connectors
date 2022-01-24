@@ -195,7 +195,7 @@ void cc::easy::job::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
  *
  * @return HTTP status code.
  */
-uint16_t cc::easy::job::Job::SetI18NMessage (const uint16_t& a_code, const easy::job::I18N& a_i18n, Json::Value& o_payload)
+uint16_t cc::easy::job::Job::SetI18NMessage (const uint16_t& a_code, const easy::job::I18N& a_i18n, Json::Value& o_payload) const
 {
     // ... a_i18n is mandatory!
     if ( 0 == a_i18n.key_.length() ) {

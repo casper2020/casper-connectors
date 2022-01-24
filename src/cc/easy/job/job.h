@@ -112,7 +112,7 @@ namespace cc
             protected: // Method(s) / Function(s)
 
                 // 1 ~ 5 xxx
-                uint16_t SetI18NMessage                (const uint16_t& a_code, const I18N& a_i18n, Json::Value& o_payload);
+                uint16_t SetI18NMessage                (const uint16_t& a_code, const I18N& a_i18n, Json::Value& o_payload) const;
                 uint16_t SetI18NError                  (const uint16_t& a_code, const I18N& a_i18n, const InternalError& a_error,
                                                         Json::Value& o_payload);
                 // 2xx

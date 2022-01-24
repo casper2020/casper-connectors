@@ -705,6 +705,86 @@ void ev::loop::beanstalkd::Job::Cancel (const uint64_t& a_id, const std::string&
 }
 
 /**
+ * @brief Set a job 'status' REDIS field.
+ *
+ * @param a_id                BEANSTALKD job ID.
+ * @param a_fq_key            REDIS fully qualified job key  ( <name>:<redis numeric id> ).
+ * @param a_status            'cancelled', 'finished', etc...
+ * @param a_expires_in        EXPIRES in seconds, nullptr use default
+ * @param a_failure_callback
+*/
+void ev::loop::beanstalkd::Job::SetStatus (const uint64_t& /* a_id */, const std::string& a_fq_key,
+                                           const std::string& a_status, const int64_t* a_expires_in,
+                                           const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
+{
+    osal::ConditionVariable cv;
+    
+    ::ev::Exception* exception = nullptr;
+    
+    ExecuteOnMainThread([this, &a_fq_key, a_status, &cv, &exception, a_expires_in] () {
+        // ... start ...
+        ev::scheduler::Task* t = NewTask([this, &a_fq_key, &a_status] () -> ::ev::Object* {
+                                            // ... first, set queued status ...
+                                            return new ::ev::redis::Request(loggable_data_, "HSET", {
+                                                    /* key   */ a_fq_key,
+                                                    /* field */ "status", "{\"status\":\"" + a_status + "\"}"
+                                                }
+                                            );
+                                        }
+        );
+        // ... set expiration?
+        const int64_t expires_in = ( nullptr != a_expires_in ? (*a_expires_in) : expires_in_ );
+        if ( expires_in > 0 ) {
+            // ... yes ...
+            t->Then([this, &a_fq_key, expires_in] (::ev::Object* a_object) -> ::ev::Object* {
+                // ... an integer reply is expected ...
+                ev::redis::Reply::EnsureIntegerReply(a_object);
+                // ... set expiration date ...
+                return new ::ev::redis::Request(loggable_data_,
+                                                "EXPIRE", { a_fq_key, std::to_string(expires_in) }
+                );
+            });
+        }
+        // ... transient, validate 'PUBLISH' response ...
+        t->Finally([&cv] (::ev::Object* a_object) {
+            // ... an integer reply is expected ...
+            ev::redis::Reply::EnsureIntegerReply(a_object);
+            // ... WAKE from REDIS operations ...
+            cv.Wake();
+        });
+        t->Catch([&cv, &exception] (const ::ev::Exception& a_ev_exception) {
+            // ... copy exception ...
+            exception = new ::ev::Exception(a_ev_exception);
+            // ... WAKE from REDIS operations ...
+            cv.Wake();
+        });
+    }, /* a_blocking */ false);
+
+    // ... WAIT until REDIS operations are completed ...
+    cv.Wait();
+    
+    // ... an exception ocurred?
+    if ( nullptr != exception ) {
+        // ... notify?
+        if ( nullptr != a_failure_callback ) {
+            // ... copy ...
+            const ::ev::Exception copy = ::ev::Exception(*exception);
+            // ... release it ...
+            delete exception;
+            // ... notify ...
+            a_failure_callback(copy);
+        } else {
+            // ... log it ...
+            EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ERROR", "SET STATUS FAILED: %s",
+                                            exception->what()
+            );
+            // ... release it ...
+            delete exception;
+        }
+    }
+}
+
+/**
  * @brief Publish a 'progress' message.
  *
  * @param a_progress
