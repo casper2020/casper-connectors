@@ -11,3 +11,6 @@ third-party/build/
 *xcuserdata*
 *xcworkspacedata*
 *xcworkspace
+
+##############
+src/version.h
