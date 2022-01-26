@@ -21,6 +21,8 @@
 
 #include "cc/global/initializer.h"
 
+#include "cc/about.h"
+
 #include "cc/debug/types.h" // CC_DEBUG_SET_MAIN_THREAD_ID
 
 #ifdef CASPER_REQUIRE_GOOGLE_V8
@@ -54,6 +56,7 @@
 
 #include "cc/logs/basic.h"
 
+#include "osal/about.h"
 #include "osal/debug/trace.h"
 #include "osal/osal_file.h"
 
@@ -394,7 +397,23 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
             ERR_clear_error();
 #endif
         } // else { /* nginx will take care of openssl initialization */ }
-        
+
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "OSAL");
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION"       , ::osal::VERSION());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "RELEASE NAME"  , ::osal::REL_NAME());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "RELEASE DATE"  , ::osal::REL_DATE());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "RELEASE BRANCH", ::osal::REL_BRANCH());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "RELEASE HASH"  , ::osal::REL_HASH());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INFO"          , ::osal::INFO());
+
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "CONNECTORS");
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION"       , ::cc::VERSION());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "RELEASE NAME"  , ::cc::REL_NAME());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "RELEASE DATE"  , ::cc::REL_DATE());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "RELEASE BRANCH", ::cc::REL_BRANCH());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "RELEASE HASH"  , ::cc::REL_HASH());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "INFO"          , ::cc::INFO());
+
         CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "OPENSSL");
         CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION"  , SSLeay_version(SSLEAY_VERSION));
         CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "FLAGS"    , SSLeay_version(SSLEAY_CFLAGS));

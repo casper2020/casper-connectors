@@ -37,6 +37,11 @@ const char* const cc::VERSION ()
     return CASPER_CONNECTORS_VERSION;
 }
 
+const char* const cc::REL_NAME ()
+{
+    return CASPER_CONNECTORS_REL_NAME;
+}
+
 const char* const cc::REL_DATE ()
 {
     return CASPER_CONNECTORS_REL_DATE;

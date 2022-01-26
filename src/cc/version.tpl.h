@@ -27,11 +27,15 @@
 #endif
 
 #ifndef CASPER_CONNECTORS_NAME
-#define CASPER_CONNECTORS_NAME "casper-connectors@b.n.s@"
+#define CASPER_CONNECTORS_NAME "casper-connectors"
 #endif
 
 #ifndef CASPER_CONNECTORS_VERSION
 #define CASPER_CONNECTORS_VERSION "x.x.x"
+#endif
+
+#ifndef CASPER_CONNECTORS_REL_NAME
+#define CASPER_CONNECTORS_REL_NAME "n.n.n"
 #endif
 
 #ifndef CASPER_CONNECTORS_REL_DATE
