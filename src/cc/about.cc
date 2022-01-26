@@ -1,5 +1,5 @@
 /**
- * @file about.h
+ * @file about.cc
  *
  * Copyright (c) 2011-2022 Cloudware S.A. All rights reserved.
  *
@@ -18,22 +18,41 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with casper-connectors. If not, see <http://www.gnu.org/licenses/>.
  */
-#pragma once
-#ifndef CASPER_CONNECTORS_ABOUT_H_
-#define CASPER_CONNECTORS_ABOUT_H_
 
-namespace casper
+#include "cc/about.h"
+#include "cc/version.h"
+
+const char* const cc::ABBR ()
 {
-    namespace connectors
-    {
-        const char* const ABBR () __attribute__((used));
-        const char* const NAME () __attribute__((used));
-        const char* const VERSION () __attribute__((used));
-        const char* const REL_DATE () __attribute__((used));
-        const char* const REL_BRANCH () __attribute__((used));
-        const char* const REL_HASH () __attribute__((used));
-        const char* const INFO () __attribute__((used));
-    }
+    return CASPER_CONNECTORS_ABBR;
 }
 
-#endif // CASPER_CONNECTORS_ABOUT_H_
+const char* const cc::NAME ()
+{
+    return CASPER_CONNECTORS_NAME;
+}
+
+const char* const cc::VERSION ()
+{
+    return CASPER_CONNECTORS_VERSION;
+}
+
+const char* const cc::REL_DATE ()
+{
+    return CASPER_CONNECTORS_REL_DATE;
+}
+
+const char* const cc::REL_BRANCH ()
+{
+    return CASPER_CONNECTORS_REL_BRANCH;
+}
+
+const char* const cc::REL_HASH ()
+{
+    return CASPER_CONNECTORS_REL_HASH;
+}
+
+const char* const cc::INFO ()
+{
+    return CASPER_CONNECTORS_INFO;
+}

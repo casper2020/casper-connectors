@@ -13,4 +13,4 @@ third-party/build/
 *xcworkspace
 
 ##############
-src/version.h
+src/cc/version.h
