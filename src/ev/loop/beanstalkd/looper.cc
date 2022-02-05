@@ -792,7 +792,7 @@ void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
 /**
  * @brief Called when a deferred job started.
  *
- * @param a_bjid BEANSTALKD job id ( for logging proposes ).
+ * @param a_bjid BEANSTALKD job id ( for logging purposes ).
  * @param a_rjid REDIS job key.
  */
 void ev::loop::beanstalkd::Looper::OnJobDeferred (const int64_t& a_bjid, const std::string& a_rjid)
@@ -810,7 +810,7 @@ void ev::loop::beanstalkd::Looper::OnJobDeferred (const int64_t& a_bjid, const s
 /**
  * @brief Called when a deferred job fails to start.
  *
- * @param a_bjid BEANSTALKD job id ( for logging proposes ).
+ * @param a_bjid BEANSTALKD job id ( for logging purposes ).
  * @param a_rjid REDIS job key.
  */
 void ev::loop::beanstalkd::Looper::OnDeferredJobFailed (const int64_t& a_bjid, const std::string& a_rjid)
@@ -826,7 +826,7 @@ void ev::loop::beanstalkd::Looper::OnDeferredJobFailed (const int64_t& a_bjid, c
 /**
  * @brief Called when a deferred job execution is now finished.
  *
- * @param a_bjid BEANSTALKD job id ( for logging proposes ).
+ * @param a_bjid BEANSTALKD job id ( for logging purposes ).
  * @param a_rjid REDIS job key.
  */
 void ev::loop::beanstalkd::Looper::OnDeferredJobFinished (const int64_t& a_bjid, const std::string& a_rjid)
