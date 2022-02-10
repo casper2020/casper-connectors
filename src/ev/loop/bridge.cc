@@ -40,7 +40,7 @@ ev::loop::Bridge::Bridge ()
 #if 0 // TODO
     thread_                  = nullptr;
 #endif
-    CC_IF_DEBUG_SET_VAR(thread_id_, cc::debug::Threading::k_invalid_thread_id_);
+    CC_IF_DEBUG_SET_VAR(thread_id_, cc::debug::Threading::k_invalid_thread_id_;)
     aborted_                 = false;
     running_                 = false;
     event_base_              = nullptr;

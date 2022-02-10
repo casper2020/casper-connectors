@@ -86,8 +86,8 @@ namespace cc
                     std::function<void(const Request&, const std::string&)>                    log_request_;
                     std::function<void(const Value&, const std::string&)  >                    log_response_;
                     // FOR DEBUG PURPOSES ONLY - NOT READ FOR SAME CONTEXT USAGE AS THE PREVIOUS FUNCTIONS ARE
-                    CC_IF_DEBUG(std::function<void(const Request&, const uint8_t, const bool)> progress_);
-                    CC_IF_DEBUG(std::function<void(const Request&, const std::string&)>        debug_   );
+                    CC_IF_DEBUG(std::function<void(const Request&, const uint8_t, const bool)> progress_;)
+                    CC_IF_DEBUG(std::function<void(const Request&, const std::string&)>        debug_   ;)
                 } cURLedCallbacks;
 
             protected: // Const Data

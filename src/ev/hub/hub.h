@@ -172,7 +172,7 @@ namespace ev
             
             std::atomic<int>&            pending_callbacks_count_;
 
-            CC_IF_DEBUG_DECLARE_VAR(cc::debug::Threading::ThreadID, thread_id_);
+            CC_IF_DEBUG_DECLARE_VAR(cc::debug::Threading::ThreadID, thread_id_;)
 
         public: // Static Const Data
             

@@ -142,7 +142,7 @@ namespace ev
 #if 0 // TODO
             std::thread*                 thread_;
 #endif
-            CC_IF_DEBUG_DECLARE_VAR(cc::debug::Threading::ThreadID, thread_id_);
+            CC_IF_DEBUG_DECLARE_VAR(cc::debug::Threading::ThreadID, thread_id_;)
             
             std::atomic<bool>              aborted_;
             std::atomic<bool>              running_;

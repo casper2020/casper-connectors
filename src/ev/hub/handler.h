@@ -45,7 +45,7 @@ namespace ev
 
         protected: // Const Data
 
-            CC_IF_DEBUG_DECLARE_VAR(const cc::debug::Threading::ThreadID, thread_id_);
+            CC_IF_DEBUG_DECLARE_VAR(const cc::debug::Threading::ThreadID, thread_id_;)
 
         protected: // Refs
             

@@ -67,7 +67,7 @@ namespace ev
                 Job*                       job_ptr_;
             protected: // Data
                 
-                CC_IF_DEBUG_DECLARE_VAR(cc::debug::Threading::ThreadID, thread_id_);
+                CC_IF_DEBUG_DECLARE_VAR(cc::debug::Threading::ThreadID, thread_id_;)
 
             private: // Control Data
                 
