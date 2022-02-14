@@ -251,7 +251,7 @@ namespace cc
             what_ = a_message; \
         } \
         a_name (const char* const a_format, ...) __attribute__((format(printf, 2, 3))) \
-        : ::cc::CodedException(a_code, "") \
+        : ::cc::CodedException(a_code, "%s", "") \
         { \
             std::va_list args; \
             va_start(args, a_format); \
@@ -263,11 +263,11 @@ namespace cc
 
 // 4xx client errors
 CC_EXCEPTION_DECLARE(BadRequest         , CC_STATUS_CODE_BAD_REQUEST);
+CC_EXCEPTION_DECLARE(NotFound           , CC_STATUS_CODE_NOT_FOUND);
 // 5xx server errors
 CC_EXCEPTION_DECLARE(InternalServerError, CC_STATUS_CODE_INTERNAL_SERVER_ERROR);
 CC_EXCEPTION_DECLARE(NotImplemented     , CC_STATUS_CODE_NOT_IMPLEMENTED);
 CC_EXCEPTION_DECLARE(GatewayTimeout     , CC_STATUS_CODE_GATEWAY_TIMEOUT);
-
 }
 
 #endif // NRS_CC_EXCEPTION_H_
