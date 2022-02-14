@@ -305,6 +305,9 @@ namespace cc
         
     public: // Method(s) / Function(s)
         
+        void               Insert    (const std::initializer_list<Opt*>& a_opts, const size_t a_index);
+        void               Append    (const std::initializer_list<Opt*>& a_opts);
+        
         const Opt*         Get       (const char a_short) const;
         const Switch*      GetSwitch (const char a_short) const;
         const String*      GetString (const char a_short) const;
@@ -350,6 +353,32 @@ namespace cc
             }
         }
         return false;
+    }
+
+    /**
+     * @brief Insert a set of new options.
+     *
+     * @param a_index Index where to start to insert.
+     * @param a_opts  Options to append.
+     */
+    inline void OptArg::Insert (const std::initializer_list<OptArg::Opt*>& a_opts, const size_t a_index)
+    {
+        for ( auto opt : a_opts ) {
+            auto it = opts_.begin() + a_index;
+            opts_.insert(it++, std::move(opt));
+        }
+    }
+
+    /**
+     * @brief Append a set of new options.
+     *
+     * @param a_opts Options to append.
+     */
+    inline void OptArg::Append (const std::initializer_list<OptArg::Opt*>& a_opts)
+    {
+        for ( auto opt : a_opts ) {
+            opts_.push_back(std::move(opt));
+        }
     }
 
     /**
