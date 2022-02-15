@@ -103,6 +103,7 @@ void ev::casper::Session::Patch (Json::Value& a_object, const std::string& a_ori
         { "impersonator_role_mask", GetValue("impersonator_role_mask" , "") },
         { "impersonator_entity_id", GetValue("impersonator_entity_id" , "") },
         { "impersonator_email"    , GetValue("impersonator_email"     , "") },
+        { "brand"                 , GetValue("brand"                  , "") },
         { "access_token"          , data_.token_                            },
         { "origin_ip"             , a_origin_ip_addr                        }
     };
@@ -134,8 +135,9 @@ void ev::casper::Session::Patch (std::string& a_string, const std::string& a_ori
         { "<impersonator_email>"    , GetValue("impersonator_email"     , "") },
         { "<impersonator_role_mask>", GetValue("impersonator_role_mask" , "") },
         { "<impersonator_entity_id>", GetValue("impersonator_entity_id" , "") },
-        { "<access_token>"        , data_.token_                      },
-        { "<origin_ip>"           , a_origin_ip_addr                  }
+        { "<brand>"                 , GetValue("brand"                  , "") },
+        { "<access_token>"          , data_.token_                            },
+        { "<origin_ip>"             , a_origin_ip_addr                        }
     };
        
     for ( auto patcheable : patchables ) {
