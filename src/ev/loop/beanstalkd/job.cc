@@ -1245,7 +1245,8 @@ void ev::loop::beanstalkd::Job::JSONAPIGet (const Json::Value& a_urn,
  * param o_url
  */
 void ev::loop::beanstalkd::Job::HTTPGet (const Json::Value& a_url,
-                                         uint16_t& o_code, std::string& o_data, uint64_t& o_elapsed, std::string& o_url)
+                                         uint16_t& o_code, std::string& o_data, uint64_t& o_elapsed, std::string& o_url,
+                                         const EV_CURL_HTTP_TIMEOUTS* a_timeouts)
 {
     o_url =  a_url.asString();
 
@@ -1262,7 +1263,8 @@ void ev::loop::beanstalkd::Job::HTTPGet (const Json::Value& a_url,
             [&o_code, &o_data] (const ::ev::Exception& a_ev_exception) {
                 o_code = 500;
                 o_data = a_ev_exception.what();
-            }
+            },
+            a_timeouts
     );
     
     o_elapsed = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - dlsp).count());
@@ -1277,9 +1279,10 @@ void ev::loop::beanstalkd::Job::HTTPGet (const Json::Value& a_url,
  * param a_failure_callback
  */
 void ev::loop::beanstalkd::Job::HTTPGet (const std::string& a_url, const EV_CURL_HEADERS_MAP& a_headers,
-                                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+                                         EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                                         const EV_CURL_HTTP_TIMEOUTS* a_timeouts)
 {
-    HTTPSyncExec([this, &a_url, &a_headers] (EV_CURL_HTTP_SUCCESS_CALLBACK a_a, EV_CURL_HTTP_FAILURE_CALLBACK a_b) {
+    HTTPSyncExec([this, &a_url, &a_headers, a_timeouts] (EV_CURL_HTTP_SUCCESS_CALLBACK a_a, EV_CURL_HTTP_FAILURE_CALLBACK a_b) {
         http_.GET(
                   loggable_data_,
                   /* a_url */
@@ -1291,7 +1294,9 @@ void ev::loop::beanstalkd::Job::HTTPGet (const std::string& a_url, const EV_CURL
                   /* a_error_callback */
                   nullptr,
                   /* a_failure_callback */
-                  a_b
+                  a_b,
+                  /* a_timeouts */
+                  a_timeouts
         );
     }, a_success_callback, a_failure_callback);
 }
@@ -1310,14 +1315,15 @@ void ev::loop::beanstalkd::Job::HTTPGet (const std::string& a_url, const EV_CURL
  */
 void ev::loop::beanstalkd::Job::HTTPGetFile (const std::string& a_url, const EV_CURL_HEADERS_MAP& a_headers,
                                              const uint64_t& a_validity, const std::string& a_prefix, const std::string& a_extension,
-                                             EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+                                             EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                                             const EV_CURL_HTTP_TIMEOUTS* a_timeouts)
 {
     std::string local_uri;
     if ( osal::File::Status::EStatusOk != osal::File::UniqueFileName(EnsureOutputDir(a_validity), ( 0 != a_prefix.length() ? a_prefix : tube_ ), a_extension, local_uri) ) {
         throw ::ev::Exception("%s",  "Unable to create an unique file name for the HTTP request response!");
     }
 
-    HTTPSyncExec([this, &a_url, &a_headers, &local_uri] (EV_CURL_HTTP_SUCCESS_CALLBACK a_a, EV_CURL_HTTP_FAILURE_CALLBACK a_b) {
+    HTTPSyncExec([this, &a_url, &a_headers, &local_uri, a_timeouts] (EV_CURL_HTTP_SUCCESS_CALLBACK a_a, EV_CURL_HTTP_FAILURE_CALLBACK a_b) {
         
         http_.GET(
                   loggable_data_,
@@ -1332,7 +1338,9 @@ void ev::loop::beanstalkd::Job::HTTPGetFile (const std::string& a_url, const EV_
                   /* a_failure_callback */
                   a_b,
                   /* o_uri */
-                  local_uri
+                  local_uri,
+                  /* a_timeouts */
+                  a_timeouts
         );
         
     }, a_success_callback, a_failure_callback);
@@ -1348,9 +1356,10 @@ void ev::loop::beanstalkd::Job::HTTPGetFile (const std::string& a_url, const EV_
  * param a_failure_callback
  */
 void ev::loop::beanstalkd::Job::HTTPPost (const std::string& a_url, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body,
-                                          EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+                                          EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                                          const EV_CURL_HTTP_TIMEOUTS* a_timeouts)
 {
-    HTTPSyncExec([this, &a_url, &a_headers, &a_body] (EV_CURL_HTTP_SUCCESS_CALLBACK a_a, EV_CURL_HTTP_FAILURE_CALLBACK a_b) {
+    HTTPSyncExec([this, &a_url, &a_headers, &a_body, a_timeouts] (EV_CURL_HTTP_SUCCESS_CALLBACK a_a, EV_CURL_HTTP_FAILURE_CALLBACK a_b) {
         
         http_.POST(loggable_data_,
                    /* a_url */
@@ -1364,7 +1373,9 @@ void ev::loop::beanstalkd::Job::HTTPPost (const std::string& a_url, const EV_CUR
                    /* a_error_callback */
                    nullptr,
                    /* a_failure_callback */
-                   a_b
+                   a_b,
+                   /* a_timeouts */
+                   a_timeouts
         );
         
     }, a_success_callback, a_failure_callback);
@@ -1381,9 +1392,10 @@ void ev::loop::beanstalkd::Job::HTTPPost (const std::string& a_url, const EV_CUR
  */
 void ev::loop::beanstalkd::Job::HTTPPostFile (const std::string& a_uri, const std::string& a_url,
                                               const EV_CURL_HEADERS_MAP& a_headers,
-                                              EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback)
+                                              EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                                              const EV_CURL_HTTP_TIMEOUTS* a_timeouts)
 {    
-    HTTPSyncExec([this, &a_uri, &a_url, &a_headers] (EV_CURL_HTTP_SUCCESS_CALLBACK a_a, EV_CURL_HTTP_FAILURE_CALLBACK a_b) {
+    HTTPSyncExec([this, &a_uri, &a_url, &a_headers, a_timeouts] (EV_CURL_HTTP_SUCCESS_CALLBACK a_a, EV_CURL_HTTP_FAILURE_CALLBACK a_b) {
         
         http_.POST(loggable_data_,
                    /* a_uri */
@@ -1397,7 +1409,9 @@ void ev::loop::beanstalkd::Job::HTTPPostFile (const std::string& a_uri, const st
                    /* a_error_callback */
                    nullptr,
                    /* a_failure_callback */
-                   a_b
+                   a_b,
+                   /* a_timeouts */
+                   a_timeouts
         );
         
     }, a_success_callback, a_failure_callback);

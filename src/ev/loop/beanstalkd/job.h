@@ -616,21 +616,26 @@ namespace ev
             protected: // HTTP Method(s) / Function(s)
 
                 void HTTPGet (const Json::Value& a_url,
-                              uint16_t& o_code, std::string& o_data, uint64_t& o_elapsed, std::string& o_url);
+                              uint16_t& o_code, std::string& o_data, uint64_t& o_elapsed, std::string& o_url,
+                              const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
                 
                 void HTTPGet (const std::string& a_url, const EV_CURL_HEADERS_MAP& a_headers,
-                              EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback);
+                              EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                              const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
                 void HTTPGetFile (const std::string& a_url, const EV_CURL_HEADERS_MAP& a_headers,
                                   const uint64_t& a_validity, const std::string& a_prefix, const std::string& a_extension,
-                                  EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback);
+                                  EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                                  const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
                 void HTTPPost (const std::string& a_url, const EV_CURL_HEADERS_MAP& a_headers, const std::string& a_body,
-                               EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback);
+                               EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                               const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
                 void HTTPPostFile (const std::string& a_uri, const std::string& a_url,
                                    const EV_CURL_HEADERS_MAP& a_headers,
-                                   EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback);
+                                   EV_CURL_HTTP_SUCCESS_CALLBACK a_success_callback, EV_CURL_HTTP_FAILURE_CALLBACK a_failure_callback,
+                                   const EV_CURL_HTTP_TIMEOUTS* a_timeouts = nullptr);
 
             protected: // FILE Method(s) / Function(s)
                 
