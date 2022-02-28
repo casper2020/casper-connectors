@@ -238,7 +238,7 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
     EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("KEY"    , "%s", rjid_.c_str());
 
     // ... first check if job as cancelled ...
-    if ( true == ShouldCancel() ) {
+    if ( true == ShouldCancel() || true == AlreadyRan() ) {
         // ... notify caller ...
         cancelled_callback(already_ran_);
     } else {
