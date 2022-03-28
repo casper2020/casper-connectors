@@ -313,3 +313,79 @@ ssize_t sys::bsd::Process::PurgeableVolatile (const pid_t& a_pid)
     }
     return static_cast<ssize_t>(vm_info.ledger_purgeable_volatile + vm_info.ledger_purgeable_volatile_compressed);
 }
+
+/**
+ * @brief Obtain a list of all running processes.
+ *
+ * @param o_list List of running processes - basic info only.
+ */
+int sys::bsd::Process::GetAll (std::vector<sys::bsd::Process::BasicInfo>& o_list)
+{
+    static const int   mib[]    = { CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0 };
+    static const u_int mib_size = ( sizeof(mib) / sizeof(*mib) ) - 1;
+    struct kinfo_proc* list     = nullptr;
+    int                err_no   = 0;
+    size_t             length   = 0;
+    
+    const size_t max_attempts = 3;
+    for ( size_t attempt_no = 0 ; attempt_no < max_attempts ; ++attempt_no ) {
+        
+        // ... first sysctl call is to calculate buffer size ...
+        length = 0;
+        err_no = sysctl((int *)mib, mib_size, NULL, &length, NULL, 0);
+        if ( -1 == err_no ) {
+            err_no = errno;
+            if ( ENOMEM == err_no ) {
+                err_no = 0;
+                continue;
+            } else {
+                break;
+            }
+        }
+        
+        // ... allocate an buffer so we make a second call and fill the list ...
+        list = (kinfo_proc*)malloc(length);
+        if ( list == NULL ) {
+            err_no = ENOMEM;
+            continue;
+        }
+        
+        // ... obtain processes list...
+        // ⚠️ ( since we're making 2 calls in-between we might miss processes ) ⚠️
+        if ( -1 == sysctl( (int *) mib, mib_size, list, &length, NULL, 0) ) {
+            free(list);
+            list = NULL;
+            err_no = errno;
+            if ( ENOMEM == err_no ) {
+                err_no = 0;
+                continue;
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+        
+    }
+    
+    errno = err_no;
+    
+    // ... an error is set or no data?
+    if ( 0 != err_no ) { // ... error is set ...
+        free(list);
+        return errno;
+    } else if ( nullptr == list ) { // ... no data ...
+        return errno;
+    }
+        
+    // ... collect all  ...
+    const size_t count  = length / sizeof(kinfo_proc);
+    for ( size_t idx = 0 ; idx < count ; ++idx ) {
+        const auto process = &list[idx];
+        o_list.push_back({ process->kp_proc.p_comm, process->kp_proc.p_pid });
+    }
+    free(list);
+    
+    // ... we're done ..
+    return 0;
+}

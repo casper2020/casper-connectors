@@ -37,6 +37,13 @@ namespace sys
         class Process final : public ::sys::Process
         {
             
+        public: // Data Type(s)
+            
+            typedef struct {
+                std::string name_;
+                pid_t       pid_;
+            } BasicInfo;
+            
         public: // Constructor(s) / Destructor
 
             Process (Info&& a_info);
@@ -56,6 +63,8 @@ namespace sys
             static bool    IsProcessBeingDebugged (const pid_t& a_pid);
             static ssize_t MemPhysicalFootprint   (const pid_t& a_pid);
             static ssize_t PurgeableVolatile      (const pid_t& a_pid);
+            
+            static int     GetAll                 (std::vector<BasicInfo>& o_list);
 
         }; // end of class 'Process'
 

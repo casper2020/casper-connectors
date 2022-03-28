@@ -233,6 +233,7 @@ void cc::sockets::dgram::ipc::Server::Listen ()
     pthread_sigmask(SIG_SETMASK, &sigmask, NULL);
 
     sigaddset(&sigmask, SIGTERM);
+    sigaddset(&sigmask, SIGUSR2);
     sigaddset(&sigmask, SIGCHLD);
     pthread_sigmask(SIG_BLOCK, &sigmask, &saved_sigmask);
 
