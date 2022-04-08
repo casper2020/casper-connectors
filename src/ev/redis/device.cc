@@ -420,7 +420,7 @@ bool ev::redis::Device::ScheduleNextPostConnectCommand ()
  */
 void ev::redis::Device::ClientNameSetCallback (const ev::redis::Device::ExecutionStatus& a_status, ev::Result* a_result)
 {
-    SafeProcessReply(__FUNCTION__, a_status, a_result, [this] (const ev::redis::Device::ExecutionStatus& a_status, const ev::redis::Reply* a_reply) {
+    SafeProcessReply(__FUNCTION__, a_status, a_result, [this] (const ev::redis::Device::ExecutionStatus& /* a_status */, const ev::redis::Reply* a_reply) {
         
         const ev::redis::Value& value = a_reply->value();
         if ( ev::redis::Value::ContentType::Status != value.content_type() ) {
@@ -469,7 +469,7 @@ void ev::redis::Device::ClientNameSetCallback (const ev::redis::Device::Executio
 void ev::redis::Device::DatabaseIndexSelectionCallback (const ev::redis::Device::ExecutionStatus& a_status, ev::Result* a_result)
 {
     
-    SafeProcessReply(__FUNCTION__, a_status, a_result, [this] (const ev::redis::Device::ExecutionStatus& a_status, const ev::redis::Reply* a_reply) {
+    SafeProcessReply(__FUNCTION__, a_status, a_result, [this] (const ev::redis::Device::ExecutionStatus& /* a_status */, const ev::redis::Reply* a_reply) {
         
         const ev::redis::Value& value = a_reply->value();
         if ( ev::redis::Value::ContentType::Status != value.content_type() ) {

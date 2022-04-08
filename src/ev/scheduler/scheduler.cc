@@ -351,9 +351,9 @@ void ev::scheduler::Scheduler::Unregister (ev::scheduler::Client* a_client)
     clients_to_objects_map_.erase(it);
     // [B] AG: NOV 26, 2018
     std::vector<uint64_t> to_erase;
-    for ( auto it = object_to_client_map_.begin() ; object_to_client_map_.end() != it ; ++it ) {
-        if ( it->second == a_client ) {
-            to_erase.push_back(it->first);
+    for ( auto it2 = object_to_client_map_.begin() ; object_to_client_map_.end() != it2 ; ++it2 ) {
+        if ( it2->second == a_client ) {
+            to_erase.push_back(it2->first);
         }
     }
     for ( auto obj_id : to_erase ) {

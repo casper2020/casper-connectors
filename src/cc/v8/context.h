@@ -147,11 +147,12 @@ namespace cc
             bool Parse         (const char* const a_data,
                                 ::v8::Persistent<::v8::Object>& o_object, ::v8::Persistent<::v8::Value>& o_data) const;
             
-            void Compile       (const std::string& a_name,
-                                const ::v8::Local<::v8::String>& a_script, const FunctionsVector* a_functions = nullptr);            
-            void LoadFunctions (const LoadedFunction::Callable& a_callable, const FunctionsVector& a_functions);
-            void CallFunction  (const LoadedFunction::Callable& a_callable, ::v8::Persistent<::v8::Value>& o_result) const;            
-            void IsolatedCall  (const IsolatedCallback a_callback) const;
+            void Compile        (const std::string& a_name,
+                                 const ::v8::Local<::v8::String>& a_script, const FunctionsVector* a_functions = nullptr);
+            void LoadFunctions  (const LoadedFunction::Callable& a_callable, const FunctionsVector& a_functions);
+            void CallFunction   (const LoadedFunction::Callable& a_callable, ::v8::Persistent<::v8::Value>& o_result) const;            
+            void IsolatedCall   (const IsolatedCallback a_callback) const;
+            void SetIsolateData (uint32_t a_slot, void* a_data);
             ::v8::Isolate* Isolate () const;
             
         private: // Method(s) / Function(s)
@@ -164,6 +165,20 @@ namespace cc
             
         }; // end of class 'ClientContext'
         
+        /**
+         * @brief Associate embedder-specific data with the isolate.
+         *
+         * @param a_slot Has to be between 0 and GetNumberOfDataSlots() - 1.
+         * @param a_data Arbitrary data.
+         */
+        inline void Context::SetIsolateData (uint32_t a_slot, void* a_data)
+        {
+            isolate_ptr_->SetData(a_slot, a_data);
+        }
+    
+        /**
+         * @return R/O access to \link ::v8::Isolate \link instance.
+         */
         inline ::v8::Isolate* Context::Isolate () const
         {
             return isolate_ptr_;

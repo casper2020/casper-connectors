@@ -201,10 +201,10 @@ int cc::OptArg::Parse (const int& a_argc, const char** const a_argv,
     }
     
     // ... validate opts ...
-    for ( auto opt : opts_ ) {
-        if ( false == opt->optional_ && false == opt->IsSet() ) {
+    for ( auto op : opts_ ) {
+        if ( false == op->optional_ && false == op->IsSet() ) {
             error_ = "Missing or invalid option -";
-            error_ += opt->short_;
+            error_ += op->short_;
             error_ += " value!";
             break;
         }

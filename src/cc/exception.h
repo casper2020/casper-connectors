@@ -35,27 +35,27 @@
 #if defined(__APPLE__) || defined(__clang__)
     #define STD_CPP_GENERIC_EXCEPTION_TRACE() \
         [&] () -> std::string { \
-            std::stringstream ss; \
+            std::stringstream _tmp_ss; \
             std::exception_ptr p = std::current_exception(); \
-            ss << "C++ Generic Exception @" << __PRETTY_FUNCTION__ << ":" << __LINE__; \
+            _tmp_ss << "C++ Generic Exception @" << __PRETTY_FUNCTION__ << ":" << __LINE__; \
             try { \
                 std::rethrow_exception(p);\
             } catch(const std::exception& e) { \
-                ss << "what() =" << e.what(); \
+                _tmp_ss << "what() =" << e.what(); \
             } \
-            return ss.str(); \
+            return _tmp_ss.str(); \
         }()
 #else
     #define STD_CPP_GENERIC_EXCEPTION_TRACE() \
         [&] () -> std::string { \
-            std::stringstream ss; \
+            std::stringstream _tmp_ss; \
             std::exception_ptr p = std::current_exception(); \
-            ss << "C++ Generic Exception @" << __PRETTY_FUNCTION__ << ":" << __LINE__; \
+            _tmp_ss << "C++ Generic Exception @" << __PRETTY_FUNCTION__ << ":" << __LINE__; \
             if ( p ) { \
-                ss << "name() =" << p.__cxa_exception_type()->name(); \
-                ss << "what() =" << p.__cxa_exception_type()->name(); \
+                _tmp_ss << "name() =" << p.__cxa_exception_type()->name(); \
+                _tmp_ss << "what() =" << p.__cxa_exception_type()->name(); \
             } \
-            return ss.str(); \
+            return _tmp_ss.str(); \
         }()
 #endif
 

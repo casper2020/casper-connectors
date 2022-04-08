@@ -293,17 +293,17 @@ void cc::easy::http::oauth2::Client::AuthorizationCodeGrant (http::oauth2::Clien
                     const std::regex code_expr("(\\?|&)(code=([^/&?]+))", std::regex_constants::ECMAScript | std::regex_constants::icase);
                     if ( true == std::regex_match(args, match, code_expr) ) {
                         if ( 4 == match.size() ) {
-                            std::string url;
+                            std::string tmp_url;
                             SetURLQuery(tokens_uri, {
                                 { "grant_type"   , "authorization_code"                        },
                                 { "code"         , match[3].str()                              },
-                            }, url);
-                            const http::oauth2::Client::Headers headers = {
+                            }, tmp_url);
+                            const http::oauth2::Client::Headers next_headers = {
                                 { "Authorization", { "Basic " + ::cc::base64_url_unpadded::encode((config_.oauth2_.credentials_.client_id_ + ':' + config_.oauth2_.credentials_.client_secret_)) } },
                                 { "Content-Type" , { "application/x-www-form-urlencoded" } }
                             };
                             // ...perform 'access token request' ...
-                            return new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::GET, url, &headers, nullptr);
+                            return new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::GET, tmp_url, &next_headers, nullptr);
                         } else {
                             throw ::cc::Exception("Invalid '%s' header value: unable to verify if '%s' argument is present!", "Location", "code");
                         }
@@ -418,7 +418,7 @@ void cc::easy::http::oauth2::Client::Async (const cc::easy::http::oauth2::Client
                                     return dynamic_cast<::ev::Result*>(a_object)->DetachDataObject();
                                 }
                             }
-                            ::ev::curl::Request* request ;
+                            ::ev::curl::Request* next_request ;
                             // ... refresh tokens now ...
                             if ( true == formpost_ ) {
                                 //
@@ -427,11 +427,11 @@ void cc::easy::http::oauth2::Client::Async (const cc::easy::http::oauth2::Client
                                 ::ev::curl::Request::FormFields fields = {
                                     { "grant_type", "refresh_token" },
                                 };
-                                http::oauth2::Client::Headers headers = {};
+                                http::oauth2::Client::Headers next_headers = {};
                                 // ... perform ...
                                 if ( true == rfc_6749_ ) {
                                     // ... update headers ...
-                                    headers["Authorization"] = { "Basic " + ::cc::base64_url_unpadded::encode((config_.oauth2_.credentials_.client_id_ + ':' + config_.oauth2_.credentials_.client_secret_)) };
+                                    next_headers["Authorization"] = { "Basic " + ::cc::base64_url_unpadded::encode((config_.oauth2_.credentials_.client_id_ + ':' + config_.oauth2_.credentials_.client_secret_)) };
                                 } else {
                                     // ... client_* will be sent in body URL encoded ...
                                     fields.push_back({ "client_id"    , config_.oauth2_.credentials_.client_id_     });
@@ -440,11 +440,11 @@ void cc::easy::http::oauth2::Client::Async (const cc::easy::http::oauth2::Client
                                 // ...
                                 fields.push_back({ "refresh_token" , tokens_.refresh_ });
                                 // ... new request ...
-                                request = new ::ev::curl::Request(loggable_data_, config_.oauth2_.urls_.token_, &headers, fields);
+                                next_request = new ::ev::curl::Request(loggable_data_, config_.oauth2_.urls_.token_, &next_headers, fields);
                             } else {
                                 
                                 // ... headers ...
-                                http::oauth2::Client::Headers headers = {
+                                http::oauth2::Client::Headers next_headers = {
                                     { "Content-Type" , { "application/x-www-form-urlencoded" } }
                                 };
                                 
@@ -454,7 +454,7 @@ void cc::easy::http::oauth2::Client::Async (const cc::easy::http::oauth2::Client
                                 };
                                 
                                 if ( true == rfc_6749_ ) {
-                                    headers["Authorization"] = { "Basic " + ::cc::base64_url_unpadded::encode((config_.oauth2_.credentials_.client_id_ + ':' + config_.oauth2_.credentials_.client_secret_)) };
+                                    next_headers["Authorization"] = { "Basic " + ::cc::base64_url_unpadded::encode((config_.oauth2_.credentials_.client_id_ + ':' + config_.oauth2_.credentials_.client_secret_)) };
                                 } else {
                                     params["client_id"] = config_.oauth2_.credentials_.client_id_;
                                     params["client_secret"] = config_.oauth2_.credentials_.client_secret_;
@@ -466,19 +466,19 @@ void cc::easy::http::oauth2::Client::Async (const cc::easy::http::oauth2::Client
                                 
                                 // ... notify interceptor?
                                 if ( nullptr != nsi_ptr_ ) {
-                                    nsi_ptr_->OnOAuth2RequestSet(headers, body);
+                                    nsi_ptr_->OnOAuth2RequestSet(next_headers, body);
                                 }
                                 // ... new request ...
-                                request = new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, config_.oauth2_.urls_.token_, &headers, &body);
+                                next_request = new ::ev::curl::Request(loggable_data_, ::ev::curl::Request::HTTPRequestType::POST, config_.oauth2_.urls_.token_, &next_headers, &body);
                             }
                             // ... log request?
                             if ( nullptr != cURLed_callbacks_.log_request_ ) {
-                                cURLed_callbacks_.log_request_(*request, ::ev::curl::HTTP::cURLRequest(id, request, should_redact_));
+                                cURLed_callbacks_.log_request_(*next_request, ::ev::curl::HTTP::cURLRequest(id, next_request, should_redact_));
                             }
                             // ... dump request ...
-                            CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpRequest(token, id, request););
+                            CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpRequest(token, id, next_request););
                             // ... perform request ...
-                            return request;
+                            return next_request;
                         } else {
                             // ... no, continue ..
                             return dynamic_cast<::ev::Result*>(a_object)->DetachDataObject();
@@ -492,7 +492,7 @@ void cc::easy::http::oauth2::Client::Async (const cc::easy::http::oauth2::Client
                             return a_object;
                         } else {
                             // ...  OAuth2 tokens refresh request response is expected ...
-                            const ::ev::curl::Reply* reply = EnsureReply(a_object);
+                                                     reply = EnsureReply(a_object);
                             const ::ev::curl::Value& value = reply->value();
                             // ... success?
                             if ( 200 == value.code() ) {
@@ -534,28 +534,28 @@ void cc::easy::http::oauth2::Client::Async (const cc::easy::http::oauth2::Client
                                     tokens_.on_change_();
                                 }
                                 // ... copy original header ...
-                                http::oauth2::Client::Headers headers;
+                                http::oauth2::Client::Headers next_headers;
                                 for ( auto it : a_headers ) {
                                     for ( auto it2 : it.second ) {
-                                        headers[it.first].push_back(it2);
+                                        next_headers[it.first].push_back(it2);
                                     }
                                 }
                                 // ... apply new access token ...
-                                headers["Authorization"].push_back(token_type + " " + tokens_.access_);
+                                next_headers["Authorization"].push_back(token_type + " " + tokens_.access_);
                                 // ... notify interceptor?
                                 if ( nullptr != nsi_ptr_ ) {
-                                    nsi_ptr_->OnHTTPRequestHeaderSet(headers);
+                                    nsi_ptr_->OnHTTPRequestHeaderSet(next_headers);
                                 }
                                 // ... new request ...
-                                ::ev::curl::Request* request = new ::ev::curl::Request(loggable_data_, a_method, a_url, &headers, &tx_body);
+                                ::ev::curl::Request* next_request = new ::ev::curl::Request(loggable_data_, a_method, a_url, &next_headers, &tx_body);
                                 // ... log request?
                                 if ( nullptr != cURLed_callbacks_.log_request_ ) {
-                                    cURLed_callbacks_.log_request_(*request, ::ev::curl::HTTP::cURLRequest(id, request, should_redact_));
+                                    cURLed_callbacks_.log_request_(*next_request, ::ev::curl::HTTP::cURLRequest(id, next_request, should_redact_));
                                 }
                                 // ... dump request ...
-                                CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpRequest(token, id, request););
+                                CC_DEBUG_LOG_IF_REGISTERED_RUN(token, ::ev::curl::HTTP::DumpRequest(token, id, next_request););
                                 // ... the original request must be performed again ...
-                                return request;
+                                return next_request;
                             } else {
                                 // ... redirect to 'Finally' with OAuth2 error response ...
                                 return a_object;

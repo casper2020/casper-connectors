@@ -269,7 +269,7 @@ void cc::easy::http::Base::Async (::ev::curl::Request* a_request, const std::vec
                     throw ::ev::Exception("Unexpected CURL result object: nullptr!");
                 }
                 // ... can be a reply or an error ...
-                const ::ev::curl::Reply* reply = dynamic_cast<const ::ev::curl::Reply*>(result->DataObject());
+                reply = dynamic_cast<const ::ev::curl::Reply*>(result->DataObject());
                 if ( nullptr != reply ) {
                     const ::ev::curl::Value& value = reply->value();
                     // ... log response?
@@ -369,13 +369,14 @@ void cc::easy::http::Base::SetURLQuery (const std::string& a_url, const std::map
         // ... first ...
         const auto& first = a_params.begin();
         {
-            char* escaped = curl_easy_escape(curl, first->second.c_str(), static_cast<int>(first->second.length()));
+            escaped = curl_easy_escape(curl, first->second.c_str(), static_cast<int>(first->second.length()));
             o_url += "?" + first->first + '=' + escaped;
             if ( nullptr == escaped ) {
                 curl_easy_cleanup(curl);
                 throw ::ev::Exception("Unexpected cURL easy escape: nullptr!");
             }
             curl_free(escaped);
+            escaped = nullptr;
         }
         // ... all other ...
         for ( auto param = ( std::next(first) ) ; a_params.end() != param ; ++param ) {

@@ -376,10 +376,10 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
         std::istream in_stream(&file);
         
         Json::Reader reader;
-        Json::Value  object;
+        Json::Value  obj;
         
         // ... parse configuration JSON file ...
-        if ( false == reader.parse(in_stream, object) ) {
+        if ( false == reader.parse(in_stream, obj) ) {
             // ... an error occurred ...
             const auto errors = reader.getStructuredErrors();
             if ( errors.size() > 0 ) {
@@ -392,7 +392,7 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
         }
         
         // ... make sure it's a valid array ...
-        const Json::Value array = object["rules"];
+        const Json::Value array = obj["rules"];
         if ( false == array.isArray() ) {
             throw ::ev::Exception("An error ocurred while parsing gatekeeper configuration: an array of objects is expected!");
         }
@@ -465,7 +465,7 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
             }
 
             // ... load options ...
-            const Json::Value options = object["options"];
+            const Json::Value options = obj["options"];
             if  ( false == options.isNull() ) {
                 const Json::Value& logs = options["logs"];
                 if ( false == logs.isNull() ) {

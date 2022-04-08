@@ -23,6 +23,9 @@
 
 #include <iomanip> // std::setw
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow-field"
+
 #include "unicode/ustring.h"
 #include "unicode/unistr.h"
 #include "unicode/decimfmt.h" // U_ICU_NAMESPACE::Locale ...
@@ -30,6 +33,8 @@
 #include "unicode/smpdtfmt.h" // U_ICU_NAMESPACE::SimpleDateFormat
 #include "unicode/dtfmtsym.h" // U_ICU_NAMESPACE::DateFormatSymbols
 #include "unicode/schriter.h" // U_ICU_NAMESPACE::StringCharacterIterator
+
+#pragma GCC diagnostic pop
 
 const char* const cc::v8::basic::Evaluator::k_evaluate_basic_expression_func_name_ = "_basic_expr_eval";
 const char* const cc::v8::basic::Evaluator::k_evaluate_basic_expression_func_ =
@@ -168,14 +173,14 @@ void cc::v8::basic::Evaluator::SetData (const char* const a_name, const char* co
 /**
  * @brief Call this function to evaluate an expression
  *
- * @param a_object
- * @param a_expression
+ * @param a_object     V8 Object, as \link ::v8::Value \link.
+ * @param a_expression Expression to evaluate.
  *
- * @param o_value
+ * @param o_value Evalutation result as \link ::cc::v8::Value \link.
  */
 
 void cc::v8::basic::Evaluator::Evaluate (const ::v8::Persistent<::v8::Value>& a_object, const std::string& a_expr_string,
-                                                   ::cc::v8::Value& o_value)
+                                         ::cc::v8::Value& o_value)
 {
     IsolatedCall([this, &a_expr_string, &a_object, &o_value]
                      (::v8::Local<::v8::Context>& a_context, ::v8::TryCatch& /* a_try_catch */, ::v8::Isolate* a_isolate) {
