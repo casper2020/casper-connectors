@@ -71,14 +71,14 @@ namespace cc
 
         public: // Inline Method(s) / Function(s)
 
-            void CallFunction (const LoadedFunction::Callable& a_callable, ::v8::Persistent<::v8::Value>& o_result) const;
-            void IsolatedCall (IsolatedCallback a_callback) const;
-            bool IsNull       (const ::v8::Persistent<::v8::Value>& a_object) const;
+            void CallFunction   (const LoadedFunction::Callable& a_callable, ::v8::Persistent<::v8::Value>& o_result) const;
+            void IsolatedCall   (IsolatedCallback a_callback) const;
+            bool IsNull         (const ::v8::Persistent<::v8::Value>& a_object) const;
+            void SetIsolateData (uint32_t a_slot, void* a_data);
 
         protected: // Method(s) / Function(s)
 
-            virtual void Compile             (const ::v8::Local<::v8::String>& a_script,
-                                              const FunctionsVector* a_functions = nullptr);
+            virtual void Compile             (const ::v8::Local<::v8::String>& a_script, const FunctionsVector* a_functions = nullptr, std::string* o_data = nullptr);
 
             virtual void TranslateFromV8Value (::v8::Isolate* a_isolate, const ::v8::Persistent<::v8::Value>& a_value, Value& o_value) const;
             virtual void TranslateToV8Value   (::v8::Isolate* a_isolate, const Value& a_value, ::v8::Local<::v8::Value>& o_value) const;
@@ -115,6 +115,17 @@ namespace cc
         inline bool cc::v8::Script::IsNull (const ::v8::Persistent<::v8::Value>& a_object) const
         {
             return a_object.IsEmpty();
+        }
+    
+        /**
+         * @brief Associate embedder-specific data with the isolate.
+         *
+         * @param a_slot has to be between 0 and GetNumberOfDataSlots() - 1.
+         * @param a_data arbitrary data.
+         */
+        inline void cc::v8::Script::SetIsolateData (uint32_t a_slot, void* a_data)
+        {
+            context_.SetIsolateData(a_slot, a_data);
         }
 
     } // end of namespace 'v8'
