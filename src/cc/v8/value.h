@@ -256,6 +256,11 @@ namespace cc
                 return ( true == IsSet() && Type::Object == type_ );
             }
             
+            inline bool IsBoolean () const
+            {
+                return ( true == IsSet() && Type::Boolean == type_ );
+            }
+            
             inline void operator = (const Value& a_value)
             {
                 set_  = a_value.set_;
@@ -468,6 +473,15 @@ namespace cc
                     default:
                         return NAN;
                 }
+            }
+            
+            inline double AsBoolean () const
+            {
+                if ( Type::Boolean == type_ ) {
+                    return value_.bool_;
+                }
+                // TODO 2.0 v8 throw?
+                return false;
             }
             
         }; // end of class 'Value'

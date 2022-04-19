@@ -91,6 +91,7 @@ namespace cc
                 typedef struct _Callable {
                     
                     ::v8::Local<::v8::Context>*                                                          ctx_;
+                    ::v8::Isolate*                                                                       isolate_;
                     const char*                                                                          name_;
                     int                                                                                  argc_;
                     ::v8::Local<::v8::Value>*                                                            argv_;
@@ -120,7 +121,11 @@ namespace cc
             typedef std::map<std::string, LoadedFunction*> LoadedFunctionsMap;
             
             typedef std::function<void(::v8::Local<::v8::Context>&, ::v8::TryCatch&, ::v8::Isolate*)> IsolatedCallback;
-            typedef std::map<std::string, ::v8::FunctionCallback>        NativeFunctions;
+            typedef std::map<std::string, ::v8::FunctionCallback>                                      NativeFunctions;
+            
+        private: // Const Data
+            
+            const NativeFunctions native_functions_;
             
         protected: // Data
             
@@ -155,6 +160,8 @@ namespace cc
             void SetIsolateData (uint32_t a_slot, void* a_data);
             ::v8::Isolate* Isolate () const;
             
+            const NativeFunctions& native_functions () const;
+            
         private: // Method(s) / Function(s)
             
             static void LoadFunctions (::v8::Local<::v8::Context>& a_context, ::v8::Context::Scope& a_scope, ::v8::TryCatch& a_try_catch,
@@ -182,6 +189,14 @@ namespace cc
         inline ::v8::Isolate* Context::Isolate () const
         {
             return isolate_ptr_;
+        }
+    
+        /**
+         * @return R/O access to \link Context::NativeFunctions \link.
+         */
+        inline const Context::NativeFunctions& Context::native_functions () const
+        {
+            return native_functions_;
         }
         
     } // end of namespace 'v8'

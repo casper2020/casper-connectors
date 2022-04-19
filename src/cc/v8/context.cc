@@ -34,14 +34,14 @@
  * @param a_functions
  */
 cc::v8::Context::Context (::v8::Isolate* a_isolate_ptr, const cc::v8::Context::NativeFunctions& a_functions)
-    : isolate_ptr_(a_isolate_ptr)
+    : native_functions_(a_functions), isolate_ptr_(a_isolate_ptr)
 {
     // ... prepare context ...
     ::v8::HandleScope handle_scope(isolate_ptr_);
     // add debug function
     ::v8::Local<::v8::ObjectTemplate> global = ::v8::ObjectTemplate::New(isolate_ptr_);
     // ... load global functions ...
-    for ( auto it : a_functions ) {
+    for ( auto it : native_functions_ ) {
         global->Set(::v8::String::NewFromUtf8(isolate_ptr_,
                                               it.first.c_str(),
                                               ::v8::NewStringType::kNormal).ToLocalChecked(),

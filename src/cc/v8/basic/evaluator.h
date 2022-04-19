@@ -30,6 +30,8 @@
 #include "cc/non-movable.h"
 #include "cc/non-copyable.h"
 
+#include "ev/logger_v2.h"
+
 namespace cc
 {
     
@@ -41,11 +43,18 @@ namespace cc
             
             class Evaluator : public ::cc::v8::Script, public ::cc::NonMovable, public ::cc::NonCopyable
             {
+                
+            public: // Data Type(s)
+                
+                typedef std::function<void(const std::string&, const bool)> LogCallback;
 
             private: // Static Const Data
 
                 static const char* const k_evaluate_basic_expression_func_name_;
                 static const char* const k_evaluate_basic_expression_func_;
+
+                static const char* const k_variable_log_func_name_;
+                static const char* const k_variable_log_func_;
 
                 static const char* const k_variable_dump_func_name_;
                 static const char* const k_variable_dump_func_;
@@ -53,20 +62,42 @@ namespace cc
             private: // Data
                 
                 ::v8::Local<::v8::Value>                     args_[5];
-                ::cc::v8::Context::LoadedFunction::Callable  callable_;
                 ::v8::Persistent<::v8::Value>                result_;
+
+            protected: // Data
+                
+                ::cc::v8::Context::LoadedFunction::Callable  callable_;
+
+            private: // Data
+                
+                ::ev::Loggable::Data                         loggable_data_;
+                std::string                                  logger_token_;
+
+            private: // Helper(s)
+                
+                ::ev::LoggerV2::Client*                      logger_client_;
+
+            private: // Callback(s)
+                
+                LogCallback                                  log_callback_;
 
             public: // Constructor(s) / Destructor
                 
                 Evaluator () = delete;
-                Evaluator (const std::string& a_owner, const std::string& a_name, const std::string& a_uri,
+                Evaluator (const ::ev::Loggable::Data& a_loggable_data,
+                           const std::string& a_owner, const std::string& a_name, const std::string& a_uri,
                            const std::string& a_out_path, const NativeFunctions& a_functions);
+                Evaluator (const Evaluator& a_evaluator);
                 virtual ~Evaluator ();
                 
             public: // Inherited Method(s) / Function(s) - from ::cc::v8::Script
                 
-                virtual void Load (const Json::Value& a_external_scripts, const Expressions& a_expressions);
-                                    
+                virtual void Load  (const Json::Value& a_external_scripts, const Expressions& a_expressions);
+                
+            protected: // Method(s) / Function(s)
+                
+                virtual void InnerLoad (const Json::Value& /* a_external_scripts */, const Expressions& /* a_expressions */, std::stringstream& /* a_ss */) {}
+                
             public: // Method(s) / Function(s)
                 
                 void SetData   (const char* const a_name, const char* const a_data,
@@ -77,10 +108,20 @@ namespace cc
                 void Dump     (const ::v8::Persistent<::v8::Value>& a_object) const;
                 void Evaluate (const ::v8::Persistent<::v8::Value>& a_object, const std::string& a_expr_string,
                                ::cc::v8::Value& o_value);
+               
+            public: // Inline Method(s) / Function(s)
                 
-            private: // Static Method(s) / Function(s)
+                inline void Register           (LogCallback a_callback) { log_callback_ = a_callback;   }
+                inline ::ev::LoggerV2::Client* logger_client ()         { return logger_client_;        }
+                inline const char* const       logger_token  ()         { return logger_token_.c_str(); }
+
+            protected: // Static Method(s) / Function(s)
                 
                 static void NativeLog                 (const ::v8::FunctionCallbackInfo<::v8::Value>& a_args);
+                static void NativeDump                (const ::v8::FunctionCallbackInfo<::v8::Value>& a_args);
+                
+            protected: // Static Method(s) / Function(s)
+                
                 static void FunctionCallErrorCallback (const ::cc::v8::Context::LoadedFunction::Callable& a_callable, const char* const a_message);
                 
             }; // end of class 'Evaluator'

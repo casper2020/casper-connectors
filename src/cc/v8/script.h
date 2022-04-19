@@ -75,6 +75,12 @@ namespace cc
             void IsolatedCall   (IsolatedCallback a_callback) const;
             bool IsNull         (const ::v8::Persistent<::v8::Value>& a_object) const;
             void SetIsolateData (uint32_t a_slot, void* a_data);
+            
+            const NativeFunctions& native_functions () const;
+
+        public: // Method(s) / Function(s)
+            
+            void PatchObject (Json::Value& a_object, const std::function<Json::Value(const std::string& a_expression)>& a_callback) const;
 
         protected: // Method(s) / Function(s)
 
@@ -126,6 +132,14 @@ namespace cc
         inline void cc::v8::Script::SetIsolateData (uint32_t a_slot, void* a_data)
         {
             context_.SetIsolateData(a_slot, a_data);
+        }
+    
+        /**
+         * @return R/O access to \link NativeFunctions \link.
+         */
+        inline const cc::v8::Script::NativeFunctions& cc::v8::Script::native_functions () const
+        {
+            return context_.native_functions();
         }
 
     } // end of namespace 'v8'

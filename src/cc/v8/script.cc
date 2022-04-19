@@ -57,6 +57,44 @@ cc::v8::Script::~Script ()
     /* empty */
 }
 
+// MARK: -
+
+/**
+ * @brief   Patch a JSON object, by calling a function if an expressions is found.
+ *
+ * @param a_value    JSON Object.
+ * @param a_callback Function to call when an expression is found.
+ */
+void cc::v8::Script::PatchObject (Json::Value& a_object, const std::function<Json::Value(const std::string& a_expression)>& a_callback) const
+{
+     switch ( a_object.type() ) {
+        case Json::ValueType::objectValue:   // object value (collection of name/value pairs)
+            for( auto member : a_object.getMemberNames()) {
+                PatchObject(a_object[member], a_callback);
+            }
+            break;
+        case Json::ValueType::arrayValue:    // array value (ordered list)
+            for ( auto ait = a_object.begin(); ait != a_object.end(); ++ait ) {
+                PatchObject(*ait, a_callback);
+            }
+            break;
+        case Json::ValueType::stringValue:   // UTF-8 string value
+            if ( nullptr != strstr(a_object.asCString(), "$.") ) {
+                a_object = a_callback(a_object.asString());
+            }
+            break;
+        case Json::ValueType::nullValue:    // 'null' value
+        case Json::ValueType::intValue:     // signed integer value
+        case Json::ValueType::uintValue:    // unsigned integer value
+        case Json::ValueType::realValue:    // double value
+        case Json::ValueType::booleanValue: // bool value
+        default:
+            break;
+    }
+}
+
+// MARK: -
+
 /**
  * @brief Compile a script
  *
