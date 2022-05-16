@@ -91,6 +91,8 @@ namespace cc
             std::string Encode               (const uint64_t a_duration, const std::string& a_private_key_pem);
             void        Decode               (const std::string& a_token, const std::string& a_public_key_pem);
             
+            void        UNSAFEDecode         (const std::string& a_token);
+            
             void        Reset                ();
             
             Json::Value Debug                () const;

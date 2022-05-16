@@ -349,6 +349,100 @@ void cc::auth::JWT::Decode (const std::string& a_token, const std::string& a_pub
 
 }
 
+/**
+ * @brief Decode a token - UNSAFE DOES NOT VERIFY SIGNATURE.
+ *
+ * @param a_token
+ * @param a_public_key_pem
+ */
+void cc::auth::JWT::UNSAFEDecode (const std::string& a_token)
+{
+    const char* header_ptr = a_token.c_str();
+    if ( '\0' == header_ptr[0] ) {
+        throw cc::auth::Exception("Invalid token format - empty header!");
+    }
+
+    const char* payload_ptr = strchr(header_ptr, '.');
+    if ( nullptr == payload_ptr ) {
+        throw cc::auth::Exception("Invalid token format - missing or invalid payload!");
+    }
+    payload_ptr += sizeof(char);
+
+    const char* signature_ptr = strchr(payload_ptr, '.');
+    if ( nullptr == signature_ptr ) {
+        throw cc::auth::Exception("Invalid token format - missing or invalid signature!");
+    }
+    signature_ptr += sizeof(char);
+
+    header_   = Json::nullValue;
+    payload_  = Json::nullValue;
+
+    try {
+
+        const std::string header_b64    = std::string(header_ptr , payload_ptr - header_ptr - sizeof(char));
+        const std::string payload_b64   = std::string(payload_ptr, signature_ptr - payload_ptr - sizeof(char));
+        const std::string signature_b64 = std::string(signature_ptr);
+
+        //
+        // LOAD & VERIFY HEADER
+        //
+
+        // ... first decode header ...
+        const std::string header_json = cc::base64_url_unpadded::decode<std::string>(header_b64.c_str(), header_b64.length());
+
+        // ... now parse header ...
+        if ( false == reader_.parse(header_json, header_, false) ) {
+            throw cc::auth::Exception("Error while parsing JWT header!");
+        }
+
+        // ... validate 'typ' param ...
+        const Json::Value typ = header_.get("typ", Json::Value::null);
+        if ( true == typ.isNull() || false == typ.isString() ) {
+            throw cc::auth::Exception("Unsupported token header param 'typ' - invalid type: got %d, expected %d!",
+                                      typ.type(), Json::ValueType::stringValue
+            );
+        } else if ( 0 != typ.asString().compare("JWT") ) {
+            throw cc::auth::Exception("Unsupported token header param 'typ' value!");
+        }
+
+        // ... validate 'alg' param ...
+        const Json::Value alg = header_.get("alg", Json::Value::null);
+        if ( true == alg.isNull() || false == alg.isString() ) {
+            throw cc::auth::Exception("Unsupported token header param 'alg' - invalid type: got %d, expected %d!",
+                                      alg.type(), Json::ValueType::stringValue
+            );
+        } else if ( 0 != alg.asString().compare("RS256") ) {
+            throw cc::auth::Exception("Unsupported token header param 'alg' value!");
+        }
+
+        //
+        // LOAD PAYLOAD
+        //
+
+        // ... first decode payload ...
+        const std::string payload_json = cc::base64_url_unpadded::decode<std::string>(payload_b64.c_str(), payload_b64.length());
+
+        // ... now parse payload ...
+        if ( false == reader_.parse(payload_json, payload_, false) ) {
+            throw cc::auth::Exception("Error while parsing JWT payload!");
+        }
+
+    } catch (const cppcodec::symbol_error& a_b64_symbol_error) {
+        // ... reset ...
+        header_  = Json::nullValue;
+        payload_ = Json::nullValue;
+        // ... rethrow exception ...
+        throw cc::auth::Exception("%s", a_b64_symbol_error.what());
+    } catch (const cc::auth::Exception& a_broker_exception) {
+        // ... reset ...
+        header_  = Json::nullValue;
+        payload_ = Json::nullValue;
+        // ... rethrow exception ...
+        throw a_broker_exception;
+    }
+
+}
+
 // MARK: -
 
 /**
