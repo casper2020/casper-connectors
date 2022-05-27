@@ -344,11 +344,9 @@ void cc::v8::basic::Evaluator::NativeLog (const ::v8::FunctionCallbackInfo<::v8:
         return;
     }
     if ( a_args.Length() > 0 ) {
-        const ::v8::String::Utf8Value first = ToString(a_args[0], a_args.GetIsolate()->GetCurrentContext(), a_args.GetIsolate());
-        ss << *first;
+        ss << ToString(a_args[0], a_args.GetIsolate()->GetCurrentContext(), a_args.GetIsolate());
         for ( int i = 1 ; i < a_args.Length() ; i++ ) {
-            const ::v8::String::Utf8Value str = ToString(a_args[i], a_args.GetIsolate()->GetCurrentContext(), a_args.GetIsolate());
-            ss << ", " << *str;
+            ss << ", " << ToString(a_args[i], a_args.GetIsolate()->GetCurrentContext(), a_args.GetIsolate());
         }
     }
     if ( nullptr != self->log_callback_ ) {
@@ -430,14 +428,16 @@ void cc::v8::basic::Evaluator::FunctionCallErrorCallback (const ::cc::v8::Contex
  * @param a_value   Value to translate.
  * @param a_context V8 local context.
  * @param a_isolate V8 isolate pointer.
+ *
+ * @return A std::string.
  */
-::v8::String::Utf8Value cc::v8::basic::Evaluator::ToString (const ::v8::Local<::v8::Value>& a_value,
-                                                            ::v8::Local<::v8::Context> a_context, ::v8::Isolate* a_isolate)
+std::string cc::v8::basic::Evaluator::ToString (const ::v8::Local<::v8::Value>& a_value,
+                                                ::v8::Local<::v8::Context> a_context, ::v8::Isolate* a_isolate)
 {
     // ... no special handing?
     if ( false == a_value->IsObject() ) {
         // ... done ...
-        return ::v8::String::Utf8Value(a_isolate, a_value);
+        return *::v8::String::Utf8Value(a_isolate, a_value);
     }
     // ... stringify it ..
     ::v8::Local<::v8::String> string;
@@ -447,5 +447,5 @@ void cc::v8::basic::Evaluator::FunctionCallErrorCallback (const ::cc::v8::Contex
         );
     }
     // ... done ...
-    return  ::v8::String::Utf8Value(a_isolate, string);
+    return * ::v8::String::Utf8Value(a_isolate, string);
 }

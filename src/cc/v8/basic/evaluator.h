@@ -126,8 +126,8 @@ namespace cc
 
             private: // Static Method(s) / Function(s)
                 
-                static ::v8::String::Utf8Value ToString (const ::v8::Local<::v8::Value>& a_value,
-                                                         ::v8::Local<::v8::Context> a_context, ::v8::Isolate* a_isolate);
+                static std::string ToString (const ::v8::Local<::v8::Value>& a_value,
+                                             ::v8::Local<::v8::Context> a_context, ::v8::Isolate* a_isolate);
 
             }; // end of class 'Evaluator'
                 
