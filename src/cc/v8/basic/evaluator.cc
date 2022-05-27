@@ -344,10 +344,10 @@ void cc::v8::basic::Evaluator::NativeLog (const ::v8::FunctionCallbackInfo<::v8:
         return;
     }
     if ( a_args.Length() > 0 ) {
-        ::v8::String::Utf8Value first(a_args.GetIsolate(), a_args[0]);
+        const ::v8::String::Utf8Value first = ToString(a_args[0], a_args.GetIsolate()->GetCurrentContext(), a_args.GetIsolate());
         ss << *first;
-        for ( int i = 1; i < a_args.Length(); i++ ) {
-            ::v8::String::Utf8Value str(a_args.GetIsolate(), a_args[i]);
+        for ( int i = 1 ; i < a_args.Length() ; i++ ) {
+            const ::v8::String::Utf8Value str = ToString(a_args[i], a_args.GetIsolate()->GetCurrentContext(), a_args.GetIsolate());
             ss << ", " << *str;
         }
     }
@@ -420,4 +420,32 @@ void cc::v8::basic::Evaluator::FunctionCallErrorCallback (const ::cc::v8::Contex
         fprintf(stderr, "%s", ss.str().c_str());
         fflush(stderr);
     }
+}
+
+// MARK:
+
+/**
+ * @brief Translate a \link ::v8::Value \link to a \link ::v8::String::Utf8Value \link.
+ *
+ * @param a_value   Value to translate.
+ * @param a_context V8 local context.
+ * @param a_isolate V8 isolate pointer.
+ */
+::v8::String::Utf8Value cc::v8::basic::Evaluator::ToString (const ::v8::Local<::v8::Value>& a_value,
+                                                            ::v8::Local<::v8::Context> a_context, ::v8::Isolate* a_isolate)
+{
+    // ... no special handing?
+    if ( false == a_value->IsObject() ) {
+        // ... done ...
+        return ::v8::String::Utf8Value(a_isolate, a_value);
+    }
+    // ... stringify it ..
+    ::v8::Local<::v8::String> string;
+    if ( false == ::v8::JSON::Stringify(a_context, a_value).ToLocal(&string) ) {
+        throw cc::v8::Exception("An error ocurred while translating a V8 object to a JSON object': %s!",
+                                "can't convert to a 'local' string"
+        );
+    }
+    // ... done ...
+    return  ::v8::String::Utf8Value(a_isolate, string);
 }

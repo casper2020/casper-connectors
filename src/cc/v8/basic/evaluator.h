@@ -123,7 +123,12 @@ namespace cc
             protected: // Static Method(s) / Function(s)
                 
                 static void FunctionCallErrorCallback (const ::cc::v8::Context::LoadedFunction::Callable& a_callable, const char* const a_message);
+
+            private: // Static Method(s) / Function(s)
                 
+                static ::v8::String::Utf8Value ToString (const ::v8::Local<::v8::Value>& a_value,
+                                                         ::v8::Local<::v8::Context> a_context, ::v8::Isolate* a_isolate);
+
             }; // end of class 'Evaluator'
                 
         } // end of namespace 'basic'
