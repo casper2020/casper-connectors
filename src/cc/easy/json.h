@@ -187,10 +187,14 @@ namespace cc
             if ( a_types.size() > 0 ) {
                 types += std::string(ValueTypeAsCString(a_types[a_types.size() - 1])) + "||";
             }
-            throw E("%sJSON value for key '%s' - type mismatch: got %s, expected %s!",
-                    a_error_prefix_msg,
-                    a_key, "null", types.c_str()
-            );
+            if ( nullptr != a_default ) {
+                return *a_default;
+            } else {
+                throw E("%sJSON value for key '%s' - type mismatch: got %s, expected %s!",
+                        a_error_prefix_msg,
+                        a_key, "null", types.c_str()
+                );
+            }
         }
 
         /**
