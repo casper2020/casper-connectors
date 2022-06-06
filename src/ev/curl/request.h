@@ -137,14 +137,24 @@ namespace ev
             std::chrono::steady_clock::time_point e_tp_;
             
             OneShotSetup                          post_setup_;
+            
+            bool                                 follow_location_;
 
         private: // Data
 
             std::string             dummy_;                 //!<
+
+#ifdef CC_DEBUG_ON
             
         private: // Debug Data
             
-            CC_IF_DEBUG(Debug       debug_;)                //!<
+            Debug debug_;
+        
+        private: // Debug Options
+            
+            bool ssl_do_not_verify_peer_;
+
+#endif
         
         private: // FOR DEBUG LOGGING PUPOSES ONLY ONLY
             
@@ -183,7 +193,12 @@ namespace ev
             const ::cc::fs::Exception* rx_exp      () const;
             const ::cc::fs::Exception* tx_exp      () const;
             void                       SetUserAgent           (const std::string& a_value);
+            inline bool                FollowLocation         () const { return follow_location_; }
             void                       SetFollowLocation      ();
+#ifdef CC_DEBUG_ON
+                inline bool            SSLDoNotVerifyPeer     () const { return ssl_do_not_verify_peer_; }
+                void                   SetSSLDoNotVerifyPeer  ();
+#endif
             void                       SetReadBodyFrom        (const std::string& a_uri);
             void                       SetWriteResponseBodyTo (const std::string& a_uri);
             CC_IF_DEBUG(
@@ -302,7 +317,25 @@ namespace ev
             if ( CURLE_FAILED_INIT == initialization_error_ || CURLE_OK == initialization_error_ ) {
                 initialization_error_ += curl_easy_setopt(Setup(), CURLOPT_FOLLOWLOCATION, 1L);
             }
+            if ( CURLE_FAILED_INIT == initialization_error_ || CURLE_OK == initialization_error_ ) {
+                follow_location_ = true;
+            }
         }
+    
+#ifdef CC_DEBUG_ON
+        /**
+         * @brief Set to disable SSL peer verification.
+         */
+        inline void Request::SetSSLDoNotVerifyPeer ()
+        {
+            if ( CURLE_FAILED_INIT == initialization_error_ || CURLE_OK == initialization_error_ ) {
+                initialization_error_ += curl_easy_setopt(Setup(), CURLOPT_SSL_VERIFYPEER, 0L);
+            }
+            if ( CURLE_FAILED_INIT == initialization_error_ || CURLE_OK == initialization_error_ ) {
+                ssl_do_not_verify_peer_ = true;
+            }
+        }
+#endif
         
         /**
          * @brief Set User-Agent header value.

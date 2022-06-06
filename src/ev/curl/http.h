@@ -74,6 +74,7 @@ namespace ev
             cURLedCallbacks cURLed_callbacks_;
             bool            cURLed_redact_;
             bool            follow_location_;
+CC_IF_DEBUG(bool            ssl_do_not_verify_peer_;)
             std::string     user_agent_;
 
         public: // Method(s) / Function(s)
@@ -143,6 +144,15 @@ namespace ev
             {
                 follow_location_ = true;
             }
+            
+#ifdef CC_DEBUG_ON                /**
+             * @brief Set to disable SSL peer verification.
+             */
+            inline void SetSSLDoNotVerifyPeer ()
+            {
+                ssl_do_not_verify_peer_ = true;
+            }
+#endif
             
             /**
              * @brief Set log callbacks and if sensitive data should be redacted or not.

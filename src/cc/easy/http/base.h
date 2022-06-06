@@ -100,6 +100,7 @@ namespace cc
                 cURLedCallbacks        cURLed_callbacks_;
                 bool                   should_redact_;
                 bool                   follow_location_;
+    CC_IF_DEBUG(bool                   ssl_do_not_verify_peer_;)
                 ev::scheduler::Client* scheduler_client_ptr_;
 
             public: // Constructor / Destructor
@@ -181,6 +182,16 @@ namespace cc
                 {
                     follow_location_ = true;
                 }
+                
+#ifdef CC_DEBUG_ON
+                /**
+                 * @brief Set to disable SSL peer verification.
+                 */
+                inline void SetSSLDoNotVerifyPeer ()
+                {
+                    ssl_do_not_verify_peer_ = true;
+                }
+#endif
                 
                 /**
                  * @return R/O access to user agent.

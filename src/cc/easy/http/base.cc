@@ -40,9 +40,12 @@
 cc::easy::http::Base::Base (const ev::Loggable::Data& a_loggable_data, const char* const a_user_agent)
  : loggable_data_(a_loggable_data), user_agent_(nullptr != a_user_agent ? a_user_agent : "")
 {
-    should_redact_        = true;
-    follow_location_      = false;
-    scheduler_client_ptr_ = nullptr;
+    should_redact_          = true;
+    follow_location_        = false;
+#ifdef CC_DEBUG_ON
+    ssl_do_not_verify_peer_ = false;
+#endif
+    scheduler_client_ptr_   = nullptr;
 }
 
 /**
@@ -200,6 +203,11 @@ void cc::easy::http::Base::Async (::ev::curl::Request* a_request, const std::vec
         if ( true == follow_location_ ) {
             a_request->SetFollowLocation();
         }
+#ifdef CC_DEBUG_ON
+        if ( true == ssl_do_not_verify_peer_ ) {
+            a_request->SetSSLDoNotVerifyPeer();
+        }
+#endif
         if ( 0 != user_agent_.length() ) {
             a_request->SetUserAgent(user_agent_);
         }

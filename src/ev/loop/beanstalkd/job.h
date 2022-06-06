@@ -696,8 +696,8 @@ namespace ev
              */
             inline void Job::SetTTRAndValidity (const uint64_t& a_ttr, const uint64_t& a_validity)
             {
-                ttr_        = a_ttr;
-                validity_   = a_validity;
+                ttr_        = static_cast<int64_t>(a_ttr);
+                validity_   = static_cast<int64_t>(a_validity);
                 expires_in_ = ttr_ + validity_;
             }
             

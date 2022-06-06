@@ -48,6 +48,10 @@ ev::curl::Request::Request (const ::ev::Loggable::Data& a_loggable_data,
         initialization_error_ += curl_easy_setopt(handle_, CURLOPT_READFUNCTION    , ReadDataCallbackWrapper);
     });
     tx_body_ = ( nullptr != a_body ? *a_body : "" );
+    follow_location_ = false;
+#ifdef CC_DEBUG_ON
+    ssl_do_not_verify_peer_ = false;
+#endif
 }
 
 /**

@@ -34,7 +34,7 @@
  * @brief Default constructor.
  */
 ev::curl::HTTP::HTTP ()
-    : cURLed_redact_(true), follow_location_(false)
+    : cURLed_redact_(true), follow_location_(false) CC_IF_DEBUG(, ssl_do_not_verify_peer_(false))
 {
     ::ev::scheduler::Scheduler::GetInstance().Register(this);
 }
@@ -297,6 +297,12 @@ void ::ev::curl::HTTP::Async (::ev::curl::Request* a_request,
     if ( true == follow_location_ ) {
         a_request->SetFollowLocation();
     }
+    // ... disable SSL peer verification?
+#ifdef CC_DEBUG_ON
+    if ( true == ssl_do_not_verify_peer_ ) {
+        a_request->SetSSLDoNotVerifyPeer();
+    }
+#endif
 
     NewTask([CC_IF_DEBUG(token, )id, a_request, this] () -> ::ev::Object* {
 
@@ -585,6 +591,16 @@ std::string ev::curl::HTTP::cURLRequest (const std::string& a_id, const ::ev::cu
     if ( -1 != a_request->timeouts().operation_ ) {
         ss << "     --max-time " << a_request->timeouts().operation_ << " \\\n";
     }
+    // ... follow location?
+    if ( true == a_request->FollowLocation() ) {
+        ss << "     --location" << "\\\n";
+    }
+    // ... insecure?
+#ifdef CC_DEBUG_ON
+    if ( true == a_request->SSLDoNotVerifyPeer() ) {
+        ss << "     --insecure" << "\\\n";
+    }
+#endif
     // ... url ...
     ss << " '" << a_request->url() << "'";
     // ... done ...
