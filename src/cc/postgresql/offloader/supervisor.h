@@ -1,0 +1,133 @@
+/**
+ * @file supervisor.h
+ *
+ * Copyright (c) 2011-2022 Cloudware S.A. All rights reserved.
+ *
+ * This file is part of casper-connectors.
+ *
+ * casper-connectors is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * casper-connectors is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with casper.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#pragma once
+#ifndef NRS_CC_POSTGRESQL_OFFLOADER_SUPERVISOR_H_
+#define NRS_CC_POSTGRESQL_OFFLOADER_SUPERVISOR_H_
+
+#include "cc/non-copyable.h"
+#include "cc/non-movable.h"
+
+#include "cc/exception.h"
+
+#include "cc/postgresql/offloader/client.h"
+#include "cc/postgresql/offloader/producer.h"
+#include "cc/postgresql/offloader/consumer.h"
+
+#include <map>    // std::map
+#include <vector> // std::vector
+#include <string> // std::string
+
+namespace cc
+{
+
+    namespace postgresql
+    {
+    
+        namespace offloader
+        {
+        
+            class Supervisor : public ::cc::NonCopyable, public ::cc::NonMovable
+            {
+                
+            public: // Data Type(s)
+                
+                typedef Producer::Status Status;
+                
+                typedef std::pair<Producer*, Consumer*> Pair;
+                
+            private: // Data Type(s)
+                
+                typedef std::vector<Producer::Ticket> Tickets;
+                typedef std::map<Client*, Tickets>    Clients;
+                
+            private: // Helper(s)
+                
+                Producer* producer_ptr_;
+                Consumer* consumer_ptr_;
+                
+            private: // Data
+                
+                Clients clients_;
+                    
+            public: // Constructor(s) / Destructor
+                
+                Supervisor();
+                virtual ~Supervisor();
+                
+            public: // Method(s) / Function(s) - One Shot Call Only
+                
+                virtual void Start (const float& a_polling_timeout);
+                virtual void Stop  ();
+                
+            public: // Method(s) / Function(s)
+                
+                Status Queue  (Client* a_client, const std::string& a_query);
+                void   Cancel (Client* a_client);
+                
+            protected: // PureInherited Virtual Method(s) / Function(s)
+                
+                virtual Pair Setup() = 0;
+                virtual void Dismantle (const Pair& a_pair) = 0;
+                
+            private: // Inline Method(s) / Function(s)
+                
+                void Track   (Client* a_client, const Producer::Ticket& a_ticket);
+                void Untrack (Client* a_client);
+
+            }; // end of class 'Supervisor'
+        
+            /**
+             * @brief Track a client.
+             *
+             * @param a_client Pointer to the client to track.
+             */
+            inline void Supervisor::Track (Client* a_client, const Producer::Ticket& a_ticket)
+            {
+                const auto it = clients_.find(a_client);
+                if ( clients_.end() == it ) {
+                    // ... track ...
+                    clients_[a_client] = { a_ticket };
+                } else {
+                    it->second.push_back(a_ticket);
+                }
+            }
+        
+            /**
+             * @brief Untrack a client.
+             *
+             * @param a_client Pointer to the client to track.
+             */
+            inline void Supervisor::Untrack (Client* a_client)
+            {
+                const auto it = clients_.find(a_client);
+                if ( clients_.end() != it ) {
+                    clients_.erase(it);
+                }
+            }
+        
+        } // end of namespace 'offloader'
+    
+    } // end of namespace 'postgresql'
+
+} // end of namespace 'cc'
+
+#endif // NRS_CC_POSTGRESQL_OFFLOADER_SUPERVISOR_H_
