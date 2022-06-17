@@ -50,14 +50,16 @@ namespace cc
                 
             public: // Data Type(s)
                 
-                typedef Producer::Status Status;
+                typedef offloader::Status               Status;
                 
                 typedef std::pair<Producer*, Consumer*> Pair;
                 
+                typedef offloader::Config               Config;
+                
             private: // Data Type(s)
                 
-                typedef std::vector<Producer::Ticket> Tickets;
-                typedef std::map<Client*, Tickets>    Clients;
+                typedef std::vector<offloader::Ticket> Tickets;
+                typedef std::map<Client*, Tickets>     Clients;
                 
             private: // Helper(s)
                 
@@ -66,7 +68,8 @@ namespace cc
                 
             private: // Data
                 
-                Clients clients_;
+                Shared*  shared_;
+                Clients  clients_;
                     
             public: // Constructor(s) / Destructor
                 
@@ -75,7 +78,7 @@ namespace cc
                 
             public: // Method(s) / Function(s) - One Shot Call Only
                 
-                virtual void Start (const float& a_polling_timeout);
+                virtual void Start (const Config& a_config, const float& a_polling_timeout);
                 virtual void Stop  ();
                 
             public: // Method(s) / Function(s)
@@ -85,23 +88,25 @@ namespace cc
                 
             protected: // PureInherited Virtual Method(s) / Function(s)
                 
-                virtual Pair Setup() = 0;
+                virtual Pair Setup     ()                   = 0;
                 virtual void Dismantle (const Pair& a_pair) = 0;
                 
             private: // Inline Method(s) / Function(s)
                 
-                void Track   (Client* a_client, const Producer::Ticket& a_ticket);
+                void Track   (Client* a_client, const offloader::Ticket& a_ticket);
                 void Untrack (Client* a_client);
 
             }; // end of class 'Supervisor'
-        
+
             /**
              * @brief Track a client.
              *
              * @param a_client Pointer to the client to track.
              */
-            inline void Supervisor::Track (Client* a_client, const Producer::Ticket& a_ticket)
+            inline void Supervisor::Track (Client* a_client, const offloader::Ticket& a_ticket)
             {
+                // ... sanity check ...
+                CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
                 const auto it = clients_.find(a_client);
                 if ( clients_.end() == it ) {
                     // ... track ...
@@ -118,6 +123,8 @@ namespace cc
              */
             inline void Supervisor::Untrack (Client* a_client)
             {
+                // ... sanity check ...
+                CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
                 const auto it = clients_.find(a_client);
                 if ( clients_.end() != it ) {
                     clients_.erase(it);

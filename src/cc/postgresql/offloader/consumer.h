@@ -26,14 +26,19 @@
 #include "cc/non-copyable.h"
 #include "cc/non-movable.h"
 
+#include "cc/postgresql/offloader/shared.h"
+
 #include "cc/debug/types.h"
 #include "cc/debug/threading.h"
 
 #include "osal/condition_variable.h"
 
 #include <thread>
+#include <mutex>
 
-#include <libpq-fe.h> // PG*
+#include <set>
+#include <queue>
+#include <chrono>
 
 namespace cc
 {
@@ -50,27 +55,44 @@ namespace cc
             private: // Threading
                 
                 std::thread*             thread_;
+                std::atomic<bool>        aborted_;
                 osal::ConditionVariable* start_cv_;
+                
+            private: // Data
+                
+                Shared* shared_ptr_;
+                
+            private: // PG Data
+                
+                PGconn*                               connection_;
+                size_t                                reuse_count_;
+                ssize_t                               max_reuse_count_;
+                std::chrono::steady_clock::time_point idle_start_;
                 
             protected: // Threading
                 
-                CC_IF_DEBUG_DECLARE_VAR  (::cc::debug::Threading::ThreadID, thread_id_;)
+                CC_IF_DEBUG_DECLARE_VAR (::cc::debug::Threading::ThreadID, thread_id_;)
 
             public: // Constructor(s) / Destructor
                 
-                Consumer();
-                virtual ~Consumer();
+                Consumer ();
+                virtual ~Consumer ();
                 
             public: // Virtual Method(s) / Function(s) - One Shot Call ONLY!
                 
-                virtual void Start (const float& a_polling_timeout);
+                virtual void Start (Shared* a_shared, const float& a_polling_timeout);
                 virtual void Stop  ();
                 
             protected: // Pure Virtual Method(s) / Function(s)
                 
-                virtual void Loop   (const float& a_polling_timeout);
-                virtual void Notify (const PGresult* a_result) = 0;
+                virtual void Loop (const float& a_polling_timeout);
                 
+            private: // Method(s) / Function(s)
+                
+                void      Connect    ();
+                void      Disconnect (const bool a_idle);
+                PGresult* Execute    (const std::string& a_query, const std::set<ExecStatusType>& a_acceptable);
+
             }; // end of class 'Consumer'
 
         } // end of namespace 'offloader'

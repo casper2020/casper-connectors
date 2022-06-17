@@ -28,30 +28,29 @@
  *
  * @param a_instance A referece to the owner of this class.
  */
-cc::ngx::postgresql::OffloaderInitializer::OffloaderInitializer (cc::ngx::postgresql::Offloader& a_instance)
-    : ::cc::Initializer<::cc::ngx::postgresql::Offloader>(a_instance)
+cc::ngx::postgresql::Offloader::Offloader ()
 {
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... initialize ...
-    instance_.ngx_producer_ = nullptr;
-    instance_.ngx_consumer_ = nullptr;
-    instance_.allow_start_call_ = false;
+    ngx_producer_     = nullptr;
+    ngx_consumer_     = nullptr;
+    allow_start_call_ = false;
 }
 
 /**
  * @brief Destructor.
  */
-cc::ngx::postgresql::OffloaderInitializer::~OffloaderInitializer ()
+cc::ngx::postgresql::Offloader::~Offloader ()
 {
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... clean up ...
-    if ( nullptr != instance_.ngx_producer_ ) {
-        delete instance_.ngx_producer_;
+    if ( nullptr != ngx_consumer_ ) {
+        delete ngx_consumer_;
     }
-    if ( nullptr != instance_.ngx_consumer_ ) {
-        delete instance_.ngx_consumer_;
+    if ( nullptr != ngx_producer_ ) {
+        delete ngx_producer_;
     }
 }
 
@@ -60,17 +59,20 @@ cc::ngx::postgresql::OffloaderInitializer::~OffloaderInitializer ()
 /**
  * @brief Start offloader.
  *
+ * @param a_config          Configuration.
  * @param a_socket_fn       Socket file URI.
  * @param a_polling_timeout Loop polling timeout in millseconds, if < 0 will use defaults.
  * @param a_callback        Function to call on a fatal exception.
  */
-void cc::ngx::postgresql::Offloader::Start (const std::string& a_socket_fn, const float& a_polling_timeout,
-                                            Consumer::FatalExceptionCallback a_callback)
+void cc::ngx::postgresql::Offloader::Startup (const Offloader::Config& a_config,
+                                              const std::string& a_socket_fn, const float& a_polling_timeout, Consumer::FatalExceptionCallback a_callback)
 {
+    // ... sanity check ...
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     consumer_socket_fn_   = a_socket_fn;
-    consumer_fe_callback_ = a_callback,
+    consumer_fe_callback_ = a_callback;
     allow_start_call_     = true;
-    Start(a_polling_timeout);
+    Start(a_config, a_polling_timeout);
 }
 
 // MARK: -
@@ -78,12 +80,13 @@ void cc::ngx::postgresql::Offloader::Start (const std::string& a_socket_fn, cons
 /**
  * @brief Start offloader.
  *
+ * @param a_config          Configuration.
  * @param a_polling_timeout Loop polling timeout in millseconds, if < 0 will use defaults.
  */
-void cc::ngx::postgresql::Offloader::Start (const float& a_polling_timeout)
+void cc::ngx::postgresql::Offloader::Start (const Config& a_config, const float& a_polling_timeout)
 {
     CC_ASSERT(true == allow_start_call_);
-    cc::postgresql::offloader::Supervisor::Start(a_polling_timeout);
+    cc::postgresql::offloader::Supervisor::Start(a_config, a_polling_timeout);
 }
 
 // MARK: -
@@ -99,14 +102,14 @@ cc::ngx::postgresql::Offloader::Setup ()
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... new instances of producer / consumer are required ...
+    if ( nullptr != ngx_consumer_ ) {
+        delete ngx_consumer_;
+    }
     if ( nullptr != ngx_producer_ ) {
         delete ngx_producer_;
     }
     ngx_producer_ = new ::cc::ngx::postgresql::Producer();
-    if ( nullptr != ngx_consumer_ ) {
-        delete ngx_consumer_;
-    }
-    ngx_consumer_ = new ::cc::ngx::postgresql::Consumer();
+    ngx_consumer_ = new ::cc::ngx::postgresql::Consumer(consumer_socket_fn_, consumer_fe_callback_);
     // ... done ...
     return std::make_pair(ngx_producer_, ngx_consumer_);
 }
@@ -123,13 +126,13 @@ void cc::ngx::postgresql::Offloader::Dismantle (const cc::ngx::postgresql::Offlo
     // ... sanity check ...
     CC_ASSERT(a_pair.first == ngx_producer_ && a_pair.second == ngx_consumer_);
     // ... release ...
-    if ( nullptr != ngx_producer_ ) {
-        delete ngx_producer_;
-        ngx_producer_ = nullptr;
-    }
     if ( nullptr != ngx_consumer_ ) {
         delete ngx_consumer_;
         ngx_consumer_ = nullptr;
+    }
+    if ( nullptr != ngx_producer_ ) {
+        delete ngx_producer_;
+        ngx_producer_ = nullptr;
     }
     allow_start_call_ = false;
 }

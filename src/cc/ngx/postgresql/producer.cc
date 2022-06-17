@@ -40,27 +40,3 @@ cc::ngx::postgresql::Producer::~Producer ()
 {
     /* empty */
 }
-
-// MARK: -
-
-/**
- * @brief Start producer.
- */
-void cc::ngx::postgresql::Producer::Start ()
-{
-    // ... sanity check ...
-    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
-
-    // TODO: implement
-}
-
-/**
- * @brief Stop producer.
- */
-void cc::ngx::postgresql::Producer::Stop ()
-{
-    // ... sanity check ...
-    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
-        
-    // TODO: implement
-}

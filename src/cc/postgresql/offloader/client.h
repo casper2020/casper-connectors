@@ -38,8 +38,23 @@ namespace cc
         
             class Client
             {
+                
+            public: // Data Type(s)
+                
+                typedef struct {
+                    std::vector<std::string>              columns_;
+                    std::vector<std::vector<std::string>> data_;
+                } Table;
 
             public: // Constructor(s) / Destructor
+                
+                /**
+                 * @brief Default constructor.
+                 */
+                Client ()
+                {
+                    /* empty */
+                }
                 
                 /**
                  * @brief Destructor.
@@ -48,6 +63,8 @@ namespace cc
                 {
                     /* empty */
                 }
+                
+            public:
 
             };                
         

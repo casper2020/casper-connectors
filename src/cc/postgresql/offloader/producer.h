@@ -28,12 +28,7 @@
 
 #include "cc/exception.h"
 
-#include <string>
-#include <map>
-#include <mutex>
-#include <inttypes.h>
-
-#include "osal/datagram_socket.h"
+#include "cc/postgresql/offloader/shared.h"
 
 namespace cc
 {
@@ -46,66 +41,25 @@ namespace cc
         
             class Producer : public ::cc::NonCopyable, public ::cc::NonMovable
             {
-                
-            public: // Data Type(s)
-                
-                enum class Status : uint8_t
-                {
-                    Pending,
-                    Busy,
-                    Failed
-                };
-                            
-                typedef struct {
-                    const std::string& query_;       //!< PostgreSQL query.
-                    const void*        client_ptr_;  //!< Pointer to client.
-                } Order;
-
-                typedef struct {
-                    std::string uuid_;   //!< Universal Unique ID.
-                    uint64_t    index_;  //!< Index in pending queue, only valid for NON failure status.
-                    uint64_t    total_;  //!< Number of orders in queue.
-                    Status      status_; //!< Order status.
-                    std::string reason_; //!< Only set on failure status.
-                } Ticket;
-
-            private: // Threading
-                
-                std::mutex mutex_;
-
-            private: // Data Type(s)
-                
-                typedef struct {
-                    std::string query_;       //!< PostgreSQL query.
-                    const void* client_ptr_;  //!< Pointer to client.
-                } Pending;
-                
+                                
             private: // Data
                 
-                std::map<std::string, Pending> pending_; //!< Pending orders, must be under mutex umbrella.
-            
-            private: // Networking
-                
-                osal::DatagramServerSocket    socket_;
+                Shared* shared_ptr_;
                 
             public: // Constructor(s) / Destructor
                 
-                Producer();
+                Producer ();
                 virtual ~Producer();
             
             public: // Method(s) / Function(s) - One Shot Call Only!
                 
-                virtual void Start () = 0;
-                virtual void Stop  () = 0;
+                virtual void Start (Shared* a_shared_ptr);
+                virtual void Stop  () ;
                 
             public: // Method(s) / Function(s)
                 
                 Ticket Queue  (const Order& a_order);
                 void   Cancel (const Ticket& a_ticket);
-                
-            private: // Method(s) / Function(s)
-                
-                void NotifyConsumer (const std::string& a_uuid, const Order& a_order);
 
             }; // end of class 'Producer'
 

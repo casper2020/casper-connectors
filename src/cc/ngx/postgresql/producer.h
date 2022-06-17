@@ -39,14 +39,9 @@ namespace cc
 
             public: // Constructor(s) / Destructor
                 
-                Producer();
+                Producer ();
                 virtual ~Producer();
                 
-            protected: // Inherited Virtual Method(s) / Function(s) - One Shot Call Only!
-
-                virtual void Start ();
-                virtual void Stop  ();
-
             }; // end of class 'Offloader'
 
         } // end of namespace 'postgresql'

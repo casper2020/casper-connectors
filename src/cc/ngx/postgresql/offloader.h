@@ -23,8 +23,6 @@
 #ifndef NRS_CC_NGX_POSTGRESQL_OFFLOADER_H_
 #define NRS_CC_NGX_POSTGRESQL_OFFLOADER_H_
 
-#include "cc/singleton.h"
-
 #include "cc/postgresql/offloader/supervisor.h"
 
 #include "cc/ngx/postgresql/producer.h"
@@ -39,23 +37,8 @@ namespace cc
         namespace postgresql
         {
 
-            // ---- //
-            class Offloader;
-            class OffloaderInitializer final : public ::cc::Initializer<Offloader>
+            class Offloader : public ::cc::postgresql::offloader::Supervisor
             {
-                
-            public: // Constructor(s) / Destructor
-                
-                OffloaderInitializer (Offloader& a_instance);
-                virtual ~OffloaderInitializer ();
-                
-            }; // end of class 'OffloaderInitializer'
-            
-            // ---- //
-            class Offloader final : public ::cc::postgresql::offloader::Supervisor, public cc::Singleton<Offloader, OffloaderInitializer>
-            {
-    
-                friend class OffloaderInitializer;
                 
             private: // Helper(s)
                 
@@ -64,19 +47,23 @@ namespace cc
                 
             private: // Data
                 
-                bool        allow_start_call_;
                 std::string                      consumer_socket_fn_;
                 Consumer::FatalExceptionCallback consumer_fe_callback_;
+                bool                             allow_start_call_;
+
+            public: // Constructor(s) / Destructor
                 
+                Offloader ();
+                virtual ~Offloader ();
+                
+            public: // Method(s) / Function(s) - One Shot Call Only
+                
+                void Startup (const Offloader::Config& a_config,
+                              const std::string& a_socket_fn, const float& a_polling_timeout, Consumer::FatalExceptionCallback a_callback);
 
             public: // Overloaded Virtual Method(s) / Function(s) - One Shot Call Only
                 
-                void Start (const std::string& a_socket_fn, const float& a_polling_timeout,
-                            Consumer::FatalExceptionCallback a_callback);
-
-            public: // Overloaded Virtual Method(s) / Function(s) - One Shot Call Only
-                
-                virtual void Start (const float& a_polling_timeout);
+                virtual void Start (const Config& a_config, const float& a_polling_timeout);
 
             protected: // Inherited Virtual Method(s) / Function(s)
                 

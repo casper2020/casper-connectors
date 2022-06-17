@@ -33,6 +33,7 @@ cc::postgresql::offloader::Supervisor::Supervisor ()
     // ... initialize ...
     producer_ptr_ = nullptr;
     consumer_ptr_ = nullptr;
+    shared_       = nullptr;
 }
 
 /**
@@ -51,20 +52,24 @@ cc::postgresql::offloader::Supervisor::~Supervisor ()
 /**
  * @brief Start supervisor.
  *
+ * @param a_config          Configuration.
  * @param a_polling_timeout Loop polling timeout in millseconds, if < 0 will use defaults.
  */
-void cc::postgresql::offloader::Supervisor::Start (const float& a_polling_timeout)
+void cc::postgresql::offloader::Supervisor::Start (const Supervisor::Config& a_config, const float& a_polling_timeout)
 {
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_ASSERT(nullptr == shared_);
     // ... setup ...
     const auto pair = Setup();
     CC_ASSERT(nullptr != pair.first && nullptr != pair.second);
+    // ... ....
+    shared_ = new Shared(a_config);
     // ... start all helpers ...
     producer_ptr_ = pair.first;
-    producer_ptr_->Start();
+    producer_ptr_->Start(shared_);
     consumer_ptr_ = pair.second;
-    consumer_ptr_->Start(a_polling_timeout);
+    consumer_ptr_->Start(shared_, a_polling_timeout);
 }
 
 /**
@@ -88,6 +93,10 @@ void cc::postgresql::offloader::Supervisor::Stop ()
         producer_ptr_ = nullptr;
         consumer_ptr_ = nullptr;
     }
+    if ( nullptr != shared_ ) {
+        delete shared_;
+        shared_ = nullptr;
+    }
     clients_.clear();
 }
 
@@ -107,14 +116,15 @@ cc::postgresql::offloader::Supervisor::Queue (cc::postgresql::offloader::Client*
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... issue an order an keep track of it's ticket ...
-    const auto ticket = producer_ptr_->Queue(cc::postgresql::offloader::Producer::Order{
+    const auto ticket = producer_ptr_->Queue(offloader::Order{
        /* query_       */ a_query,
         /* client_ptr_ */ a_client
     });
     // ... if succeded ...
-    if ( cc::postgresql::offloader::Producer::Status::Pending == ticket.status_ ) {
-        // ... keep track of this client <-> ticket ...
-        Track(a_client, ticket);
+    // ... keep track of this client <-> ticket ...
+    Track(a_client, ticket);
+    if ( offloader::Status::Pending != ticket.status_ ) {
+        Untrack(a_client);
     }
     // ... done ...
     return ticket.status_;

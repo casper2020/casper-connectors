@@ -25,11 +25,16 @@
 
 /**
  * @brief Default constructor.
+ *
+ * @param a_socket_fn       Socket file URI.
+ * @param a_callback        Function to call on a fatal exception.
+ *
  */
-cc::ngx::postgresql::Consumer::Consumer ()
+cc::ngx::postgresql::Consumer::Consumer (const std::string& a_socket_fn, Consumer::FatalExceptionCallback a_callback)
 {
-    event_            = new ::cc::ngx::Event();
-    allow_start_call_ = false;
+    event_       = new ::cc::ngx::Event();
+    socket_fn_   = a_socket_fn;
+    fe_callback_ = a_callback;
 }
 
 /**
@@ -45,15 +50,17 @@ cc::ngx::postgresql::Consumer::~Consumer ()
 /**
  * @brief Start consumer.
  *
+ * @param a_shared          Shared data.
  * @param a_polling_timeout Consumer's loop polling timeout in millseconds, if < 0 will use defaults.
  */
-void cc::ngx::postgresql::Consumer::Start (const float& a_polling_timeout)
+void cc::ngx::postgresql::Consumer::Start (::cc::postgresql::offloader::Shared* a_shared, const float& a_polling_timeout)
 {
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
-    CC_ASSERT(true == allow_start_call_);
+    // ... register event ...
+    event_->Register(socket_fn_, fe_callback_);
     // ... continue ...
-    cc::postgresql::offloader::Consumer::Start(a_polling_timeout);
+    cc::postgresql::offloader::Consumer::Start(a_shared, a_polling_timeout);
 }
 
 /**
@@ -67,8 +74,6 @@ void cc::ngx::postgresql::Consumer::Stop ()
     event_->Unregister();
     // ... continue ...
     cc::postgresql::offloader::Consumer::Stop();
-    // ... reset ...
-    allow_start_call_ = false;
 }
 
 // MARK: -
@@ -87,25 +92,3 @@ void cc::ngx::postgresql::Consumer::Notify (const PGresult* a_result)
     // TODO: check message format
     // socket_.Send(SIZE_FMT ":%s" SIZET_FMT ";%s:" SIZE_FMT ":%s", sizeof(char) * 4, "push", a_uuid.length(), a_uuid.c_str(), a_order.query_.length(), a_order.query_.c_str());
 }
-
-// MARK: -
-
-/**
- * @brief Start consumer.
- *
- * @param a_socket_fn       Socket file URI.
- * @param a_polling_timeout Loop polling timeout in millseconds, if < 0 will use defaults.
- * @param a_callback        Function to call on a fatal exception.
- */
-
-void cc::ngx::postgresql::Consumer::Start (const std::string& a_socket_fn, const float& a_polling_timeout, Consumer::FatalExceptionCallback a_callback)
-{
-    // ... sanity check ...
-    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
-    // ... register event @ nginx event loop ...
-    event_->Register(a_socket_fn, a_callback);
-    allow_start_call_ = true;
-    // ... continue ...
-    Start(a_polling_timeout);
-}
-

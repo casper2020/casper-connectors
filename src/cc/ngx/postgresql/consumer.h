@@ -45,20 +45,22 @@ namespace cc
                 
             private: // Helper(s)
                 
-                ::cc::ngx::Event* event_;
+                ::cc::ngx::Event*      event_;
 
             private: // Data
                 
-                bool allow_start_call_;
+                std::string            socket_fn_;
+                FatalExceptionCallback fe_callback_;                
 
             public: // Constructor(s) / Destructor
                 
-                Consumer ();
+                Consumer () = delete;
+                Consumer (const std::string& a_socket_fn, FatalExceptionCallback a_callback);
                 virtual ~Consumer();
                 
             public: // Overloaded Virtual Method(s) / Function(s) - One Shot Call ONLY!
                 
-                virtual void Start (const float& a_polling_timeout);
+                virtual void Start (::cc::postgresql::offloader::Shared* a_shared, const float& a_polling_timeout);
                 virtual void Stop  ();
 
             protected: // Inherited Virtual Method(s) / Function(s)
