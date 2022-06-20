@@ -78,12 +78,13 @@ namespace cc
                 
             public: // Method(s) / Function(s) - One Shot Call Only
                 
-                virtual void Start (const Config& a_config, const float& a_polling_timeout);
+                virtual void Start (const Config& a_config);
                 virtual void Stop  ();
                 
             public: // Method(s) / Function(s)
                 
-                Status Queue  (Client* a_client, const std::string& a_query);
+                Status Queue  (Client* a_client, const std::string& a_query,
+                               SuccessCallback a_success_callback, FailureCallback a_failure_callback);
                 void   Cancel (Client* a_client);
                 
             protected: // PureInherited Virtual Method(s) / Function(s)

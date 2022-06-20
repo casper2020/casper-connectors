@@ -84,6 +84,9 @@
     #define CC_DEBUG_LOG_ENABLE(a_token) \
         ::cc::debug::Logger::GetInstance().Register(a_token);
 
+    #define CC_DEBUG_LOG_DISABLE(a_token) \
+    ::cc::debug::Logger::GetInstance().Unregister(a_token);
+
     #define CC_DEBUG_LOG_MSG(a_token, a_format, ...) \
         ::cc::debug::Logger::GetInstance().Log(a_token, "[%s] " a_format "\n", a_token, __VA_ARGS__);
 
@@ -130,6 +133,7 @@
     #define CC_IF_DEBUG_LAMBDA_CAPTURE(...)
 
     #define CC_DEBUG_LOG_ENABLE(a_token)
+    #define CC_DEBUG_LOG_DISABLE(a_token)
     #define CC_DEBUG_LOG_PRINT(a_token, a_format, ...)
     #define CC_DEBUG_LOG_MSG(a_token, a_format, ...)
     #define CC_DEBUG_LOG_TRACE(a_token, a_format, ...)

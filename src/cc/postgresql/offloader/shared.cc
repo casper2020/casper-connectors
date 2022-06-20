@@ -50,6 +50,19 @@ cc::postgresql::offloader::Shared::~Shared ()
 // MARK: -
 
 /**
+ * @brief Set / unset a listener.
+ *
+ * @param a_listener Listener to set ( if not null ) or unset ( if null ).
+ */
+void cc::postgresql::offloader::Shared::Set (offloader::Listener a_listener)
+{
+    // ... sanity check ...
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    // ... set / unset ...
+    listener_ = a_listener;
+}
+
+/**
  * @brief Reset by releasing all previously allocated data.
  */
 void cc::postgresql::offloader::Shared::Reset ()
@@ -64,6 +77,7 @@ void cc::postgresql::offloader::Shared::Reset ()
     }
     pending_.clear();
     cancelled_.clear();
+    listener_ = nullptr;
 }
 
 // MARK: -
@@ -91,15 +105,15 @@ cc::postgresql::offloader::Shared::Queue (const offloader::Order& a_order)
         {
             char tmp[37];
             uuid_t tmp_uuid; uuid_generate_random(tmp_uuid); uuid_unparse(tmp_uuid, tmp);
-            ss << tmp << std::hex << static_cast<const void*>(a_order.client_ptr_) << pending_.size();
+            ss << tmp << '-' << std::hex << static_cast<const void*>(a_order.client_ptr_) << '-' << pending_.size();
         }
         uuid = ss.str();
         // ... avoid IDs collision ( unlikely but not impossible ) ...
-        if ( pending_.end() != pending_.find(uuid) || cancelled_.end() != cancelled_.find(uuid) ) {
+        if ( pending_.end() != pending_.find(uuid) || cancelled_.end() != cancelled_.find(uuid) || results_.end() != results_.find(uuid) ) {
             throw ::cc::Exception("%s", "Offload request FAILED triggered by unlikely ( but not impossible ) UUID collision event!");
         }
         // ... keep track if this order ...
-        orders_.push_back(new Shared::PendingOrder{ uuid, a_order.query_, a_order.client_ptr_ });
+        orders_.push_back(new Shared::PendingOrder{ uuid, a_order.query_, a_order.client_ptr_, a_order.on_success_, a_order.on_failure_});
         pending_[uuid] = orders_.back();
         // ... accepted, mark as pending ...
         status = offloader::Status::Pending;
@@ -178,12 +192,10 @@ bool cc::postgresql::offloader::Shared::Peek (offloader::Pending& a_pending)
     // ... first check pending cancellations ...
     Purge(/* a_unsafe */ true);
     // ... no pending orders?
-    if ( 0 == pending_.size() ) {
+    if ( 0 == orders_.size() ) {
         // ... no ...
         return false;
     }
-    // ... sanity check ...
-    CC_DEBUG_ASSERT(pending_.size() == orders_.size());
     // ... pick next ...
     const auto& next = orders_.front();
     // ... yes, copy next order ...
@@ -197,30 +209,42 @@ bool cc::postgresql::offloader::Shared::Peek (offloader::Pending& a_pending)
  *
  * @param a_pending Pending execution info, see \link offloader::Pending \link.
  * @param a_result  PostgreSQL result.
+ * @param a_elapsed Query execution time.
  */
-void cc::postgresql::offloader::Shared::Pop (const offloader::Pending& a_pending, const PGresult* a_result)
+void cc::postgresql::offloader::Shared::Pop (const offloader::Pending& a_pending, const PGresult* a_result, const uint64_t a_elapsed)
 {
-    Pop(a_pending, [a_result](const PendingOrder& a_po) {
-        // ... no, extract data ...
-        // TODO: implement:
-        Client::Table table;
-        const int rows_count    = PQntuples(a_result);
-        const int columns_count = PQnfields(a_result);
-        table.columns_.clear();
-        for ( auto column = 0 ; column < columns_count ; ++column ) {
-            table.columns_.push_back(PQfname(a_result, column));
-        }
-        table.data_.clear();
-        for ( auto row = 0 ; row < rows_count ; ++row ) {
-            table.data_.push_back({});
-            auto& vector = table.data_.back();
+    Pop(a_pending, [this, a_result, a_elapsed](const PendingOrder& a_po) {
+        offloader::OrderResult* result;
+        try {
+            result = new offloader::OrderResult{ a_po.uuid_, a_po.query_, a_po.client_ptr_, nullptr, nullptr, a_po.on_success_, a_po.on_failure_, a_elapsed };
+            const int rows_count    = PQntuples(a_result);
+            const int columns_count = PQnfields(a_result);
+            result->table_ = new offloader::Table();
+            result->table_->columns_.clear();
             for ( auto column = 0 ; column < columns_count ; ++column ) {
-                vector.push_back(PQgetvalue(a_result, /* row */ 0, /* column */ column));
+                result->table_->columns_.push_back(PQfname(a_result, column));
             }
+            result->table_->data_.clear();
+            for ( auto row = 0 ; row < rows_count ; ++row ) {
+                result->table_->data_.push_back({});
+                auto& vector = result->table_->data_.back();
+                for ( auto column = 0 ; column < columns_count ; ++column ) {
+                    vector.push_back(PQgetvalue(a_result, /* row */ 0, /* column */ column));
+                }
+            }
+            const auto* ptr = result;
+            results_[a_po.uuid_] = result;
+            result = nullptr;
+            // ... notify ...
+            listener_(ptr);
+        } catch (...) {
+            // ... clean up ...
+            if ( nullptr != result ) {
+                delete result;
+            }
+            // ... re-throw ...
+            ::cc::Exception::Rethrow(/* a_unhandled */ false, __FILE__, __LINE__, __FUNCTION__);
         }
-        // ... notify ...
-        // TODO: implement
-        CC_ASSERT(1 == 0);
     });
 }
 
@@ -236,6 +260,35 @@ void cc::postgresql::offloader::Shared::Pop (const offloader::Pending& a_pending
         // TODO: implement
         CC_ASSERT(1 == 0);
     });
+}
+
+/**
+ * @brief Release a result object.
+ *
+ * @param a_uuid     Result Universal Unique ID.
+ * @param a_callback Function to call before deleting result object.
+ */
+void cc::postgresql::offloader::Shared::Pop (const std::string& a_uuid, const std::function<void(const offloader::OrderResult&)>& a_callback)
+{
+    // ... shared data safety insurance ...
+    std::lock_guard<std::mutex> lock(mutex_);
+    // ...
+    const auto it = results_.find(a_uuid);
+    if ( results_.end() == it ) {
+        // ... wtf ? ...
+        delete it->second;
+    } else {
+        // ... deliver result before deleting it ...
+        try {
+            a_callback(*it->second);
+        } catch (...) {
+            // ... this can not or should not happen ...
+            // ... eat it or throw a fatal exception ...
+        }
+        // ... clean up ...
+        delete it->second;
+        results_.erase(it);
+    }
 }
 
 // MARK: -
@@ -303,8 +356,6 @@ void cc::postgresql::offloader::Shared::Purge (const bool a_unsafe)
  */
 void cc::postgresql::offloader::Shared::Pop (const offloader::Pending& a_pending, const std::function<void(const PendingOrder&)>& a_callback)
 {
-    // ... sanity check ...
-    CC_DEBUG_ASSERT(false == cc::debug::Threading::GetInstance().AtMainThread());
     // ... shared data safety insurance ...
     std::lock_guard<std::mutex> lock(mutex_);
     // ... sanity check ...

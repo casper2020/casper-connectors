@@ -34,7 +34,6 @@
 #include "osal/condition_variable.h"
 
 #include <thread>
-#include <mutex>
 
 #include <set>
 #include <queue>
@@ -58,9 +57,9 @@ namespace cc
                 std::atomic<bool>        aborted_;
                 osal::ConditionVariable* start_cv_;
                 
-            private: // Data
+            protected: // Data
                 
-                Shared* shared_ptr_;
+                Shared*                               shared_ptr_;
                 
             private: // PG Data
                 
@@ -80,7 +79,7 @@ namespace cc
                 
             public: // Virtual Method(s) / Function(s) - One Shot Call ONLY!
                 
-                virtual void Start (Shared* a_shared, const float& a_polling_timeout);
+                virtual void Start (Shared* a_shared);
                 virtual void Stop  ();
                 
             protected: // Pure Virtual Method(s) / Function(s)
@@ -91,7 +90,7 @@ namespace cc
                 
                 void      Connect    ();
                 void      Disconnect (const bool a_idle);
-                PGresult* Execute    (const std::string& a_query, const std::set<ExecStatusType>& a_acceptable);
+                PGresult* Execute    (const std::string& a_uuid, const std::string& a_query, const std::set<ExecStatusType>& a_acceptable, uint64_t& o_elapsed);
 
             }; // end of class 'Consumer'
 

@@ -68,6 +68,10 @@ namespace ev
             std::map<std::string, std::string>         config_map_;
             Json::Value                                postgresql_post_connect_queries_;
             
+            uint64_t                                   postgresql_offloader_idle_timeout_;
+            uint64_t                                   postgresql_offloader_polling_timeout_ms_;
+            Json::Value                                postgresql_offloader_post_connect_queries_;
+            
         protected: // Static Data
             
             static std::string                         s_service_id_;
@@ -85,7 +89,8 @@ namespace ev
         public: // Method(s) / Function(s)
             
             void PreConfigure     (const ngx_core_conf_t* a_config, const bool a_master);
-            void PreWorkerStartup (std::string& o_scheduler_socket_fn, std::string& o_shared_handler_socket_fn);
+            void PreWorkerStartup (std::string& o_scheduler_socket_fn, std::string& o_shared_handler_socket_fn,
+                                   std::string* o_pg_offloader_socket_fn = nullptr);
             
             const ::ev::beanstalk::Config& BeanstalkdConfig () const;
             const std::string&             ServiceID        () const;
@@ -100,7 +105,8 @@ namespace ev
                                           const char* const a_conn_str_key, const char* const a_statement_timeout_key,
                                           const char* const a_max_conn_per_worker_key,
                                           const char* const a_min_queries_per_conn_key, const char* const a_max_queries_per_conn_key,
-                                          const char* const a_postgresql_post_connect_queries_key);
+                                          const char* const a_postgresql_post_connect_queries_key,
+                                          const char* const a_offloader_idle_timeout_key = nullptr, const char* const a_offloader_polling_timeout_key = nullptr, const char* const a_offloader_post_connect_queries_key = nullptr);
             
             virtual void SetupREDIS      (const std::map<std::string, std::string>& a_config,
                                           const char* const a_ip_address_key,

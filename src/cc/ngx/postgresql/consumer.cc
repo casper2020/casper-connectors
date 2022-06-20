@@ -42,6 +42,7 @@ cc::ngx::postgresql::Consumer::Consumer (const std::string& a_socket_fn, Consume
  */
 cc::ngx::postgresql::Consumer::~Consumer ()
 {
+    // ... clean up ...
     delete event_;
 }
 
@@ -50,17 +51,19 @@ cc::ngx::postgresql::Consumer::~Consumer ()
 /**
  * @brief Start consumer.
  *
- * @param a_shared          Shared data.
- * @param a_polling_timeout Consumer's loop polling timeout in millseconds, if < 0 will use defaults.
+ * @param a_shared Shared data.
  */
-void cc::ngx::postgresql::Consumer::Start (::cc::postgresql::offloader::Shared* a_shared, const float& a_polling_timeout)
+void cc::ngx::postgresql::Consumer::Start (::cc::postgresql::offloader::Shared* a_shared)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... register event ...
     event_->Register(socket_fn_, fe_callback_);
+    // ... register listener ...
+    a_shared->Set(std::bind(&cc::ngx::postgresql::Consumer::Notify, this, std::placeholders::_1));
     // ... continue ...
-    cc::postgresql::offloader::Consumer::Start(a_shared, a_polling_timeout);
+    cc::postgresql::offloader::Consumer::Start(a_shared);
 }
 
 /**
@@ -68,9 +71,10 @@ void cc::ngx::postgresql::Consumer::Start (::cc::postgresql::offloader::Shared* 
  */
 void cc::ngx::postgresql::Consumer::Stop ()
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
-    // ... register event from nginx event loop ...
+    // ... unregister event from nginx event loop ...
     event_->Unregister();
     // ... continue ...
     cc::postgresql::offloader::Consumer::Stop();
@@ -81,14 +85,42 @@ void cc::ngx::postgresql::Consumer::Stop ()
 /**
  * @brief Notify producer that a ticket is ready.
  *
- * @param a_result PostgreSQL result.
+ * @param a_result Pointer to result data.
  */
-void cc::ngx::postgresql::Consumer::Notify (const PGresult* a_result)
+void cc::ngx::postgresql::Consumer::Notify (const ::cc::postgresql::offloader::OrderResult* a_result)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
-    // TODO: implement
-    // <n>:<action>;<n>:<uuid>;<n>:<query>
-    // TODO: check message format
-    // socket_.Send(SIZE_FMT ":%s" SIZET_FMT ";%s:" SIZE_FMT ":%s", sizeof(char) * 4, "push", a_uuid.length(), a_uuid.c_str(), a_order.query_.length(), a_order.query_.c_str());
+    // ...
+    const std::string uuid = a_result->uuid_;
+    event_->CallOnMainThread([this, uuid]() {
+        // ... sanity check ...
+        CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+        // ... fetch result ...
+        shared_ptr_->Pop(uuid, [] (const ::cc::postgresql::offloader::OrderResult& a_result_ref) {
+            try {
+                // ... sanity check ...
+                CC_DEBUG_ASSERT(nullptr != a_result_ref.table_ || nullptr != a_result_ref.exception_ );
+                // ... deliver ..
+                if ( nullptr != a_result_ref.exception_ ) {
+                    a_result_ref.on_failure_(a_result_ref.query_, *a_result_ref.exception_);
+                } else {  /* if ( nullptr != a_result.table_ ) { */
+                    a_result_ref.on_success_(a_result_ref.query_, *a_result_ref.table_, a_result_ref.elapsed_);
+                }
+            } catch (const ::cc::Exception& a_exception) {
+                // ... notify ...
+                a_result_ref.on_failure_(a_result_ref.query_, a_exception);
+            } catch (...) {
+                // ... this can not or should not happen ...
+                // ... eat it or throw a fatal exception ...
+                try {
+                    ::cc::Exception::Rethrow(/* a_unhandled */ true, __FILE__, __LINE__, __FUNCTION__);
+                } catch (const ::cc::Exception& a_exception) {
+                    fprintf(stderr, "%s\n", a_exception.what());
+                    fflush(stderr);
+                }
+            }
+        });
+    });
 }

@@ -25,6 +25,9 @@
 #include "cc/debug/types.h"
 #include "cc/types.h"
 
+#include "cc/ngx/registry.h"
+
+
 /**
  * @brief Default constructor.
  */
@@ -149,6 +152,9 @@ void cc::ngx::Event::Register (const std::string& a_socket_fn, Event::FatalExcep
     event_->handler = cc::ngx::Event::Handler;
     event_->data    = connection_;
 
+    // ... register ...
+    cc::ngx::Registry::GetInstance().Register(event_, this);
+
     //
     // nginx v1.11.4
     // epoll and kqueue have different ways ( implementations ) to handle read / write events
@@ -193,7 +199,11 @@ void cc::ngx::Event::Unregister ()
     CC_DEBUG_LOG_TRACE("cc::ngx::Event", "~> %s()", __FUNCTION__);
     // ... clean up ...
     if ( nullptr != event_ ) {
+        // ... unregister ...
+        cc::ngx::Registry::GetInstance().Unregister(event_);
+        // ... delete ...
         ngx_del_event(event_, NGX_READ_EVENT, 0);
+        // .. release
         free(event_);
         event_ = nullptr;
     }
@@ -341,10 +351,12 @@ void cc::ngx::Event::ThrowFatalException (const cc::Exception& a_ev_exception)
  */
 void cc::ngx::Event::Handler (ngx_event_t* a_event)
 {
+    const void* data = cc::ngx::Registry::GetInstance().Data(a_event);
+    CC_ASSERT(nullptr != data);
+    
     // ... grab callback ...
-    // TODO: NOT INVALID
-    cc::ngx::Event::Callback* callback_WRONG = static_cast<cc::ngx::Event::Callback*>(a_event->data);
-    cc::ngx::Event& handler = *const_cast<cc::ngx::Event*>(callback_WRONG->event());
+    cc::ngx::Event* self    = const_cast<cc::ngx::Event*>(static_cast<const cc::ngx::Event*>(data));
+    cc::ngx::Event& handler = *self;
 
     // ... for debug purposes
     CC_DEBUG_LOG_TRACE("cc::ngx::Event",

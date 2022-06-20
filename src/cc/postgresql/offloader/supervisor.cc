@@ -52,11 +52,12 @@ cc::postgresql::offloader::Supervisor::~Supervisor ()
 /**
  * @brief Start supervisor.
  *
- * @param a_config          Configuration.
- * @param a_polling_timeout Loop polling timeout in millseconds, if < 0 will use defaults.
+ * @param a_config Configuration.
  */
-void cc::postgresql::offloader::Supervisor::Start (const Supervisor::Config& a_config, const float& a_polling_timeout)
+void cc::postgresql::offloader::Supervisor::Start (const Supervisor::Config& a_config)
 {
+    // ... for debug purposes only ...
+    CC_DEBUG_LOG_MSG("offloader::Supervisor", "~> %s()", __FUNCTION__);
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     CC_ASSERT(nullptr == shared_);
@@ -69,7 +70,9 @@ void cc::postgresql::offloader::Supervisor::Start (const Supervisor::Config& a_c
     producer_ptr_ = pair.first;
     producer_ptr_->Start(shared_);
     consumer_ptr_ = pair.second;
-    consumer_ptr_->Start(shared_, a_polling_timeout);
+    consumer_ptr_->Start(shared_);
+    // ... for debug purposes only ...
+    CC_DEBUG_LOG_MSG("offloader::Supervisor", "<~ %s", __FUNCTION__);
 }
 
 /**
@@ -77,6 +80,8 @@ void cc::postgresql::offloader::Supervisor::Start (const Supervisor::Config& a_c
  */
 void cc::postgresql::offloader::Supervisor::Stop ()
 {
+    // ... for debug purposes only ...
+    CC_DEBUG_LOG_MSG("offloader::Supervisor", "~> %s()", __FUNCTION__);
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... stop all helpers ...
@@ -98,6 +103,8 @@ void cc::postgresql::offloader::Supervisor::Stop ()
         shared_ = nullptr;
     }
     clients_.clear();
+    // ... for debug purposes only ...
+    CC_DEBUG_LOG_MSG("offloader::Supervisor", "<~ %s", __FUNCTION__);
 }
 
 // MARK: -
@@ -105,20 +112,27 @@ void cc::postgresql::offloader::Supervisor::Stop ()
 /**
  * @brief Asynchronously exceute a query.
  * 
- * @param a_query  PostgreSQL query to perform.
- * @param a_client Client that wants to order a query load.
+ * @param a_query            PostgreSQL query to perform.
+ * @param a_client           Client that wants to order a query load.
+ * @param a_sucess_callback  Function to call on sucess.
+ * @param a_failure_callback Function to call on failure.
  *
  * @return One of \link Supervisor::Status \link.
  */
 cc::postgresql::offloader::Supervisor::Status
-cc::postgresql::offloader::Supervisor::Queue (cc::postgresql::offloader::Client* a_client, const std::string& a_query)
+cc::postgresql::offloader::Supervisor::Queue (cc::postgresql::offloader::Client* a_client, const std::string& a_query,
+                                              cc::postgresql::offloader::SuccessCallback a_success_callback, cc::postgresql::offloader::FailureCallback a_failure_callback)
 {
+    // ... for debug purposes only ...
+    CC_DEBUG_LOG_MSG("offloader::Supervisor", "~> %s(%p,\"%s\")", __FUNCTION__, a_client, a_query.c_str());
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... issue an order an keep track of it's ticket ...
     const auto ticket = producer_ptr_->Queue(offloader::Order{
        /* query_       */ a_query,
-        /* client_ptr_ */ a_client
+        /* client_ptr_ */ a_client,
+        /* on_success_ */ a_success_callback,
+        /* on_failure  */ a_failure_callback
     });
     // ... if succeded ...
     // ... keep track of this client <-> ticket ...
@@ -126,6 +140,8 @@ cc::postgresql::offloader::Supervisor::Queue (cc::postgresql::offloader::Client*
     if ( offloader::Status::Pending != ticket.status_ ) {
         Untrack(a_client);
     }
+    // ... for debug purposes only ...
+    CC_DEBUG_LOG_MSG("offloader::Supervisor", "<~ %s(%p) - %s - " UINT8_FMT, __FUNCTION__, a_client, ticket.uuid_.c_str(), ticket.status_);
     // ... done ...
     return ticket.status_;
 }
@@ -137,11 +153,15 @@ cc::postgresql::offloader::Supervisor::Queue (cc::postgresql::offloader::Client*
  */
 void cc::postgresql::offloader::Supervisor::Cancel (cc::postgresql::offloader::Client* a_client)
 {
+    // ... for debug purposes only ...
+    CC_DEBUG_LOG_MSG("offloader::Supervisor", "~> %s(%p)", __FUNCTION__, a_client);
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... check of client is being tracked ...
     const auto it = clients_.find(a_client);
     if ( clients_.end() == it ) {
+        // ... for debug purposes only ...
+        CC_DEBUG_LOG_MSG("offloader::Supervisor", "<~ %s(%p)", __FUNCTION__, a_client);
         // ... client not tracked ...
         return;
     }
@@ -151,5 +171,7 @@ void cc::postgresql::offloader::Supervisor::Cancel (cc::postgresql::offloader::C
     }
     // ... forget client ...
     Untrack(a_client);
+    // ... for debug purposes only ...
+    CC_DEBUG_LOG_MSG("offloader::Supervisor", "<~ %s(%p)", __FUNCTION__, a_client);
 }
 

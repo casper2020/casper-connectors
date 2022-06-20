@@ -109,8 +109,9 @@ void ev::ngx::SharedGlue::PreConfigure (const ngx_core_conf_t* a_config, const b
  *
  * @param o_scheduler_socket_fn
  * @param o_shared_handler_socket_fn
+ * @param o_pg_offloader_socket_fn
  */
-void ev::ngx::SharedGlue::PreWorkerStartup (std::string& o_scheduler_socket_fn, std::string& o_shared_handler_socket_fn)
+void ev::ngx::SharedGlue::PreWorkerStartup (std::string& o_scheduler_socket_fn, std::string& o_shared_handler_socket_fn, std::string* o_pg_offloader_socket_fn)
 {
     std::stringstream ss;
     const pid_t pid = getpid();
@@ -122,6 +123,12 @@ void ev::ngx::SharedGlue::PreWorkerStartup (std::string& o_scheduler_socket_fn, 
     ss.str("");
     ss << socket_files_dn_ << "ev-shared-handler-" << pid << ".socket";
     o_shared_handler_socket_fn = ss.str();
+    
+    if ( nullptr != o_pg_offloader_socket_fn ) {
+        ss.str("");
+        ss << socket_files_dn_ << "ev-pg-offloader-" << pid << ".socket";
+        (*o_pg_offloader_socket_fn) = ss.str();
+    }
 }
 
 /**
@@ -150,12 +157,16 @@ void ev::ngx::SharedGlue::SetupService (const std::map<std::string, std::string>
  * @param a_min_queries_per_conn_key
  * @param a_max_queries_per_conn_key
  * @param a_postgresql_post_connect_queries_key;
+ * @param a_offloader_idle_timeout_key
+ * @param a_offloader_polling_timeout_key
+ * @param a_offloader_post_connect_queries_key
  */ 
 void ev::ngx::SharedGlue::SetupPostgreSQL (const std::map<std::string, std::string>& a_config,
                                            const char* const a_conn_str_key, const char* const a_statement_timeout_key,
                                            const char* const a_max_conn_per_worker_key,
                                            const char* const a_min_queries_per_conn_key, const char* const a_max_queries_per_conn_key,
-                                           const char* const a_post_connect_queries_key)
+                                           const char* const a_post_connect_queries_key,
+                                           const char* const a_offloader_idle_timeout_key, const char* const a_offloader_polling_timeout_key, const char* const a_offloader_post_connect_queries_key)
 {
     
     const std::map<std::string, std::string> map = {
@@ -249,6 +260,35 @@ void ev::ngx::SharedGlue::SetupPostgreSQL (const std::map<std::string, std::stri
                 throw ev::Exception("Unable to parse %s value - expected valid JSON string!", a_post_connect_queries_key);
             }
         }    
+    }
+    // ... offloader ( optional ) ...
+    postgresql_offloader_idle_timeout_ = 0;
+    if ( nullptr != a_offloader_idle_timeout_key ) {
+        const auto it = a_config.find(a_offloader_idle_timeout_key);
+        if ( a_config.end() != it ) {
+            if ( std::stoll(it->second) > 0 ) {
+                postgresql_offloader_idle_timeout_ = static_cast<uint64_t>(std::stoull(it->second));
+            }
+        }
+    }
+    postgresql_offloader_polling_timeout_ms_ = 0;
+    if ( nullptr != a_offloader_polling_timeout_key ) {
+        const auto it = a_config.find(a_offloader_polling_timeout_key);
+        if ( a_config.end() != it ) {
+            if ( std::stoll(it->second) > 0 ) {
+                postgresql_offloader_polling_timeout_ms_ = static_cast<uint64_t>(std::stoull(it->second));
+            }
+        }
+    }
+    postgresql_offloader_post_connect_queries_ = Json::Value::null;
+    if ( nullptr != a_offloader_post_connect_queries_key ) {
+        const auto offloader_post_connect_queries_it = a_config.find(a_offloader_post_connect_queries_key);
+        if ( a_config.end() != offloader_post_connect_queries_it ) {
+            Json::Reader reader;
+            if ( false == reader.parse(offloader_post_connect_queries_it->second, postgresql_offloader_post_connect_queries_) ) {
+                throw ev::Exception("Unable to parse %s value - expected valid JSON string!", a_offloader_post_connect_queries_key);
+            }
+        }
     }
 }
 

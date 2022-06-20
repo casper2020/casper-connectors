@@ -27,6 +27,8 @@
 
 #include "cc/ngx/event.h"
 
+#include <mutex>
+
 namespace cc
 {
 
@@ -43,9 +45,13 @@ namespace cc
                 
                 typedef std::function<void(const ::cc::Exception&)> FatalExceptionCallback;
                 
+            private: // Threading
+                
+                std::mutex             mutex_;
+                
             private: // Helper(s)
                 
-                ::cc::ngx::Event*      event_;
+                ::cc::ngx::Event*      event_; //<! must be under mutex umbrella.
 
             private: // Data
                 
@@ -60,12 +66,12 @@ namespace cc
                 
             public: // Overloaded Virtual Method(s) / Function(s) - One Shot Call ONLY!
                 
-                virtual void Start (::cc::postgresql::offloader::Shared* a_shared, const float& a_polling_timeout);
+                virtual void Start (::cc::postgresql::offloader::Shared* a_shared);
                 virtual void Stop  ();
 
-            protected: // Inherited Virtual Method(s) / Function(s)
+            private: // Method(s) / Function(s)
                 
-                virtual void Notify (const PGresult* a_result);
+                void Notify (const ::cc::postgresql::offloader::OrderResult* a_result);
                 
             public: // Method(s) / Function(s) - One Shot Call ONLY!
                 
