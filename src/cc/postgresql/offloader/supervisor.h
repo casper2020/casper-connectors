@@ -78,7 +78,7 @@ namespace cc
                 
             public: // Method(s) / Function(s) - One Shot Call Only
                 
-                virtual void Start (const Config& a_config);
+                virtual void Start (const std::string& a_name, const Config& a_config);
                 virtual void Stop  ();
                 
             public: // Method(s) / Function(s)

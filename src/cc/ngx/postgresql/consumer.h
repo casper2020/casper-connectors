@@ -66,7 +66,7 @@ namespace cc
                 
             public: // Overloaded Virtual Method(s) / Function(s) - One Shot Call ONLY!
                 
-                virtual void Start (::cc::postgresql::offloader::Shared* a_shared);
+                virtual void Start (const std::string& a_name, ::cc::postgresql::offloader::Shared* a_shared);
                 virtual void Stop  ();
 
             private: // Method(s) / Function(s)

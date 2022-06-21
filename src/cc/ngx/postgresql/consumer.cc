@@ -50,10 +50,10 @@ cc::ngx::postgresql::Consumer::~Consumer ()
 
 /**
  * @brief Start consumer.
- *
+ * @param a_name   Parent process name or abbreviation to be used for thread name prefix.
  * @param a_shared Shared data.
  */
-void cc::ngx::postgresql::Consumer::Start (::cc::postgresql::offloader::Shared* a_shared)
+void cc::ngx::postgresql::Consumer::Start (const std::string& a_name, ::cc::postgresql::offloader::Shared* a_shared)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     // ... sanity check ...
@@ -63,7 +63,7 @@ void cc::ngx::postgresql::Consumer::Start (::cc::postgresql::offloader::Shared* 
     // ... register listener ...
     a_shared->Set(std::bind(&cc::ngx::postgresql::Consumer::Notify, this, std::placeholders::_1));
     // ... continue ...
-    cc::postgresql::offloader::Consumer::Start(a_shared);
+    cc::postgresql::offloader::Consumer::Start(a_name, a_shared);
 }
 
 /**

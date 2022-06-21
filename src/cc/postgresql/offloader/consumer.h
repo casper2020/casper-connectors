@@ -53,6 +53,7 @@ namespace cc
                 
             private: // Threading
                 
+                std::string              thread_nm_;
                 std::thread*             thread_;
                 std::atomic<bool>        aborted_;
                 osal::ConditionVariable* start_cv_;
@@ -79,7 +80,7 @@ namespace cc
                 
             public: // Virtual Method(s) / Function(s) - One Shot Call ONLY!
                 
-                virtual void Start (Shared* a_shared);
+                virtual void Start (const std::string& a_name, Shared* a_shared);
                 virtual void Stop  ();
                 
             protected: // Pure Virtual Method(s) / Function(s)

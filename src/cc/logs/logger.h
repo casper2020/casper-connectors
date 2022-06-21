@@ -73,6 +73,7 @@
 
 #else
 
+    #define CC_LOGS_LOGGER_RESET_ATTRS
     #define CC_LOGS_LOGGER_MAGENTA_COLOR
     
     #define CC_LOGS_LOGGER_RED_COLOR
@@ -95,7 +96,6 @@
     #define CC_LOGS_LOGGER_ORANGE_COLOR
 
     #define CC_LOGS_LOGGER_WARNING_COLOR
-    #define CC_LOGS_LOGGER_RESET_COLOR
 
     #define CC_LOGS_LOGGER_COLOR(a_name)
 

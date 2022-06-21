@@ -58,12 +58,13 @@ namespace cc
                 
             public: // Method(s) / Function(s) - One Shot Call Only
                 
-                void Startup (const Offloader::Config& a_config,
+                void Startup (const std::string& a_name,
+                              const Offloader::Config& a_config,
                               const std::string& a_socket_fn, Consumer::FatalExceptionCallback a_callback);
 
             public: // Overloaded Virtual Method(s) / Function(s) - One Shot Call Only
                 
-                virtual void Start (const Config& a_config);
+                virtual void Start (const std::string& a_name, const Config& a_config);
 
             protected: // Inherited Virtual Method(s) / Function(s)
                 

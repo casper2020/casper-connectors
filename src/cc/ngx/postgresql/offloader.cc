@@ -59,11 +59,13 @@ cc::ngx::postgresql::Offloader::~Offloader ()
 /**
  * @brief Start offloader.
  *
+ * @param a_name      Parent process name or abbreviation to be used for thread name prefix.
  * @param a_config    Configuration.
  * @param a_socket_fn Socket file URI.
  * @param a_callback  Function to call on a fatal exception.
  */
-void cc::ngx::postgresql::Offloader::Startup (const Offloader::Config& a_config,
+void cc::ngx::postgresql::Offloader::Startup (const std::string& a_name,
+                                              const Offloader::Config& a_config,
                                               const std::string& a_socket_fn, Consumer::FatalExceptionCallback a_callback)
 {
     // ... sanity check ...
@@ -71,7 +73,7 @@ void cc::ngx::postgresql::Offloader::Startup (const Offloader::Config& a_config,
     consumer_socket_fn_   = a_socket_fn;
     consumer_fe_callback_ = a_callback;
     allow_start_call_     = true;
-    Start(a_config);
+    Start(a_name, a_config);
 }
 
 // MARK: -
@@ -79,12 +81,13 @@ void cc::ngx::postgresql::Offloader::Startup (const Offloader::Config& a_config,
 /**
  * @brief Start offloader.
  *
+ * @param a_name   Parent process name or abbreviation to be used for thread name prefix.
  * @param a_config Configuration.
  */
-void cc::ngx::postgresql::Offloader::Start (const Config& a_config)
+void cc::ngx::postgresql::Offloader::Start (const std::string& a_name, const Config& a_config)
 {
     CC_ASSERT(true == allow_start_call_);
-    cc::postgresql::offloader::Supervisor::Start(a_config);
+    cc::postgresql::offloader::Supervisor::Start(a_name, a_config);
 }
 
 // MARK: -

@@ -52,9 +52,10 @@ cc::postgresql::offloader::Supervisor::~Supervisor ()
 /**
  * @brief Start supervisor.
  *
+ * @param a_name   Parent process name or abbreviation to be used for thread name prefix.
  * @param a_config Configuration.
  */
-void cc::postgresql::offloader::Supervisor::Start (const Supervisor::Config& a_config)
+void cc::postgresql::offloader::Supervisor::Start (const std::string& a_name, const Supervisor::Config& a_config)
 {
     // ... for debug purposes only ...
     CC_DEBUG_LOG_MSG("offloader::Supervisor", "~> %s()", __FUNCTION__);
@@ -70,7 +71,7 @@ void cc::postgresql::offloader::Supervisor::Start (const Supervisor::Config& a_c
     producer_ptr_ = pair.first;
     producer_ptr_->Start(shared_);
     consumer_ptr_ = pair.second;
-    consumer_ptr_->Start(shared_);
+    consumer_ptr_->Start(a_name, shared_);
     // ... for debug purposes only ...
     CC_DEBUG_LOG_MSG("offloader::Supervisor", "<~ %s", __FUNCTION__);
 }

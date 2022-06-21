@@ -63,9 +63,18 @@
 #define DOUBLE_FMT "%lf"
 #define DOUBLE_FMT_D(d) "%." #d "lf"
 
-#define SIZET_FMT "%zd"
+#ifndef SIZET_FMT
+#define SIZET_FMT "%zu"
+#endif
+
 #define SIZET_FMT_BP(d)   "%" #d "zu"
+
+#ifndef SSIZET_FMT
+#define SSIZET_FMT "%zd"
+#endif
+
 #define SSIZET_FMT_BP(d)  "%" #d "zd"
+
 #include <string>
 #include <sstream>
 #include <ios> // std::hex
