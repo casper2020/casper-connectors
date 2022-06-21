@@ -60,8 +60,8 @@
   _Pragma(CC_MACRO_STRINGIFY_ARG(GCC warning("TODO 2.0: unused variable '" #a_name "'"))); \
   (void)a_name;
 
-#define CC_WARNING_TODO(a_name) \
-   _Pragma(CC_MACRO_STRINGIFY_ARG(GCC warning("" #a_name)))
+#define CC_WARNING_TODO(a_message) \
+    CC_DO_PRAGMA(message ("WARNING TODO: " #a_message))
 
 #define CC_DEPRECATED \
     [[deprecated]]

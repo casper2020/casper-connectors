@@ -93,7 +93,7 @@ namespace cc
         
     };
 
-    DEFINE_ENUM_WITH_BITWISE_OPERATORS(BaseProgress::ResetFlags);
+    DEFINE_ENUM_WITH_BITWISE_OPERATORS(BaseProgress::ResetFlags)
 
     //
     // Progress Template
