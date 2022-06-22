@@ -37,6 +37,7 @@
 
 #include <libpq-fe.h> // PG*
 
+#include "cc/postgresql/offloader/types.h"
 #include "cc/postgresql/offloader/client.h"
 
 #include "json/json.h"
@@ -49,116 +50,29 @@ namespace cc
     
         namespace offloader
         {
-        
-            // --- //
-    
-            typedef struct {
-                std::vector<std::string>              columns_;
-                std::vector<std::vector<std::string>> data_;
-            } Table;
 
-            typedef std::function<void(const std::string&, const Table&, const uint64_t)>           SuccessCallback;
-            typedef std::function<void(const std::string&, const ::cc::Exception&)> FailureCallback;
-            
-            typedef struct {
-                const std::string& query_;         //<! PostgreSQL query.
-                const Client*      client_ptr_;    //<! Pointer to client.
-                SuccessCallback    on_success_;    //<! Sucess callback.
-                FailureCallback    on_failure_;    //<! Failure callback.
-            } Order;
-        
-            enum class Status : uint8_t
-            {
-                Pending,
-                Busy,
-                Failed
-            };
-        
-            typedef struct {
-                std::string uuid_;   //<! Universal Unique ID.
-                uint64_t    index_;  //<! Index in pending queue, only valid for NON failure status.
-                uint64_t    total_;  //<! Number of orders in queue.
-                Status      status_; //<! Order status.
-                std::string reason_; //<! Only set on failure status.
-            } Ticket;
-        
-            typedef struct {
-                std::string uuid_;   //<! Universal Unique ID.
-                std::string query_;  //<! PostgreSQL query.
-            } Pending;
-
-            typedef struct _Config {
-                const std::string  str_;
-                const int          statement_timeout_;
-                const Json::Value& post_connect_queries_;
-                const ssize_t      min_queries_per_conn_;
-                const ssize_t      max_queries_per_conn_;
-                const uint64_t     idle_timeout_ms_;
-                const uint64_t     polling_timeout_ms_;
-                inline ssize_t rnd_max_queries () const
-                {
-                    ssize_t max_queries_per_conn = -1;
-                    if ( min_queries_per_conn_ > -1 && max_queries_per_conn_ > -1 ) {
-                        // ... both limits are set ...
-                        max_queries_per_conn = min_queries_per_conn_ +
-                        (
-                         random() % ( max_queries_per_conn_ - min_queries_per_conn_ + 1 )
-                         );
-                    } else if ( -1 == min_queries_per_conn_ && max_queries_per_conn_ > -1  ) {
-                        // ... only upper limit is set ...
-                        max_queries_per_conn = max_queries_per_conn_;
-                    } // else { /* ignored */ }
-                    return max_queries_per_conn;
-                }
-
-            } Config;
-        
-            typedef struct {
-                const std::string  uuid_;          //<! Universal Unique ID.
-                const std::string  query_;         //<! PostgreSQL query.
-                const Client*      client_ptr_;    //<! Pointer to client.
-                Table*             table_;         //<! Query execution result.
-                ::cc::Exception*   exception_;     //<! Exception.
-                SuccessCallback    on_success_;    //<! Sucess callback.
-                FailureCallback    on_failure_;    //<! Failure callback.
-                const uint64_t     elapsed_;       //<! Query execution time.
-            } OrderResult;
-
-            typedef std::function<void(const OrderResult*)> Listener;
-        
-        
             // --- //
             class Shared final : public ::cc::NonCopyable, public ::cc::NonMovable
             {
-                
-            private: // Data Type(s)
-                
-                typedef struct {
-                    const std::string uuid_;       //<! Universal Unique ID.
-                    const std::string query_;      //<! PostgreSQL query.
-                    const Client*     client_ptr_; //<! Pointer to client.
-                    SuccessCallback   on_success_; //<! Sucess callback.
-                    FailureCallback   on_failure_; //<! Failure callback.
-                } PendingOrder;
                                 
             private: // Const Data
                 
-                const Config                               config_;
+                const Config                               config_;     //z! PostgreSQL access config.
                 
             private: // Threading
                 
-                std::mutex                                 mutex_;
+                std::mutex                                 mutex_;      //<! Data acess protection.
                 
-            private: // Data
+            private: // Data - must be under mutex umbrella.
                 
-                std::deque<PendingOrder*>                  orders_;    //<! Pending orders, must be under mutex umbrella.
-                std::map<std::string, const PendingOrder*> pending_;   //<! Pending orders map, must be under mutex umbrella.
+                std::deque<PendingOrder*>                  orders_;    //<! Pending orders.
+                std::map<std::string, PendingOrder*>       executed_;  //<! Executed orders.
                 std::set<std::string>                      cancelled_; //<! Pending cancellation orders, must be under mutex umbrella.
                 std::map<std::string, OrderResult*>        results_;   //<! Results  map, must be under mutex umbrella.
 
             private: // Callback(s)
                 
-                Listener                                   listener_; //<! Listener cancellation orders, must be under mutex umbrella.
+                Listener                                   listener_; //<! Listener, must be under mutex umbrella.
 
             public: // Constructor(s) / Destructor
                 
@@ -168,21 +82,22 @@ namespace cc
 
             public: // Method(s) / Function(s)
                 
-                void   Set    (Listener a_listener);
+                void   Bind   (Listener a_listener);
                 void   Reset  ();
                 Ticket Queue  (const Order& a_order);
                 void   Cancel (const Ticket& a_ticket);
 
-                bool  Peek (Pending& o_pending);
+                bool  Pull (Pending& o_pending);
                 void  Pop  (const Pending& o_pending, const PGresult* a_result, const uint64_t a_elapsed);
-                void  Pop  (const Pending& o_pending, const ::cc::Exception a_exception);
+                void  Pop  (const Pending& o_pending, const ::cc::Exception& a_exception, const uint64_t a_elapsed);
                 
                 void  Pop  (const std::string& a_uuid, const std::function<void(const OrderResult&)>& a_callback);
             
             private: // Method(s) / Function(s)
                 
-                void  Purge (const bool a_unsafe);
-                void  Pop   (const Pending& o_pending, const std::function<void(const PendingOrder&)>& a_callback);
+                void  Purge   (const bool a_unsafe);
+                void  SafePop (const Pending& o_pending, const std::function<void(const PendingOrder&)>& a_callback);
+                void  SafePop (const std::string& a_uuid, const std::function<void(const OrderResult&)>& a_callback);
                 
             public: // Inline Method(s) / Function(s)
                 

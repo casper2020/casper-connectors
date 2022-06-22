@@ -156,17 +156,13 @@ void ev::ngx::SharedGlue::SetupService (const std::map<std::string, std::string>
  * @param a_max_conn_per_worker_key
  * @param a_min_queries_per_conn_key
  * @param a_max_queries_per_conn_key
- * @param a_postgresql_post_connect_queries_key;
- * @param a_offloader_idle_timeout_key
- * @param a_offloader_polling_timeout_key
- * @param a_offloader_post_connect_queries_key
- */ 
+ * @param a_post_connect_queries_key;
+ */
 void ev::ngx::SharedGlue::SetupPostgreSQL (const std::map<std::string, std::string>& a_config,
                                            const char* const a_conn_str_key, const char* const a_statement_timeout_key,
                                            const char* const a_max_conn_per_worker_key,
                                            const char* const a_min_queries_per_conn_key, const char* const a_max_queries_per_conn_key,
-                                           const char* const a_post_connect_queries_key,
-                                           const char* const a_offloader_idle_timeout_key, const char* const a_offloader_polling_timeout_key, const char* const a_offloader_post_connect_queries_key)
+                                           const char* const a_post_connect_queries_key)
 {
     
     const std::map<std::string, std::string> map = {
@@ -186,14 +182,14 @@ void ev::ngx::SharedGlue::SetupPostgreSQL (const std::map<std::string, std::stri
     if ( a_config.end() != postgresql_conn_str_it ) {
         config_map_[a_conn_str_key] = postgresql_conn_str_it->second;
     }
-
+    
     const auto postgresql_statement_timeout = a_config.find(a_statement_timeout_key);
     if ( a_config.end() != postgresql_statement_timeout ) {
         config_map_[a_statement_timeout_key] = postgresql_statement_timeout->second;
     }
-
+    
     size_t postgresql_max_conn_per_worker = 1;
-
+    
     const auto postgresql_max_conn_per_worker_it = a_config.find(a_max_conn_per_worker_key);
     if ( a_config.end() != postgresql_max_conn_per_worker_it ) {
         postgresql_max_conn_per_worker = static_cast<size_t>(std::max(std::stoi(postgresql_max_conn_per_worker_it->second), 1));
@@ -207,7 +203,7 @@ void ev::ngx::SharedGlue::SetupPostgreSQL (const std::map<std::string, std::stri
             postgresql_min_queries_per_conn = std::max((ssize_t)std::stoi(postgresql_min_queries_per_conn_it->second), (ssize_t)-1);
         }
     }
-
+    
     ssize_t postgresql_max_queries_per_conn = -1;
     if ( nullptr != a_max_queries_per_conn_key ) {
         const auto postgresql_max_queries_per_conn_it = a_config.find(a_max_queries_per_conn_key);
@@ -216,13 +212,13 @@ void ev::ngx::SharedGlue::SetupPostgreSQL (const std::map<std::string, std::stri
         }
         
     }
-
+    
     if ( postgresql_min_queries_per_conn > postgresql_max_queries_per_conn ){
         ssize_t tmp = postgresql_max_queries_per_conn;
         postgresql_max_queries_per_conn = postgresql_min_queries_per_conn;
         postgresql_min_queries_per_conn = tmp;
     }
-
+    
     device_limits_[::ev::Object::Target::PostgreSQL] = {
         /* max_conn_per_worker_  */ postgresql_max_conn_per_worker,
         /* max_queries_per_conn_ */ postgresql_max_queries_per_conn,
@@ -259,34 +255,91 @@ void ev::ngx::SharedGlue::SetupPostgreSQL (const std::map<std::string, std::stri
             if ( false == reader.parse(postgresql_post_connect_queries_it->second, postgresql_post_connect_queries_) ) {
                 throw ev::Exception("Unable to parse %s value - expected valid JSON string!", a_post_connect_queries_key);
             }
-        }    
-    }
-    // ... offloader ( optional ) ...
-    postgresql_offloader_idle_timeout_ = 0;
-    if ( nullptr != a_offloader_idle_timeout_key ) {
-        const auto it = a_config.find(a_offloader_idle_timeout_key);
-        if ( a_config.end() != it ) {
-            if ( std::stoll(it->second) > 0 ) {
-                postgresql_offloader_idle_timeout_ = static_cast<uint64_t>(std::stoull(it->second));
-            }
         }
     }
-    postgresql_offloader_polling_timeout_ms_ = 0;
-    if ( nullptr != a_offloader_polling_timeout_key ) {
-        const auto it = a_config.find(a_offloader_polling_timeout_key);
+    // ... reset offloader ...
+    SetupPostgreSQLOffloader(a_config, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+}
+
+/**
+ * @brief Setup PostgreSQL devices properties.
+ *
+ * @param a_config
+ * @param a_min_queries_per_conn_key
+ * @param a_max_queries_per_conn_key
+ * @param a_post_connect_queries_key;
+ * @param a_statement_timeout_key
+ * @param a_idle_timeout_key
+ * @param a_polling_timeout_key
+ */
+void ev::ngx::SharedGlue::SetupPostgreSQLOffloader (const std::map<std::string, std::string>& a_config,
+                                                    const char* const a_min_queries_per_conn_key, const char* const a_max_queries_per_conn_key,
+                                                    const char* const a_post_connect_queries_key,
+                                                    const char* const a_statement_timeout_key, const char* const a_idle_timeout_key, const char* const a_polling_timeout_key)
+{
+    // ... not applicable ...
+    offloader_.limits_.max_conn_per_worker_  = 0;
+    offloader_.limits_.rnd_queries_per_conn_ = nullptr;
+    offloader_.socket_fn_.clear();
+    // ... min queries ...
+    offloader_.limits_.min_queries_per_conn_ = -1;
+    if ( nullptr != a_min_queries_per_conn_key ) {
+        const auto it = a_config.find(a_min_queries_per_conn_key);
         if ( a_config.end() != it ) {
-            if ( std::stoll(it->second) > 0 ) {
-                postgresql_offloader_polling_timeout_ms_ = static_cast<uint64_t>(std::stoull(it->second));
-            }
+            offloader_.limits_.min_queries_per_conn_ = std::max((ssize_t)std::stoi(it->second), (ssize_t)-1);
         }
     }
-    postgresql_offloader_post_connect_queries_ = Json::Value::null;
-    if ( nullptr != a_offloader_post_connect_queries_key ) {
-        const auto offloader_post_connect_queries_it = a_config.find(a_offloader_post_connect_queries_key);
+    // ... max queries ....
+    offloader_.limits_.max_queries_per_conn_ = -1;
+    if ( nullptr != a_max_queries_per_conn_key ) {
+        const auto it = a_config.find(a_max_queries_per_conn_key);
+        if ( a_config.end() != it ) {
+            offloader_.limits_.max_queries_per_conn_ = std::max((ssize_t)std::stoi(it->second), (ssize_t)-1);
+        }
+        
+    }
+    // min / max queries bounds check ...
+    if ( offloader_.limits_.min_queries_per_conn_ > offloader_.limits_.max_queries_per_conn_ ){
+        ssize_t tmp = offloader_.limits_.max_queries_per_conn_;
+        offloader_.limits_.max_queries_per_conn_ = offloader_.limits_.min_queries_per_conn_;
+        offloader_.limits_.min_queries_per_conn_ = tmp;
+    }
+    // ... post connect queries ....
+    offloader_.post_connect_queries_ = Json::Value::null;
+    if ( nullptr != a_post_connect_queries_key ) {
+        const auto offloader_post_connect_queries_it = a_config.find(a_post_connect_queries_key);
         if ( a_config.end() != offloader_post_connect_queries_it ) {
             Json::Reader reader;
-            if ( false == reader.parse(offloader_post_connect_queries_it->second, postgresql_offloader_post_connect_queries_) ) {
-                throw ev::Exception("Unable to parse %s value - expected valid JSON string!", a_offloader_post_connect_queries_key);
+            if ( false == reader.parse(offloader_post_connect_queries_it->second, offloader_.post_connect_queries_) ) {
+                throw ev::Exception("Unable to parse %s value - expected valid JSON string!", a_post_connect_queries_key);
+            }
+        }
+    }
+    // ... statement timeout ...
+    offloader_.statement_timeout_ = 0;
+    if ( nullptr != a_statement_timeout_key ) {
+        const auto it = a_config.find(a_statement_timeout_key);
+        if ( a_config.end() != it ) {
+            offloader_.statement_timeout_ = static_cast<uint64_t>(std::stoull(it->second));
+        }
+    }
+    // ... idle timeout ...
+    offloader_.idle_timeout_ = 0;
+    if ( nullptr != a_idle_timeout_key ) {
+        const auto it = a_config.find(a_idle_timeout_key);
+        if ( a_config.end() != it ) {
+            if ( std::stoll(it->second) > 0 ) {
+                offloader_.idle_timeout_ = static_cast<uint64_t>(std::stoull(it->second));
+            }
+        }
+    }
+    // ... polling timeout ...
+    offloader_.polling_timeout_ms_ = 0;
+    if ( nullptr != a_polling_timeout_key ) {
+        const auto it = a_config.find(a_polling_timeout_key);
+        if ( a_config.end() != it ) {
+            if ( std::stoll(it->second) > 0 ) {
+                offloader_.polling_timeout_ms_ = static_cast<uint64_t>(std::stoull(it->second));
             }
         }
     }

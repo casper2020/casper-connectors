@@ -50,12 +50,13 @@ namespace cc
         
             class Consumer : public ::cc::NonCopyable, public ::cc::NonMovable
             {
-                
+
             private: // Threading
                 
                 std::string              thread_nm_;
                 std::thread*             thread_;
                 std::atomic<bool>        aborted_;
+                std::mutex               mutex_;
                 osal::ConditionVariable* start_cv_;
                 
             protected: // Data
@@ -63,11 +64,18 @@ namespace cc
                 Shared*                               shared_ptr_;
                 
             private: // PG Data
+                 
+                PGconn*                               connection_; //<! Must be under mutex umbrella.
+                std::string                           exec_uuid_;  //<! Must be under mutex umbrella.
                 
-                PGconn*                               connection_;
                 size_t                                reuse_count_;
                 ssize_t                               max_reuse_count_;
+                
                 std::chrono::steady_clock::time_point idle_start_;
+                
+            private: // Callback(s)
+                
+                Listener                              listener_; //<! Listener.
                 
             protected: // Threading
                 
@@ -80,17 +88,27 @@ namespace cc
                 
             public: // Virtual Method(s) / Function(s) - One Shot Call ONLY!
                 
-                virtual void Start (const std::string& a_name, Shared* a_shared);
+                virtual void Start (const std::string& a_name, Listener a_listener, Shared* a_shared);
                 virtual void Stop  ();
+            
+            public: //  Method(s) / Function(s)
+                
+                void Cancel (const Ticket& a_ticket);
                 
             protected: // Pure Virtual Method(s) / Function(s)
                 
                 virtual void Loop (const float& a_polling_timeout);
                 
+            protected: // Pure Virtual Method(s) / Function(s)
+                
+                virtual void OnOrderFulfilled (const ::cc::postgresql::offloader::OrderResult& a_result);
+                virtual void OnOrderFailed    (const ::cc::postgresql::offloader::OrderResult& a_result, const ::cc::Exception& a_exception);
+                virtual void OnOrderCancelled (const ::cc::postgresql::offloader::PendingOrder& a_order);
+
             private: // Method(s) / Function(s)
                 
                 void      Connect    ();
-                void      Disconnect (const bool a_idle);
+                void      Disconnect (const bool a_idle, const char* const a_reason);
                 PGresult* Execute    (const std::string& a_uuid, const std::string& a_query, const std::set<ExecStatusType>& a_acceptable, uint64_t& o_elapsed);
 
             }; // end of class 'Consumer'

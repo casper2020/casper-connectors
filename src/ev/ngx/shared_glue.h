@@ -61,16 +61,23 @@ namespace ev
                 ssize_t                  min_queries_per_conn_;
                 std::function<ssize_t()> rnd_queries_per_conn_;
             } DeviceLimits;
+            
+            typedef struct _PGOffloaderConfig {
+                uint64_t     idle_timeout_;         //< !in seconds
+                uint64_t     statement_timeout_;    //<! in seconds
+                uint64_t     polling_timeout_ms_;   //<! in millisecondss
+                Json::Value  post_connect_queries_;
+                DeviceLimits limits_;
+                std::string  socket_fn_;
+            } PGOffloaderConfig;
                         
         protected: // Data
             
             std::map<ev::Object::Target, DeviceLimits> device_limits_;
             std::map<std::string, std::string>         config_map_;
             Json::Value                                postgresql_post_connect_queries_;
+            PGOffloaderConfig                          offloader_;
             
-            uint64_t                                   postgresql_offloader_idle_timeout_;
-            uint64_t                                   postgresql_offloader_polling_timeout_ms_;
-            Json::Value                                postgresql_offloader_post_connect_queries_;
             
         protected: // Static Data
             
@@ -105,8 +112,12 @@ namespace ev
                                           const char* const a_conn_str_key, const char* const a_statement_timeout_key,
                                           const char* const a_max_conn_per_worker_key,
                                           const char* const a_min_queries_per_conn_key, const char* const a_max_queries_per_conn_key,
-                                          const char* const a_postgresql_post_connect_queries_key,
-                                          const char* const a_offloader_idle_timeout_key = nullptr, const char* const a_offloader_polling_timeout_key = nullptr, const char* const a_offloader_post_connect_queries_key = nullptr);
+                                          const char* const a_post_connect_queries_key);
+            
+            virtual void SetupPostgreSQLOffloader (const std::map<std::string, std::string>& a_config,
+                                                   const char* const a_min_queries_per_conn_key, const char* const a_max_queries_per_conn_key,
+                                                   const char* const a_post_connect_queries_key,
+                                                   const char* const a_statement_timeout_key, const char* const a_idle_timeout_key, const char* const a_polling_timeout_key);
             
             virtual void SetupREDIS      (const std::map<std::string, std::string>& a_config,
                                           const char* const a_ip_address_key,

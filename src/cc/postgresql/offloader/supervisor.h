@@ -96,6 +96,13 @@ namespace cc
                 
                 void Track   (Client* a_client, const offloader::Ticket& a_ticket);
                 void Untrack (Client* a_client);
+                bool Untrack (Client* a_client, const std::string& a_uuid);
+                
+            private: // Method(s) / Function(s)
+                
+                void OnOrderFulfilled (const ::cc::postgresql::offloader::OrderResult& a_result);
+                void OnOrderFailed    (const ::cc::postgresql::offloader::OrderResult& a_result, const ::cc::Exception& a_exception);
+                void OnOrderCancelled (const ::cc::postgresql::offloader::PendingOrder& a_order);
 
             }; // end of class 'Supervisor'
 
@@ -103,6 +110,7 @@ namespace cc
              * @brief Track a client.
              *
              * @param a_client Pointer to the client to track.
+             * @param a_ticket Ticket to track.
              */
             inline void Supervisor::Track (Client* a_client, const offloader::Ticket& a_ticket)
             {
@@ -131,7 +139,38 @@ namespace cc
                     clients_.erase(it);
                 }
             }
-        
+            
+            /**
+             * @brief Untrack a client's ticket.
+             *
+             * @param a_client Pointer to the client to track.
+             * @param a_ticket Ticket to untrack.
+             *
+             * @return True if it was being tracked, false otherwise.
+             */
+            inline bool Supervisor::Untrack (Client* a_client, const std::string& a_uuid)
+            {
+                // ... sanity check ...
+                CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+                const auto it = clients_.find(a_client);
+                if ( clients_.end() == it ) {
+                    // ... client not found, done ...
+                    return false;
+                }
+                // ... find ticket ...
+                for ( size_t idx = 0 ;idx < it->second.size() ; ++idx ) {
+                    const auto& ticket = it->second[idx];
+                    if ( 0 == ticket.uuid_.compare(a_uuid) ) {
+                        // ... forget ticket ...
+                        it->second.erase(it->second.begin() + idx);
+                        // ... ticket found, done ...
+                        return true;
+                    }
+                }
+                // ... ticket not found, done ...
+                return false;
+            }
+            
         } // end of namespace 'offloader'
     
     } // end of namespace 'postgresql'

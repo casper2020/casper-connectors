@@ -66,13 +66,14 @@ namespace cc
                 
             public: // Overloaded Virtual Method(s) / Function(s) - One Shot Call ONLY!
                 
-                virtual void Start (const std::string& a_name, ::cc::postgresql::offloader::Shared* a_shared);
+                virtual void Start (const std::string& a_name, ::cc::postgresql::offloader::Listener a_listener, ::cc::postgresql::offloader::Shared* a_shared);
                 virtual void Stop  ();
 
-            private: // Method(s) / Function(s)
+            protected: // Overloaded Virtual Method(s) / Function(s)
                 
-                void Notify (const ::cc::postgresql::offloader::OrderResult* a_result);
-                
+                virtual void OnOrderFulfilled (const ::cc::postgresql::offloader::OrderResult& a_result);
+                virtual void OnOrderCancelled (const ::cc::postgresql::offloader::PendingOrder& a_order);
+
             public: // Method(s) / Function(s) - One Shot Call ONLY!
                 
                 void Start (const std::string& a_socket_fn, const float& a_polling_timeout, Consumer::FatalExceptionCallback a_callback);

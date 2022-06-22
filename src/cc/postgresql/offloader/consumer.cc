@@ -34,6 +34,8 @@
  */
 cc::postgresql::offloader::Consumer::Consumer ()
 {
+    // ... sanity check ...
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     thread_          = nullptr;
     aborted_         = false;
     start_cv_        = nullptr;
@@ -50,6 +52,8 @@ cc::postgresql::offloader::Consumer::Consumer ()
  */
 cc::postgresql::offloader::Consumer::~Consumer ()
 {
+    // ... sanity check ...
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     if ( nullptr != thread_ ) {
         delete thread_;
     }
@@ -67,18 +71,20 @@ cc::postgresql::offloader::Consumer::~Consumer ()
 /**
  * @brief Start consumer.
  *
- * @param a_name   Parent process name or abbreviation to be used for thread name prefix.
- * @param a_shared Shared data.
+ * @param a_name     Parent process name or abbreviation to be used for thread name prefix.
+ * @param a_listener See \link offloader::Listener \link.
+ * @param a_shared   Shared data.
  */
-void cc::postgresql::offloader::Consumer::Start (const std::string& a_name, offloader::Shared* a_shared)
+void cc::postgresql::offloader::Consumer::Start (const std::string& a_name, offloader::Listener a_listener, offloader::Shared* a_shared)
 {
-    // ... for debug purposes only ...
-    CC_DEBUG_LOG_MSG("offloader::Consumer", "~> %s", __FUNCTION__);
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    // ... for debug purposes only ...
+    CC_DEBUG_LOG_MSG("offloader::Consumer", "~> %s", __FUNCTION__);
     CC_ASSERT(nullptr == start_cv_ && nullptr == thread_);
     
     aborted_    = false;
+    listener_   = a_listener;
     start_cv_   = new osal::ConditionVariable();
     shared_ptr_ = a_shared;
     thread_     = new std::thread(&cc::postgresql::offloader::Consumer::Loop, this, shared_ptr_->config().polling_timeout_ms_);
@@ -94,14 +100,12 @@ void cc::postgresql::offloader::Consumer::Start (const std::string& a_name, offl
  * */
 void cc::postgresql::offloader::Consumer::Stop ()
 {
+    // ... sanity check ...
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... for debug purposes only ...
     CC_DEBUG_LOG_MSG("offloader::Consumer", "~> %s", __FUNCTION__);
     
-    // ... sanity check ...
-    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
-
     aborted_ = true;
-    
     // ... consumer thread can now be release ...
     if ( nullptr != thread_ ) {
         delete thread_;
@@ -118,9 +122,50 @@ void cc::postgresql::offloader::Consumer::Stop ()
         connection_ = nullptr;
     }
     reuse_count_ = 0;
-    
+    listener_    = { nullptr, nullptr };
     // ... for debug purposes only ...
     CC_DEBUG_LOG_MSG("offloader::Consumer", "<~ %s", __FUNCTION__);
+}
+
+// MARK: -
+
+/**
+ * @brief Try to cancel a query execution, if it's running.
+ *
+ * @param a_ticket Execution ticket, see \link offloader::Ticket \link.
+ */
+void cc::postgresql::offloader::Consumer::Cancel (const cc::postgresql::offloader::Ticket& a_ticket)
+{
+    // ... sanity check ...
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_ASSERT(nullptr != shared_ptr_);
+    // ... cancel ticket ...
+    shared_ptr_->Cancel(a_ticket);
+    // ℹ️
+    // https://www.postgresql.org/docs/11/libpq-cancel.html
+    // ...
+    // The return value is 1 if the cancel request was successfully dispatched and 0 if not.
+    // If not, errbuf is filled with an error message explaining why not. errbuf must be a char array of size errbufsize (the recommended size is 256 bytes).
+    // ...
+    // PQcancel can safely be invoked from a signal handler, if the errbuf is a local variable in the signal handler.
+    // The PGcancel object is read-only as far as PQcancel is concerned, so it can also be invoked from a thread that is separate from the one manipulating the PGconn object.
+    //
+    // ... already running?
+    mutex_.lock();
+    if ( 0 == exec_uuid_.compare(a_ticket.uuid_) ) {
+        PGcancel* cancel = PQgetCancel(connection_);
+        char cancel_error_[256];
+        cancel_error_[0] = '\0';
+        if ( 1 != PQcancel(cancel, cancel_error_, sizeof(cancel_error_) / sizeof(cancel_error_[0])) ) {
+            // ... log ...
+            CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s, %s, " CC_LOGS_LOGGER_COLOR(RED) "%s" CC_LOGS_LOGGER_RESET_ATTRS,
+                                            "CANCEL ISSUED",
+                                            a_ticket.uuid_.c_str(), cancel_error_
+            );
+        }
+        PQfreeCancel(cancel);
+    }
+    mutex_.unlock();
 }
 
 // MARK: -
@@ -155,7 +200,7 @@ void cc::postgresql::offloader::Consumer::Loop (const float& a_polling_timeout)
         while ( false == done ) {
             // ... any order(s) remaining?
             offloader::Pending pending;
-            if ( true == shared_ptr_->Peek(pending) ) {
+            if ( true == shared_ptr_->Pull(pending) ) {
                 // ... yes, process it ...
                 PGresult* result = nullptr;
                 try {
@@ -170,10 +215,10 @@ void cc::postgresql::offloader::Consumer::Loop (const float& a_polling_timeout)
                     if ( nullptr != result ) {
                         PQclear(result);
                     }
-                    shared_ptr_->Pop(pending, a_exception);
+                    shared_ptr_->Pop(pending, a_exception, tmp_elapsed);
                 }
             } else if ( shared_ptr_->config().idle_timeout_ms_ > 0 && nullptr != connection_ ) {
-                Disconnect(/* a_idle */ true);
+                Disconnect(/* a_idle */ true, /* a_resaon */ nullptr);
             }
             // ... dont't be CPU greedy ...
             std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(a_polling_timeout)));
@@ -181,6 +226,56 @@ void cc::postgresql::offloader::Consumer::Loop (const float& a_polling_timeout)
     }
     // ... for debug purposes only ...
     CC_DEBUG_LOG_MSG("offloader::Consumer", "<~ %s", __FUNCTION__);
+}
+
+// MARK: -
+
+/**
+ * @brief Notify producer that an order was fulfilled.
+ *
+ * @param a_result Order result data.
+ */
+void cc::postgresql::offloader::Consumer::OnOrderFulfilled (const ::cc::postgresql::offloader::OrderResult& a_result)
+{
+    // ... sanity check ...
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_ASSERT(nullptr != listener_.on_performed_ && nullptr != listener_.on_failure_);
+    // ... notify ...
+    if ( nullptr == a_result.exception_ ) {
+        listener_.on_performed_(a_result);
+    } else {
+        listener_.on_failure_(a_result, *a_result.exception_);
+    }
+}
+
+/**
+ * @brief Notify producer that an order failed.
+ *
+ * @param a_result    Order result data.
+ * @param a_exception Exception occurred.
+ */
+void cc::postgresql::offloader::Consumer::OnOrderFailed (const ::cc::postgresql::offloader::OrderResult& a_result,
+                                                         const ::cc::Exception& a_exception)
+{
+    // ... sanity check ...
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_ASSERT(nullptr != listener_.on_failure_);
+    // ... notify ..
+    listener_.on_failure_(a_result, a_exception);
+}
+
+/**
+ * @brief Notify producer that an order was cancelled.
+ *
+ * @param a_order Cancelled pending order info.
+ */
+void cc::postgresql::offloader::Consumer::OnOrderCancelled (const ::cc::postgresql::offloader::PendingOrder& a_order)
+{
+    // ... sanity check ...
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    CC_ASSERT(nullptr != listener_.on_cancelled_);
+    // ... notify ...
+    listener_.on_cancelled_(a_order);
 }
 
 // MARK: -
@@ -194,23 +289,26 @@ void cc::postgresql::offloader::Consumer::Connect ()
     CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     const bool recycle = ( nullptr != connection_ && max_reuse_count_ > 0 && reuse_count_ >= static_cast<size_t>(max_reuse_count_) );
     if ( nullptr == connection_ || CONNECTION_BAD == PQstatus(connection_) || true == recycle ) {
+        // ... set reason ..
+        const std::string reason = std::string(", due to ") + ( ( nullptr != connection_ && false == recycle ) ? "bad connection" : true == recycle ? "recycle" : "not being connected" );
         // ... for debug purposes only ...
-        CC_DEBUG_LOG_MSG("offloader::Consumer", "~> %s() due to %s", __FUNCTION__,
-                         ( nullptr != connection_ && false == recycle ) ? "bad connection" : true == recycle ? "recycle" : "not being connected"
+        CC_DEBUG_LOG_MSG("offloader::Consumer", "~> %s()%s", __FUNCTION__,
+                         reason.c_str()
         );
         // ... clean up ...
-        Disconnect(/* a_idle */ false);
+        Disconnect(/* a_idle */ false, reason.c_str());
         // ... reset ...
         const auto config = shared_ptr_->config();
-        reuse_count_     = 0;
-        max_reuse_count_ = config.rnd_max_queries();
+        reuse_count_      = 0;
+        max_reuse_count_  = config.rnd_max_queries();
         // ... log ...
-        CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s, due to %s",
-                                        "CONNECTING",
-                                        ( nullptr != connection_ && false == recycle ) ? "bad connection" : true == recycle ? "recycle" : "not being connected"
+        CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s, ...",
+                                        "CONNECTING"
         );
         // ... connect ...
+        mutex_.lock();
         connection_ = PQconnectdb(config.str_.c_str());
+        mutex_.unlock();
         // ... log ...
         CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s, INFO, as %s to %s at %s:%s",
                                         "CONNECTION",
@@ -221,8 +319,10 @@ void cc::postgresql::offloader::Consumer::Connect ()
             // ... keep track of error ...
             const std::string msg = std::string(PQerrorMessage(connection_));
             // ... clean up ...
+            mutex_.lock();
             PQfinish(connection_);
             connection_ = nullptr;
+            mutex_.unlock();
             // ... log ...
             CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s, FAILED, CONNECTION_BAD, %s",
                                             "CONNECTION",
@@ -239,26 +339,42 @@ void cc::postgresql::offloader::Consumer::Connect ()
                                             "CONNECTION_OK", max_reuse_count_, shared_ptr_->config().idle_timeout_ms_, PQbackendPID(connection_)
             );
         }
-        // ... execute post connect queries ...
-        const auto& array = shared_ptr_->config().post_connect_queries_;
-        if ( true == array.isArray() ) {
-            const std::set<ExecStatusType>& acceptable = { ExecStatusType::PGRES_COMMAND_OK, ExecStatusType::PGRES_TUPLES_OK };
-            for ( Json::ArrayIndex idx = 0 ; idx < array.size() ; ++idx ) {
-                const auto query = array[idx].asString();
-                // ... execute ...
-                PGresult* result = PQexec(connection_, query.c_str());
-                const auto status = PQresultStatus(result);
-                if ( acceptable.end() == acceptable.find(status) ) {
-                    // ... not acceptable ...
-                    // ... for debug purposes only ...
-                    CC_DEBUG_LOG_MSG("offloader::Consumer", "-~ %s() - \"%s\" :%s!", __FUNCTION__, query.c_str(), PQerrorMessage(connection_));
-                } else {
-                    // ... for debug purposes only ...
-                    CC_DEBUG_LOG_MSG("offloader::Consumer", "-~ %s() - \"%s\" - OK", __FUNCTION__, query.c_str());
-                }
-                // ... clean up ...
-                PQclear(result);
+        // ... post connect setup ...
+        Json::Value array = Json::Value(Json::ValueType::arrayValue);
+        // ... set statement timeout?
+        if ( 0 != shared_ptr_->config().statement_timeout_ ) {
+            array.append(Json::Value("SET statement_timeout TO " + std::to_string(shared_ptr_->config().statement_timeout_ * 1000) + ";"));
+        }
+        if ( true == shared_ptr_->config().post_connect_queries_.isArray() ) {
+            for ( Json::ArrayIndex idx = 0 ; idx < shared_ptr_->config().post_connect_queries_.size() ; ++idx ) {
+                array.append(shared_ptr_->config().post_connect_queries_[idx]);
             }
+        }
+        // ... execute post connect queries ...
+        const std::set<ExecStatusType>& acceptable = { ExecStatusType::PGRES_COMMAND_OK, ExecStatusType::PGRES_TUPLES_OK };
+        for ( Json::ArrayIndex idx = 0 ; idx < array.size() ; ++idx ) {
+            // ... next query ...
+            const auto query = array[idx].asString();
+            // ... log ...
+            CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s, " CC_LOGS_LOGGER_COLOR(CYAN) "%s" CC_LOGS_LOGGER_RESET_ATTRS,
+                                            "EXECUTING", query.c_str());
+            // ... execute ...
+            const auto start = std::chrono::steady_clock::now();
+            PGresult* result = PQexec(connection_, query.c_str());
+            const auto elapsed = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
+            const auto status = PQresultStatus(result);
+            // ... validate ...
+            if ( acceptable.end() == acceptable.find(status) ) { // ... not acceptable ...
+                // ... log ...
+                CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s, " CC_LOGS_LOGGER_COLOR(RED) "%s" CC_LOGS_LOGGER_RESET_ATTRS ", %s, took " UINT64_FMT "ms",
+                                                "EXECUTED", PQresStatus(status), PQerrorMessage(connection_), elapsed);
+            } else {
+                // ... log ...
+                CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s, " CC_LOGS_LOGGER_COLOR(GREEN) "%s" CC_LOGS_LOGGER_RESET_ATTRS ", took " UINT64_FMT "ms",
+                                                "EXECUTED", PQresStatus(status), elapsed);
+            }
+            // ... clean up ...
+            PQclear(result);
         }
         // ... for debug purposes only ...
         CC_DEBUG_LOG_MSG("offloader::Consumer", "<~ %s()", __FUNCTION__);
@@ -268,9 +384,10 @@ void cc::postgresql::offloader::Consumer::Connect ()
 /**
  * @brief Close connection, if any.
  *
- * @param a_idle When true it will only disconnect if IDLE condition is triggered.
+ * @param a_idle   When true it will only disconnect if IDLE condition is triggered.
+ * @param a_reason Motive for this function call.
  */
-void cc::postgresql::offloader::Consumer::Disconnect (const bool a_idle)
+void cc::postgresql::offloader::Consumer::Disconnect (const bool a_idle, const char* const a_reason)
 {
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
@@ -290,23 +407,25 @@ void cc::postgresql::offloader::Consumer::Disconnect (const bool a_idle)
         }
         due_to_idle = true;
     }
+    const char* const reason = due_to_idle ? ", due to idle" : ( nullptr != a_reason ? a_reason : ", ???" );
     // ... log ...
     CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s, from backend w/PID %d%s",
                                     "DISCONNECTING",
-                                    PQbackendPID(connection_), due_to_idle ? ", due to idle" : ""
+                                    PQbackendPID(connection_), reason
     );
     // ... for debug purposes only ...
     CC_DEBUG_LOG_MSG("offloader::Consumer", "~> %s(a_idle=%s)", __FUNCTION__, a_idle ? "true" : "false");
     // ... clean up ...
+    mutex_.lock();
     PQfinish(connection_);
     connection_ = nullptr;
+    mutex_.unlock();
     // ... log ...
     CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s%s",
-                                    "DISCONNECTED",
-                                    due_to_idle ? ", due to idle" : ""
+                                    "DISCONNECTED", reason
     );
     // ... for debug purposes only ...
-    CC_DEBUG_LOG_MSG("offloader::Consumer", "~> %s(...) - disconnected%s", __FUNCTION__, due_to_idle ? " due to idle" : "");
+    CC_DEBUG_LOG_MSG("offloader::Consumer", "~> %s(...) - disconnected%s", __FUNCTION__, reason);
 }
 
 /**
@@ -327,15 +446,21 @@ PGresult* cc::postgresql::offloader::Consumer::Execute (const std::string& a_uui
     // ... increase counter ...
     reuse_count_++;
     // ... log ...
-    CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s, " CC_LOGS_LOGGER_COLOR(CYAN) "%s" CC_LOGS_LOGGER_RESET_ATTRS ", @ backend w/PID %d",
-                                    "EXECUTING", a_query.c_str(), PQbackendPID(connection_));
+    CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s, %s",
+                                    "PROCESSING",
+                                    a_uuid.c_str()
+    );
+    CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s, " CC_LOGS_LOGGER_COLOR(CYAN) "%s" CC_LOGS_LOGGER_RESET_ATTRS,
+                                    "EXECUTING", a_query.c_str());
     // ... execute ...
+    exec_uuid_ = a_uuid;
     const auto start = std::chrono::steady_clock::now();
     PGresult* result = PQexec(connection_, a_query.c_str());
     o_elapsed = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
+    exec_uuid_.clear();
     // ... failed?
     const auto status = PQresultStatus(result);
-    if ( a_acceptable.end() == a_acceptable.find(status) ) {
+    if ( a_acceptable.end() == a_acceptable.find(status) ) { // ... not acceptable ...
         // ... clean up ...
         PQclear(result);
         result = nullptr;
@@ -344,16 +469,16 @@ PGresult* cc::postgresql::offloader::Consumer::Execute (const std::string& a_uui
         // ... for debug purposes only ...
         CC_DEBUG_LOG_MSG("offloader::Consumer", "<~ %s(\"%s\", ...) - FAILURE: %s", __FUNCTION__, a_uuid.c_str(), PQerrorMessage(connection_));
         // ... log ...
-        CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s, " CC_LOGS_LOGGER_COLOR(RED) "%s" CC_LOGS_LOGGER_RESET_ATTRS ", %s, took " UINT64_FMT "ms @ backend w/PID %d",
-                                        "EXECUTED", PQresStatus(status), PQerrorMessage(connection_), o_elapsed, PQbackendPID(connection_));
+        CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s, " CC_LOGS_LOGGER_COLOR(RED) "%s" CC_LOGS_LOGGER_RESET_ATTRS ", %s, took " UINT64_FMT "ms",
+                                        "EXECUTED", PQresStatus(status), PQerrorMessage(connection_), o_elapsed);
         // ... report ...
         throw ::cc::Exception(std::string(PQerrorMessage(connection_)));
     }
     // ... partial reset ...
     idle_start_ = std::chrono::steady_clock::now();
     // ... log ...
-    CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s, " CC_LOGS_LOGGER_COLOR(GREEN) "%s" CC_LOGS_LOGGER_RESET_ATTRS ", took " UINT64_FMT "ms @ backend w/PID %d",
-                                    "EXECUTED", PQresStatus(status), o_elapsed, PQbackendPID(connection_));
+    CC_POSTGRESQL_OFFLOADER_LOG_MSG("libpq-offloader", "%-20.20s, " CC_LOGS_LOGGER_COLOR(GREEN) "%s" CC_LOGS_LOGGER_RESET_ATTRS ", took " UINT64_FMT "ms",
+                                    "EXECUTED", PQresStatus(status), o_elapsed);
     // ... for debug purposes only ...
     CC_DEBUG_LOG_MSG("offloader::Consumer", "<~ %s(\"%s\", ...) - took " UINT64_FMT "ms", __FUNCTION__, a_uuid.c_str(), o_elapsed);
     // ... done ..

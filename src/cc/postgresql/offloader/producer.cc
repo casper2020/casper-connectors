@@ -26,7 +26,6 @@
 #include "cc/debug/types.h"
 
 #include <sstream>
-#include <uuid/uuid.h>
 
 // MARK: -
 
@@ -100,18 +99,5 @@ cc::postgresql::offloader::Producer::Queue (const cc::postgresql::offloader::Ord
     return shared_ptr_->Queue(a_order);
 }
 
-/**
- * @brief Try to cancel a query execution.
- *
- * @param a_ticket Execution ticket, see \link offloader::Ticket \link.
- */
-void cc::postgresql::offloader::Producer::Cancel (const cc::postgresql::offloader::Ticket& a_ticket)
-{
-    // ... sanity check ...
-    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
-    CC_ASSERT(nullptr != shared_ptr_);
-    // ... cancel tickt ...
-    shared_ptr_->Cancel(a_ticket);
-}
 
 

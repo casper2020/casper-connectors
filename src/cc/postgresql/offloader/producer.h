@@ -58,8 +58,7 @@ namespace cc
                 
             public: // Method(s) / Function(s)
                 
-                Ticket Queue  (const Order& a_order);
-                void   Cancel (const Ticket& a_ticket);
+                Ticket Queue (const Order& a_order);
 
             }; // end of class 'Producer'
 
