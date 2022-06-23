@@ -27,8 +27,11 @@
 
 /**
  * @brief Default constructor.
+ *
+ * @param a_queue Shared queue.
  */
-cc::ngx::postgresql::Producer::Producer ()
+cc::ngx::postgresql::Producer::Producer (::cc::postgresql::offloader::Queue& a_queue)
+ : ::cc::postgresql::offloader::Producer(a_queue)
 {
     /* empty */
 }

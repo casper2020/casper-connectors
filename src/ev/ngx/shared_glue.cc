@@ -258,7 +258,7 @@ void ev::ngx::SharedGlue::SetupPostgreSQL (const std::map<std::string, std::stri
         }
     }
     // ... reset offloader ...
-    SetupPostgreSQLOffloader(a_config, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    SetupPostgreSQLOffloader(a_config, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 }
 
 /**
@@ -271,16 +271,21 @@ void ev::ngx::SharedGlue::SetupPostgreSQL (const std::map<std::string, std::stri
  * @param a_statement_timeout_key
  * @param a_idle_timeout_key
  * @param a_polling_timeout_key
+ * @param a_logger_tokens_key
  */
 void ev::ngx::SharedGlue::SetupPostgreSQLOffloader (const std::map<std::string, std::string>& a_config,
                                                     const char* const a_min_queries_per_conn_key, const char* const a_max_queries_per_conn_key,
                                                     const char* const a_post_connect_queries_key,
-                                                    const char* const a_statement_timeout_key, const char* const a_idle_timeout_key, const char* const a_polling_timeout_key)
+                                                    const char* const a_statement_timeout_key, const char* const a_idle_timeout_key, const char* const a_polling_timeout_key,
+                                                    const char* const a_logger_tokens_key)
 {
     // ... not applicable ...
     offloader_.limits_.max_conn_per_worker_  = 0;
     offloader_.limits_.rnd_queries_per_conn_ = nullptr;
     offloader_.socket_fn_.clear();
+    // ... clean up ...
+    offloader_.post_connect_queries_.clear();
+    offloader_.logger_tokens_.clear();
     // ... min queries ...
     offloader_.limits_.min_queries_per_conn_ = -1;
     if ( nullptr != a_min_queries_per_conn_key ) {
@@ -340,6 +345,17 @@ void ev::ngx::SharedGlue::SetupPostgreSQLOffloader (const std::map<std::string, 
         if ( a_config.end() != it ) {
             if ( std::stoll(it->second) > 0 ) {
                 offloader_.polling_timeout_ms_ = static_cast<uint64_t>(std::stoull(it->second));
+            }
+        }
+    }
+    // ... logger tokens ....
+    offloader_.logger_tokens_ = Json::Value::null;
+    if ( nullptr != a_logger_tokens_key ) {
+        const auto offloader_logger_tokens_it = a_config.find(a_logger_tokens_key);
+        if ( a_config.end() != offloader_logger_tokens_it ) {
+            Json::Reader reader;
+            if ( false == reader.parse(offloader_logger_tokens_it->second, offloader_.logger_tokens_) ) {
+                throw ev::Exception("Unable to parse %s value - expected valid JSON string!", a_logger_tokens_key);
             }
         }
     }

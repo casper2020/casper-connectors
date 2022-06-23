@@ -39,7 +39,8 @@ namespace cc
 
             public: // Constructor(s) / Destructor
                 
-                Producer ();
+                Producer () = delete;
+                Producer (::cc::postgresql::offloader::Queue& a_queue);
                 virtual ~Producer();
                 
             }; // end of class 'Offloader'

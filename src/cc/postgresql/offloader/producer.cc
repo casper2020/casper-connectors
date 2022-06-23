@@ -31,10 +31,12 @@
 
 /**
  * @brief Default constructor.
+ *
+ * @param a_queue Shared queue.
  */
-cc::postgresql::offloader::Producer::Producer ()
+cc::postgresql::offloader::Producer::Producer (offloader::Queue& a_queue)
+ : queue_(a_queue)
 {
-    shared_ptr_ = nullptr;
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
 }
@@ -52,18 +54,13 @@ cc::postgresql::offloader::Producer::~Producer ()
 
 /**
  * @brief Start producer.
- *
- * @param a_shared_ptr Pointer to shared data.
  */
-void cc::postgresql::offloader::Producer::Start (::cc::postgresql::offloader::Shared* a_shared_ptr)
+void cc::postgresql::offloader::Producer::Start ()
 {
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... keep track of shared data ...
-    if ( nullptr != shared_ptr_ ) {
-        shared_ptr_->Reset();
-    }
-    shared_ptr_ = a_shared_ptr;
+    queue_.Reset();
 }
 
 /**
@@ -74,29 +71,25 @@ void cc::postgresql::offloader::Producer::Stop ()
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... keep track of shared data ...
-    if ( nullptr != shared_ptr_ ) {
-        shared_ptr_->Reset();
-        shared_ptr_ = nullptr;
-    }
+    queue_.Reset();
 }
 
 // MARK: -
 
 /**
- * @brief Queue an query execution order.
+ * @brief Enqueue a query execution order.
  *
  * @param a_order Execution order, see \link offloader::Order \link..
  *
  * @return Execution ticket, see \link offloader::Ticket \link.
  */
 cc::postgresql::offloader::Ticket
-cc::postgresql::offloader::Producer::Queue (const cc::postgresql::offloader::Order& a_order)
+cc::postgresql::offloader::Producer::Enqueue (const cc::postgresql::offloader::Order& a_order)
 {
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
-    CC_ASSERT(nullptr != shared_ptr_);
     // ... queue order ...
-    return shared_ptr_->Queue(a_order);
+    return queue_.Enqueue(a_order);
 }
 
 

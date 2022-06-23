@@ -69,6 +69,7 @@ namespace ev
                 Json::Value  post_connect_queries_;
                 DeviceLimits limits_;
                 std::string  socket_fn_;
+                Json::Value  logger_tokens_;
             } PGOffloaderConfig;
                         
         protected: // Data
@@ -77,7 +78,6 @@ namespace ev
             std::map<std::string, std::string>         config_map_;
             Json::Value                                postgresql_post_connect_queries_;
             PGOffloaderConfig                          offloader_;
-            
             
         protected: // Static Data
             
@@ -117,7 +117,8 @@ namespace ev
             virtual void SetupPostgreSQLOffloader (const std::map<std::string, std::string>& a_config,
                                                    const char* const a_min_queries_per_conn_key, const char* const a_max_queries_per_conn_key,
                                                    const char* const a_post_connect_queries_key,
-                                                   const char* const a_statement_timeout_key, const char* const a_idle_timeout_key, const char* const a_polling_timeout_key);
+                                                   const char* const a_statement_timeout_key, const char* const a_idle_timeout_key, const char* const a_polling_timeout_key,
+                                                   const char* const a_logger_tokens_key);
             
             virtual void SetupREDIS      (const std::map<std::string, std::string>& a_config,
                                           const char* const a_ip_address_key,

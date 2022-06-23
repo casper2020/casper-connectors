@@ -26,11 +26,13 @@
 /**
  * @brief Default constructor.
  *
- * @param a_socket_fn       Socket file URI.
- * @param a_callback        Function to call on a fatal exception.
+ * @param a_queue      Shared queue.
+ * @param a_socket_fn  Socket file URI.
+ * @param a_callback   Function to call on a fatal exception.
  *
  */
-cc::ngx::postgresql::Consumer::Consumer (const std::string& a_socket_fn, Consumer::FatalExceptionCallback a_callback)
+cc::ngx::postgresql::Consumer::Consumer (::cc::postgresql::offloader::Queue& a_queue, const std::string& a_socket_fn, Consumer::FatalExceptionCallback a_callback)
+ : ::cc::postgresql::offloader::Consumer(a_queue)
 {
     event_       = new ::cc::ngx::Event();
     socket_fn_   = a_socket_fn;
@@ -53,9 +55,8 @@ cc::ngx::postgresql::Consumer::~Consumer ()
  *
  * @param a_name     Parent process name or abbreviation to be used for thread name prefix.
  * @param a_listener See \link offloader::Listener \link.
- * @param a_shared   Shared data.
  */
-void cc::ngx::postgresql::Consumer::Start (const std::string& a_name, ::cc::postgresql::offloader::Listener a_listener, ::cc::postgresql::offloader::Shared* a_shared)
+void cc::ngx::postgresql::Consumer::Start (const std::string& a_name, ::cc::postgresql::offloader::Listener a_listener)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     // ... sanity check ...
@@ -63,13 +64,13 @@ void cc::ngx::postgresql::Consumer::Start (const std::string& a_name, ::cc::post
     // ... register event ...
     event_->Register(socket_fn_, fe_callback_);
     // ... register listener ...
-    a_shared->Bind({
+    queue_.Bind({
         /* on_performed_ */ std::bind(&cc::ngx::postgresql::Consumer::OnOrderFulfilled, this, std::placeholders::_1),
-        /* on_performed_ */ std::bind(&cc::ngx::postgresql::Consumer::OnOrderFailed   , this, std::placeholders::_1, std::placeholders::_2),
+        /* on_performed_ */ std::bind(&cc::ngx::postgresql::Consumer::OnOrderFailed   , this, std::placeholders::_1),
         /* on_cancelled_ */ std::bind(&cc::ngx::postgresql::Consumer::OnOrderCancelled, this, std::placeholders::_1)
     });
     // ... continue ...
-    cc::postgresql::offloader::Consumer::Start(a_name, a_listener, a_shared);
+    cc::postgresql::offloader::Consumer::Start(a_name, a_listener);
 }
 
 /**
@@ -87,28 +88,28 @@ void cc::ngx::postgresql::Consumer::Stop ()
 }
 
 /**
- * @brief Notify producer that an order was fulfilled.
+ * @brief Called when an order was fulfilled.
  *
- * @param a_result Order result data.
+ * @param a_order Executed order.
  */
-void cc::ngx::postgresql::Consumer::OnOrderFulfilled (const ::cc::postgresql::offloader::OrderResult& a_result)
+void cc::ngx::postgresql::Consumer::OnOrderFulfilled (const ::cc::postgresql::offloader::PendingOrder& a_order)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     // ...
-    const std::string uuid = a_result.uuid_;
+    const std::string uuid = a_order.uuid_;
     event_->CallOnMainThread([this, uuid]() {
         // ... sanity check ...
         CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
         // ... fetch result ...
-        shared_ptr_->Pop(uuid, [this] (const ::cc::postgresql::offloader::OrderResult& a_result_ref) {
+        queue_.ReleaseExecuted(uuid, [this] (const ::cc::postgresql::offloader::PendingOrder& a_order_ref) {
             try {
                 // ... notify base class ...
-                ::cc::postgresql::offloader::Consumer::OnOrderFulfilled(a_result_ref);
+                ::cc::postgresql::offloader::Consumer::OnOrderFulfilled(a_order_ref);
             } catch (const ::cc::Exception& a_exception) {
                 // ... notify base class ...
-                ::cc::postgresql::offloader::Consumer::OnOrderFailed(a_result_ref, a_exception);
+                ::cc::postgresql::offloader::Consumer::OnOrderFailed(a_order_ref);
             } catch (...) {
                 // ... this can not or should not happen ...
                 // ... eat it or throw a fatal exception ...
@@ -124,22 +125,69 @@ void cc::ngx::postgresql::Consumer::OnOrderFulfilled (const ::cc::postgresql::of
 }
 
 /**
- * @brief Notify producer that an order was cancelled.
+ * @brief Called when an order was executed but failed.
  *
- * @param a_order Cancelled pending order info.
+ * @param a_order Failed order.
  */
+void cc::ngx::postgresql::Consumer::OnOrderFailed (const ::cc::postgresql::offloader::PendingOrder& a_order)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    // ... sanity check ...
+    CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
+    // ...
+    const std::string uuid = a_order.uuid_;
+    event_->CallOnMainThread([this, uuid]() {
+        // ... sanity check ...
+        CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+        // ... fetch result ...
+        queue_.ReleaseFailed(uuid, [this] (const ::cc::postgresql::offloader::PendingOrder& a_order_ref) {
+            try {
+                // ... notify base class ...
+                ::cc::postgresql::offloader::Consumer::OnOrderFailed(a_order_ref);
+            } catch (...) {
+                // ... this can not or should not happen ...
+                // ... eat it or throw a fatal exception ...
+                try {
+                    ::cc::Exception::Rethrow(/* a_unhandled */ true, __FILE__, __LINE__, __FUNCTION__);
+                } catch (const ::cc::Exception& a_exception) {
+                    fprintf(stderr, "%s\n", a_exception.what());
+                    fflush(stderr);
+                }
+            }
+        });
+    });
+}
 
+/**
+ * @brief Called when an order was cancelled.
+ *
+ * @param a_order Cancelled order.
+ */
 void cc::ngx::postgresql::Consumer::OnOrderCancelled (const ::cc::postgresql::offloader::PendingOrder& a_order)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     // ...
-    event_->CallOnMainThread([this]() {
+    const std::string uuid = a_order.uuid_;
+    event_->CallOnMainThread([this, uuid]() {
         // ... sanity check ...
         CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
-        // ... notify base class ...
-        // TODO: FIX THIS!
-        // ::cc::postgresql::offloader::Consumer::OnOrderCancelled(a_order);
+        // ... fetch result ...
+        queue_.ReleaseCancelled(uuid, [this, uuid] (const ::cc::postgresql::offloader::PendingOrder& a_order_ref) {
+            try {
+                // ... notify base class ...
+                ::cc::postgresql::offloader::Consumer::OnOrderCancelled(a_order_ref);
+            } catch (...) {
+                // ... this can not or should not happen ...
+                // ... eat it or throw a fatal exception ...
+                try {
+                    ::cc::Exception::Rethrow(/* a_unhandled */ true, __FILE__, __LINE__, __FUNCTION__);
+                } catch (const ::cc::Exception& a_exception) {
+                    fprintf(stderr, "%s\n", a_exception.what());
+                    fflush(stderr);
+                }
+            }
+        });
     });
 }

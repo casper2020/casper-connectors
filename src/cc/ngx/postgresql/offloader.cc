@@ -23,6 +23,10 @@
 
 // MARK: -
 
+const std::set<std::string> cc::ngx::postgresql::Offloader::sk_known_logger_tokens_ = { "libpq-offloader" };
+
+// MARK: -
+
 /**
  * @brief Default constructor.
  *
@@ -95,10 +99,12 @@ void cc::ngx::postgresql::Offloader::Start (const std::string& a_name, const Con
 /**
  * @brief Setup this instance.
  *
+ * @param a_queue Shared queue.
+ *
  * @return Pair of pointers to new instances of producer / consumer.
  */
 cc::ngx::postgresql::Offloader::Pair
-cc::ngx::postgresql::Offloader::Setup ()
+cc::ngx::postgresql::Offloader::Setup (::cc::postgresql::offloader::Queue& a_queue)
 {
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
@@ -109,8 +115,8 @@ cc::ngx::postgresql::Offloader::Setup ()
     if ( nullptr != ngx_producer_ ) {
         delete ngx_producer_;
     }
-    ngx_producer_ = new ::cc::ngx::postgresql::Producer();
-    ngx_consumer_ = new ::cc::ngx::postgresql::Consumer(consumer_socket_fn_, consumer_fe_callback_);
+    ngx_producer_ = new ::cc::ngx::postgresql::Producer(a_queue);
+    ngx_consumer_ = new ::cc::ngx::postgresql::Consumer(a_queue, consumer_socket_fn_, consumer_fe_callback_);
     // ... done ...
     return std::make_pair(ngx_producer_, ngx_consumer_);
 }

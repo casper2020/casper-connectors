@@ -28,6 +28,9 @@
 #include "cc/ngx/postgresql/producer.h"
 #include "cc/ngx/postgresql/consumer.h"
 
+#include <string>
+#include <set>
+
 namespace cc
 {
 
@@ -50,6 +53,10 @@ namespace cc
                 std::string                      consumer_socket_fn_;
                 Consumer::FatalExceptionCallback consumer_fe_callback_;
                 bool                             allow_start_call_;
+                
+            public: // Static Const DAta
+                
+                static const std::set<std::string> sk_known_logger_tokens_;
 
             public: // Constructor(s) / Destructor
                 
@@ -68,7 +75,7 @@ namespace cc
 
             protected: // Inherited Virtual Method(s) / Function(s)
                 
-                virtual Pair Setup();
+                virtual Pair Setup     (::cc::postgresql::offloader::Queue& a_queue);
                 virtual void Dismantle (const Pair& a_pair);
                 
             }; // end of class 'Offloader'

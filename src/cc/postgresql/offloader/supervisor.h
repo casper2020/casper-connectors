@@ -68,7 +68,7 @@ namespace cc
                 
             private: // Data
                 
-                Shared*  shared_;
+                Queue*   shared_;
                 Clients  clients_;
                     
             public: // Constructor(s) / Destructor
@@ -89,8 +89,8 @@ namespace cc
                 
             protected: // PureInherited Virtual Method(s) / Function(s)
                 
-                virtual Pair Setup     ()                   = 0;
-                virtual void Dismantle (const Pair& a_pair) = 0;
+                virtual Pair Setup     (offloader::Queue& a_queue) = 0;
+                virtual void Dismantle (const Pair& a_pair)        = 0;
                 
             private: // Inline Method(s) / Function(s)
                 
@@ -100,8 +100,8 @@ namespace cc
                 
             private: // Method(s) / Function(s)
                 
-                void OnOrderFulfilled (const ::cc::postgresql::offloader::OrderResult& a_result);
-                void OnOrderFailed    (const ::cc::postgresql::offloader::OrderResult& a_result, const ::cc::Exception& a_exception);
+                void OnOrderFulfilled (const ::cc::postgresql::offloader::PendingOrder& a_result);
+                void OnOrderFailed    (const ::cc::postgresql::offloader::PendingOrder& a_result);
                 void OnOrderCancelled (const ::cc::postgresql::offloader::PendingOrder& a_order);
 
             }; // end of class 'Supervisor'

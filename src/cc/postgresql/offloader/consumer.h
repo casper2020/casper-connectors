@@ -26,7 +26,7 @@
 #include "cc/non-copyable.h"
 #include "cc/non-movable.h"
 
-#include "cc/postgresql/offloader/shared.h"
+#include "cc/postgresql/offloader/queue.h"
 
 #include "cc/debug/types.h"
 #include "cc/debug/threading.h"
@@ -38,6 +38,7 @@
 #include <set>
 #include <queue>
 #include <chrono>
+#include <regex>
 
 namespace cc
 {
@@ -50,6 +51,14 @@ namespace cc
         
             class Consumer : public ::cc::NonCopyable, public ::cc::NonMovable
             {
+                
+            protected: // Refs
+                
+                Queue&                   queue_;
+
+            protected: // Threading
+                
+                CC_IF_DEBUG_DECLARE_VAR (::cc::debug::Threading::ThreadID, thread_id_;)
 
             private: // Threading
                 
@@ -58,10 +67,6 @@ namespace cc
                 std::atomic<bool>        aborted_;
                 std::mutex               mutex_;
                 osal::ConditionVariable* start_cv_;
-                
-            protected: // Data
-                
-                Shared*                               shared_ptr_;
                 
             private: // PG Data
                  
@@ -76,19 +81,20 @@ namespace cc
             private: // Callback(s)
                 
                 Listener                              listener_; //<! Listener.
+                                
+            private: // Static Const Data
                 
-            protected: // Threading
-                
-                CC_IF_DEBUG_DECLARE_VAR (::cc::debug::Threading::ThreadID, thread_id_;)
+                static const std::regex sk_cancelled_regex_;
 
             public: // Constructor(s) / Destructor
                 
-                Consumer ();
+                Consumer () = delete;
+                Consumer (Queue& a_queue);
                 virtual ~Consumer ();
                 
             public: // Virtual Method(s) / Function(s) - One Shot Call ONLY!
                 
-                virtual void Start (const std::string& a_name, Listener a_listener, Shared* a_shared);
+                virtual void Start (const std::string& a_name, Listener a_listener);
                 virtual void Stop  ();
             
             public: //  Method(s) / Function(s)
@@ -101,15 +107,15 @@ namespace cc
                 
             protected: // Pure Virtual Method(s) / Function(s)
                 
-                virtual void OnOrderFulfilled (const ::cc::postgresql::offloader::OrderResult& a_result);
-                virtual void OnOrderFailed    (const ::cc::postgresql::offloader::OrderResult& a_result, const ::cc::Exception& a_exception);
+                virtual void OnOrderFulfilled (const ::cc::postgresql::offloader::PendingOrder& a_order);
+                virtual void OnOrderFailed    (const ::cc::postgresql::offloader::PendingOrder& a_order);
                 virtual void OnOrderCancelled (const ::cc::postgresql::offloader::PendingOrder& a_order);
 
             private: // Method(s) / Function(s)
                 
                 void      Connect    ();
                 void      Disconnect (const bool a_idle, const char* const a_reason);
-                PGresult* Execute    (const std::string& a_uuid, const std::string& a_query, const std::set<ExecStatusType>& a_acceptable, uint64_t& o_elapsed);
+                PGresult* Execute    (::cc::postgresql::offloader::Pending& a_order, const std::set<ExecStatusType>& a_acceptable, uint64_t& o_elapsed);
 
             }; // end of class 'Consumer'
 

@@ -79,11 +79,15 @@ namespace cc
                 const Client*     client_ptr_; //<! Pointer to client.
                 SuccessCallback   on_success_; //<! Sucess callback.
                 FailureCallback   on_failure_; //<! Failure callback.
+                Table*            table_;      //<! Query execution result.
+                ::cc::Exception*  exception_;  //<! Exception.
+                uint64_t          elapsed_;    //<! Query execution time.
             } PendingOrder;
 
             typedef struct {
-                std::string uuid_;   //<! Universal Unique ID.
-                std::string query_;  //<! PostgreSQL query.
+                std::string uuid_;      //<! Universal Unique ID.
+                std::string query_;     //<! PostgreSQL query.
+                bool        cancelled_; //<! True if it was cancelled during execution.
             } Pending;
 
             typedef struct _Config {
@@ -112,20 +116,9 @@ namespace cc
             } Config;
         
             typedef struct {
-                const std::string  uuid_;          //<! Universal Unique ID.
-                const std::string  query_;         //<! PostgreSQL query.
-                const Client*      client_ptr_;    //<! Pointer to client.
-                Table*             table_;         //<! Query execution result.
-                ::cc::Exception*   exception_;     //<! Exception.
-                SuccessCallback    on_success_;    //<! Sucess callback.
-                FailureCallback    on_failure_;    //<! Failure callback.
-                const uint64_t     elapsed_;       //<! Query execution time.
-            } OrderResult;
-
-            typedef struct {
-                std::function<void(const OrderResult&                        )> on_performed_;
-                std::function<void(const OrderResult&, const ::cc::Exception&)> on_failure_;
-                std::function<void(const PendingOrder&                       )> on_cancelled_;
+                std::function<void(const PendingOrder&)> on_performed_;
+                std::function<void(const PendingOrder&)> on_failure_;
+                std::function<void(const PendingOrder&)> on_cancelled_;
             } Listener;
         
         } // end of namespace 'offloader'

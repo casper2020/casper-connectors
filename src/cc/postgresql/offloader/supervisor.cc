@@ -62,22 +62,21 @@ void cc::postgresql::offloader::Supervisor::Start (const std::string& a_name, co
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     CC_ASSERT(nullptr == shared_);
-    // ... setup ...
-    const auto pair = Setup();
-    CC_ASSERT(nullptr != pair.first && nullptr != pair.second);
     // ... ....
-    shared_ = new Shared(a_config);
+    shared_ = new offloader::Queue(a_config);
+    // ... setup ...
+    const auto pair = Setup(*shared_);
+    CC_ASSERT(nullptr != pair.first && nullptr != pair.second);
     // ... start all helpers ...
     producer_ptr_ = pair.first;
-    producer_ptr_->Start(shared_);
+    producer_ptr_->Start();
     consumer_ptr_ = pair.second;
     consumer_ptr_->Start(a_name,
                          /* a_listener */ {
                             /* on_performed_ */ std::bind(&Supervisor::OnOrderFulfilled, this, std::placeholders::_1),
-                            /* on_failure_   */ std::bind(&Supervisor::OnOrderFailed   , this, std::placeholders::_1, std::placeholders::_2),
+                            /* on_failure_   */ std::bind(&Supervisor::OnOrderFailed   , this, std::placeholders::_1),
                             /* on_cancelled_ */ std::bind(&Supervisor::OnOrderCancelled, this, std::placeholders::_1)
-                         },
-                         shared_);
+                         });
     // ... for debug purposes only ...
     CC_DEBUG_LOG_MSG("offloader::Supervisor", "<~ %s", __FUNCTION__);
 }
@@ -135,7 +134,7 @@ cc::postgresql::offloader::Supervisor::Queue (cc::postgresql::offloader::Client*
     // ... for debug purposes only ...
     CC_DEBUG_LOG_MSG("offloader::Supervisor", "~> %s(%p,\"%s\")", __FUNCTION__, a_client, a_query.c_str());
     // ... issue an order an keep track of it's ticket ...
-    const auto ticket = producer_ptr_->Queue(offloader::Order{
+    const auto ticket = producer_ptr_->Enqueue(offloader::Order{
        /* query_       */ a_query,
         /* client_ptr_ */ a_client,
         /* on_success_ */ a_success_callback,
@@ -185,49 +184,41 @@ void cc::postgresql::offloader::Supervisor::Cancel (cc::postgresql::offloader::C
 // MARK: -
 
 /**
- * @brief Notify producer that an order was fulfilled.
+ * @brief Notify client that an order was fulfilled.
  *
- * @param a_result Order result data.
+ * @param a_order Executed order.
  */
-void cc::postgresql::offloader::Supervisor::OnOrderFulfilled (const ::cc::postgresql::offloader::OrderResult& a_result)
-{
-    // ... sanity check ...
-    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
-    // ... sanity check ...
-    CC_DEBUG_ASSERT(nullptr != a_result.table_ || nullptr != a_result.exception_ );
-    // ... if it was being tracked ...
-    if ( true == Untrack(const_cast<cc::postgresql::offloader::Client*>(a_result.client_ptr_), a_result.uuid_) ) {
-        // ... deliver ..
-        if ( nullptr != a_result.exception_ ) {
-            a_result.on_failure_(a_result.query_, *a_result.exception_);
-        } else {  /* if ( nullptr != a_result.table_ ) { */
-            a_result.on_success_(a_result.query_, *a_result.table_, a_result.elapsed_);
-        }
-    }
-}
-
-/**
- * @brief Notify producer that an order failed.
- *
- * @param a_result    Order result data.
- * @param a_exception Exception occurred.
- */
-void cc::postgresql::offloader::Supervisor::OnOrderFailed (const ::cc::postgresql::offloader::OrderResult& a_result,
-                                                           const ::cc::Exception& a_exception)
+void cc::postgresql::offloader::Supervisor::OnOrderFulfilled (const ::cc::postgresql::offloader::PendingOrder& a_order)
 {
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... if it was being tracked ...
-    if ( true == Untrack(const_cast<cc::postgresql::offloader::Client*>(a_result.client_ptr_), a_result.uuid_) ) {
+    if ( true == Untrack(const_cast<cc::postgresql::offloader::Client*>(a_order.client_ptr_), a_order.uuid_) ) {
         // ... deliver ..
-        a_result.on_failure_(a_result.query_, a_exception);
+        a_order.on_success_(a_order.query_, *a_order.table_, a_order.elapsed_);
     }
 }
 
 /**
- * @brief Notify producer that an order was cancelled.
+ * @brief Notify client that an order was executed but failed.
  *
- * @param a_order Cancelled pending order info.
+ * @param a_order Failed order.
+ */
+void cc::postgresql::offloader::Supervisor::OnOrderFailed (const ::cc::postgresql::offloader::PendingOrder& a_order)
+{
+    // ... sanity check ...
+    CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
+    // ... if it was being tracked ...
+    if ( true == Untrack(const_cast<cc::postgresql::offloader::Client*>(a_order.client_ptr_), a_order.uuid_) ) {
+        // ... deliver ..
+        a_order.on_failure_(a_order.query_, *a_order.exception_);
+    }
+}
+
+/**
+ * @brief Notify client that an order was cancelled.
+ *
+ * @param a_order Cancelled order.
  */
 void cc::postgresql::offloader::Supervisor::OnOrderCancelled (const ::cc::postgresql::offloader::PendingOrder& a_order)
 {

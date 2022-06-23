@@ -61,17 +61,18 @@ namespace cc
             public: // Constructor(s) / Destructor
                 
                 Consumer () = delete;
-                Consumer (const std::string& a_socket_fn, FatalExceptionCallback a_callback);
+                Consumer (::cc::postgresql::offloader::Queue& a_queue, const std::string& a_socket_fn, FatalExceptionCallback a_callback);
                 virtual ~Consumer();
                 
             public: // Overloaded Virtual Method(s) / Function(s) - One Shot Call ONLY!
                 
-                virtual void Start (const std::string& a_name, ::cc::postgresql::offloader::Listener a_listener, ::cc::postgresql::offloader::Shared* a_shared);
+                virtual void Start (const std::string& a_name, ::cc::postgresql::offloader::Listener a_listener);
                 virtual void Stop  ();
 
             protected: // Overloaded Virtual Method(s) / Function(s)
                 
-                virtual void OnOrderFulfilled (const ::cc::postgresql::offloader::OrderResult& a_result);
+                virtual void OnOrderFulfilled (const ::cc::postgresql::offloader::PendingOrder& a_order);
+                virtual void OnOrderFailed    (const ::cc::postgresql::offloader::PendingOrder& a_order);
                 virtual void OnOrderCancelled (const ::cc::postgresql::offloader::PendingOrder& a_order);
 
             public: // Method(s) / Function(s) - One Shot Call ONLY!

@@ -28,7 +28,7 @@
 
 #include "cc/exception.h"
 
-#include "cc/postgresql/offloader/shared.h"
+#include "cc/postgresql/offloader/queue.h"
 
 namespace cc
 {
@@ -42,23 +42,24 @@ namespace cc
             class Producer : public ::cc::NonCopyable, public ::cc::NonMovable
             {
                                 
-            private: // Data
+            private: // Refs
                 
-                Shared* shared_ptr_;
+                Queue& queue_;
                 
             public: // Constructor(s) / Destructor
                 
-                Producer ();
+                Producer () = delete;
+                Producer (Queue& a_queue);
                 virtual ~Producer();
             
             public: // Method(s) / Function(s) - One Shot Call Only!
                 
-                virtual void Start (Shared* a_shared_ptr);
+                virtual void Start ();
                 virtual void Stop  () ;
                 
             public: // Method(s) / Function(s)
                 
-                Ticket Queue (const Order& a_order);
+                Ticket Enqueue (const Order& a_order);
 
             }; // end of class 'Producer'
 

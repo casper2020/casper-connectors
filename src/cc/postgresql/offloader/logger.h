@@ -26,6 +26,8 @@
 
 #include "cc/logs/logger.h"
 
+#include <regex> // std::regex_replace
+
 namespace cc
 {
     
@@ -65,13 +67,19 @@ namespace cc
     
 } // end of namespace 'cc'
 
+#define CC_POSTGRESQL_OFFLOADER_LOG_RECYCLE() \
+    ::cc::postgresql::offloader::Logger::GetInstance().Recycle()
+
 #define CC_POSTGRESQL_OFFLOADER_LOG_REGISTER(a_token, a_uri) \
-    ::cc::postgresql::offloader::Logger::GetInstance().Register(a_token, a_uri);
+    ::cc::postgresql::offloader::Logger::GetInstance().Register(a_token, a_uri)
+
+#define CC_POSTGRESQL_OFFLOADER_LOG_UNREGISTER(a_token) \
+    ::cc::postgresql::offloader::Logger::GetInstance().Unregister(a_token)
 
 #define CC_POSTGRESQL_OFFLOADER_LOG_MSG(a_token, a_format, ...) \
     ::cc::postgresql::offloader::Logger::GetInstance().Log(a_token, \
         "%s, " UINT64_FMT_LP(8) ", " a_format "\n", \
         cc::UTCTime::NowISO8601DateTime().c_str(), (uint64_t)getpid() ,__VA_ARGS__ \
-    )
+);
 
 #endif // NRS_CC_POSTGRESQL_OFFLOADER_LOGGER_H_
