@@ -114,26 +114,40 @@ void cc::v8::Script::Compile (const ::v8::Local<::v8::String>& a_script, const c
     ss << "//\n// " << ::cc::UTCTime::NowISO8601WithTZ() << "\n";
     ss << "//\n\n";
     ss << *script;
+    
+    const auto dump = [this, o_data] (std::stringstream& a_ss) {
+        if ( nullptr != o_data ) {
+            (*o_data) = a_ss.str();
+        } else {
+            const std::string uri = out_path_ + name_ + ".js";
+            std::ofstream out(uri, std::ofstream::out);
+            if ( ! out ) {
+                throw cc::v8::Exception("Failed to write data to '%s'!", uri.c_str());
+            }
+            out << a_ss.str();
+            out.close();
+        }
+    };
 
     const auto start_tp = std::chrono::high_resolution_clock::now();
-
-    context_.Compile(name_, a_script, a_functions);
-
-    const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_tp ).count();
-
-    ss << "\n\n//\n// Compiled in " << elapsed << " microseconds / " << ( (float)elapsed / 1000.0f ) << " milliseconds\n";
-    ss << "//\n";
-
-    if ( nullptr != o_data ) {
-        (*o_data) = ss.str();
-    } else {
-        const std::string uri = out_path_ + name_ + ".js";
-        std::ofstream out(uri, std::ofstream::out);
-        if ( ! out ) {
-            throw cc::v8::Exception("Failed to write data to '%s'!", uri.c_str());
-        }
-        out << ss.str();
-        out.close();
+    try {
+        context_.Compile(name_, a_script, a_functions);
+        // ...
+        const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_tp ).count();
+        // ... sucesss ...
+        ss << "\n\n//\n// Compiled in " << elapsed << " microseconds / " << ( (float)elapsed / 1000.0f ) << " milliseconds\n";
+        ss << "//\n";
+        // ... dump ...
+        dump(ss);
+    } catch (const ::cc::v8::Exception& a_v8_exception) {
+        // ...
+        ss << "\n\n//\n// FAILED TO COMPILE!\n";
+        ss << a_v8_exception.what() << "\n";
+        ss << "//\n";
+        // ... dump ...
+        dump(ss);
+        // ... re-throw ...
+        throw a_v8_exception;
     }
 }
 
