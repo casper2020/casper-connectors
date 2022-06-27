@@ -56,6 +56,7 @@ cc::ngx::Event::~Event ()
  * @brief Register this event @ NGX event loop.
  *
  * @param a_socket_fn Socket file URI.
+ * @param a_callback  Function to call on fatal exception.
  */
 void cc::ngx::Event::Register (const std::string& a_socket_fn, Event::FatalExceptionCallback a_callback)
 {
@@ -229,9 +230,9 @@ void cc::ngx::Event::Unregister ()
 /**
  * @brief Call this method to perform a callback on main thread.
  *
- * @param a_callback
- * @param a_payload
- * @param a_timeout
+ * @param a_callback Function to call.
+ * @param a_payload  Payload to pass to callback.
+ * @param a_timeout  Delay in milliseconds.
  */
 void cc::ngx::Event::CallOnMainThread (std::function<void(void* a_payload)> a_callback, void* a_payload, int64_t a_timeout_ms)
 {
@@ -244,8 +245,8 @@ void cc::ngx::Event::CallOnMainThread (std::function<void(void* a_payload)> a_ca
 /**
  * @brief Call this method to perform a callback on main thread.
  *
- * @param a_callback
- * @param a_timeout
+ * @param a_callback Function to call.
+ * @param a_timeout  Delay in milliseconds.
  */
 void cc::ngx::Event::CallOnMainThread (std::function<void()> a_callback, int64_t a_timeout_ms)
 {
@@ -260,8 +261,8 @@ void cc::ngx::Event::CallOnMainThread (std::function<void()> a_callback, int64_t
 /**
  * @brief Schedule a callback on 'main' thread.
  *
- * @param a_callback
- * @param a_timeout_ms
+ * @param a_callback Function to call.
+ * @param a_timeout  Delay in milliseconds.
  */
 void cc::ngx::Event::ScheduleCalbackOnMainThread (cc::ngx::Event::Callback* a_callback, int64_t a_timeout_ms)
 {
@@ -330,8 +331,10 @@ void cc::ngx::Event::ScheduleCalbackOnMainThread (cc::ngx::Event::Callback* a_ca
 
 /**
  * @brief Call this method handle with a fatal exception.
+ *
+ *@param a_exception Catched exception.
  */
-void cc::ngx::Event::ThrowFatalException (const cc::Exception& a_ev_exception)
+void cc::ngx::Event::ThrowFatalException (const cc::Exception& a_exception)
 {
     // ... for debug purposes
     CC_DEBUG_LOG_TRACE("cc::ngx::Event", "~> %s()", __FUNCTION__);
@@ -339,7 +342,8 @@ void cc::ngx::Event::ThrowFatalException (const cc::Exception& a_ev_exception)
     std::lock_guard<std::mutex> lock(___mutex);
     // ... for debug purposes
     CC_DEBUG_LOG_TRACE("cc::ngx::Event", "<~ %s()", __FUNCTION__);
-    fatal_exception_callback_(a_ev_exception);
+    // ... notify ...
+    fatal_exception_callback_(a_exception);
 }
 
 // MARK: -
@@ -347,7 +351,7 @@ void cc::ngx::Event::ThrowFatalException (const cc::Exception& a_ev_exception)
 /**
  * @brief Handler called by the ngx event loop.
  *
- * @param a_event
+ * @param a_event NGX event to process.
  */
 void cc::ngx::Event::Handler (ngx_event_t* a_event)
 {
@@ -399,7 +403,7 @@ void cc::ngx::Event::Handler (ngx_event_t* a_event)
                 if ( EAGAIN == last_error_code ) {
                     break;
                 } else if ( 0 == last_error_code ) { // no messages are available to be received and the peer has performed an orderly shutdown
-                    // TODO CONNECTORS throw ev::Exception("No messages are available to be received and the peer has performed an orderly shutdown!");
+                    // TODO CONNECTORS throw cc::Exception("No messages are available to be received and the peer has performed an orderly shutdown!");
                     break;
                 } else {
                     throw ::cc::Exception("Unable to read data from socket : %d - %s!",
@@ -449,8 +453,8 @@ void cc::ngx::Event::Handler (ngx_event_t* a_event)
         );
         (void)callbacks_remaining;
 
-    } catch (const cc::Exception& a_ev_exception) {
-        handler.ThrowFatalException(a_ev_exception);
+    } catch (const cc::Exception& a_exception) {
+        handler.ThrowFatalException(a_exception);
     } catch (...) {
         try {
             ::cc::Exception::Rethrow(/* a_unhandled */ true, __FILE__, __LINE__, __FUNCTION__);
@@ -465,7 +469,7 @@ void cc::ngx::Event::Handler (ngx_event_t* a_event)
 /**
  * @brief Handler called by the ngx event loop.
  *
- * @param a_event
+ * @param a_event NGX event to process.
  */
 void cc::ngx::Event::DifferedHandler (ngx_event_t* a_event)
 {
@@ -493,15 +497,14 @@ void cc::ngx::Event::DifferedHandler (ngx_event_t* a_event)
     delete callback;
 }
 
-
 // MARK: -
 
 /**
  * @brief Dummy.
  *
- * @param a_connection
- * @param a_buffer
- * @param a_size
+ * @param a_connection NGX connection.
+ * @param a_buffer     Buffer to read.
+ * @param a_size       Amount of elements to read from buffer.
  */
 ssize_t cc::ngx::Event::Receive (ngx_connection_t* /* a_connection */, u_char* /* a_buffer */, size_t /* a_size */)
 {
@@ -512,9 +515,9 @@ ssize_t cc::ngx::Event::Receive (ngx_connection_t* /* a_connection */, u_char* /
 /**
  * @brief Dummy.
  *
- * @param a_connection
- * @param a_buffer
- * @param a_size
+ * @param a_connection NGX connection.
+ * @param a_buffer     Buffer to write to.
+ * @param a_size       Number of  allowedelements to write to buffer from buffer.
  */
 ssize_t cc::ngx::Event::Send (ngx_connection_t* /* a_connection */, u_char* /* a_buffer */, size_t /* a_size */)
 {

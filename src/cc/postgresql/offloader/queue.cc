@@ -79,6 +79,7 @@ void cc::postgresql::offloader::Queue::Reset ()
         delete orders_.front();
         orders_.pop_front();
     }
+    ids_.clear();
     for ( auto map : { &executed_, &cancelled_, &failed_ } ) {
         for ( auto it : *map ) {
             if ( nullptr != it.second->table_ ) {
@@ -124,12 +125,12 @@ cc::postgresql::offloader::Queue::Enqueue (const offloader::Order& a_order)
         }
         uuid = ss.str();
         // ... avoid IDs collision ( unlikely but not impossible ) ...
-        // TODO: check at orders_
-        if ( executed_.end() != executed_.find(uuid) || cancelled_.end() != cancelled_.find(uuid) || failed_.end() != failed_.find(uuid) || try_to_cancel_.end() != try_to_cancel_.find(uuid) ) {
+        if ( ids_.end() != ids_.find(uuid) || executed_.end() != executed_.find(uuid) || cancelled_.end() != cancelled_.find(uuid) || failed_.end() != failed_.find(uuid) || try_to_cancel_.end() != try_to_cancel_.find(uuid) ) {
             throw ::cc::Exception("%s", "Offload request FAILED triggered by unlikely ( but not impossible ) UUID collision event!");
         }
         // ... keep track if this order ...
         orders_.push_back(new offloader::PendingOrder{ uuid, a_order.query_, a_order.client_ptr_, a_order.on_success_, a_order.on_failure_});
+        ids_.insert(uuid);
         // ... accepted, mark as pending ...
         status = offloader::Status::Pending;
         // ... log ...
@@ -140,6 +141,10 @@ cc::postgresql::offloader::Queue::Enqueue (const offloader::Order& a_order)
     } catch (const ::cc::Exception& a_cc_exception) {
         // .. FAILURE ...
         if ( offloader::Status::Failed != status ) {
+            const auto iit = ids_.find(orders_.back()->uuid_);
+            if ( ids_.end() != iit ) {
+                ids_.erase(iit);
+            }
             delete orders_.back();
             orders_.pop_back();
         }
@@ -147,6 +152,10 @@ cc::postgresql::offloader::Queue::Enqueue (const offloader::Order& a_order)
     } catch (...) {
         // .. FAILURE ...
         if ( offloader::Status::Failed != status ) {
+            const auto iit = ids_.find(orders_.back()->uuid_);
+            if ( ids_.end() != iit ) {
+                ids_.erase(iit);
+            }
             delete orders_.back();
             orders_.pop_back();
         }
@@ -159,6 +168,8 @@ cc::postgresql::offloader::Queue::Enqueue (const offloader::Order& a_order)
             failure = "???";
         }
     }
+    // ... sanity check ....
+    CC_DEBUG_ASSERT(orders_.size() == ids_.size());
     // ... should't be possible to reach here ...
     if ( offloader::Status::Pending == status ) {
         return offloader::Ticket {
@@ -242,12 +253,17 @@ void cc::postgresql::offloader::Queue::DequeueExecuted (const offloader::Pending
     // ... shared data safety insurance ...
     std::lock_guard<std::mutex> lock(mutex_);
     // ... sanity check ...
+    CC_DEBUG_ASSERT(orders_.size() == ids_.size());
     CC_DEBUG_ASSERT(0 == orders_.front()->uuid_.compare(a_pending.uuid_));
     // ... pick order
     auto order = orders_.front();
     // ... move to executed map ...
     executed_[orders_.front()->uuid_] = order;
     orders_.pop_back();
+    const auto iit = ids_.find(order->uuid_);
+    if ( ids_.end() != iit ) {
+        ids_.erase(iit);
+    }
     // ... post execute cancellation check ...
     if ( true == PurgeTryCancel(a_pending.uuid_, { &executed_ }, /* a_notify */ true, /* a_mutex */ nullptr) ) {
         // ... cancelled, nothing else to do here ( it was notified via cancellation callback ) ...
@@ -291,12 +307,17 @@ void cc::postgresql::offloader::Queue::DequeueCancelled (const offloader::Pendin
     // ... shared data safety insurance ...
     std::lock_guard<std::mutex> lock(mutex_);
     // ... sanity check ...
+    CC_DEBUG_ASSERT(orders_.size() == ids_.size());
     CC_DEBUG_ASSERT(0 == orders_.front()->uuid_.compare(a_pending.uuid_));
     // ... pick order
     auto order = orders_.front();
     // ... move to cancelled map ...
     cancelled_[order->uuid_] = order;
     orders_.pop_back();
+    const auto iit = ids_.find(order->uuid_);
+    if ( ids_.end() != iit ) {
+        ids_.erase(iit);
+    }
     // ... here, cancellations notifications must be always sent ...
     listener_.on_cancelled_(*cancelled_.find(a_pending.uuid_)->second);
 }
@@ -316,12 +337,17 @@ void cc::postgresql::offloader::Queue::DequeueFailed (const offloader::Pending& 
     // ... shared data safety insurance ...
     std::lock_guard<std::mutex> lock(mutex_);
     // ... sanity check ...
+    CC_DEBUG_ASSERT(orders_.size() == ids_.size());
     CC_DEBUG_ASSERT(0 == orders_.front()->uuid_.compare(a_pending.uuid_));
     // ... pick order
     auto order = orders_.front();
     // ... move to executed map ...
     failed_[order->uuid_] = order;
     orders_.pop_back();
+    const auto iit = ids_.find(order->uuid_);
+    if ( ids_.end() != iit ) {
+        ids_.erase(iit);
+    }
     // ... post execute cancellation check ...
     if ( true == PurgeTryCancel(a_pending.uuid_, { &failed_ }, /* a_notify */ true, /* a_mutex */ nullptr) ) {
         // ... cancelled, nothing else to do here ( it was notified via cancellation callback ) ...
@@ -468,14 +494,16 @@ void cc::postgresql::offloader::Queue::ReleaseOrder (const std::string& a_uuid, 
  * @return True if provided UUI was cancelled, false otherwise.
  */
 bool cc::postgresql::offloader::Queue::PurgeTryCancel (const std::string& a_uuid, const std::vector<std::map<std::string, PendingOrder*>*>& a_maps,
-                                                        const bool a_notify, std::mutex* a_mutex)
+                                                       const bool a_notify, std::mutex* a_mutex)
 {
     // ... shared data safety insurance ...
     if ( nullptr != a_mutex ) {
         a_mutex->lock();
     }
+    // ... sanity check ...
+    CC_DEBUG_ASSERT(orders_.size() == ids_.size());
+    // ... purge pre-exec cancelled order(s) ...
     bool rv = ( try_to_cancel_.end() != try_to_cancel_.find(a_uuid) );
-    // ...
     try {
         // ... first from orders queue ...
         std::deque<PendingOrder*> tmp;
@@ -493,6 +521,10 @@ bool cc::postgresql::offloader::Queue::PurgeTryCancel (const std::string& a_uuid
                 tmp.push_back(order);
             }
             orders_.pop_front();
+        }
+        const auto iit = ids_.find(a_uuid);
+        if ( ids_.end() != iit ) {
+            ids_.erase(iit);
         }
         // ... move back ...
         while ( tmp.size() > 0 ) {
@@ -523,6 +555,7 @@ bool cc::postgresql::offloader::Queue::PurgeTryCancel (const std::string& a_uuid
                 } catch (...) {
                     // ... this can not or should not happen ...
                     // ... eat it or throw a fatal exception ...
+                    rv = false;
                 }
             }
         }
@@ -531,6 +564,7 @@ bool cc::postgresql::offloader::Queue::PurgeTryCancel (const std::string& a_uuid
     } catch (...) {
         // ... this can not or should not happen ...
         // ... eat it or throw a fatal exception ...
+        rv = false;
     }
     // ... shared data safety insurance ...
     if ( nullptr != a_mutex ) {

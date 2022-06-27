@@ -92,6 +92,22 @@
 #endif
 
 /**
+ * @brief Build a 'GET' query string.
+ *
+ * @return 'GET' query string.
+ */
+std::string ev::postgresql::JSONAPI::GetQuery (const std::string& a_uri)
+{
+    std::stringstream ss;
+    ss << "SELECT response,http_status FROM jsonapi('GET', '" << a_uri << "', '', '" << user_id_ << "', '" << entity_id_ << "', '" << entity_schema_ << "', '" << sharded_schema_ << "', '" << subentity_schema_ << "', '" << subentity_prefix_ << "');";
+    return ss.str();
+}
+
+#ifdef __APPLE__
+#pragma mark -  API Method(s) / Function(s) - implementation
+#endif
+
+/**
  * @brief An API to GET data using a subrequest that will be processed by nginx_postgres submodule.
  *
  * @param a_uri

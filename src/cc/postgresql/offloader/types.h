@@ -52,10 +52,10 @@ namespace cc
             typedef std::function<void(const std::string&, const ::cc::Exception&)>       FailureCallback;
             
             typedef struct _Order {
-                const std::string& query_;         //<! PostgreSQL query.
-                const Client*      client_ptr_;    //<! Pointer to client.
-                SuccessCallback    on_success_;    //<! Sucess callback.
-                FailureCallback    on_failure_;    //<! Failure callback.
+                const std::string& query_;      //<! PostgreSQL query.
+                const Client*      client_ptr_; //<! Pointer to client.
+                SuccessCallback    on_success_; //<! Sucess callback.
+                FailureCallback    on_failure_; //<! Failure callback.
             } Order;
         
             enum class Status : uint8_t
@@ -91,14 +91,14 @@ namespace cc
             } Pending;
 
             typedef struct _Config {
-                const std::string  str_;
-                const ssize_t      min_queries_per_conn_;
-                const ssize_t      max_queries_per_conn_;
-                const Json::Value& post_connect_queries_;
-                const uint64_t     statement_timeout_;
-                const uint64_t     idle_timeout_ms_;
-                const uint64_t     polling_timeout_ms_;
-                inline ssize_t rnd_max_queries () const
+                const std::string  str_;                  //<! PostgreSQL connection string.
+                const ssize_t      min_queries_per_conn_; //<! Minimum number of queries to execute before "recycling" connection.
+                const ssize_t      max_queries_per_conn_; //<! Maximum number of queries to execute before "recycling" connection.
+                const Json::Value& post_connect_queries_; //<! Queries to execute after connection a is establishedΩ.
+                const uint64_t     statement_timeout_;    //<! If set, after a connection is established a query to set statement timeout will be performed.
+                const uint64_t     idle_timeout_ms_;      //<! If > 0, current connection will terminated after n milliseconds of no activity ( no queries executed ).
+                const uint64_t     polling_timeout_ms_;   //<! Polling timeout in milliseconds, mainly for IDLE check.
+                inline ssize_t rnd_max_queries () const   //<! Randomize "session" maximum number of queries to execute before "recycling" connection.
                 {
                     ssize_t max_queries_per_conn = -1;
                     if ( min_queries_per_conn_ > -1 && max_queries_per_conn_ > -1 ) {

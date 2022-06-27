@@ -59,6 +59,7 @@ namespace ev
                 std::string load_;   //!< Load URI.
                 std::string params_; //!< Load URI params.
                 bool        legacy_; //!<
+                bool        offload_;
                 
             protected:
                 
@@ -70,7 +71,8 @@ namespace ev
                 
                 URIs ()
                 {
-                    legacy_ = false;
+                    legacy_  = false;
+                    offload_ = false;
                 }
                 
                 virtual ~URIs ()
@@ -105,15 +107,17 @@ namespace ev
                  * @param a_uri
                  * @param a_params
                  * @param a_legacy
+                 * @param a_offload
                  */
-                inline void SetLoad (const std::string& a_uri, const std::string& a_params, const bool a_legacy)
+                inline void SetLoad (const std::string& a_uri, const std::string& a_params, const bool a_legacy, const bool a_offload)
                 {
                     if ( nullptr != invalidate_ ) {
                         invalidate_();
                     }
-                    load_   = a_uri;
-                    params_ = a_params;
-                    legacy_ = a_legacy;
+                    load_    = a_uri;
+                    params_  = a_params;
+                    legacy_  = a_legacy;
+                    offload_ = a_offload;
                 }
                 
                 /**
@@ -140,6 +144,13 @@ namespace ev
                     return legacy_;
                 }
                 
+                /**
+                 * @return Offload value.
+                 */
+                inline const bool& Offload () const
+                {
+                    return offload_;
+                }
             };
                         
             /*
@@ -291,6 +302,10 @@ namespace ev
             
         public: // API Method(s) / Function(s) - declaration
             
+            virtual std::string GetQuery (const std::string& a_uri);
+
+        public: // API Method(s) / Function(s) - declaration
+                        
             virtual void Get    (const std::string& a_uri,                            Callback a_callback,
                                  std::string* o_query = nullptr);
             virtual void Get    (const Loggable::Data& a_loggable_data,

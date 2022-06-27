@@ -21,12 +21,15 @@
 
 #include "ev/signals.h"
 
+#include "cc/debug/types.h"
+
 #include "cc/logs/basic.h"
 
-#include "cc/debug/types.h"
+#include "cc/postgresql/offloader/logger.h"
 
 #include "ev/logger.h"
 #include "ev/logger_v2.h"
+
 
 #include <signal.h>
 
@@ -253,6 +256,7 @@ bool ev::Signals::OnSignal (const int a_sig_no)
                                           a_sig_no
             );
             ::cc::logs::Basic::GetInstance().Recycle();
+            CC_POSTGRESQL_OFFLOADER_LOG_RECYCLE();
             ::ev::Logger::GetInstance().Recycle();
             ::ev::LoggerV2::GetInstance().Recycle();
             CC_DEBUG_LOG_RECYCLE();

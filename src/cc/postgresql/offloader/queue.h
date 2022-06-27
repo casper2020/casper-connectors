@@ -57,24 +57,25 @@ namespace cc
                                 
             private: // Const Data
                 
-                const Config                               config_;     //z! PostgreSQL access config.
+                const Config                          config_;        //<! PostgreSQL access config.
                 
             private: // Threading
                 
-                std::mutex                                 mutex_;      //<! Data acess protection.
+                std::mutex                            mutex_;         //<! Data acess protection.
                 
             private: // Data - must be under mutex umbrella.
                 
-                std::deque<PendingOrder*>                  orders_;        //<! Pending orders.
-                std::set<std::string>                      try_to_cancel_; //<! Order to cancel, must be under mutex umbrella.
+                std::set<std::string>                 ids_;           //<! In-use ids.
+                std::deque<PendingOrder*>             orders_;        //<! Pending orders.
+                std::set<std::string>                 try_to_cancel_; //<! Order to cancel, must be under mutex umbrella.
                 
-                std::map<std::string, PendingOrder*>       executed_;  //<! Executed orders.
-                std::map<std::string, PendingOrder*>       cancelled_; //<! Truly cancelled orders, must be under mutex umbrella.
-                std::map<std::string, PendingOrder*>       failed_;    //<! Executed order ( and failed ), must be under mutex umbrella.
+                std::map<std::string, PendingOrder*>  executed_;      //<! Executed orders.
+                std::map<std::string, PendingOrder*>  cancelled_;     //<! Truly cancelled orders, must be under mutex umbrella.
+                std::map<std::string, PendingOrder*>  failed_;        //<! Executed order ( and failed ), must be under mutex umbrella.
 
             private: // Callback(s)
                 
-                Listener                                   listener_; //<! Listener, must be under mutex umbrella.
+                Listener                              listener_;      //<! Listener, must be under mutex umbrella.
 
             public: // Constructor(s) / Destructor
                 
