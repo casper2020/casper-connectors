@@ -21,6 +21,8 @@
 
 #include "cc/v8/singleton.h"
 
+#include "v8-version.h"
+
 #ifdef __APPLE__
 #pragma mark -
 #endif
@@ -47,7 +49,11 @@ cc::v8::Initializer::~Initializer ()
     ::v8::V8::Dispose();
     // platform_ will be deleted by call to
     if ( NULL != instance_.platform_ ) {
+#if V8_MAJOR_VERSION >= 10
+        ::v8::V8::DisposePlatform();
+#else
         ::v8::V8::ShutdownPlatform();
+#endif
     }
     if ( nullptr != instance_.create_params_.array_buffer_allocator ) {
         delete instance_.create_params_.array_buffer_allocator;
@@ -156,7 +162,11 @@ void cc::v8::Singleton::Shutdown ()
     ::v8::V8::Dispose();
     // platform_ will be deleted by call to
     if ( NULL != platform_ ) {
+#if V8_MAJOR_VERSION >= 10
+        ::v8::V8::DisposePlatform();
+#else
         ::v8::V8::ShutdownPlatform();
+#endif
         platform_ = nullptr;
     }
     // ... release buffer allocator ...
