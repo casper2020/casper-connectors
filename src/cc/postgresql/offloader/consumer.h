@@ -39,6 +39,7 @@
 #include <queue>
 #include <chrono>
 #include <regex>
+#include <atomic>
 
 namespace cc
 {

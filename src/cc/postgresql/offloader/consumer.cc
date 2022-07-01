@@ -27,6 +27,8 @@
 
 #include "cc/postgresql/offloader/logger.h"
 
+#include <signal.h> // SIG*
+
 // MARK: -
 const std::regex cc::postgresql::offloader::Consumer::sk_cancelled_regex_("ERROR:\\s+canceling\\sstatement\\sdue\\sto\\suser\\srequest\\n$", std::regex_constants::ECMAScript | std::regex_constants::icase);
 

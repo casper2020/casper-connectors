@@ -27,6 +27,8 @@
 
 #include "cc/postgresql/offloader/logger.h"
 
+#include <uuid/uuid.h>
+
 // MARK: -
 
 /**
