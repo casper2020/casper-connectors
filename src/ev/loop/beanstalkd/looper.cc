@@ -228,7 +228,8 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
     //
     const uint32_t polling_timeout = ( true == polling_.set_ ? 0 : static_cast<uint32_t>(a_shared_config.beanstalk_.abort_polling_) );
 
-    bool soft_aborted = false;
+    bool   soft_aborted  = false;
+    size_t stalling_size = 0;
     
     //
     // consumer loop
@@ -243,13 +244,40 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
         if ( true == a_soft_abort ) {
             // ... ignore all tubes, only once ...
             if ( false == soft_aborted ) {
+                // ... ignore tube ...
                 beanstalk_->Ignore(a_shared_config.beanstalk_);
                 soft_aborted = true;
+                // ... write to permanent log ...
+                EV_LOOP_BEANSTALK_LOG("queue",
+                                      "%s",
+                                      "Soft aborted triggered..."
+                );
             }
             // ... check number of running jobs ...
             if ( 0 == deferred_.size() ) {
+                // ... write to permanent log ...
+                EV_LOOP_BEANSTALK_LOG("queue",
+                                      "%s",
+                                      "Soft abort exiting..."
+                );
                 // ... done ...
                 break;
+            } else if ( deferred_.size() != stalling_size ){
+                // ... write to permanent log ...
+                EV_LOOP_BEANSTALK_LOG("queue",
+                                      "Soft abort is waiting for " SIZET_FMT " deferred job(s)...",
+                                      deferred_.size()
+                );
+                size_t cnt = 0;
+                for ( const auto& it : deferred_ ) {
+                    EV_LOOP_BEANSTALK_LOG("queue",
+                                          " # " SIZET_FMT " - soft abort is being stalled by %s, timeout was set to " INT64_FMT " second(s), elapsed " INT64_FMT " second(s)...",
+                                          cnt, it.first.c_str(), it.second->timeout_,
+                                          std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - it.second->started_at_).count()
+                    );
+                    cnt++;
+                }
+                stalling_size = deferred_.size();
             }
         }
         
@@ -425,11 +453,11 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
                                       job_cv.Wake();
                                   },
                                   /* a_deferred_callback */
-                                  [&deferred, &job_cv, this] (const int64_t& a_bjid, const std::string& a_rjid) {
+                                  [&deferred, &job_cv, this] (const int64_t& a_bjid, const std::string& a_rjid, const int64_t a_timeout) {
                                       // ...
                                       deferred = true;
                                       // ... track it ...
-                                      OnJobDeferred(a_bjid, a_rjid);
+                                      OnJobDeferred(a_bjid, a_rjid, a_timeout);
                                       // ... continue ...
                                       job_cv.Wake();
                                   }
@@ -794,8 +822,9 @@ void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
  *
  * @param a_bjid BEANSTALKD job id ( for logging purposes ).
  * @param a_rjid REDIS job key.
+ * @param a_timeout Timeout, in seconds.
  */
-void ev::loop::beanstalkd::Looper::OnJobDeferred (const int64_t& a_bjid, const std::string& a_rjid)
+void ev::loop::beanstalkd::Looper::OnJobDeferred (const int64_t& a_bjid, const std::string& a_rjid, const int64_t a_timeout)
 {
     CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     const auto it = deferred_.find(a_rjid);
@@ -803,7 +832,7 @@ void ev::loop::beanstalkd::Looper::OnJobDeferred (const int64_t& a_bjid, const s
         delete it->second;
         deferred_.erase(it);
     }
-    deferred_[a_rjid] = new Looper::Deferred({ /* bjid_ */ a_bjid, /* started_at_ */ std::chrono::steady_clock::now() });
+    deferred_[a_rjid] = new Looper::Deferred({ /* bjid_ */ a_bjid, /* started_at_ */ std::chrono::steady_clock::now(), a_timeout });
 }
 
 

@@ -97,6 +97,7 @@ namespace ev
                 typedef struct {
                     int64_t                               bjid_;
                     std::chrono::steady_clock::time_point started_at_;
+                    int64_t                               timeout_;
                 } Deferred;
                 std::map<std::string, Deferred*> deferred_;
                 
@@ -156,7 +157,7 @@ namespace ev
 
             private: // Method(s) / Function(s)
 
-                void OnJobDeferred         (const int64_t& a_bjid, const std::string& a_rjid);
+                void OnJobDeferred         (const int64_t& a_bjid, const std::string& a_rjid, const int64_t a_timeout);
                 void OnDeferredJobFailed   (const int64_t& a_bjid, const std::string& a_rjid);
                 void OnDeferredJobFinished (const int64_t& a_bjid, const std::string& a_rjid);
                 

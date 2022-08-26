@@ -328,7 +328,7 @@ namespace ev
                 typedef std::function<void(const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code)> CompletedCallback;
                 typedef std::function<void(bool a_already_ran)>                                                                CancelledCallback;
                 
-                typedef std::function<void(const int64_t&, const std::string&)>                                                DeferredCallback;
+                typedef std::function<void(const int64_t&, const std::string&, const int64_t)>                                 DeferredCallback;
                 typedef std::function<void(const int64_t&, const std::string&)>                                                FinishedCallback;
 
                 typedef std::function<void(const ev::Exception&)>                                                                                                         FatalExceptionCallback;
