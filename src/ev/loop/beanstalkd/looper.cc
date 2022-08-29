@@ -271,7 +271,7 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
                 size_t cnt = 0;
                 for ( const auto& it : deferred_ ) {
                     EV_LOOP_BEANSTALK_LOG("queue",
-                                          " # " SIZET_FMT " - soft abort is being stalled by %s, timeout was set to " INT64_FMT " second(s), elapsed " INT64_FMT " second(s)...",
+                                          " # " SIZET_FMT " - soft abort is being stalled by %s, max timeout was set to " INT64_FMT " second(s), " INT64_FMT " second(s) ago...",
                                           cnt, it.first.c_str(), it.second->timeout_,
                                           std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - it.second->started_at_).count()
                     );
