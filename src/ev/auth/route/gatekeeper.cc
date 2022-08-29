@@ -423,7 +423,7 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
                 const Json::Value& expr        = object["expr"];
                 const Json::Value& job         = object["job"];
                 // ... ensure we've a valid object ...
-                if ( false == object.isObject() || false == expr.isString() || false == methods.isArray() || false == role_mask.isString() || false == module_mask.isString() ) {
+                if ( false == object.isObject() || false == expr.isString() || false == methods.isArray() || ( false == role_mask.isString() || 0 == role_mask.asString().size() ) || ( false == module_mask.isString() || 0 == module_mask.asString().size() ) ) {
                     // ... notify error ...
                     if ( false == object.isObject() ) {
                         throw ::ev::Exception("An error ocurred while parsing gatekeeper configuration: element at %d is not a valid object!", idx);
