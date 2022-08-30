@@ -120,6 +120,36 @@ namespace ev
                     offload_ = a_offload;
                 }
                 
+                 /**
+                  * @brief Set load URIs.
+                  *
+                  * @param a_uris Object to copy.
+                  */
+                inline void SetLoad (const URIs& a_uris)
+                {
+                    if ( nullptr != invalidate_ ) {
+                        invalidate_();
+                    }
+                    load_    = a_uris.load_;
+                    params_  = a_uris.params_;
+                    legacy_  = a_uris.legacy_;
+                    offload_ = a_uris.offload_;
+                }
+                
+                /**
+                 * @brief Reset to default values.
+                 */
+                inline void Reset ()
+                {
+                    if ( nullptr != invalidate_ ) {
+                        invalidate_();
+                    }
+                    load_    = "";
+                    params_  = "";
+                    legacy_  = false;
+                    offload_ = false;
+                }
+                
                 /**
                  * @return Load URI.
                  */
