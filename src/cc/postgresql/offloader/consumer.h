@@ -71,8 +71,8 @@ namespace cc
                 
             private: // PG Data
                  
-                PGconn*                               connection_; //<! Must be under mutex umbrella.
-                std::string                           exec_uuid_;  //<! Must be under mutex umbrella.
+                PGconn*                               connection_; //!< Must be under mutex umbrella.
+                std::string                           exec_uuid_;  //!< Must be under mutex umbrella.
                 
                 size_t                                reuse_count_;
                 ssize_t                               max_reuse_count_;
@@ -81,7 +81,7 @@ namespace cc
                 
             private: // Callback(s)
                 
-                Listener                              listener_; //<! Listener.
+                Listener                              listener_; //!< Listener.
                                 
             private: // Static Const Data
                 

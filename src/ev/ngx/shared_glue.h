@@ -64,8 +64,8 @@ namespace ev
             
             typedef struct _PGOffloaderConfig {
                 uint64_t     idle_timeout_;         //< !in seconds
-                uint64_t     statement_timeout_;    //<! in seconds
-                uint64_t     polling_timeout_ms_;   //<! in millisecondss
+                uint64_t     statement_timeout_;    //!< in seconds
+                uint64_t     polling_timeout_ms_;   //!< in millisecondss
                 Json::Value  post_connect_queries_;
                 DeviceLimits limits_;
                 std::string  socket_fn_;

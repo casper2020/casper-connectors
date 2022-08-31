@@ -51,7 +51,7 @@ namespace cc
                 
             private: // Helper(s)
                 
-                ::cc::ngx::Event*      event_; //<! must be under mutex umbrella.
+                ::cc::ngx::Event*      event_; //!< must be under mutex umbrella.
 
             private: // Data
                 

@@ -52,10 +52,10 @@ namespace cc
             typedef std::function<void(const std::string&, const ::cc::Exception&)>       FailureCallback;
             
             typedef struct _Order {
-                const std::string& query_;      //<! PostgreSQL query.
-                const Client*      client_ptr_; //<! Pointer to client.
-                SuccessCallback    on_success_; //<! Sucess callback.
-                FailureCallback    on_failure_; //<! Failure callback.
+                const std::string& query_;      //!< PostgreSQL query.
+                const Client*      client_ptr_; //!< Pointer to client.
+                SuccessCallback    on_success_; //!< Sucess callback.
+                FailureCallback    on_failure_; //!< Failure callback.
             } Order;
         
             enum class Status : uint8_t
@@ -66,39 +66,39 @@ namespace cc
             };
         
             typedef struct _Ticket {
-                std::string uuid_;   //<! Universal Unique ID.
-                uint64_t    index_;  //<! Index in pending queue, only valid for NON failure status.
-                uint64_t    total_;  //<! Number of orders in queue.
-                Status      status_; //<! Order status.
-                std::string reason_; //<! Only set on failure status.
+                std::string uuid_;   //!< Universal Unique ID.
+                uint64_t    index_;  //!< Index in pending queue, only valid for NON failure status.
+                uint64_t    total_;  //!< Number of orders in queue.
+                Status      status_; //!< Order status.
+                std::string reason_; //!< Only set on failure status.
             } Ticket;
         
             typedef struct {
-                const std::string uuid_;       //<! Universal Unique ID.
-                const std::string query_;      //<! PostgreSQL query.
-                const Client*     client_ptr_; //<! Pointer to client.
-                SuccessCallback   on_success_; //<! Sucess callback.
-                FailureCallback   on_failure_; //<! Failure callback.
-                Table*            table_;      //<! Query execution result.
-                ::cc::Exception*  exception_;  //<! Exception.
-                uint64_t          elapsed_;    //<! Query execution time.
+                const std::string uuid_;       //!< Universal Unique ID.
+                const std::string query_;      //!< PostgreSQL query.
+                const Client*     client_ptr_; //!< Pointer to client.
+                SuccessCallback   on_success_; //!< Sucess callback.
+                FailureCallback   on_failure_; //!< Failure callback.
+                Table*            table_;      //!< Query execution result.
+                ::cc::Exception*  exception_;  //!< Exception.
+                uint64_t          elapsed_;    //!< Query execution time.
             } PendingOrder;
 
             typedef struct {
-                std::string uuid_;      //<! Universal Unique ID.
-                std::string query_;     //<! PostgreSQL query.
-                bool        cancelled_; //<! True if it was cancelled during execution.
+                std::string uuid_;      //!< Universal Unique ID.
+                std::string query_;     //!< PostgreSQL query.
+                bool        cancelled_; //!< True if it was cancelled during execution.
             } Pending;
 
             typedef struct _Config {
-                const std::string  str_;                  //<! PostgreSQL connection string.
-                const ssize_t      min_queries_per_conn_; //<! Minimum number of queries to execute before "recycling" connection.
-                const ssize_t      max_queries_per_conn_; //<! Maximum number of queries to execute before "recycling" connection.
-                const Json::Value& post_connect_queries_; //<! Queries to execute after connection a is establishedΩ.
-                const uint64_t     statement_timeout_;    //<! If set, after a connection is established a query to set statement timeout will be performed.
-                const uint64_t     idle_timeout_ms_;      //<! If > 0, current connection will terminated after n milliseconds of no activity ( no queries executed ).
-                const uint64_t     polling_timeout_ms_;   //<! Polling timeout in milliseconds, mainly for IDLE check.
-                inline ssize_t rnd_max_queries () const   //<! Randomize "session" maximum number of queries to execute before "recycling" connection.
+                const std::string  str_;                  //!< PostgreSQL connection string.
+                const ssize_t      min_queries_per_conn_; //!< Minimum number of queries to execute before "recycling" connection.
+                const ssize_t      max_queries_per_conn_; //!< Maximum number of queries to execute before "recycling" connection.
+                const Json::Value& post_connect_queries_; //!< Queries to execute after connection a is establishedΩ.
+                const uint64_t     statement_timeout_;    //!< If set, after a connection is established a query to set statement timeout will be performed.
+                const uint64_t     idle_timeout_ms_;      //!< If > 0, current connection will terminated after n milliseconds of no activity ( no queries executed ).
+                const uint64_t     polling_timeout_ms_;   //!< Polling timeout in milliseconds, mainly for IDLE check.
+                inline ssize_t rnd_max_queries () const   //!< Randomize "session" maximum number of queries to execute before "recycling" connection.
                 {
                     ssize_t max_queries_per_conn = -1;
                     if ( min_queries_per_conn_ > -1 && max_queries_per_conn_ > -1 ) {
