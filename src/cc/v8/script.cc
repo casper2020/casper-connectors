@@ -79,7 +79,7 @@ void cc::v8::Script::PatchObject (Json::Value& a_object, const std::function<Jso
             }
             break;
         case Json::ValueType::stringValue:   // UTF-8 string value
-            if ( nullptr != strstr(a_object.asCString(), "$.") ) {
+            if ( nullptr != strstr(a_object.asCString(), "$.") || nullptr != strstr(a_object.asCString(), "$[" ) ) {
                 a_object = a_callback(a_object.asString());
             }
             break;

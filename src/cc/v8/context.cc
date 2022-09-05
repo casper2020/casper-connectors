@@ -25,6 +25,8 @@
 
 #include <string.h> // strlen
 
+#include "cc/debug/types.h"
+
 /**
  * @brief Default constructor.
  *
@@ -68,9 +70,7 @@ cc::v8::Context::~Context ()
     isolate_ptr_->LowMemoryNotification();
 }
 
-#ifdef __APPLE__
-#pragma mark -
-#endif
+// MARK: -
 
 /**
  * @brief Parse a JSON string into an \link ::v8::Object \link.
@@ -220,9 +220,7 @@ void cc::v8::Context::LoadFunctions (const cc::v8::Context::LoadedFunction::Call
     LoadFunctions(context, context_scope, try_catch, a_functions, functions_);
 }
 
-#ifdef __APPLE__
-#pragma mark -
-#endif
+// MARK: -
 
 /**
  * @brief Execute a previously load function.
@@ -285,9 +283,7 @@ void cc::v8::Context::IsolatedCall (const cc::v8::Context::IsolatedCallback a_ca
     a_callback(context, try_catch, isolate_ptr_);
 }
 
-#ifdef __APPLE__
-#pragma mark -
-#endif
+// MARK: -
 
 /**
  * @brief Load some functions previously compiled for a specific context and scope.
@@ -329,9 +325,7 @@ void cc::v8::Context::LoadFunctions (::v8::Local<::v8::Context>& a_context, ::v8
     }
 }
 
-#ifdef __APPLE__
-#pragma mark -
-#endif
+// MARK: -
 
 /**
  * @brief Collect all available data about an exception and return it as a string.
@@ -425,8 +419,10 @@ void cc::v8::Context::ThrowException (::v8::TryCatch* a_try_catch) const
 {
     std::string trace_str;
     if ( true == cc::v8::Context::TraceException(a_try_catch, trace_str) ) {
+        CC_DEBUG_LOG_TRACE("v8-context-exceptions", "%s", trace_str.c_str());
         throw cc::v8::Exception("%s", trace_str.c_str());
     } else {
+        CC_DEBUG_LOG_TRACE("v8-context-exceptions", "%s", "An untraceable exception occurred while calling a function at a V8 context!\n");
         throw cc::v8::Exception("%s", "An untraceable exception occurred while calling a function at a V8 context!\n");
     }
 }
