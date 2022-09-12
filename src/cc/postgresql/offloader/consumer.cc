@@ -127,7 +127,7 @@ void cc::postgresql::offloader::Consumer::Stop ()
         connection_ = nullptr;
     }
     reuse_count_ = 0;
-    listener_    = { nullptr, nullptr };
+    listener_    = { nullptr, nullptr, nullptr };
     // ... for debug purposes only ...
     CC_DEBUG_LOG_MSG("offloader::Consumer", "<~ %s", __FUNCTION__);
 }

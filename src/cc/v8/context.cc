@@ -138,9 +138,8 @@ bool cc::v8::Context::Parse (const char* const a_data,
  * @param a_functions
  * @param a_on_error
  */
-void cc::v8::Context::Compile (const std::string& a_name,
-                                   const ::v8::Local<::v8::String>& a_script,
-                                   const cc::v8::Context::FunctionsVector* a_functions)
+void cc::v8::Context::Compile (const std::string& /* a_name */,
+                               const ::v8::Local<::v8::String>& a_script, const cc::v8::Context::FunctionsVector* a_functions)
 {
     // TODO v8 - use callable
     // set up an error handler to catch any exceptions the script might throw.
