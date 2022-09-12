@@ -36,6 +36,7 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #pragma GCC diagnostic ignored "-Wextra-semi"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
 #include "lemon/topology_sort.h"
 #pragma GCC diagnostic pop
 
