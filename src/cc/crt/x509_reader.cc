@@ -227,7 +227,7 @@ void cc::crt::X509Reader::GetValidity (std::string& o_valid_from, std::string& o
     char tmp [16] = {0} ; // YYYYMMDDHHMMSSZ
     
     const ASN1_TIME* not_before = X509_get0_notBefore(x509_);
-    struct tm valid_from = { 0 };
+    struct tm valid_from = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     if ( 1 == ASN1_TIME_to_tm(not_before, &valid_from) ) {
         snprintf(tmp, sizeof(tmp) / sizeof(tmp[0]),"%4d%02d%02d%02d%02d%02dZ",
                  valid_from.tm_year + 1900, valid_from.tm_mon + 1, valid_from.tm_mday, valid_from.tm_hour, valid_from.tm_min, valid_from.tm_sec);
@@ -235,7 +235,7 @@ void cc::crt::X509Reader::GetValidity (std::string& o_valid_from, std::string& o
     }
     
     const ASN1_TIME* not_after = X509_get0_notAfter(x509_);
-    struct tm valid_to = { 0 };
+    struct tm valid_to = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     if ( 1 == ASN1_TIME_to_tm(not_after, &valid_to) ) {
         snprintf(tmp, sizeof(tmp) / sizeof(tmp[0]),"%4d%02d%02d%02d%02d%02dZ",
                  valid_to.tm_year + 1900, valid_to.tm_mon + 1, valid_to.tm_mday, valid_to.tm_hour, valid_to.tm_min, valid_to.tm_sec);

@@ -95,7 +95,7 @@ void cc::postgresql::offloader::Queue::Reset ()
         map->clear();
     }
     try_to_cancel_.clear();
-    listener_ = { nullptr, nullptr };
+    listener_ = { nullptr, nullptr, nullptr };
 }
 
 // MARK: -
@@ -131,7 +131,7 @@ cc::postgresql::offloader::Queue::Enqueue (const offloader::Order& a_order)
             throw ::cc::Exception("%s", "Offload request FAILED triggered by unlikely ( but not impossible ) UUID collision event!");
         }
         // ... keep track if this order ...
-        orders_.push_back(new offloader::PendingOrder{ uuid, a_order.query_, a_order.client_ptr_, a_order.on_success_, a_order.on_failure_});
+        orders_.push_back(new offloader::PendingOrder{ uuid, a_order.query_, a_order.client_ptr_, a_order.on_success_, a_order.on_failure_, /* table_ */ nullptr, /* exception_ */ nullptr, /* elapsed_ */ 0});
         ids_.insert(uuid);
         // ... accepted, mark as pending ...
         status = offloader::Status::Pending;
@@ -287,6 +287,7 @@ void cc::postgresql::offloader::Queue::DequeueExecuted (const offloader::Pending
                 vector.push_back(PQgetvalue(a_result, /* row */ 0, /* column */ column));
             }
         }
+        order->elapsed_ = a_elapsed;
     } catch (...) {
         // ... re-throw ...
         ::cc::Exception::Rethrow(/* a_unhandled */ false, __FILE__, __LINE__, __FUNCTION__);
@@ -313,6 +314,8 @@ void cc::postgresql::offloader::Queue::DequeueCancelled (const offloader::Pendin
     CC_DEBUG_ASSERT(0 == orders_.front()->uuid_.compare(a_pending.uuid_));
     // ... pick order
     auto order = orders_.front();
+    // ... update elapsed time ...
+    order->elapsed_ = a_elapsed;
     // ... move to cancelled map ...
     cancelled_[order->uuid_] = order;
     orders_.pop_back();
@@ -343,6 +346,8 @@ void cc::postgresql::offloader::Queue::DequeueFailed (const offloader::Pending& 
     CC_DEBUG_ASSERT(0 == orders_.front()->uuid_.compare(a_pending.uuid_));
     // ... pick order
     auto order = orders_.front();
+    // ... update elapsed time ...
+    order->elapsed_ = a_elapsed;
     // ... move to executed map ...
     failed_[order->uuid_] = order;
     orders_.pop_back();
