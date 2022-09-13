@@ -193,7 +193,7 @@ std::string cc::crypto::RSA::PublicKeyEncrypt (const std::string& a_payload, con
             throw ::cc::crypto::Exception("Error while loading RSA public key File!");
         }
         
-        out = new unsigned char [RSA_size(rsa_pkey)];
+        out = new unsigned char [static_cast<size_t>(RSA_size(rsa_pkey))];
         
         //
         //  int RSA_public_encrypt(int flen, unsigned char *from, unsigned char *to, RSA *rsa, int padding)
@@ -308,7 +308,7 @@ std::string cc::crypto::RSA::PrivateKeyDecrypt (const std::string& a_payload, co
         payload_bytes = new unsigned char[payload_len];
         payload_len   = ::cc::base64_rfc4648::decode(payload_bytes, payload_len, a_payload.c_str(), a_payload.length());
         
-        out = new unsigned char [RSA_size(rsa_pkey)];
+        out = new unsigned char [static_cast<size_t>(RSA_size(rsa_pkey))];
         
         //
         //  int RSA_public_decrypt(int flen, unsigned char *from, unsigned char *to, RSA *rsa, int padding)
@@ -515,7 +515,7 @@ std::string cc::crypto::RSA::Sign (const std::string& a_payload, const std::stri
         //
         // Returns 1 for success and 0 for failure.
         //
-        signature_bytes = new unsigned char[EVP_PKEY_size(pkey)];
+        signature_bytes = new unsigned char[static_cast<size_t>(EVP_PKEY_size(pkey))];
         if ( 1 != EVP_SignFinal(ctx, signature_bytes, &signature_len, pkey) ) {
             throw ::cc::crypto::Exception("Error while finalizing signing context!");
         }
