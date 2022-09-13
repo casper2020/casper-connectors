@@ -842,7 +842,7 @@ void ev::loop::beanstalkd::Looper::OnJobDeferred (const int64_t& a_bjid, const s
  * @param a_bjid BEANSTALKD job id ( for logging purposes ).
  * @param a_rjid REDIS job key.
  */
-void ev::loop::beanstalkd::Looper::OnDeferredJobFailed (const int64_t& a_bjid, const std::string& a_rjid)
+void ev::loop::beanstalkd::Looper::OnDeferredJobFailed (const int64_t& /* a_bjid */, const std::string& a_rjid)
 {
     CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     const auto it = deferred_.find(a_rjid);
@@ -858,7 +858,7 @@ void ev::loop::beanstalkd::Looper::OnDeferredJobFailed (const int64_t& a_bjid, c
  * @param a_bjid BEANSTALKD job id ( for logging purposes ).
  * @param a_rjid REDIS job key.
  */
-void ev::loop::beanstalkd::Looper::OnDeferredJobFinished (const int64_t& a_bjid, const std::string& a_rjid)
+void ev::loop::beanstalkd::Looper::OnDeferredJobFinished (const int64_t& /* a_bjid */, const std::string& a_rjid)
 {
     CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     const auto it = deferred_.find(a_rjid);

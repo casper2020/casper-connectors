@@ -72,8 +72,8 @@ ev::redis::Session::~Session ()
  * @param a_success_callback
  * @param a_failure_callback
  */
-void ev::redis::Session::Set (const ev::redis::Session::DataT& a_data,
-                              const ev::redis::Session::SuccessCallback a_success_callback, const ev::redis::Session::FailureCallback a_failure_callback)
+void ev::redis::Session::Set (const ev::redis::Session::DataT& /* a_data */,
+                              const ev::redis::Session::SuccessCallback /* a_success_callback */, const ev::redis::Session::FailureCallback /* a_failure_callback */)
 {
 #if 1
     throw ev::Exception("NOT SUPPORTED - TODO REMOVE CALLS TO THIS FUNCTION!");
@@ -215,8 +215,8 @@ void ev::redis::Session::Set (const ev::redis::Session::DataT& a_data,
  * @param a_success_callback
  * @param a_failure_callback
  */
-void ev::redis::Session::Unset (const ev::redis::Session::DataT& a_data,
-                                const ev::redis::Session::SuccessCallback a_success_callback, const ev::redis::Session::FailureCallback a_failure_callback)
+void ev::redis::Session::Unset (const ev::redis::Session::DataT& /* a_data */,
+                                const ev::redis::Session::SuccessCallback /* a_success_callback */, const ev::redis::Session::FailureCallback /* a_failure_callback */)
 {
 #if 1
     throw ev::Exception("NOT SUPPORTED - TODO REMOVE CALLS TO THIS FUNCTION!");

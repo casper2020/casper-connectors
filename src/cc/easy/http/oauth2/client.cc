@@ -238,7 +238,7 @@ void cc::easy::http::oauth2::Client::AuthorizationCodeGrant (const std::string& 
  * @param a_rfc_6749 True when we should follow RFC6749, otherwise will NOT send a 'Authorization' header instead will send client_* data in body URL encoded.
  */
 void cc::easy::http::oauth2::Client::AuthorizationCodeGrant (http::oauth2::Client::Callbacks a_callbacks,
-                                                             const bool* a_rfc_6749)
+                                                             const bool* /* a_rfc_6749 */)
 {
     std::string url;
     SetURLQuery(config_.oauth2_.urls_.authorization_, {

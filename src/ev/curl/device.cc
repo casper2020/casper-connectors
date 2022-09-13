@@ -350,7 +350,7 @@ bool ev::curl::Device::MultiContext::ContainsErrors () const
  * @param a_where
  */
 void ev::curl::Device::MultiContext::Process (ev::curl::Device::MultiContext* a_context,
-                                              CURLMcode a_code, const char* a_where)
+                                              CURLMcode a_code, const char* /* a_where */)
 {
     //  ... first, check for bad connections ...
     if ( CURLM_OK != a_code ) {

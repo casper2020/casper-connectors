@@ -456,7 +456,7 @@ std::string sys::Process::GetExecURI (const pid_t& a_pid)
  *
  * @return True on success, false otherwise.
  */
-void sys::Process::SetError (const ::sys::Process* a_process,
+void sys::Process::SetError (const ::sys::Process* /* a_process */,
                              const char* const /* a_file */, const char* const a_function, const int a_line,
                              const errno_t a_errno, const char* const a_format, ...)
 {

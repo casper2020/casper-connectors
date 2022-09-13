@@ -125,7 +125,7 @@ void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callba
 
         ::ev::redis::subscriptions::Manager::GetInstance().SubscribeChannels({ redis_signal_channel_ },
                                                                              /* a_status_callback */
-                                                                             [&cv](const std::string& a_name_or_pattern,
+                                                                             [&cv](const std::string& /* a_name_or_pattern */,
                                                                                          const ::ev::redis::subscriptions::Manager::Status& a_status) -> EV_REDIS_SUBSCRIPTIONS_DATA_POST_NOTIFY_CALLBACK {
                                                                                  if ( ::ev::redis::subscriptions::Manager::Status::Subscribed == a_status ) {
                                                                                      cv.Wake();
@@ -387,7 +387,7 @@ uint16_t ev::loop::beanstalkd::Job::SetRedirectResponse (const Json::Value& a_pa
  *
  * @return HTTP status code.
  */
-uint16_t ev::loop::beanstalkd::Job::SetBadRequestResponse (const std::string& a_why, Json::Value& o_response)  const
+uint16_t ev::loop::beanstalkd::Job::SetBadRequestResponse (const std::string& /* a_why */, Json::Value& o_response)  const
 {
     return SetFailedResponse(400, Json::Value::null, o_response);
 }
@@ -413,7 +413,7 @@ uint16_t ev::loop::beanstalkd::Job::SetTimeoutResponse (const Json::Value& a_pay
  *
  * @return HTTP status code.
  */
-uint16_t ev::loop::beanstalkd::Job::SetInternalServerErrorResponse (const std::string& a_why, Json::Value& o_response) const
+uint16_t ev::loop::beanstalkd::Job::SetInternalServerErrorResponse (const std::string& /* a_why */, Json::Value& o_response) const
 {
     return SetFailedResponse(500, Json::Value::null, o_response);
 }
@@ -632,7 +632,7 @@ void ev::loop::beanstalkd::Job::Broadcast (const uint64_t& a_id, const std::stri
  * @param a_fq_key            REDIS fully qualified job key  ( <name>:<redis numeric id> ).
  * @param a_failure_callback
  */
-void ev::loop::beanstalkd::Job::Cancel (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& a_fq_key,
+void ev::loop::beanstalkd::Job::Cancel (const uint64_t& a_id, const std::string& a_fq_channel, const std::string& /* a_fq_key */,
                                         const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
 {
     osal::ConditionVariable cv;

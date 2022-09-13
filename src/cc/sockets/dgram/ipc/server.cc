@@ -146,7 +146,7 @@ void cc::sockets::dgram::ipc::Server::Start (const std::string& a_name, const st
  *
  * @param a_sig_no The signal that wants to stop this.
  */
-void cc::sockets::dgram::ipc::Server::Stop (const int a_sig_no)
+void cc::sockets::dgram::ipc::Server::Stop (const int /* a_sig_no */)
 {
     aborted_ = true;
     
@@ -384,7 +384,7 @@ void cc::sockets::dgram::ipc::Server::OnDataReady ()
  *
  * @param a_caller
  */
-void cc::sockets::dgram::ipc::Server::Schedule (const char* const a_caller)
+void cc::sockets::dgram::ipc::Server::Schedule (const char* const /* a_caller */)
 {
     mutex_.lock();
     
@@ -413,7 +413,7 @@ void cc::sockets::dgram::ipc::Server::Schedule (const char* const a_caller)
  * param a_flags Unused.
  * @param a_arg  Pointer to singleton instance.
  */
-void cc::sockets::dgram::ipc::Server::DatagramEventHandlerCallback (evutil_socket_t a_fd, short a_flags, void* a_arg)
+void cc::sockets::dgram::ipc::Server::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* a_flags */, void* a_arg)
 {    
     auto self = static_cast<cc::sockets::dgram::ipc::Server*>(a_arg);
     
