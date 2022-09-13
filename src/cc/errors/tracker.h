@@ -25,9 +25,14 @@
 
 #include "json/json.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wsign-conversion"
+
 #include "unicode/unistr.h"
 #include "unicode/utypes.h"
 #include "unicode/msgfmt.h"
+
+#pragma clang diagnostic pop
 
 namespace cc
 {

@@ -23,7 +23,13 @@
 
 #include "cc/exception.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wsign-conversion"
+#pragma clang diagnostic ignored "-Wunused-parameter"
+
 #include "cppcodec/base64_rfc4648.hpp"
+
+#pragma clang diagnostic push
 
 const unsigned char cc::hash::SHA256::sk_signature_prefix_[]    = { 0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x05, 0x00, 0x04, 0x20 };
 const size_t        cc::hash::SHA256::sk_signature_prefix_size_ = 19;
