@@ -209,7 +209,7 @@ void cc::fs::posix::XAttr::Get (const std::string& a_name, std::string& o_value)
             vb[static_cast<size_t>(rv)] = '\0';
             
             // ... 2nd call to retrieve value ...
-            rv = GET_X_ATTR(uri_.c_str(), attr_name_c_str, vb, rv);
+            rv = GET_X_ATTR(uri_.c_str(), attr_name_c_str, vb, static_cast<size_t>(rv));
             if ( -1 == rv ) {
                 throw cc::fs::Exception("Unable to get xattr '%s' - %s!", attr_name_c_str, strerror(errno));
             }
@@ -363,13 +363,13 @@ void cc::fs::posix::XAttr::Iterate (const std::function<void(const char* const, 
             return;
         }
 
-        kb = new char[kb_l];
+        kb = new char[static_cast<size_t>(kb_l)];
         
         // ... copy list of xattr keys ...
         if ( 0 != uri_.length() ) {
-            kb_l = LIST_X_ATTR(uri_.c_str(), kb, kb_l);
+            kb_l = LIST_X_ATTR(uri_.c_str(), kb, static_cast<size_t>(kb_l));
         } else {
-            kb_l = FLIST_X_ATTR(fd_, kb, kb_l);
+            kb_l = FLIST_X_ATTR(fd_, kb, static_cast<size_t>(kb_l));
         }
         
         if ( -1 == kb_l ) {
@@ -400,7 +400,7 @@ void cc::fs::posix::XAttr::Iterate (const std::function<void(const char* const, 
                 vb[static_cast<size_t>(rv)] = '\0';
                 
                 // ... 2nd call to retrieve value ...
-                rv = GET_X_ATTR(uri, kn, vb, rv);
+                rv = GET_X_ATTR(uri, kn, vb, static_cast<size_t>(rv));
                 if ( -1 == rv ) {
                     throw cc::fs::Exception("Unable to get xattr '%s' - %s!", kn, strerror(errno));
                 }
@@ -433,7 +433,7 @@ void cc::fs::posix::XAttr::Iterate (const std::function<void(const char* const, 
                 vb[static_cast<size_t>(rv)] = '\0';
                 
                 // ... 2nd call to retrieve value ...
-                rv = FGET_X_ATTR(fd_, kn, vb, rv);
+                rv = FGET_X_ATTR(fd_, kn, vb, static_cast<size_t>(rv));
                 if ( -1 == rv ) {
                     throw cc::fs::Exception("Unable to get xattr '%s' - %s!", kn, strerror(errno));
                 }

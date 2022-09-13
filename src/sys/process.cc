@@ -168,7 +168,7 @@ bool sys::Process::WritePID ()
         return false;
     }
     
-    fwrite(buffer, sizeof(char), aux, file);
+    fwrite(buffer, sizeof(char), static_cast<size_t>(aux), file);
     fclose(file);
     
     return true;

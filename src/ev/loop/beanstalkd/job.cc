@@ -1535,10 +1535,10 @@ void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::
                 const int columns_count = value.columns_count();
                 Json::Reader reader;
 
-                for ( int row_idx = 0 ; row_idx < rows_count ; ++row_idx ) {
+                for ( size_t row_idx = 0 ; row_idx < static_cast<size_t>(rows_count) ; ++row_idx ) {
                     Json::Value& line = o_result["table"].append(Json::Value(Json::ValueType::objectValue));
-                    for ( int column_idx = 0 ; column_idx < columns_count ; ++column_idx ) {
-                        line[value.column_name(column_idx)] = value.raw_value(static_cast<size_t>(row_idx), static_cast<size_t>(column_idx));
+                    for ( size_t column_idx = 0 ; column_idx < static_cast<size_t>(columns_count) ; ++column_idx ) {
+                        line[value.column_name(column_idx)] = value.raw_value(row_idx, column_idx);
                     }
                 }
             } else {
@@ -1712,10 +1712,10 @@ void ev::loop::beanstalkd::Job::ToJSON (const ev::postgresql::Value& a_value, Js
     }
     try {
         Json::Reader reader;
-        for ( int row = 0 ; row < a_value.rows_count() ; ++row ) {
+        for ( size_t row = 0 ; row < static_cast<size_t>(a_value.rows_count()) ; ++row ) {
             Json::Value& record = o_value.append(Json::Value(Json::ValueType::objectValue));
-            for ( int column = 0 ; column < a_value.columns_count() ; ++column ) {
-                const char* const raw_value = a_value.raw_value(/* a_row */ static_cast<size_t>(row), /* a_column */ static_cast<size_t>(column));
+            for ( size_t column = 0 ; column < static_cast<size_t>(a_value.columns_count()) ; ++column ) {
+                const char* const raw_value = a_value.raw_value(/* a_row */ row, /* a_column */ column);
                 if ( nullptr == raw_value || 0 == strlen(raw_value) ) {
                     record[a_value.column_name(column)] = Json::Value::null;
                 } else if ( JSONBOID == a_value.column_type(column) ) {
