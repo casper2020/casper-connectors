@@ -734,7 +734,7 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
             self->bridge_.ThrowFatalException(ev::Exception("Unable to read '%s' value!", "invoke id"));
             return;
         }
-        invoke_id = static_cast<uint64_t>(tmp_number);
+        invoke_id = static_cast<int64_t>(tmp_number);
 
         // ... read: mode, one of \link ev::Request::Mode \link  ...
         const char* mode_ptr = strchr(invoke_id_ptr, ':');

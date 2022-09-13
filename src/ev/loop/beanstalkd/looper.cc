@@ -52,7 +52,7 @@ ev::loop::beanstalkd::Looper::Looper (const ev::Loggable::Data& a_loggable_data,
     logger_client_->Unset(ev::LoggerV2::Client::LoggableFlags::IPAddress | ev::LoggerV2::Client::LoggableFlags::OwnerPTR);
     beanstalk_        = nullptr;
     job_ptr_          = nullptr;
-    CC_IF_DEBUG_SET_VAR(thread_id_, -1);
+    CC_IF_DEBUG_SET_VAR(thread_id_, 0);
     EV_LOOP_BEANSTALK_IF_LOG_ENABLED({
         ev::LoggerV2::GetInstance().Register(logger_client_, { "queue", "pmf" });
     });
@@ -737,8 +737,8 @@ void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
             return;
         }
         // ... process as many as we can ...
-        const auto   start         = std::chrono::steady_clock::now();
-        const size_t exec_timeout = ( a_fake ? 100 : 50 );
+        const auto      start         = std::chrono::steady_clock::now();
+        const long long exec_timeout = ( a_fake ? 100 : 50 );
         while ( idle_callbacks_.queue_.size() > 0 && nullptr == fatal_.exception_ ) {
             // ... pick next callback ...
             auto callback = idle_callbacks_.queue_.top();

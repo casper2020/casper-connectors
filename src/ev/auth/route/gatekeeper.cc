@@ -111,7 +111,7 @@ bool ev::auth::route::Gatekeeper::Reload (int a_signo)
         return false;
     }
     // ... reload ...
-    Load(s_config_uri_, a_signo);
+    Load(s_config_uri_, static_cast<size_t>(a_signo));
     // ... done ...
     return true;
 }
@@ -351,7 +351,7 @@ void ev::auth::route::Gatekeeper::Load (const std::string& a_uri, const size_t a
     auto& logger = ::ev::LoggerV2::GetInstance();
     
     // ... log event ...
-    const int logger_title_padding = std::max(static_cast<int>(a_uri.length()), 106);
+    const size_t logger_title_padding = std::max<size_t>(a_uri.length(), 106);
         
     s_logger_settings_.section_   = "--- " + std::string(logger_title_padding, ' ') + " ---";
     s_logger_settings_.separator_ = "--- " + std::string(logger_title_padding, '-') + " ---";

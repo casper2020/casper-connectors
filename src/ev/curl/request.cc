@@ -358,7 +358,7 @@ size_t ev::curl::Request::OnHeaderReceived (void* a_ptr, size_t a_size, size_t a
         const char* value_start_ptr = strchr(key_start_ptr, ':');
         if ( nullptr != value_start_ptr ) {
 
-            const std::string key = std::string(key_start_ptr, ( value_start_ptr - key_start_ptr ));
+            const std::string key = std::string(key_start_ptr, static_cast<size_t>(value_start_ptr - key_start_ptr));
 
             value_start_ptr += sizeof(char);
             if ( value_start_ptr[0] == ' ' ) {
@@ -367,7 +367,7 @@ size_t ev::curl::Request::OnHeaderReceived (void* a_ptr, size_t a_size, size_t a
 
             const char* const value_end_ptr   = strstr(value_start_ptr, "\r\n");
             if ( nullptr != value_end_ptr ) {
-                rx_headers_[key].push_back(std::string(value_start_ptr, value_end_ptr - value_start_ptr));
+                rx_headers_[key].push_back(std::string(value_start_ptr, static_cast<size_t>(value_end_ptr - value_start_ptr)));
             }
 
         }

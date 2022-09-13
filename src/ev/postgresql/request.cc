@@ -101,7 +101,7 @@ ev::postgresql::Request::Request (const ::ev::Loggable::Data& a_loggable_data, s
         free(buffer);
         throw ::ev::Exception("string formatting error!");
     } else if ( written >= static_cast<int>(size) ) {
-        size   = static_cast<size_t>(written + sizeof(char));
+        size   = static_cast<size_t>(written) + sizeof(char);
         buffer = (char*) realloc(buffer, size );
         if ( nullptr == buffer ) {
             throw ::ev::Exception("Out of memory while reallocating buffer!");

@@ -112,7 +112,7 @@ void cc::easy::job::Handler::InnerStartup  (const ::cc::global::Process& a_proce
             std::set<uint16_t> dnbe;
             if ( true == config.isMember("dnbe") ) {
                 const Json::Value& array = config["dnbe"];
-                for ( auto idx = 0 ; idx < array.size() ; ++idx ) {
+                for ( Json::ArrayIndex idx = 0 ; idx < array.size() ; ++idx ) {
                     const Json::Value& value = array[idx];
                     if ( false == value.isUInt() ) {
                         throw ev::Exception("An error occurred while loading configuration - invalid dnbe array element at position %d !", (int)( idx + 1 ));

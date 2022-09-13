@@ -113,7 +113,7 @@ bool ev::curl::Value::content_disposition (std::string* o_disposition, std::stri
     std::string disposition,  field_name, file_name;
     const char* sep = strchr(disposition_ptr, ';');
     if ( nullptr != sep ) {
-        disposition = std::string(disposition_ptr, sep - disposition_ptr);
+        disposition = std::string(disposition_ptr, static_cast<size_t>(sep - disposition_ptr));
         disposition_ptr += ( sep - disposition_ptr );
         // ... has name ?
         typedef struct {
@@ -137,7 +137,7 @@ bool ev::curl::Value::content_disposition (std::string* o_disposition, std::stri
                     disposition_ptr = sep + search_prefix.length();
                     sep = strchr(disposition_ptr, '"');
                     if ( nullptr != sep ) {
-                        entry.value_ = std::string(disposition_ptr, sep - disposition_ptr);
+                        entry.value_ = std::string(disposition_ptr, static_cast<size_t>(sep - disposition_ptr));
                         sep++;
                     } else {
                         return false;

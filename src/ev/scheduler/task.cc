@@ -94,7 +94,7 @@ bool ev::scheduler::Task::Step (ev::Object* a_object, ev::Request** o_request)
             next = first_();
             step_++;
         } else if ( step_ < static_cast<ssize_t>(sequences_.size()) ) {
-            next = sequences_[step_](a_object);
+            next = sequences_[static_cast<size_t>(step_)](a_object);
             step_++;
         } else if ( static_cast<ssize_t>(sequences_.size()) == step_ ) {
             if ( nullptr != last_ ) {

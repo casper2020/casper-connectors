@@ -186,7 +186,7 @@ void cc::fs::posix::Dir::Make (const char* const a_path, const mode_t a_mode)
     const char* nxt = strchr(a_path + sizeof(char), '/');
     while ( nullptr != nxt && '\0' != nxt[0] ) {
         // ... calculate current dir name length ...
-        len = ( nxt - lst );
+        len = static_cast<size_t>( nxt - lst );
         // ... copy current dir name ...
         uri[len + adv] = '\0';
         memcpy(uri + adv, lst, len);
@@ -204,7 +204,7 @@ void cc::fs::posix::Dir::Make (const char* const a_path, const mode_t a_mode)
     }
     // ... last path component ( when last '/' is missing from a_uri ) ...
     if ( nullptr != lst ) {
-        len = ( strlen(a_path) - ( lst - a_path ) );
+        len = ( strlen(a_path) - static_cast<size_t>( lst - a_path ) );
         if ( len > 0 && '/' != lst[len - sizeof(char)] ) {
             if ( -1 == mkdir(a_path, a_mode) ) {
                 const int no = errno;
@@ -383,7 +383,7 @@ std::string cc::fs::posix::Dir::ReadLink (const std::string& a_path)
     } else if ( (PATH_MAX-1) == len ) {
         throw ::cc::Exception("An error occurred while trying to read link %s: (%d) %s ", a_path.c_str(), PATH_MAX, "buffer to short to write URI");
     } else {
-        return std::string(buffer, len);
+        return std::string(buffer, static_cast<size_t>(len));
     }
 }
 

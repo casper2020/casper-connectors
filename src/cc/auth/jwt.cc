@@ -280,8 +280,8 @@ void cc::auth::JWT::Decode (const std::string& a_token, const std::string& a_pub
 
     try {
 
-        const std::string header_b64    = std::string(header_ptr , payload_ptr - header_ptr - sizeof(char));
-        const std::string payload_b64   = std::string(payload_ptr, signature_ptr - payload_ptr - sizeof(char));
+        const std::string header_b64    = std::string(header_ptr , static_cast<size_t>(payload_ptr - header_ptr) - sizeof(char));
+        const std::string payload_b64   = std::string(payload_ptr, static_cast<size_t>(signature_ptr - payload_ptr) - sizeof(char));
         const std::string signature_b64 = std::string(signature_ptr);
 
         //
@@ -379,8 +379,8 @@ void cc::auth::JWT::UNSAFEDecode (const std::string& a_token)
 
     try {
 
-        const std::string header_b64    = std::string(header_ptr , payload_ptr - header_ptr - sizeof(char));
-        const std::string payload_b64   = std::string(payload_ptr, signature_ptr - payload_ptr - sizeof(char));
+        const std::string header_b64    = std::string(header_ptr , static_cast<size_t>(payload_ptr - header_ptr) - sizeof(char));
+        const std::string payload_b64   = std::string(payload_ptr, static_cast<size_t>(signature_ptr - payload_ptr) - sizeof(char));
         const std::string signature_b64 = std::string(signature_ptr);
 
         //
@@ -463,7 +463,7 @@ std::string cc::auth::JWT::MakeBrowsersUnhappy (const std::string& a_jwt)
         }
     }
     if ( 3 == dot_count && nullptr != last_dot ) {
-        return a_jwt.substr(0, a_jwt.size() - (ptr - last_dot));
+        return a_jwt.substr(0, a_jwt.size() - static_cast<size_t>(ptr - last_dot));
     } else {
         return a_jwt;
     }

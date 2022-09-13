@@ -141,17 +141,18 @@ int cc::OptArg::Parse (const int& a_argc, const char** const a_argv,
             return -1;
         }
         // ... search of option ...
-        ssize_t rw = -1;
+        size_t rw = 0; bool found = false;
         for ( size_t opt_idx = 0 ; opt_idx < opts_.size() ; ++opt_idx ) {
             if ( /* short match */ ( 0 != opts_[opt_idx]->short_ && opt == opts_[opt_idx]->short_ ) ||
                  /* long match */  ( 0 == opts_[opt_idx]->short_ && nullptr != long_[idx].name && 0 == strcmp(opts_[opt_idx]->long_.c_str(), long_[idx].name) )
             ) {             
-                rw = opt_idx;
+                rw    = opt_idx;
+                found = true;
                 break;
             }
         }
         // ... not found?
-        if ( -1 == rw ) {
+        if ( false == found ) {
             // ... option not found ...
             error_ = "Option not found";
             error_ += std::string(a_argv[optind-1]);

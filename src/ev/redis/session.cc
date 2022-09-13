@@ -571,7 +571,7 @@ bool ev::redis::Session::IsRandomValid (const std::string& a_value, uint8_t a_le
     if ( static_cast<size_t>(a_length) != a_value.length() ) {
         return false;
     }
-    for ( auto idx = 0 ; idx < a_length ; ++idx ) {
+    for ( size_t idx = 0 ; idx < static_cast<size_t>(a_length) ; ++idx ) {
         if ( not ( ( a_value[idx] >= 'a' && a_value[idx] <= 'z' ) || ( a_value[idx] >= 'A' && a_value[idx] <= 'Z' ) || ( a_value[idx] >= '0' && a_value[idx] <= '9' ) ) ) {
             return false;
         }

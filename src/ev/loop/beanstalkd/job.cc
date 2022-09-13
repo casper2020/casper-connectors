@@ -219,7 +219,8 @@ void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value&
             /* key_    */ nullptr,
             /* args_   */ {},
             /* status_ */ ev::loop::beanstalkd::Job::Status::Cancelled,
-            /* value_  */ -1.0
+            /* value_  */ -1.0,
+            /* now_    */ true
         });
         
         a_cancelled_callback(a_already_ran);
@@ -1023,7 +1024,7 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
                                          const std::function<void()> a_success_callback,
                                          const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
 {
-    Publish(bjid_, rcid_, rjid_, a_object, a_success_callback, a_failure_callback);
+    Publish(static_cast<uint64_t>(bjid_), rcid_, rjid_, a_object, a_success_callback, a_failure_callback);
 }
 
 /**
@@ -1319,7 +1320,7 @@ void ev::loop::beanstalkd::Job::HTTPGetFile (const std::string& a_url, const EV_
                                              const EV_CURL_HTTP_TIMEOUTS* a_timeouts)
 {
     std::string local_uri;
-    if ( osal::File::Status::EStatusOk != osal::File::UniqueFileName(EnsureOutputDir(a_validity), ( 0 != a_prefix.length() ? a_prefix : tube_ ), a_extension, local_uri) ) {
+    if ( osal::File::Status::EStatusOk != osal::File::UniqueFileName(EnsureOutputDir(static_cast<int64_t>(a_validity)), ( 0 != a_prefix.length() ? a_prefix : tube_ ), a_extension, local_uri) ) {
         throw ::ev::Exception("%s",  "Unable to create an unique file name for the HTTP request response!");
     }
 
@@ -1537,7 +1538,7 @@ void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::
                 for ( int row_idx = 0 ; row_idx < rows_count ; ++row_idx ) {
                     Json::Value& line = o_result["table"].append(Json::Value(Json::ValueType::objectValue));
                     for ( int column_idx = 0 ; column_idx < columns_count ; ++column_idx ) {
-                        line[value.column_name(column_idx)] = value.raw_value(row_idx, column_idx);
+                        line[value.column_name(column_idx)] = value.raw_value(static_cast<size_t>(row_idx), static_cast<size_t>(column_idx));
                     }
                 }
             } else {
@@ -1743,7 +1744,7 @@ void ev::loop::beanstalkd::Job::ToJSON (const ev::postgresql::Value& a_value, Js
         for ( int row = 0 ; row < a_value.rows_count() ; ++row ) {
             Json::Value& record = o_value.append(Json::Value(Json::ValueType::objectValue));
             for ( int column = 0 ; column < a_value.columns_count() ; ++column ) {
-                const char* const raw_value = a_value.raw_value(/* a_row */ row, /* a_column */ column);
+                const char* const raw_value = a_value.raw_value(/* a_row */ static_cast<size_t>(row), /* a_column */ static_cast<size_t>(column));
                 if ( nullptr == raw_value || 0 == strlen(raw_value) ) {
                     record[a_value.column_name(column)] = Json::Value::null;
                 } else if ( JSONBOID == a_value.column_type(column) ) {

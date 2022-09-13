@@ -537,7 +537,7 @@ std::string ev::curl::HTTP::cURLRequest (const std::string& a_id, const ::ev::cu
         for ( auto header : headers ) {
             tmp << header.first << ": ";
             if ( false == a_redact || ( true == a_redact && not ( 0 == strcasecmp(header.first.c_str(), "Authorization") ) ) ) {
-                for ( auto idx = 0 ; idx < header.second.size(); ++idx ) {
+                for ( Json::ArrayIndex idx = 0 ; idx < header.second.size(); ++idx ) {
                     tmp << header.second[idx];
                     if ( idx < ( header.second.size() - 1 ) ) {
                         tmp << ' ';

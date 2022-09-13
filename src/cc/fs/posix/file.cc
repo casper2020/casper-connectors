@@ -175,7 +175,7 @@ void cc::fs::posix::File::Open (const std::string& a_path, const std::string& a_
         uri_ += "." + a_extension;
     }
     
-    const int suffix_length = ( a_extension.length() > 0 ? static_cast<int>(a_extension.length()) + sizeof(char) : 0 );
+    const int suffix_length = ( a_extension.length() > 0 ? static_cast<int>(a_extension.length() + sizeof(char)) : 0 );
     
     // ... ensure unique file in destination directory ...
     char f_template[PATH_MAX] = { 0, 0 };

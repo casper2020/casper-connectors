@@ -781,11 +781,11 @@ void ev::postgresql::Device::PostgreSQLEVCallback (evutil_socket_t /* a_fd */, s
                 
                 const ExecStatusType result_status = PQresultStatus(postgresql_result);
                 
-                const int elapsed = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - device->context_->exec_start_).count());
+                const uint64_t elapsed = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - device->context_->exec_start_).count());
 
                 ev::Logger::GetInstance().Log("libpq", device->context_->loggable_data_,
-                                              EV_POSTGRESQL_DEVICE_LOG_FMT ", %ums\n\t%s",
-                                              __FUNCTION__, device->GetExecStatusTypeString(result_status).c_str(), static_cast<unsigned>(elapsed),
+                                              EV_POSTGRESQL_DEVICE_LOG_FMT ", " UINT64_FMT "ms\n\t%s",
+                                              __FUNCTION__, device->GetExecStatusTypeString(result_status).c_str(), elapsed,
                                               device->context_->query_.c_str()
                 );
                 

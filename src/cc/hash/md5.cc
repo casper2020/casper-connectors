@@ -56,7 +56,7 @@ void cc::hash::MD5::Initialize ()
  */
 void cc::hash::MD5::Update(const unsigned char* const a_data, size_t a_length)
 {
-    MD5_Update(&context_, a_data, static_cast<int>(a_length));
+    MD5_Update(&context_, a_data, a_length);
 }
 
 /**

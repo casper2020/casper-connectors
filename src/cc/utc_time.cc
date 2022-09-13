@@ -92,7 +92,7 @@ std::string cc::UTCTime::NowISO8601DateTime ()
         throw cc::Exception("Unable to convert epoch to NowISO8601DateTime!");
     }
     
-    return std::string(buff, w);
+    return std::string(buff, static_cast<size_t>(w));
 }
 
 
@@ -114,5 +114,5 @@ std::string cc::UTCTime::NowISO8601WithTZ ()
         throw cc::Exception("Unable to convert epoch to ISO8601WithTZ!");
     }
 
-    return std::string(buff, w);
+    return std::string(buff, static_cast<size_t>(w));
 }
