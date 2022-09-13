@@ -1563,35 +1563,6 @@ void ev::loop::beanstalkd::Job::ExecuteQuery (const std::string& a_query, Json::
     cv.Wait();
 }
 
-/**
- * @brief Execute an SQL query.
- *
- * @param a_query
- * @param o_result
- */
-
-void ev::loop::beanstalkd::Job::ExecuteQueryWithJSONAPI (const std::string& a_query, Json::Value& o_result)
-{
-    o_result = Json::Value(Json::ValueType::objectValue);
-    o_result["status_code"] = 500;
-
-    osal::ConditionVariable cv;
-
-    json_api_.Get(/* a_uri */
-                  "",
-                  /* a_callback */
-                  [&o_result, &cv](const char* /* a_uri */, const char* a_json, const char* /* a_error */, uint16_t a_status, uint64_t /* a_elapsed */) {
-
-                      o_result["reponse"]     = a_json; // TODO PARSE;
-                      o_result["status_code"] = a_status;
-
-                      cv.Wake();
-                  }
-    );
-
-    cv.Wait();
-}
-
 #ifdef __APPLE__
 #pragma mark -
 #endif

@@ -646,7 +646,6 @@ namespace ev
                 
                 virtual void ExecuteQuery            (const std::string& a_query, Json::Value& o_result,
                                                       const bool a_dont_auto_parse);
-                virtual void ExecuteQueryWithJSONAPI (const std::string& a_query, Json::Value& o_result);
                 
             protected: // Output Helper Methods(s) / Function(s)
 
