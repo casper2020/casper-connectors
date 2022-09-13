@@ -93,8 +93,8 @@ namespace ev
             const bool        is_error      () const;
             const char* const error_message () const;
             ExecStatusType    status        () const;
-            Oid               column_type   (const int a_number) const;
-            const char* const column_name   (const int a_number) const;
+            Oid               column_type   (const size_t a_number) const;
+            const char* const column_name   (const size_t a_number) const;
             const int         columns_count () const;
             const int         rows_count    () const;
             const char* const raw_value     (const size_t a_row, const size_t a_column) const;
@@ -182,9 +182,9 @@ namespace ev
          *
          * @return Returns the column type associated with the given column number.
          */
-        inline Oid Value::column_type (const int a_number) const
+        inline Oid Value::column_type (const size_t a_number) const
         {
-            return PQftype(pg_result_, a_number);
+            return PQftype(pg_result_, (int)a_number);
         }
     
         /**
@@ -194,9 +194,9 @@ namespace ev
          *
          * @return Returns the column name associated with the given column number, nullptr if invalid call.
          */
-        inline const char* const Value::column_name (const int a_number) const
+        inline const char* const Value::column_name (const size_t a_number) const
         {
-            return nullptr != pg_result_ ? PQfname(pg_result_, a_number) : nullptr;
+            return nullptr != pg_result_ ? PQfname(pg_result_, (int)a_number) : nullptr;
         }
     
         /**

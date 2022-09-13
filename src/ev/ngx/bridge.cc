@@ -135,7 +135,7 @@ void ev::ngx::Bridge::Startup (const std::string& a_socket_fn,
     #error "Don't know how to setup nginx event!"
 #endif
 
-    ngx_int_t flags = (ngx_event_flags & NGX_USE_CLEAR_EVENT) ?
+    ngx_uint_t flags = (ngx_event_flags & NGX_USE_CLEAR_EVENT) ?
     /* kqueue, epoll */                  NGX_CLEAR_EVENT:
     /* select, poll, /dev/poll */        NGX_LEVEL_EVENT;
     
