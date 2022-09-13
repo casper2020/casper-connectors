@@ -719,7 +719,7 @@ std::string cc::crypto::RSA::Sign (const unsigned char* a_payload, const size_t 
         //
         // Returns 1 for success and 0 for failure.
         //
-        signature_bytes = new unsigned char[EVP_PKEY_size(pkey)];
+        signature_bytes = new unsigned char[static_cast<size_t>(EVP_PKEY_size(pkey))];
         if ( 1 != EVP_SignFinal(ctx, signature_bytes, &signature_len, pkey) ) {
             throw ::cc::crypto::Exception("Error while finalizing signing context!");
         }

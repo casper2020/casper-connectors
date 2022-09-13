@@ -56,11 +56,11 @@ namespace cc
             {
                 if ( z_ == 0 ) {
                     z_ = 20;
-                    s_ = (int*) malloc(sizeof(int) * z_);
+                    s_ = (int*) malloc(sizeof(int) * static_cast<size_t>(z_));
                 }
                 if ( t_ == z_ -1 ) {
                     z_ *= 2;
-                    s_ = (int*) realloc(s_, sizeof(int) * z_);
+                    s_ = (int*) realloc(s_, sizeof(int) * static_cast<size_t>(z_));
                 }
             }
             
