@@ -62,7 +62,7 @@ namespace ev
         // NextCallback
         //
         
-        typedef std::function<bool(const int64_t a_invoke_id, const ev::Object::Target a_target, const uint8_t a_tag, ev::Result* a_result)>                NextStepCallback;
+        typedef std::function<bool(const uint64_t a_invoke_id, const ev::Object::Target a_target, const uint8_t a_tag, ev::Result* a_result)>                NextStepCallback;
         
         class NextCallback : public PublishPair<NextStepCallback>
         {
@@ -87,7 +87,7 @@ namespace ev
         // PublishCallback
         //
         
-        typedef std::function<void(const int64_t a_invoke_id, const ev::Object::Target a_target, const uint8_t a_tag, std::vector<ev::Result*>& a_results)> PublishStepCallback;
+        typedef std::function<void(const uint64_t a_invoke_id, const ev::Object::Target a_target, const uint8_t a_tag, std::vector<ev::Result*>& a_results)> PublishStepCallback;
         
         class PublishCallback : public PublishPair<PublishStepCallback>
         {
@@ -111,7 +111,7 @@ namespace ev
         // DisconnectedCallback
         //
         
-        typedef std::function<void(const int64_t a_invoke_id, const ev::Object::Target a_target, const uint8_t a_tag)>                                      DisconnectedStepCallback;
+        typedef std::function<void(const uint64_t a_invoke_id, const ev::Object::Target a_target, const uint8_t a_tag)>                                      DisconnectedStepCallback;
         
         class DisconnectedCallback : public PublishPair<DisconnectedStepCallback>
         {

@@ -72,10 +72,10 @@ namespace ev
             
         protected: // Data Type(s)
             
-            typedef std::vector<scheduler::Object*>       ObjectsVector;
-            typedef std::map<std::string, ObjectsVector*> ClientsToObjectMap;
-            typedef std::map<int64_t, Client*>            ObjectsToClientMap;
-            typedef std::map<int64_t, scheduler::Object*> IdsToObjectMap;
+            typedef std::vector<scheduler::Object*>        ObjectsVector;
+            typedef std::map<std::string, ObjectsVector*>  ClientsToObjectMap;
+            typedef std::map<uint64_t, Client*>            ObjectsToClientMap;
+            typedef std::map<uint64_t, scheduler::Object*> IdsToObjectMap;
             
         protected: // Static Data
             
@@ -114,7 +114,7 @@ namespace ev
             
             void SetClientTimeout (Client* a_client, uint64_t a_ms, TimeoutCallback a_callback);
             
-            void CallOnMainThread (Client* a_client, std::function<void()> a_callback,int64_t a_timeout_ms = 0);
+            void CallOnMainThread (Client* a_client, std::function<void()> a_callback, uint64_t a_timeout_ms = 0);
             
         public:
             

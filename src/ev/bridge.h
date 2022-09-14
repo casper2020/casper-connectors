@@ -34,9 +34,9 @@ namespace ev
         
     public: // Pure Virtual Method(s) / Function(s)
         
-        virtual void    CallOnMainThread    (std::function<void(void* a_payload)> a_callback, void* a_payload, int64_t a_timeout_ms = 0) = 0;
-        virtual void    CallOnMainThread    (std::function<void()> a_callback,int64_t a_timeout_ms = 0)                                  = 0;
-        virtual void    ThrowFatalException (const ev::Exception& a_ev_exception)                                                        = 0;
+        virtual void    CallOnMainThread    (std::function<void(void* a_payload)> a_callback, void* a_payload, uint64_t a_timeout_ms = 0) = 0;
+        virtual void    CallOnMainThread    (std::function<void()> a_callback, uint64_t a_timeout_ms = 0)                                 = 0;
+        virtual void    ThrowFatalException (const ev::Exception& a_ev_exception)                                                         = 0;
     
     public: // Optional Virtual Method(s) / Function(s)
         

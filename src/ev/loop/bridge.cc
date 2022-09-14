@@ -288,7 +288,7 @@ void ev::loop::Bridge::Quit ()
  * @param a_payload
  * @param a_timeout
  */
-void ev::loop::Bridge::CallOnMainThread (std::function<void(void* a_payload)> a_callback, void* a_payload, int64_t a_timeout_ms)
+void ev::loop::Bridge::CallOnMainThread (std::function<void(void* a_payload)> a_callback, void* a_payload, uint64_t a_timeout_ms)
 {
     static std::mutex ___mutex;
     std::lock_guard<std::mutex> lock(___mutex);
@@ -302,7 +302,7 @@ void ev::loop::Bridge::CallOnMainThread (std::function<void(void* a_payload)> a_
  * @param a_callback
  * @param a_timeout
  */
-void ev::loop::Bridge::CallOnMainThread (std::function<void()> a_callback, int64_t a_timeout_ms)
+void ev::loop::Bridge::CallOnMainThread (std::function<void()> a_callback, uint64_t a_timeout_ms)
 {
     static std::mutex ___mutex;
     std::lock_guard<std::mutex> lock(___mutex);
@@ -394,7 +394,7 @@ void ev::loop::Bridge::Loop (const bool a_at_main_thread)
  * @param a_callback
  * @param a_timeout_ms
  */
-void ev::loop::Bridge::ScheduleCalbackOnMainThread (ev::loop::Bridge::Callback* a_callback, int64_t a_timeout_ms)
+void ev::loop::Bridge::ScheduleCalbackOnMainThread (ev::loop::Bridge::Callback* a_callback, uint64_t a_timeout_ms)
 {
     OSALITE_DEBUG_TRACE("ev_bridge_handler", "~> %s(...)", __FUNCTION__);
     OSALITE_DEBUG_TRACE("ev_bridge_handler",

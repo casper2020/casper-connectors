@@ -28,11 +28,11 @@
 ::ev::redis::subscriptions::Request* ev::redis::subscriptions::Manager::redis_subscription_      = nullptr;
 bool                                 ev::redis::subscriptions::Manager::redis_subscription_used_ = false;
 ::ev::Bridge*                        ev::redis::subscriptions::Manager::bridge_                  = nullptr;
-int64_t                              ev::redis::subscriptions::Manager::reconnect_timeout_       = 2000;  // 2s
+uint64_t                             ev::redis::subscriptions::Manager::reconnect_timeout_       = 2000;  // 2s
 bool                                 ev::redis::subscriptions::Manager::recovery_mode_           = false;
 
-const int64_t                        ev::redis::subscriptions::Manager::k_min_reconnect_timeout_ = 2000;  // 2s
-const int64_t                        ev::redis::subscriptions::Manager::k_max_reconnect_timeout_ = 32000; // 32s
+const uint64_t                        ev::redis::subscriptions::Manager::k_min_reconnect_timeout_ = 2000;  // 2s
+const uint64_t                        ev::redis::subscriptions::Manager::k_max_reconnect_timeout_ = 32000; // 32s
 
 /**
  * @brief One-shot initializer.

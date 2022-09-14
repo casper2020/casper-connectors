@@ -273,7 +273,7 @@ void ev::hub::OneShotHandler::OnConnectionStatusChanged (const ev::Device::Conne
     if ( device_request_map_.end() != r_it ) {
 
         typedef struct {
-            const int64_t            invoke_id_;
+            const uint64_t           invoke_id_;
             const ev::Object::Target target_;
             const uint8_t            tag_;
         } Payload;

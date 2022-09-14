@@ -86,7 +86,7 @@ void ev::scheduler::Scheduler::Scheduler::Start (const std::string& a_name,
                     }
                     
                 },
-                [this] (const int64_t a_invoke_id, const ev::Object::Target /* a_target */, const uint8_t a_tag, ev::Result* a_result) -> bool {
+                [this] (const uint64_t a_invoke_id, const ev::Object::Target /* a_target */, const uint8_t a_tag, ev::Result* a_result) -> bool {
 
                     //
                     // NEXT STEP:
@@ -156,7 +156,7 @@ void ev::scheduler::Scheduler::Scheduler::Start (const std::string& a_name,
                     // ... a_result rejected ...
                     return false;
                 },
-                [this] (const int64_t a_invoke_id, const ev::Object::Target /* a_target */, const uint8_t a_tag, std::vector<ev::Result*>& a_results) {
+                [this] (const uint64_t a_invoke_id, const ev::Object::Target /* a_target */, const uint8_t a_tag, std::vector<ev::Result*>& a_results) {
                     //
                     // PUBLISH STEP
                     //
@@ -178,7 +178,7 @@ void ev::scheduler::Scheduler::Scheduler::Start (const std::string& a_name,
                     
                     subscription_object->Publish(a_results);                    
                 },
-                [this] (const int64_t a_invoke_id, const ev::Object::Target /* a_target */, const uint8_t a_tag) {
+                [this] (const uint64_t a_invoke_id, const ev::Object::Target /* a_target */, const uint8_t a_tag) {
                     //
                     // DISCONNECTED STEP
                     //
@@ -407,7 +407,7 @@ void ev::scheduler::Scheduler::SetClientTimeout (ev::scheduler::Client* a_client
  * @param a_callback
  * @param a_timeout
  */
-void ev::scheduler::Scheduler::CallOnMainThread (Client* a_client, std::function<void()> a_callback, int64_t a_timeout_ms)
+void ev::scheduler::Scheduler::CallOnMainThread (Client* a_client, std::function<void()> a_callback, uint64_t a_timeout_ms)
 {
     bridge_ptr_->CallOnMainThread(
                                   /* a_callback */

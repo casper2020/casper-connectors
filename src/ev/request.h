@@ -61,7 +61,7 @@ namespace ev
 
     protected: // Data
         
-        int64_t                               invoke_id_;
+        uint64_t                              invoke_id_;
         uint8_t                               tag_;
         Result*                               result_;
 
@@ -80,9 +80,9 @@ namespace ev
         
     public: // Method(s) / Function(s)
 
-        void    Set          (const int64_t a_id, const uint8_t a_tag);
-        int64_t GetInvokeID  () const;
-        uint8_t GetTag       () const;
+        void     Set          (const uint64_t a_id, const uint8_t a_tag);
+        uint64_t GetInvokeID  () const;
+        uint8_t  GetTag       () const;
 
         void    AttachResult (Result* a_result);
         Result* DetachResult ();
@@ -98,7 +98,7 @@ namespace ev
      * @param a_invoke_id
      * @param a_tag
      */
-    inline void Request::Set (const int64_t a_invoke_id, const uint8_t a_tag)
+    inline void Request::Set (const uint64_t a_invoke_id, const uint8_t a_tag)
     {
         invoke_id_ = a_invoke_id;
         tag_       = a_tag;
@@ -107,7 +107,7 @@ namespace ev
     /**
      * @return The previously stored invoke id.
      */
-    inline int64_t Request::GetInvokeID () const
+    inline uint64_t Request::GetInvokeID () const
     {
         return invoke_id_;
     }

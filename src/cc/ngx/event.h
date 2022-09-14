@@ -179,12 +179,12 @@ namespace cc
         
         public: // Method(s) / Function(s)
             
-            virtual void CallOnMainThread (std::function<void(void* a_payload)> a_callback, void* a_payload, int64_t a_timeout_ms = 0);
-            virtual void CallOnMainThread (std::function<void()> a_callback,int64_t a_timeout_ms = 0);
+            virtual void CallOnMainThread (std::function<void(void* a_payload)> a_callback, void* a_payload, uint64_t a_timeout_ms = 0);
+            virtual void CallOnMainThread (std::function<void()> a_callback, uint64_t a_timeout_ms = 0);
 
         private: // Method(s) / Function(s)
             
-            void ScheduleCalbackOnMainThread (Callback* a_callback, int64_t a_timeout_ms);
+            void ScheduleCalbackOnMainThread (Callback* a_callback, uint64_t a_timeout_ms);
             void ThrowFatalException         (const cc::Exception& a_ev_exception);
             
         private: // Static Method(s) / Function(s) - Dummy

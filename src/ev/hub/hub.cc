@@ -157,7 +157,7 @@ const char* const ev::hub::Hub::k_msg_no_payload_format_   = INT64_FMT_ZP(19) ":
 const char* const ev::hub::Hub::k_msg_with_payload_format_ = INT64_FMT_ZP(19) ":" UINT8_FMT_ZP(3) ":" UINT8_FMT_ZP(3) ":" UINT8_FMT_ZP(3) ":%p";
 const size_t      ev::hub::Hub::k_msg_min_length_          = 31;
 
-const int64_t     ev::hub::Hub::k_wake_msg_invalid_id_     = std::numeric_limits<int64_t>::min();
+const uint64_t     ev::hub::Hub::k_wake_msg_invalid_id_     = std::numeric_limits<uint64_t>::min();
 
 /**
  * @brief Default constructor.
@@ -729,12 +729,12 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
         }
 
         int     tmp_number;
-        int64_t invoke_id;
+        uint64_t invoke_id;
         if ( 1 != sscanf(invoke_id_ptr, "%d:", &tmp_number) ) {
             self->bridge_.ThrowFatalException(ev::Exception("Unable to read '%s' value!", "invoke id"));
             return;
         }
-        invoke_id = static_cast<int64_t>(tmp_number);
+        invoke_id = static_cast<uint64_t>(tmp_number);
 
         // ... read: mode, one of \link ev::Request::Mode \link  ...
         const char* mode_ptr = strchr(invoke_id_ptr, ':');
@@ -862,10 +862,10 @@ void ev::hub::Hub::DatagramEventHandlerCallback (evutil_socket_t a_fd, short /* 
                 try {
 
                     typedef struct _NextStepPayload {
-                        int64_t invoke_id_;
-                        uint8_t mode_;
-                        uint8_t target_;
-                        uint8_t tag_;
+                        uint64_t invoke_id_;
+                        uint8_t  mode_;
+                        uint8_t  target_;
+                        uint8_t  tag_;
 
                     } NextStepPayload;
 

@@ -180,7 +180,7 @@ namespace ev
             static const char* const k_msg_with_payload_format_;
             static const size_t      k_msg_min_length_;
             
-            static const int64_t     k_wake_msg_invalid_id_;
+            static const uint64_t    k_wake_msg_invalid_id_;
             
         public: // Constructor(s) / Destructor
             

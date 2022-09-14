@@ -130,13 +130,13 @@ namespace ev
                 static ::ev::redis::subscriptions::Request*   redis_subscription_;
                 static bool                                   redis_subscription_used_;
                 static ::ev::Bridge*                          bridge_;
-                static int64_t                                reconnect_timeout_;
+                static uint64_t                               reconnect_timeout_;
                 static bool                                   recovery_mode_;
                 
             private: // Static Const Data
                 
-                static const int64_t                          k_min_reconnect_timeout_;
-                static const int64_t                          k_max_reconnect_timeout_;
+                static const uint64_t                         k_min_reconnect_timeout_;
+                static const uint64_t                         k_max_reconnect_timeout_;
                 
             private: // Data Type(s)
                 

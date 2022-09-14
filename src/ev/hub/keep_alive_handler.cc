@@ -226,7 +226,7 @@ void ev::hub::KeepAliveHandler::OnConnectionStatusChanged (const ev::Device::Con
     }
     
     typedef struct {
-        const int64_t            invoke_id_;
+        const uint64_t           invoke_id_;
         const ev::Object::Target target_;
         const uint8_t            tag_;
     } Payload;
@@ -297,7 +297,7 @@ bool ev::hub::KeepAliveHandler::OnUnhandledDataObjectReceived (const ev::Device*
     CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     
     typedef struct {
-        const int64_t            invoke_id_;
+        const uint64_t           invoke_id_;
         const ev::Object::Target target_;
         const uint8_t            tag_;
         ev::Result*              result_;

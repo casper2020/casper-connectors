@@ -70,7 +70,7 @@ namespace ev
                 
                 std::chrono::steady_clock::time_point start_time_point_;
                 ngx_event_t*                          ngx_event_;
-                int64_t                               timeout_ms_;
+                uint64_t                              timeout_ms_;
 
             private:
                 
@@ -86,7 +86,7 @@ namespace ev
                  * @param a_function
                  * @param a_timeout_ms
                  */
-                Callback (std::function<void()> a_function, int64_t a_timeout_ms)
+                Callback (std::function<void()> a_function, uint64_t a_timeout_ms)
                 {
                     start_time_point_    = std::chrono::steady_clock::now();
                     no_payload_function_ = std::move(a_function);
@@ -102,7 +102,7 @@ namespace ev
                  * @param a_payload
                  * @param a_timeout_ms
                  */
-                Callback (std::function<void(void* a_payload)> a_function, void* a_payload, int64_t a_timeout_ms)
+                Callback (std::function<void(void* a_payload)> a_function, void* a_payload, uint64_t a_timeout_ms)
                 {
                     start_time_point_ = std::chrono::steady_clock::now();
                     payload_function_ = std::move(a_function);
@@ -171,13 +171,13 @@ namespace ev
             
         public: // Inherited Virtual Method(s) / Function(s) - from ::ev::Bridge
             
-            virtual void    CallOnMainThread    (std::function<void(void* a_payload)> a_callback, void* a_payload, int64_t a_timeout_ms = 0);
-            virtual void    CallOnMainThread    (std::function<void()> a_callback,int64_t a_timeout_ms = 0);
+            virtual void    CallOnMainThread    (std::function<void(void* a_payload)> a_callback, void* a_payload, uint64_t a_timeout_ms = 0);
+            virtual void    CallOnMainThread    (std::function<void()> a_callback, uint64_t a_timeout_ms = 0);
             virtual void    ThrowFatalException (const ev::Exception& a_ev_exception);
             
         private:
             
-            void ScheduleCalbackOnMainThread (Callback* a_callback, int64_t a_timeout_ms);
+            void ScheduleCalbackOnMainThread (Callback* a_callback, uint64_t a_timeout_ms);
             
         private: // Static Method(s) / Function(s)
             

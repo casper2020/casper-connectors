@@ -197,7 +197,7 @@ void ev::ngx::Bridge::Shutdown ()
  * @param a_payload
  * @param a_timeout
  */
-void ev::ngx::Bridge::CallOnMainThread (std::function<void(void* a_payload)> a_callback, void* a_payload, int64_t a_timeout_ms)
+void ev::ngx::Bridge::CallOnMainThread (std::function<void(void* a_payload)> a_callback, void* a_payload, uint64_t a_timeout_ms)
 {
     static std::mutex ___mutex;
     std::lock_guard<std::mutex> lock(___mutex);
@@ -211,7 +211,7 @@ void ev::ngx::Bridge::CallOnMainThread (std::function<void(void* a_payload)> a_c
  * @param a_callback
  * @param a_timeout
  */
-void ev::ngx::Bridge::CallOnMainThread (std::function<void()> a_callback, int64_t a_timeout_ms)
+void ev::ngx::Bridge::CallOnMainThread (std::function<void()> a_callback, uint64_t a_timeout_ms)
 {
     static std::mutex ___mutex;
     std::lock_guard<std::mutex> lock(___mutex);
@@ -240,7 +240,7 @@ void ev::ngx::Bridge::ThrowFatalException (const ev::Exception& a_ev_exception)
  * @param a_callback
  * @param a_timeout_ms
  */
-void ev::ngx::Bridge::ScheduleCalbackOnMainThread (ev::ngx::Bridge::Callback* a_callback, int64_t a_timeout_ms)
+void ev::ngx::Bridge::ScheduleCalbackOnMainThread (ev::ngx::Bridge::Callback* a_callback, uint64_t a_timeout_ms)
 {
     OSALITE_DEBUG_TRACE("ev_ngx_shared_handler",
                         "smt: ~> scheduling callback %p...",

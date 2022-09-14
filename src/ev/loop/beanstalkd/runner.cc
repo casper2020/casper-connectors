@@ -839,7 +839,7 @@ void ev::loop::beanstalkd::Runner::ExecuteOnMainThread (std::function<void()> a_
  */
 void ev::loop::beanstalkd::Runner::ScheduleOnMainThread (std::function<void()> a_callback, const size_t a_deferred)
 {
-    bridge_->CallOnMainThread(a_callback, static_cast<int64_t>(a_deferred));
+    bridge_->CallOnMainThread(a_callback, static_cast<uint64_t>(a_deferred));
 }
 
 /**

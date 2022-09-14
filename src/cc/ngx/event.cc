@@ -234,7 +234,7 @@ void cc::ngx::Event::Unregister ()
  * @param a_payload  Payload to pass to callback.
  * @param a_timeout  Delay in milliseconds.
  */
-void cc::ngx::Event::CallOnMainThread (std::function<void(void* a_payload)> a_callback, void* a_payload, int64_t a_timeout_ms)
+void cc::ngx::Event::CallOnMainThread (std::function<void(void* a_payload)> a_callback, void* a_payload, uint64_t a_timeout_ms)
 {
     static std::mutex ___mutex;
     std::lock_guard<std::mutex> lock(___mutex);
@@ -248,7 +248,7 @@ void cc::ngx::Event::CallOnMainThread (std::function<void(void* a_payload)> a_ca
  * @param a_callback Function to call.
  * @param a_timeout  Delay in milliseconds.
  */
-void cc::ngx::Event::CallOnMainThread (std::function<void()> a_callback, int64_t a_timeout_ms)
+void cc::ngx::Event::CallOnMainThread (std::function<void()> a_callback, uint64_t a_timeout_ms)
 {
     static std::mutex ___mutex;
     std::lock_guard<std::mutex> lock(___mutex);
@@ -264,7 +264,7 @@ void cc::ngx::Event::CallOnMainThread (std::function<void()> a_callback, int64_t
  * @param a_callback Function to call.
  * @param a_timeout  Delay in milliseconds.
  */
-void cc::ngx::Event::ScheduleCalbackOnMainThread (cc::ngx::Event::Callback* a_callback, int64_t a_timeout_ms)
+void cc::ngx::Event::ScheduleCalbackOnMainThread (cc::ngx::Event::Callback* a_callback, uint64_t a_timeout_ms)
 {
     // ... for debug purposes
     CC_DEBUG_LOG_TRACE("cc::ngx::Event",
