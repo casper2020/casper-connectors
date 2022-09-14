@@ -65,7 +65,7 @@ bool sys::bsd::Process::IsZombie (const bool a_optional, bool& o_is_zombie)
     
     // ... if it's a zombie and ...
     if ( 0 == pid_ ) {
-        pid_ = short_info.pbsi_pid;
+        pid_ = static_cast<pid_t>(short_info.pbsi_pid);
     }
     
     // ... done ...
@@ -85,14 +85,14 @@ bool sys::bsd::Process::IsRunning (const bool a_optional, const pid_t a_parent_p
     struct proc_bsdshortinfo short_info;
 
     if ( true == GetInfo(a_optional, short_info) ) {
-        o_is_running = ( a_parent_pid == short_info.pbsi_ppid );
+        o_is_running = ( a_parent_pid == static_cast<pid_t>(short_info.pbsi_ppid) );
     } else {
         o_is_running = false;
     }
 
     // ... if it's running and ...
     if ( 0 == pid_ ) {
-        pid_ = short_info.pbsi_pid;
+        pid_ = static_cast<pid_t>(short_info.pbsi_pid);
     }
 
     // ... done ...
