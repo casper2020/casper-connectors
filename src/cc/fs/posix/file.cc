@@ -280,7 +280,7 @@ void cc::fs::posix::File::Seek (const size_t& a_pos)
     if ( nullptr == fp_ ) {
         throw cc::fs::Exception("Unable to seek to position - file not open!");
     }
-    if ( 0 != fseek(fp_, a_pos, SEEK_SET) ) {
+    if ( 0 != fseek(fp_, static_cast<long>(a_pos), SEEK_SET) ) {
         throw ::cc::Exception("Could not write seek to " SIZET_FMT ": %s !", a_pos, strerror(errno));
     }
 }
@@ -612,7 +612,7 @@ uint64_t cc::fs::posix::File::Size (const std::string& a_uri)
     struct stat stat_info;
     if ( stat(a_uri.c_str(), &stat_info) == 0 ) {
         if ( S_ISREG(stat_info.st_mode) != 0 ) {
-            return stat_info.st_size;
+            return static_cast<uint64_t>(stat_info.st_size);
         } else {
             throw cc::fs::Exception("Unable to obtain the file '%s' size - it does not exist!", a_uri.c_str());
         }
@@ -641,7 +641,7 @@ void cc::fs::posix::File::Unique (const std::string& a_path, const std::string& 
     
     char f_template[PATH_MAX] = { 0, 0 };
     memcpy(f_template, o_uri.c_str(), o_uri.length());
-    int fd = mkstemps(f_template, sizeof(char) * static_cast<int>(a_extension.length() + 1));
+    int fd = mkstemps(f_template, static_cast<int>(sizeof(char) * (a_extension.length() + 1)));
     if ( -1 == fd ) {
         throw cc::Exception("%d - %s", errno, strerror(errno));
     } else {
