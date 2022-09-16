@@ -62,7 +62,7 @@ namespace cc
                 
                 std::chrono::steady_clock::time_point start_time_point_;
                 ngx_event_t*                          ngx_event_;
-                int64_t                               timeout_ms_;
+                uint64_t                              timeout_ms_;
 
             private:
                 
@@ -79,7 +79,7 @@ namespace cc
                  * @param a_function
                  * @param a_timeout_ms
                  */
-                Callback (const Event* a_event, std::function<void()> a_function, int64_t a_timeout_ms)
+                Callback (const Event* a_event, std::function<void()> a_function, uint64_t a_timeout_ms)
                  : event_ptr_(a_event)
                 {
                     start_time_point_    = std::chrono::steady_clock::now();
@@ -97,7 +97,7 @@ namespace cc
                  * @param a_payload
                  * @param a_timeout_ms
                  */
-                Callback (const Event* a_event, std::function<void(void* a_payload)> a_function, void* a_payload, int64_t a_timeout_ms)
+                Callback (const Event* a_event, std::function<void(void* a_payload)> a_function, void* a_payload, uint64_t a_timeout_ms)
                     : event_ptr_(a_event)
                 {
                     start_time_point_ = std::chrono::steady_clock::now();
