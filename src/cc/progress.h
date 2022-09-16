@@ -106,10 +106,17 @@ namespace cc
         typedef struct {
             S     stage_;      //!< One of \link S \link
             float percentage_; //!< 0..100
-            Stats stats_;      //!< Statistics data.
         } Value;
         
         typedef std::function<void(const Value&)> Callback;
+        
+    private: // Data Type(s)
+        
+        typedef struct {
+            std::chrono::steady_clock::time_point tp_;
+            float                                 pv_;
+            S                                     st_;
+        } Last;
         
     private: // Const Data
         
@@ -127,7 +134,7 @@ namespace cc
         
     private: // Data - Notification Control
         
-        std::chrono::steady_clock::time_point last_;
+        Last last_;
                         
     public: // Constructor(s) / Destructor
         
@@ -150,7 +157,9 @@ namespace cc
             timeout_           = 3; // 3 sec
             callback_          = nullptr;
             stats_             = new Stats();
-            last_              = std::chrono::steady_clock::time_point::max();
+            last_.tp_          = std::chrono::steady_clock::time_point::max();
+            last_.pv_          = std::numeric_limits<float>::max();
+            last_.st_          = a_default;
         }
         
         /**
@@ -175,7 +184,9 @@ namespace cc
                 value_.stage_      = default_stage_;
             }
             if ( ResetFlags::Notifications == ( a_flags & ResetFlags::Notifications ) ) {
-                last_ = std::chrono::steady_clock::time_point::max();
+                last_.tp_ = std::chrono::steady_clock::time_point::max();
+                last_.pv_ = std::numeric_limits<float>::max();
+                last_.st_ = default_stage_;
             }
             if ( ResetFlags::Statistics == ( a_flags & ResetFlags::Statistics ) ) {
                 stats_->Reset();
@@ -228,9 +239,15 @@ namespace cc
         inline void Notify (bool a_force = false)
         {
             const auto now     = std::chrono::steady_clock::now();
-            const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - last_).count();
-            if ( std::chrono::steady_clock::time_point::max() == last_ || elapsed >= timeout_ || true == a_force ) {
-                last_ = now;
+            const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - last_.tp_).count();
+            bool       notify  = ( std::chrono::steady_clock::time_point::max() == last_.tp_ || elapsed >= timeout_ );
+            if ( true == a_force ) {
+                notify = ( true == notify || last_.pv_ != value_.percentage_ || last_.st_ != value_.stage_ );
+            }
+            if ( true == notify ) {
+                last_.tp_ = now;
+                last_.pv_ = value_.percentage_;
+                last_.st_ = value_.stage_;
                 if ( nullptr != callback_ ) {
                     callback_(value_);
                 }
