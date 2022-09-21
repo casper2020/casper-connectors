@@ -47,6 +47,29 @@ namespace ev
             
         public: // Data Types
             
+            class Client
+            {
+                
+            public: // Constructor(s) / Destructor
+                
+                /**
+                 * @brief Default constructor.
+                 */
+                Client ()
+                {
+                    /* empty */
+                }
+                
+                /**
+                 * @brief Destructor.
+                 */
+                virtual ~Client ()
+                {
+                    /* empty */
+                }
+                
+            }; // end of class 'Client'
+            
             /**
              * A collection of URIs to load document data.
              */
@@ -182,7 +205,12 @@ namespace ev
                     return offload_;
                 }
             };
-                        
+            
+            typedef struct {
+                std::function<::ev::postgresql::JSONAPI&(const ::ev::postgresql::JSONAPI::Client*)> register_;
+                std::function<void(const ::ev::postgresql::JSONAPI::Client*)>                       unregister_;
+            } RUCallbacks;
+            
             /*
              * Error data holder. // TODO 2.0 - USE IT
              */
