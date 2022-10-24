@@ -23,15 +23,15 @@
 
 #ifndef NRS_CASPER_CONNECTORS_V8_INCLUDES_H
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wsign-conversion"
-#pragma GCC diagnostic ignored "-Wshadow-all"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma clang diagnostic ignored "-Wsign-conversion"
+#pragma clang diagnostic ignored "-Wshadow-all"
 
 #include "libplatform/libplatform.h"
 #include "v8.h"
 #include "v8-version.h"
 
-#pragma GCC diagnostic pop
+#pragma clang diagnostic pop
 
 #endif // NRS_CASPER_CONNECTORS_V8_INCLUDES_H

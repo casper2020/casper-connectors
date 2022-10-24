@@ -33,12 +33,12 @@
   #include <libproc.h>
 #endif
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#pragma GCC diagnostic ignored "-Wextra-semi"
-#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#pragma clang diagnostic ignored "-Wextra-semi"
+#pragma clang diagnostic ignored "-Wsign-conversion"
 #include "lemon/topology_sort.h"
-#pragma GCC diagnostic pop
+#pragma clang diagnostic pop
 
 #include "cc/exception.h"
 

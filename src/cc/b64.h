@@ -22,14 +22,14 @@
 #ifndef NRS_CC_B64_H_
 #define NRS_CC_B64_H_
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma clang diagnostic ignored "-Wsign-conversion"
 
 #include "cppcodec/base64_url_unpadded.hpp"
 #include "cppcodec/base64_rfc4648.hpp"
 
-#pragma GCC diagnostic pop
+#pragma clang diagnostic pop
 
 namespace cc
 {

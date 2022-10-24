@@ -22,8 +22,8 @@
 #ifndef NRS_CC_ICU_INCLUDES_H_
 #define NRS_CC_ICU_INCLUDES_H_
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wsign-conversion"
 
 #include "unicode/locid.h" // locale
 #include "unicode/ustring.h"
@@ -31,6 +31,6 @@
 #include "unicode/datefmt.h"  // U_ICU_NAMESPACE::DateFormat
 #include "unicode/smpdtfmt.h" // U_ICU_NAMESPACE::SimpleDateFormat
 
-#pragma GCC diagnostic pop
+#pragma clang diagnostic pop
 
 #endif // NRS_CC_ICU_INCLUDES_H_
