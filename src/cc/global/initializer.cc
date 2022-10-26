@@ -33,6 +33,9 @@
 
 #include "cc/curl/initializer.h"
 
+#include <libpq-fe.h> // PQlibVersion
+#include <pg_config.h> // PG_VERSION, PG_VERSION_STR
+
 #include "cc/fs/dir.h"
 #include "cc/fs/file.h"
 
@@ -558,7 +561,15 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         } else {
             throw ::cc::Exception("Unable to initialize cURL, error code is %d", (int)curl_init_rv);
         }
-                 
+        
+        //
+        // ... PostgreSQL ...
+        //
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "LIBPQ");
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %d\n", "VERSION", PQlibVersion());
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " %s\n", "VERSION STR", PG_VERSION_STR);
+        CC_GLOBAL_INITIALIZER_LOG("cc-status","\t\t- " CC_GLOBAL_INITIALIZER_KEY_FMT " OK\n", "INIT");
+        
         //
         // ... process specific initialization ...
         //
