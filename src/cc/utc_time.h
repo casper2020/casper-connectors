@@ -51,6 +51,7 @@ namespace cc
         static HumanReadable ToHumanReadable    (const int64_t a_epoch);
         static std::string   NowISO8601DateTime ();
         static std::string   NowISO8601WithTZ   ();
+        static std::string   NowASN1            ();
         
     }; // end of class 'Time'
     
