@@ -69,8 +69,8 @@ const std::map<const char* const, cc::auth::JWT::RegisteredClaim> cc::auth::JWT:
 cc::auth::JWT::JWT (const char* const a_issuer)
     : issuer_(a_issuer)
 {
-    header_   = Json::Value::null;
-    payload_  = Json::Value::null;
+    header_   = Json::Value(Json::ValueType::nullValue);
+    payload_  = Json::Value(Json::ValueType::nullValue);
 }
 
 /**

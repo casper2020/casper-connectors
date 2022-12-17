@@ -39,8 +39,8 @@ namespace cc
             
         public : // Static Const Data
             
-            static const unsigned char sk_signature_prefix_[];
-            static const size_t        sk_signature_prefix_size_;
+            static const unsigned char sk_signature_prefix_[];    //!< 19 byte ASN1 structure from the IETF rfc3447 for SHA256
+            static const size_t        sk_signature_prefix_size_; //!< always 19 bytes
             
         public: // Enum(s)
             

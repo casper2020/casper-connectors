@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 
 #include <string>
+#include <functional>
 
 #include "cc/non-copyable.h"
 #include "cc/non-movable.h"
@@ -85,6 +86,7 @@ namespace cc
                 static void     Extension (const std::string& a_uri, std::string& o_extension);
                 static void     Path      (const std::string& a_uri, std::string& o_path);
                 static bool     Exists    (const std::string& a_uri);
+                static void     Find      (const std::string& a_uri, const std::string& a_pattern, const std::function<bool(const std::string& a_uri)> a_callback);
                 static void     Erase     (const std::string& a_uri);
                 static void     Erase     (const std::string& a_dir, const std::string& a_pattern);
                 static void     Rename    (const std::string& a_from_uri, const std::string& a_to_uri);

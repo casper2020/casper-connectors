@@ -439,6 +439,54 @@ bool cc::fs::posix::File::Exists (const std::string& a_uri)
 }
 
 /**
+ * @brief Search for files withing a directory.
+ *
+ * @param a_uri      Directoru URI.
+ * @param a_pattern  Pattern to apply to file list.
+ * @param a_callback Function to call to deliver each result.
+ */
+void cc::fs::posix::File::Find (const std::string& a_uri, const std::string& a_pattern, const std::function<bool(const std::string& a_uri)> a_callback)
+{
+    DIR* handle = opendir(a_uri.c_str());
+    if ( handle == NULL ) {
+        if ( false == Exists(a_uri) ) {
+            throw cc::fs::Exception("'%s' does not exist!", a_uri.c_str());
+        } else {
+            throw cc::fs::Exception("Unable to open directory '%s'!", a_uri.c_str());
+        }
+    }
+    std::stringstream ss;
+    // ... seek ...
+    struct dirent* entry;
+    while ( ( entry = readdir(handle) ) != NULL ) {
+        // ... is it a file?
+        if ( ! ( entry->d_type & DT_REG ) ) {
+            // ... no ...
+            continue;
+        }
+        // .. yes, the pattern matches?
+        if ( 0 != fnmatch(a_pattern.c_str(), entry->d_name, FNM_CASEFOLD) ) {
+            // ... no ...
+            continue;
+        }
+        ss.str("");
+        ss << a_uri << entry->d_name;
+        try {
+            if ( false == a_callback(ss.str()) ) {
+                break;
+            }
+        } catch (...) {
+            // ... close handle ...
+            closedir(handle);
+            // ... rethrow exception ...
+            CC_EXCEPTION_RETHROW(/* a_unhandled*/ false);
+        }
+    }
+    // ... close handle ...
+    closedir(handle);
+}
+
+/**
  * @brief Erase a file
  *
  * @param a_uri File URI.
