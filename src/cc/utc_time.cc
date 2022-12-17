@@ -116,3 +116,23 @@ std::string cc::UTCTime::NowISO8601WithTZ ()
 
     return std::string(buff, static_cast<size_t>(w));
 }
+
+/**
+ * @return YYMMDDHHMMSSZ
+ */
+std::string cc::UTCTime::NowASN1 ()
+{
+    const cc::UTCTime::HumanReadable hr = cc::UTCTime::ToHumanReadable(cc::UTCTime::Now());
+    
+    char buff[14] = {0};
+    const int w = snprintf(buff, 26, "%02d%02d%02d%02d%02d%02dZ",
+                           static_cast<int>(hr.year_ % 100), static_cast<int>(hr.month_  ), static_cast<int>(hr.day_    ),
+                           static_cast<int>(hr.hours_), static_cast<int>(hr.minutes_), static_cast<int>(hr.seconds_)
+    );
+
+    if ( w <= 0 || w > 13 ) {
+        throw cc::Exception("Unable to convert epoch to YYMMDDHHMMSSZ!");
+    }
+
+    return std::string(buff, static_cast<size_t>(w));
+}
