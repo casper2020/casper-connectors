@@ -25,7 +25,9 @@
 
 #include "cc/logs/basic.h"
 
-#include "cc/postgresql/offloader/logger.h"
+#if defined(CC_POSTGRESQL_OFFLOADER_REQUIRED)
+  #include "cc/postgresql/offloader/logger.h"
+#endif
 
 #include "ev/logger.h"
 #include "ev/logger_v2.h"
@@ -256,7 +258,9 @@ bool ev::Signals::OnSignal (const int a_sig_no)
                                           a_sig_no
             );
             ::cc::logs::Basic::GetInstance().Recycle();
+#if defined(CC_POSTGRESQL_OFFLOADER_REQUIRED)
             CC_POSTGRESQL_OFFLOADER_LOG_RECYCLE();
+#endif
             ::ev::Logger::GetInstance().Recycle();
             ::ev::LoggerV2::GetInstance().Recycle();
             CC_DEBUG_LOG_RECYCLE();
