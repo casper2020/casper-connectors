@@ -114,10 +114,10 @@
     }()
 #endif
 
-#ifdef __APPLE__
+#if defined(__APPLE__)
     #define CC_IF_DARWIN(...) ___VA_ARGS
     #define CC_IF_LINUX(...)
-#elif __linux
+#elif defined(linux) || defined(__linux) || defined(__linux__)
     #define CC_IF_DARWIN(...)
     #define CC_IF_LINUX(...) ___VA_ARGS
 #else
