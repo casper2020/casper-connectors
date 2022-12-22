@@ -114,4 +114,14 @@
     }()
 #endif
 
+#ifdef __APPLE__
+    #define CC_IF_DARWIN(...) ___VA_ARGS
+    #define CC_IF_LINUX(...)
+#elif __linux
+    #define CC_IF_DARWIN(...)
+    #define CC_IF_LINUX(...) ___VA_ARGS
+#else
+    #error ???
+#endif
+
 #endif // NRS_CC_MACROS_H_
