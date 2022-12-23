@@ -230,6 +230,7 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
                             /* rel_date_       */ a_arguments.rel_date_,
                             /* rel_branch_     */ a_arguments.rel_branch_,
                             /* rel_hash_       */ a_arguments.rel_hash_,
+                            /* rel_target_     */ a_arguments.rel_target_,
                             /* info_           */ a_arguments.info_,
                             /* banner_         */ a_arguments.banner_,
                             /* instance_       */ static_cast<int>(opt.GetUInt64('i')->value()),
