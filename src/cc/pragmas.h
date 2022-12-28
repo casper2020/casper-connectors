@@ -25,10 +25,10 @@
 // COMPILER
 #if defined(__clang__)
     #define CC_USING_CLANG 1
-#elif defined(CC_USING_GCC)
+#elif defined(__GNUC__)
     #define CC_USING_GCC 1
 #else
-    #error Only one compiler should be set!
+    #error Don\'t know which compiler!
 #endif
 
 // C++ VERSION
@@ -70,12 +70,6 @@
 #define CC_DEPRECATED \
     [[deprecated]]
 
-#define CC_MARK_INTENDED_VIRTUAL_OVERRIDING(function) \
-    _Pragma("clang diagnostic push") \
-    _Pragma("clang diagnostic ignored \"-Woverloaded-virtual\"") \
-    function \
-    _Pragma("clang diagnostic pop")
-
 #if (defined(__clang__) && !defined(__GNUC__))
     #define CC_USING_CLANG 1
 #endif
@@ -89,15 +83,25 @@
         CC_DO_PRAGMA(clang diagnostic ignored warning)
     #define CC_DIAGNOSTIC_POP() \
         CC_DO_PRAGMA(clang diagnostic pop)
+    #define CC_MARK_INTENDED_VIRTUAL_OVERRIDING(function) \
+        _Pragma("clang diagnostic push") \
+        _Pragma("clang diagnostic ignored \"-Woverloaded-virtual\"") \
+        function \
+        _Pragma("clang diagnostic pop")
 #elif 1 == CC_USING_GCC
     #define CC_DIAGNOSTIC_PUSH() \
-        CC_DO_PRAGMA(gcc diagnostic push);
+        CC_DO_PRAGMA(GCC diagnostic push);
     #define CC_DIAGNOSTIC_IGNORED(warning) \
-        CC_DO_PRAGMA(gcc diagnostic ignored warning)
+        CC_DO_PRAGMA(GCC diagnostic ignored warning)
     #define CC_DIAGNOSTIC_POP() \
-        CC_DO_PRAGMA(gcc diagnostic pop)
+        CC_DO_PRAGMA(GCC diagnostic pop)
+    #define CC_MARK_INTENDED_VIRTUAL_OVERRIDING(function) \
+        _Pragma("GCC diagnostic push") \
+        _Pragma("GCC diagnostic ignored \"-Woverloaded-virtual\"") \
+        function \
+        _Pragma("GCC diagnostic pop")
 #else
-    #error Don't know which compiler!
+    #error Don\'t know which compiler!
 #endif
 
 #endif // NRS_CC_COMPILER_DEFS_H_
