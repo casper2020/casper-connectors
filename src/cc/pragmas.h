@@ -28,7 +28,7 @@
 #elif defined(__GNUC__)
     #define CC_USING_GCC 1
 #else
-    #error Don\'t know which compiler!
+    #error Do not know which compiler!
 #endif
 
 // C++ VERSION
@@ -101,7 +101,7 @@
         function \
         _Pragma("GCC diagnostic pop")
 #else
-    #error Don\'t know which compiler!
+    #error Do not know which compiler!
 #endif
 
 #endif // NRS_CC_COMPILER_DEFS_H_
