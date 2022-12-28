@@ -22,8 +22,10 @@
 #ifndef NRS_CC_ICU_INCLUDES_H_
 #define NRS_CC_ICU_INCLUDES_H_
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wsign-conversion"
+#include "cc/pragmas.h"
+
+CC_DIAGNOSTIC_PUSH()
+CC_DIAGNOSTIC_IGNORED("-Wsign-conversion")
 
 #include "unicode/locid.h" // locale
 #include "unicode/ustring.h"
@@ -31,6 +33,6 @@
 #include "unicode/datefmt.h"  // U_ICU_NAMESPACE::DateFormat
 #include "unicode/smpdtfmt.h" // U_ICU_NAMESPACE::SimpleDateFormat
 
-#pragma clang diagnostic pop
+CC_DIAGNOSTIC_POP()
 
 #endif // NRS_CC_ICU_INCLUDES_H_

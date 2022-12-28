@@ -23,8 +23,10 @@
 
 #include <iomanip> // std::setw
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wshadow-field"
+#include "cc/pragmas.h"
+
+CC_DIAGNOSTIC_PUSH()
+CC_DIAGNOSTIC_IGNORED("-Wshadow-field")
 
 #include "unicode/ustring.h"
 #include "unicode/unistr.h"
@@ -34,7 +36,7 @@
 #include "unicode/dtfmtsym.h" // U_ICU_NAMESPACE::DateFormatSymbols
 #include "unicode/schriter.h" // U_ICU_NAMESPACE::StringCharacterIterator
 
-#pragma clang diagnostic pop
+CC_DIAGNOSTIC_POP()
 
 #include "cc/fs/dir.h"
 

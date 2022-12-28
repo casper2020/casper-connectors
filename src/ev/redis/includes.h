@@ -22,13 +22,15 @@
 
 #ifndef NRS_EV_REDIS_INCLUDES_H_
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-parameter"
-#pragma clang diagnostic ignored "-Wunused-function"
-#pragma clang diagnostic ignored "-Wconversion"
+#include "cc/pragmas.h"
+
+CC_DIAGNOSTIC_PUSH()
+CC_DIAGNOSTIC_IGNORED("-Wunused-parameter")
+CC_DIAGNOSTIC_IGNORED("-Wunused-function")
+CC_DIAGNOSTIC_IGNORED("-Wconversion")
 #ifdef __APPLE__
-    #pragma clang diagnostic ignored "-Wshorten-64-to-32"
-    #pragma clang diagnostic ignored "-Wc99-extensions"
+    CC_DIAGNOSTIC_IGNORED("-Wshorten-64-to-32")
+    CC_DIAGNOSTIC_IGNORED("-Wc99-extensions")
 #endif
 extern "C" {
     #pragma clang system_header
@@ -37,6 +39,6 @@ extern "C" {
     #include "hiredis/adapters/libevent.h"
     #include "hiredis/sds.h"
 }
-#pragma clang diagnostic pop
+CC_DIAGNOSTIC_POP()
 
 #endif // NRS_EV_REDIS_INCLUDES_H_
