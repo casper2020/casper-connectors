@@ -97,11 +97,11 @@ namespace ev
                     
                     pid_t              pid_;
                     uint64_t           instance_;
-                    int                cluster_;
+                    uint64_t           cluster_;
                     std::string        service_id_;
                     bool               transient_;
                     int                min_progress_;
-                    int                log_level_;
+                    size_t             log_level_;
                     bool               log_redact_;
                     std::string        log_token_;
                     Json::Value        other_;
@@ -126,9 +126,9 @@ namespace ev
                      * @param a_other
                      * @param a_dnbe
                      */
-                    Config (const pid_t& a_pid, const uint64_t& a_instance, const int& a_cluster, const std::string& a_service_id, const bool a_transient,
+                    Config (const pid_t& a_pid, const uint64_t& a_instance, const uint64_t& a_cluster, const std::string& a_service_id, const bool a_transient,
                             const int a_min_progress,
-                            const int a_log_level, const bool a_log_redact, const std::string& a_log_token,
+                            const size_t a_log_level, const bool a_log_redact, const std::string& a_log_token,
                             const Json::Value& a_other, const std::set<uint16_t>& a_dnbe)
                         : pid_(a_pid), instance_(a_instance), cluster_(a_cluster), service_id_(a_service_id), transient_(a_transient), min_progress_(a_min_progress),
                           log_level_(a_log_level), log_redact_(a_log_redact), log_token_(a_log_token), other_(a_other), dnbe_(a_dnbe)
@@ -190,7 +190,7 @@ namespace ev
                     /**
                      * @return R/O Access to \link cluster_ \link.
                      */
-                    inline const int& cluster () const
+                    inline const uint64_t& cluster () const
                     {
                         return cluster_;
                     }
@@ -222,7 +222,7 @@ namespace ev
                     /**
                      * @return R/O Access to \link log_level_ \link.
                      */
-                    inline const int& log_level () const
+                    inline const size_t& log_level () const
                     {
                         return log_level_;
                     }
@@ -276,7 +276,7 @@ namespace ev
                      *
                      * @param a_cluster Cluster number.
                      */
-                    inline void SetCluster (const int& a_cluster)
+                    inline void SetCluster (const uint64_t& a_cluster)
                     {
                         cluster_ = a_cluster;
                     }
@@ -328,8 +328,8 @@ namespace ev
                 typedef std::function<void(const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code)> CompletedCallback;
                 typedef std::function<void(bool a_already_ran)>                                                                CancelledCallback;
                 
-                typedef std::function<void(const int64_t&, const std::string&, const int64_t)>                                 DeferredCallback;
-                typedef std::function<void(const int64_t&, const std::string&)>                                                FinishedCallback;
+                typedef std::function<void(const uint64_t&, const std::string&, const int64_t)>                                DeferredCallback;
+                typedef std::function<void(const uint64_t&, const std::string&)>                                               FinishedCallback;
 
                 typedef std::function<void(const ev::Exception&)>                                                                                                         FatalExceptionCallback;
                 typedef std::function<void(std::function<void()> a_callback, bool a_blocking)>                                                                            DispatchOnMainThread;
@@ -400,7 +400,7 @@ namespace ev
                 
             private: // Data
                 
-                int64_t                   bjid_;                //!< BEANSTALKD job id.
+                uint64_t                  bjid_;                //!< BEANSTALKD job id.
                 std::string               rjnr_;                //!< REDIS job id.
                 std::string               rjid_;                //!< REDIS job key.
                 std::string               rcid_;                //!< REDIS job channel.
@@ -462,7 +462,7 @@ namespace ev
                 const int64_t&     Validity          () const;
                 const int64_t&     ExpiresIn         () const;
 
-                const int64_t&     ID      () const;
+                const uint64_t&    ID      () const;
                 const std::string& RJNR    () const;
                 const std::string& RJID    () const;
                 const std::string& RCID    () const;
@@ -473,7 +473,7 @@ namespace ev
                 void Setup   (const MessagePumpCallbacks* a_callbacks,
                               const ::ev::loop::beanstalkd::SharedConfig& a_shared_config, FinishedCallback a_finished);
                 void Dismantle (const ::cc::Exception* a_cc_exception);
-                void Consume (const int64_t& a_id, const Json::Value& a_payload,
+                void Consume (const uint64_t& a_id, const Json::Value& a_payload,
                               const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback, const DeferredCallback& a_deferred_callback);
 
             public: // Method(s) / Function(s)
@@ -489,7 +489,7 @@ namespace ev
 
             protected: // Pure Virtual Method(s) / Function(s)
 
-                virtual void Run (const int64_t& a_id, const Json::Value& a_payload,
+                virtual void Run (const uint64_t& a_id, const Json::Value& a_payload,
                                   const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback, const DeferredCallback& a_deferred_callback) = 0;
                 
             protected: // Method(s) / Function(s)
@@ -727,7 +727,7 @@ namespace ev
             /**
              * @return Current job ID.
              */
-            inline const int64_t& Job::ID () const
+            inline const uint64_t& Job::ID () const
             {
                 return bjid_;
             }

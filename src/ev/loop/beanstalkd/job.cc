@@ -167,7 +167,7 @@ void ev::loop::beanstalkd::Job::Dismantle (const ::cc::Exception* /* a_cc_except
  * @param a_cancelled_callback
  * @param a_deferred_callback
  */
-void ev::loop::beanstalkd::Job::Consume (const int64_t& a_id, const Json::Value& a_payload,
+void ev::loop::beanstalkd::Job::Consume (const uint64_t& a_id, const Json::Value& a_payload,
                                          const ev::loop::beanstalkd::Job::CompletedCallback& a_completed_callback,
                                          const ev::loop::beanstalkd::Job::CancelledCallback& a_cancelled_callback,
                                          const ev::loop::beanstalkd::Job::DeferredCallback& a_deferred_callback)
@@ -1024,7 +1024,7 @@ void ev::loop::beanstalkd::Job::Publish (const Json::Value& a_object,
                                          const std::function<void()> a_success_callback,
                                          const std::function<void(const ev::Exception& a_ev_exception)> a_failure_callback)
 {
-    Publish(static_cast<uint64_t>(bjid_), rcid_, rjid_, a_object, a_success_callback, a_failure_callback);
+    Publish(bjid_, rcid_, rjid_, a_object, a_success_callback, a_failure_callback);
 }
 
 /**

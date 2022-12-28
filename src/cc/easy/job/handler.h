@@ -104,7 +104,7 @@ namespace cc
                 
             private: // Inline Method(s) / Function(s)
                 
-                inline std::string LogToken (const std::string& a_tube, const int& a_cluster, const uint64_t& a_instance) const
+                inline std::string LogToken (const std::string& a_tube, const size_t& a_cluster, const uint64_t& a_instance) const
                 {
                     if ( 0 != a_cluster ) {
                         return a_tube + '.' + std::to_string(a_cluster) + '.' + std::to_string(a_instance);

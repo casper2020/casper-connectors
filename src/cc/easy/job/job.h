@@ -98,12 +98,12 @@ namespace cc
                 
             protected: // Inherited Virtual Method(s) / Function(s) - from ev::loop::beanstalkd::Job::
                 
-                virtual void Run (const int64_t& a_id, const Json::Value& a_payload,
+                virtual void Run (const uint64_t& a_id, const Json::Value& a_payload,
                                   const CompletedCallback& a_completed_callback, const CancelledCallback& a_cancelled_callback, const DeferredCallback& a_deferred_callback);
 
             protected: // Pure Virtual Method(s) / Function(s)
                 
-                virtual void Run (const int64_t& a_id, const Json::Value& a_payload, Response& o_response) = 0;
+                virtual void Run (const uint64_t& a_id, const Json::Value& a_payload, Response& o_response) = 0;
                 
             protected: // Virtual Method(s) / Function(s)
                 

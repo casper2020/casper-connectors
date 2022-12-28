@@ -63,7 +63,7 @@ cc::easy::job::Job::~Job ()
  * @param a_cancelled_callback
  * @param a_deferred_callback
  */
-void cc::easy::job::Job::Run (const int64_t& a_id, const Json::Value& a_payload,
+void cc::easy::job::Job::Run (const uint64_t& a_id, const Json::Value& a_payload,
                               const cc::easy::job::Job::CompletedCallback& a_completed_callback,
                               const cc::easy::job::Job::CancelledCallback& a_cancelled_callback,
                               const cc::easy::job::Job::DeferredCallback& a_deferred_callback)

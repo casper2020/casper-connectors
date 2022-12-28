@@ -76,7 +76,7 @@ void cc::easy::job::Handler::InnerStartup  (const ::cc::global::Process& a_proce
     const std::string pname    = a_process.name_;
     const uint64_t    instance = static_cast<uint64_t>(a_startup_config.instance_);
     const std::string logs_dir = o_config.directories_.log_;
-    const int         cluster = a_startup_config.cluster_;
+    const uint64_t    cluster  = a_startup_config.cluster_;
     
     // ... enable logs for all tubes ...
     for ( auto tube: o_config.beanstalk_.tubes_ ) {
@@ -129,7 +129,7 @@ void cc::easy::job::Handler::InnerStartup  (const ::cc::global::Process& a_proce
                 /* service_id_        */ config.get("service_id"   ,        "development").asString(),
                 /* transient_         */ config.get("transient"    ,                false).asBool(),
                 /* min_progress_      */ config.get("min_progress" ,                     3).asInt(),
-                /* log_level_         */ config.get("log_level"    , CC_JOB_LOG_LEVEL_INF).asInt(),
+                /* log_level_         */ static_cast<size_t>(config.get("log_level"    , CC_JOB_LOG_LEVEL_INF).asUInt64()),
                 /* log_redact_        */ ( config.get("log_level"    , CC_JOB_LOG_LEVEL_INF).asInt() >= CC_JOB_LOG_LEVEL_DBG ) ? false : config.get("log_redact", true).asBool(),
                 /* log_token_         */ LogToken(a_tube, cluster, instance),
                 /* other_             */ config,
@@ -234,7 +234,7 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
                             /* info_           */ a_arguments.info_,
                             /* banner_         */ a_arguments.banner_,
                             /* instance_       */ static_cast<int>(opt.GetUInt64('i')->value()),
-                            /* cluster_        */ static_cast<int>(opt.GetUInt64('k')->value()),
+                            /* cluster_        */ opt.GetUInt64('k')->value(),
                             /* exec_path_      */ a_arguments.argv_[0],
                             /* conf_file_uri_  */  opt.GetString('c')->value(),
                         },

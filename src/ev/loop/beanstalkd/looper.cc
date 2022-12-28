@@ -430,8 +430,9 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
                                       "Job #" INT64_FMT_MAX_RA " ~> Run...",
                                       job.id()
                 );
+                const uint64_t id = static_cast<uint64_t>(job.id());
                 // ... run it ...
-                job_ptr_->Consume(/* a_id */ job.id(), /* a_body */ job_payload,
+                job_ptr_->Consume(/* a_id */ id, /* a_body */ job_payload,
                                   /* on_completed_ */
                                   [&uri, &http_status_code, &success, &job_cv, this](const std::string& a_uri, const bool a_success, const uint16_t a_http_status_code) {
                                       // ...
@@ -453,7 +454,7 @@ int ev::loop::beanstalkd::Looper::Run (const ev::loop::beanstalkd::SharedConfig&
                                       job_cv.Wake();
                                   },
                                   /* a_deferred_callback */
-                                  [&deferred, &job_cv, this] (const int64_t& a_bjid, const std::string& a_rjid, const int64_t a_timeout) {
+                                  [&deferred, &job_cv, this] (const uint64_t& a_bjid, const std::string& a_rjid, const int64_t a_timeout) {
                                       // ...
                                       deferred = true;
                                       // ... track it ...
@@ -824,7 +825,7 @@ void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
  * @param a_rjid REDIS job key.
  * @param a_timeout Timeout, in seconds.
  */
-void ev::loop::beanstalkd::Looper::OnJobDeferred (const int64_t& a_bjid, const std::string& a_rjid, const int64_t a_timeout)
+void ev::loop::beanstalkd::Looper::OnJobDeferred (const uint64_t& a_bjid, const std::string& a_rjid, const int64_t a_timeout)
 {
     CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     const auto it = deferred_.find(a_rjid);
@@ -842,7 +843,7 @@ void ev::loop::beanstalkd::Looper::OnJobDeferred (const int64_t& a_bjid, const s
  * @param a_bjid BEANSTALKD job id ( for logging purposes ).
  * @param a_rjid REDIS job key.
  */
-void ev::loop::beanstalkd::Looper::OnDeferredJobFailed (const int64_t& /* a_bjid */, const std::string& a_rjid)
+void ev::loop::beanstalkd::Looper::OnDeferredJobFailed (const uint64_t& /* a_bjid */, const std::string& a_rjid)
 {
     CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     const auto it = deferred_.find(a_rjid);
@@ -858,7 +859,7 @@ void ev::loop::beanstalkd::Looper::OnDeferredJobFailed (const int64_t& /* a_bjid
  * @param a_bjid BEANSTALKD job id ( for logging purposes ).
  * @param a_rjid REDIS job key.
  */
-void ev::loop::beanstalkd::Looper::OnDeferredJobFinished (const int64_t& /* a_bjid */, const std::string& a_rjid)
+void ev::loop::beanstalkd::Looper::OnDeferredJobFinished (const uint64_t& /* a_bjid */, const std::string& a_rjid)
 {
     CC_DEBUG_FAIL_IF_NOT_AT_THREAD(thread_id_);
     const auto it = deferred_.find(a_rjid);
