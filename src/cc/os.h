@@ -23,11 +23,11 @@
 #define NRS_CC_OS_DEFS_H_
 
 #if defined(__APPLE__)
-    #define CC_IF_DARWIN(...) ___VA_ARGS__
+    #define CC_IF_DARWIN(...) __VA_ARGS__
     #define CC_IF_LINUX(...)
 #elif defined(linux) || defined(__linux) || defined(__linux__)
     #define CC_IF_DARWIN(...)
-    #define CC_IF_LINUX(...) ___VA_ARGS__
+    #define CC_IF_LINUX(...) __VA_ARGS__
 #else
     #error ???
 #endif
