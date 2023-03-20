@@ -626,23 +626,23 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
 
     } catch (const std::overflow_error& a_of_e) {
         CC_GLOBAL_INITIALIZER_LOG("cc-status","\n* std::overflow_error: %s\n", a_of_e.what());
-        exit(-1);
+        exit(EXIT_FAILURE);
     } catch (const std::bad_alloc& a_bad_alloc) {
         CC_GLOBAL_INITIALIZER_LOG("cc-status","\n* std::bad_alloc: %s\n", a_bad_alloc.what());
-        exit(-1);
+        exit(EXIT_FAILURE);
     } catch (const std::runtime_error& a_rt_e) {
         CC_GLOBAL_INITIALIZER_LOG("cc-status","\n* std::runtime_error: %s\n", a_rt_e.what());
-        exit(-1);
+        exit(EXIT_FAILURE);
     } catch (const std::exception& a_std_exception) {
         CC_GLOBAL_INITIALIZER_LOG("cc-status","\n* std::exception: %s\n", a_std_exception.what());
-        exit(-1);
+        exit(EXIT_FAILURE);
     } catch (...) {
         try {
             ::cc::Exception::Rethrow(/* a_unhandled */ true, __FILE__, __LINE__, __FUNCTION__);
         } catch (::cc::Exception& a_cc_exception) {
             CC_GLOBAL_INITIALIZER_LOG("cc-status","\n* %s\n", a_cc_exception.what());
         }
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 }
 

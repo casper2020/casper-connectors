@@ -405,6 +405,9 @@ void ev::ngx::Bridge::Handler (ngx_event_t* a_event)
     } catch (const ev::Exception& a_ev_exception) {
         OSALITE_BACKTRACE();
         handler.ThrowFatalException(a_ev_exception);
+    } catch (const osal::Exception& a_osal_exception) {
+        OSALITE_BACKTRACE();
+        handler.ThrowFatalException(ev::Exception("OSAL Exception: %s", a_osal_exception.Message()));
     } catch (const std::bad_alloc& a_bad_alloc) {
         OSALITE_BACKTRACE();
         handler.ThrowFatalException(ev::Exception("C++ Bad Alloc: %s\n", a_bad_alloc.what()));

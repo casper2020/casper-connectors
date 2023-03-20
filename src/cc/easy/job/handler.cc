@@ -174,7 +174,7 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
         if ( true == a_clean ) {
             clean_shutdown();
         }
-        exit(-1);
+        exit(EXIT_FAILURE);
     };
     
     try {

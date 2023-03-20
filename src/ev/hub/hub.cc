@@ -608,7 +608,7 @@ void ev::hub::Hub::EventFatalCallback (int a_error)
         fprintf(output, "Event loop fatal error - code %d\n", a_error);
         fflush(output);
     }
-    exit(-1);
+    exit(EXIT_FAILURE);
 }
 
 /**
