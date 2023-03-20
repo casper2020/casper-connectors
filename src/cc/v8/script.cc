@@ -115,11 +115,12 @@ void cc::v8::Script::Compile (const ::v8::Local<::v8::String>& a_script, const c
     ss << "//\n\n";
     ss << *script;
     
-    const auto dump = [this, o_data] (std::stringstream& a_ss) {
+    const std::string uri = out_path_ + name_ + ".js";
+    
+    const auto dump = [o_data, &uri] (std::stringstream& a_ss) {
         if ( nullptr != o_data ) {
             (*o_data) = a_ss.str();
         } else {
-            const std::string uri = out_path_ + name_ + ".js";
             std::ofstream out(uri, std::ofstream::out);
             if ( ! out ) {
                 throw cc::v8::Exception("Failed to write data to '%s'!", uri.c_str());
@@ -131,7 +132,7 @@ void cc::v8::Script::Compile (const ::v8::Local<::v8::String>& a_script, const c
 
     const auto start_tp = std::chrono::high_resolution_clock::now();
     try {
-        context_.Compile(name_, a_script, a_functions);
+        context_.Compile(uri, a_script, a_functions);
         // ...
         const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_tp ).count();
         // ... sucesss ...
@@ -179,6 +180,11 @@ void cc::v8::Script::TranslateFromV8Value (::v8::Isolate* a_isolate, const ::v8:
         }
     } else if ( true == value->IsBoolean() ) {
         o_value = value->BooleanValue(a_isolate);
+    } else if ( true == value->IsDate() ) {
+        // o_value.SetDate(value->NumberValue(a_isolate));
+        int x = 0;
+        x *= 1;
+        CC_ASSERT(1 == 0);
     } else if ( true == value->IsNumber() ) {
         if ( true == value->IsInt32() ) {
             o_value = value->Int32Value(a_isolate->GetCurrentContext()).FromMaybe(0.0);

@@ -71,6 +71,7 @@ namespace cc
                 String,
                 Boolean,
                 Object,
+                Date,
                 Null
             };
             
@@ -120,6 +121,10 @@ namespace cc
                         break;
                     case Type::Object:
                         object_ = a_value.object_;
+                        break;
+                    case Type::Date:
+                        value_.double_ = a_value.value_.double_;
+                        break;
                     default:
                         set_  = false;
                         type_ = Type::Undefined;
@@ -211,6 +216,8 @@ namespace cc
                         return "Boolean";
                     case Type::Object:
                         return "Object";
+                    case Type::Date:
+                        return "Date";
                     case Type::Null:
                         return "Null";
                     default:
@@ -233,7 +240,19 @@ namespace cc
             {
                 return ( true == set_ && Type::Null == type_ );
             }
+
+            inline void SetDate (const double a_value)
+            {
+                set_  = true;
+                type_ = Type::Date;
+                value_.double_ = a_value;
+            }
             
+            inline bool IsDate () const
+            {
+                return ( true == set_ && Type::Date == type_ );
+            }
+
             inline bool IsUndefined () const
             {
                 return ( false == set_ || Type::Undefined == type_ );
@@ -283,6 +302,9 @@ namespace cc
                         break;
                     case Type::Object:
                         object_ = a_value.object_;
+                        break;
+                    case Type::Date:
+                        value_.double_ = a_value.value_.double_;
                         break;
                     default:
                         set_  = false;

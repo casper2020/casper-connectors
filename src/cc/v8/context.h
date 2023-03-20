@@ -167,8 +167,8 @@ namespace cc
             static void LoadFunctions (::v8::Local<::v8::Context>& a_context, ::v8::Context::Scope& a_scope, ::v8::TryCatch& a_try_catch,
                                        const FunctionsVector& a_functions, LoadedFunctionsMap& o_functions);
             
-            bool TraceException (::v8::TryCatch* a_try_catch, std::string& o_trace) const;
-            void ThrowException (::v8::TryCatch* a_try_catch) const;
+            bool TraceException (::v8::TryCatch* a_try_catch, const std::string* a_name, std::string& o_trace) const;
+            void ThrowException (::v8::TryCatch* a_try_catch, const std::string* a_name = nullptr) const;
             
         }; // end of class 'ClientContext'
         

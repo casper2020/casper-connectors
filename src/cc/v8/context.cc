@@ -138,7 +138,7 @@ bool cc::v8::Context::Parse (const char* const a_data,
  * @param a_functions
  * @param a_on_error
  */
-void cc::v8::Context::Compile (const std::string& /* a_name */,
+void cc::v8::Context::Compile (const std::string& a_name,
                                const ::v8::Local<::v8::String>& a_script, const cc::v8::Context::FunctionsVector* a_functions)
 {
     // TODO v8 - use callable
@@ -168,7 +168,7 @@ void cc::v8::Context::Compile (const std::string& /* a_name */,
         // the script failed to compile
         //
         // ... report it ...
-        ThrowException(&try_catch);
+        ThrowException(&try_catch, &a_name);
     }
     // make it permanent
     script_.Reset(isolate_ptr_, local_compiled_script);
@@ -182,7 +182,7 @@ void cc::v8::Context::Compile (const std::string& /* a_name */,
         // the script failed to run
         //
         // ... report it ...
-        ThrowException(&try_catch);
+        ThrowException(&try_catch, &a_name);
     }
     
     //
@@ -330,9 +330,10 @@ void cc::v8::Context::LoadFunctions (::v8::Local<::v8::Context>& a_context, ::v8
  * @brief Collect all available data about an exception and return it as a string.
  *
  * @param a_try_catch
- * @param a_on_error
+ * @param a_name
+ * @param o_trace
  */
-bool cc::v8::Context::TraceException (::v8::TryCatch* a_try_catch, std::string& o_trace) const
+bool cc::v8::Context::TraceException (::v8::TryCatch* a_try_catch, const std::string* a_name, std::string& o_trace) const
 {
     ::v8::HandleScope             handle_scope(isolate_ptr_);
     const ::v8::String::Utf8Value exception(isolate_ptr_, a_try_catch->Exception());
@@ -372,7 +373,7 @@ bool cc::v8::Context::TraceException (::v8::TryCatch* a_try_catch, std::string& 
     ::v8::Local<::v8::Context> context = context_.Get(isolate_ptr_);
     
     // <filename>:<line number>: <message>
-    ss << *filename << ':' << message->GetLineNumber(context).FromJust() << ": " << exception_c_str << '\n';
+    ss << ( nullptr != a_name ? *a_name : *filename ) << ':' << message->GetLineNumber(context).FromJust() << ": " << exception_c_str << '\n';
     
     // line of source code.
     const ::v8::String::Utf8Value source_line(isolate_ptr_, message->GetSourceLine(context).ToLocalChecked());
@@ -412,12 +413,12 @@ bool cc::v8::Context::TraceException (::v8::TryCatch* a_try_catch, std::string& 
  * @brief Collect all available data about an exception and log it.
  *
  * @param a_try_catch
- * @param a_on_error
+ * @param a_name
  */
-void cc::v8::Context::ThrowException (::v8::TryCatch* a_try_catch) const
+void cc::v8::Context::ThrowException (::v8::TryCatch* a_try_catch, const std::string* a_name) const
 {
     std::string trace_str;
-    if ( true == cc::v8::Context::TraceException(a_try_catch, trace_str) ) {
+    if ( true == cc::v8::Context::TraceException(a_try_catch, a_name, trace_str) ) {
         CC_DEBUG_LOG_TRACE("v8-context-exceptions", "%s", trace_str.c_str());
         throw cc::v8::Exception("%s", trace_str.c_str());
     } else {
