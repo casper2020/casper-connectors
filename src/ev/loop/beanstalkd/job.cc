@@ -316,6 +316,13 @@ uint16_t ev::loop::beanstalkd::Job::FillResponseObject (const uint16_t& a_code, 
         if ( true == o_object[a_action].isMember("message") ) {
             o_object["message"] = o_object[a_action].removeMember("message");
         }
+        // ... for, let's call it, 'legacy support reasons' check if we do we have an '👽 passenger'?
+        if ( true == o_object[a_action].isMember("__alien__") ) {
+            // ... yes, 👽 aboard ...
+            MergeJSONValue(o_object, o_object[a_action]["__alien__"]);
+            // ... promoted to '🛸' captain ...
+            o_object[a_action].removeMember("__alien__");
+        }        
     } else if ( false == a_response.isNull() ) {
         // ... 'response' is direct copy ...
         throw ::ev::Exception("%s", "Response must be a valid JSON object!");

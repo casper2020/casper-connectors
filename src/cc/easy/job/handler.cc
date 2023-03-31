@@ -184,6 +184,7 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
                         a_arguments.banner_.c_str(),
             {
                 // NOTES: THIS OBJECTS WILL BE DELETE WHEN cc::OptArg::~OptArg IS CALLED
+                new cc::OptArg::String(/* a_long */ "alias"  , /* a_short */ 'a', /* a_optional */ true              , /* a_tag */ "alias"  , /* a_help */ "process alias"       ),
                 new cc::OptArg::String(/* a_long */ "config" , /* a_short */ 'c', /* a_optional */ false             , /* a_tag */ "uri"    , /* a_help */ "configuration file"  ),
                 new cc::OptArg::UInt64(/* a_long */ "index"  , /* a_short */ 'i', /* a_optional */ false             , /* a_tag */ "index"  , /* a_help */ "index"               ),
                 new cc::OptArg::UInt64(/* a_long */ "cluster", /* a_short */ 'k', /* a_default  */ (const uint64_t) 0, /* a_tag */ "cluster", /* a_help */ "cluster number"      ),
@@ -225,7 +226,7 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
         // ... startup ...
         runner_->Startup({
                             /* abbr_           */ a_arguments.abbr_,
-                            /* name_           */ a_arguments.name_,
+                            /* name_           */ opt.IsSet('a') ? opt.GetString('a')->value() : a_arguments.name_,
                             /* version_        */ a_arguments.version_,
                             /* rel_date_       */ a_arguments.rel_date_,
                             /* rel_branch_     */ a_arguments.rel_branch_,
