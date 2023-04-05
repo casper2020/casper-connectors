@@ -346,6 +346,15 @@ namespace ev
                     CancelDispatchOnThread       try_cancel_callback_on_the_looper_thread_;
                     PushJobCallback              on_push_job_;
                 } MessagePumpCallbacks;
+                
+                enum class LogEntryType : uint8_t {
+                    MSG = 0x0,
+                    ERR
+                };
+                typedef struct {
+                    std::function<void(const LogEntryType, const std::string&)> publish_;
+                    std::function<void(const LogEntryType, const float)>        progress_;
+                } LogHandler;
                                 
             protected: // Data Type(s)
                 
@@ -447,6 +456,7 @@ namespace ev
                 SignalsChannelListerer signals_channel_listener_;
                 OwnerLogCallback       owner_log_callback_;
                 FinishedCallback       finished_callback_;
+                LogHandler             log_handler_;
                 
             public: // Constructor(s) / Destructor
                 

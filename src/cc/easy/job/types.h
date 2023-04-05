@@ -51,6 +51,7 @@
 #define CC_JOB_LOG_STEP_ERROR     "ERROR"
 #define CC_JOB_LOG_STEP_V8        "V8"
 #define CC_JOB_LOG_STEP_DUMP      "DUMP"
+#define CC_JOB_LOG_STEP_PUBLISH   "PUBLISH"
 
 namespace cc
 {

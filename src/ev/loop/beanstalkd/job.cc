@@ -81,6 +81,8 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
     owner_log_callback_       = nullptr;
     finished_callback_        = nullptr;
     
+    log_handler_              = { nullptr, nullptr };
+    
     response_flags_           = a_response_flags;
     
     ev::LoggerV2::GetInstance().Register(logger_client_, { "queue" });
@@ -493,6 +495,10 @@ void ev::loop::beanstalkd::Job::SetProgress (const ev::loop::beanstalkd::Job::Pr
         o_progress["progress"] = a_progress.value_;
     }
     
+    if ( nullptr != log_handler_.progress_ ) {
+        log_handler_.progress_(LogEntryType::MSG, a_progress.value_);
+    }
+    
     Json::Value i18n_array = Json::Value(Json::ValueType::arrayValue);
     i18n_array.append(key);
     Json::Value& object = i18n_array.append(Json::Value(Json::ValueType::objectValue));
@@ -876,7 +882,11 @@ void ev::loop::beanstalkd::Job::Publish (const uint64_t& /* a_id */, const std::
     const std::string redis_channel = a_fq_channel;
     const std::string redis_key     = a_fq_key;
 
-    EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("PUBLISH", "%s", a_message.c_str());
+    if ( nullptr != log_handler_.publish_ ) {
+        log_handler_.publish_(LogEntryType::MSG, a_message);
+    } else {
+        EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("PUBLISH", "%s", a_message.c_str());
+    }
     
     ExecuteOnMainThread([this, &cv, &redis_channel, &redis_key, &a_message, &a_status, &exception, &a_final] {
         // ... srtart by publishing a message ....
@@ -1006,9 +1016,13 @@ void ev::loop::beanstalkd::Job::Publish (const uint64_t& /* a_id */, const std::
             a_failure_callback(copy);
         } else {
             // ... log it ...
-            EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ERROR", "PUBLISH FAILED: %s",
-                                            exception->what()
-            );
+            if ( nullptr != log_handler_.publish_ ) {
+                log_handler_.publish_(LogEntryType::ERR, "PUBLISH FAILED: " + std::string(exception->what()));
+            } else {
+                EV_LOOP_BEANSTALK_JOB_LOG_QUEUE("ERROR", "PUBLISH FAILED: %s",
+                                                exception->what()
+                );
+            }
             // ... release it ...
             delete exception;
         }
