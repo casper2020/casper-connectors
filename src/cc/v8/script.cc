@@ -181,9 +181,8 @@ void cc::v8::Script::TranslateFromV8Value (::v8::Isolate* a_isolate, const ::v8:
     } else if ( true == value->IsBoolean() ) {
         o_value = value->BooleanValue(a_isolate);
     } else if ( true == value->IsDate() ) {
+        // TODO:
         // o_value.SetDate(value->NumberValue(a_isolate));
-        int x = 0;
-        x *= 1;
         CC_ASSERT(1 == 0);
     } else if ( true == value->IsNumber() ) {
         if ( true == value->IsInt32() ) {

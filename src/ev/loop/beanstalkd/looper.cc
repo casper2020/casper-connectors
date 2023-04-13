@@ -699,7 +699,6 @@ void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
     
     // ... for the case where unique id is not respected, search and delete canceled duplicated queued entries ...
     {
-        size_t cancelled = 0;
         CC_DEBUG_ASSERT(0 == idle_callbacks_.tmp_.size());
         if ( 0 != idle_callbacks_.cancelled_.size() ) {
             std::set<std::string> forget;
@@ -708,7 +707,6 @@ void ev::loop::beanstalkd::Looper::Idle (const bool a_fake)
                 if ( idle_callbacks_.cancelled_.end() != idle_callbacks_.cancelled_.find(e->id_.c_str()) ) {
                     forget.insert(e->id_);
                     delete e;
-                    cancelled++;
                 } else {
                     idle_callbacks_.tmp_.push(e);
                 }
