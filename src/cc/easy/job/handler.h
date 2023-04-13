@@ -74,6 +74,8 @@ namespace cc
                 typedef std::function<cc::easy::job::Job*(const ev::Loggable::Data&, const cc::easy::job::Job::Config&)> Factory;
                 typedef std::map<std::string, Factory>       Factories;
                 
+                typedef ::cc::global::Presenter Presenter;
+                
             private: // Const Data:
                 
                 const Factories* factories_;
@@ -91,8 +93,17 @@ namespace cc
 
             public: // Static Method(s) / Function(s)
                 
-                int Start (const Arguments& a_config, const Factories& a_factories, const float& a_polling_timeout = -1.0);
+                int Start (const Arguments& a_config, const Factories& a_factories);
                 
+                int Start (const Arguments& a_config, const Factories& a_factories,
+                           const Presenter a_presenter);
+
+                int Start (const Arguments& a_config, const Factories& a_factories,
+                           const float& a_polling_timeout);
+
+                int Start (const Arguments& a_config, const Factories& a_factories,
+                           const Presenter a_presenter, const float& a_polling_timeout);
+
             private: // Method(s) / Function(s)
                 
                 void MergeJSONValue (Json::Value& a_lhs, const Json::Value& a_rhs);

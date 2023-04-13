@@ -61,6 +61,8 @@ namespace ev
                 typedef std::function<void(const ::cc::global::Process&, const StartupConfig&, const Json::Value&, const SharedConfig&, Factory&)> InnerStartup;
                 typedef std::function<void()>                                                                                                      InnerShutdown;
                 
+                typedef ::cc::global::Presenter Presenter;
+                
             private: // Data
                 
                 bool                     initialized_;
@@ -101,7 +103,8 @@ namespace ev
                 
                 void Startup (const StartupConfig& a_config,
                               InnerStartup a_inner_startup, InnerShutdown a_inner_shutdown,
-                              FatalExceptionCallback a_fatal_exception_callback);
+                              FatalExceptionCallback a_fatal_exception_callback,
+                              const Presenter a_presenter = nullptr);
                 int  Run      (const float& a_polling_timeout = -1.0f, const bool a_at_main_thread = false);
                 void Shutdown (int a_sig_no);
                 

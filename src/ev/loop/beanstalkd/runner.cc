@@ -167,8 +167,10 @@ ev::loop::beanstalkd::Runner::~Runner ()
  * @param a_fatal_exception_callback
  */
 void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::StartupConfig& a_config,
-                                            ev::loop::beanstalkd::Runner::InnerStartup a_inner_startup, ev::loop::beanstalkd::Runner::InnerShutdown a_inner_shutdown,
-                                            ev::loop::beanstalkd::Runner::FatalExceptionCallback a_fatal_exception_callback)
+                                            ev::loop::beanstalkd::Runner::InnerStartup a_inner_startup,
+                                            ev::loop::beanstalkd::Runner::InnerShutdown a_inner_shutdown,
+                                            ev::loop::beanstalkd::Runner::FatalExceptionCallback a_fatal_exception_callback,
+                                            const ev::loop::beanstalkd::Runner::Presenter a_presenter)
 {
     inner_startup_  = a_inner_startup;
     inner_shutdown_ = a_inner_shutdown;
@@ -228,7 +230,11 @@ void ev::loop::beanstalkd::Runner::Startup (const ev::loop::beanstalkd::StartupC
             /* function_ */ std::bind(&ev::loop::beanstalkd::Runner::OnGlobalInitializationCompleted, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
             /* args_     */ (void*)(&a_config)
         },
-        /* a_present */ [this, &a_config] (std::vector<::cc::global::Initializer::Present>& o_values) {
+        /* a_present */ [this, &a_config, a_presenter] (std::vector<::cc::global::Initializer::Present>& o_values) {
+            // ...
+            if ( nullptr != a_presenter ) {
+                a_presenter(o_values);
+            }
             // ... config file ...
             {
                 o_values.push_back({

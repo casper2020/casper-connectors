@@ -154,11 +154,49 @@ void cc::easy::job::Handler::InnerShutdown ()
  *
  * @param a_arguments This job arguments.
  * @param a_factories Tube factories.
+ */
+int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_arguments, const cc::easy::job::Handler::Factories& a_factories)
+{
+    return Start(a_arguments, a_factories, /* a_presenter */ nullptr, /* a_polling_timeout */ -1.0f);
+}
+
+/**
+ * @brief Start a 'job' handler.
+ *
+ * @param a_arguments This job arguments.
+ * @param a_factories Tube factories.
+ * @param a_presenter       Presentation callbck, optional.
+ */
+int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_arguments, const cc::easy::job::Handler::Factories& a_factories,
+                                   const cc::easy::job::Handler::Presenter a_presenter)
+{
+    return Start(a_arguments, a_factories, a_presenter, /* a_polling_timeout */ -1.0f);
+}
+
+
+/**
+ * @brief Start a 'job' handler.
+ *
+ * @param a_arguments This job arguments.
+ * @param a_factories Tube factories.
  * @param a_polling_timeout Consumer's loop polling timeout in millseconds, if < 0 will use defaults.
  */
-int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_arguments,
-                                   const cc::easy::job::Handler::Factories& a_factories,
+int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_arguments, const cc::easy::job::Handler::Factories& a_factories,
                                    const float& a_polling_timeout)
+{
+    return Start(a_arguments, a_factories, /* a_presenter */ nullptr, a_polling_timeout);
+}
+
+/**
+ * @brief Start a 'job' handler.
+ *
+ * @param a_arguments This job arguments.
+ * @param a_factories Tube factories.
+ * @param a_presenter       Presentation callbck, optional.
+ * @param a_polling_timeout Consumer's loop polling timeout in millseconds, if < 0 will use defaults.
+ */
+int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_arguments, const cc::easy::job::Handler::Factories& a_factories,
+                                   const cc::easy::job::Handler::Presenter a_presenter, const float& a_polling_timeout)
 {
 
     const auto clean_shutdown = [this] () {
@@ -241,7 +279,8 @@ int cc::easy::job::Handler::Start (const cc::easy::job::Handler::Arguments& a_ar
                         },
                         /* a_inner_shutdown           */ std::bind(&cc::easy::job::Handler::InnerStartup, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5),
                         /* inner_shutdown_            */ std::bind(&cc::easy::job::Handler::InnerShutdown, this),
-                        /* a_fatal_exception_callback */ std::bind(&cc::easy::job::Handler::OnRunnerFatalException, this, std::placeholders::_1)
+                        /* a_fatal_exception_callback */ std::bind(&cc::easy::job::Handler::OnRunnerFatalException, this, std::placeholders::_1),
+                        /* a_presenter */ a_presenter
         );
         
         // ... set this handler specific configs ...

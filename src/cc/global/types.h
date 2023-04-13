@@ -24,6 +24,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 
 namespace cc
 {
@@ -66,6 +67,13 @@ namespace cc
     
         typedef std::vector<Log> Logs;
 
+        typedef struct {
+            std::string                        title_;
+            std::map<std::string, std::string> values_;
+        } Present;
+        
+        typedef std::function<void(std::vector<Present>&)> Presenter;
+        
     } // end of namespace 'global'
 
 } // end of namespace 'cc'
