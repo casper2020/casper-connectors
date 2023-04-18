@@ -698,6 +698,13 @@ void cc::global::Initializer::Startup (const cc::global::Initializer::Signals& a
  */
 void cc::global::Initializer::Shutdown (const int a_signo, bool a_for_cleanup_only)
 {
+    // ... not initialized?
+    if ( false == initialized_ ) {
+        // ... nothing to do here ...
+        return;
+    }
+    // ... initialize ...
+    
     const cc::global::Process process = *process_;
     const pid_t               c_pid   = getpid();
     const bool                forked  = ( c_pid != process.pid_ );
