@@ -44,7 +44,7 @@ cc::postgresql::offloader::Supervisor::~Supervisor ()
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... simulate a 'Stop' call ...
-    Stop();
+    Stop(/* a_destructor*/ true);
 }
 
 // MARK: -
@@ -83,8 +83,10 @@ void cc::postgresql::offloader::Supervisor::Start (const std::string& a_name, co
 
 /**
  * @brief Stop supervisor.
+ *
+ * @param a_destructor True when it's called from destructor.
  */
-void cc::postgresql::offloader::Supervisor::Stop ()
+void cc::postgresql::offloader::Supervisor::Stop (const bool a_destructor)
 {
     // ... for debug purposes only ...
     CC_DEBUG_LOG_MSG("offloader::Supervisor", "~> %s()", __FUNCTION__);
@@ -92,15 +94,21 @@ void cc::postgresql::offloader::Supervisor::Stop ()
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... stop all helpers ...
     if ( nullptr != producer_ptr_ ) {
-        producer_ptr_->Stop();
+        if ( false == a_destructor ) {
+	    producer_ptr_->Stop();
+	}
     }
     if ( nullptr != consumer_ptr_ ) {
-        consumer_ptr_->Stop();
+        if ( false == a_destructor ) {
+            consumer_ptr_->Stop();
+        }
     }
     // ... clean up ...
     const bool dismantle = ( nullptr != producer_ptr_ || nullptr != consumer_ptr_ );
     if ( true == dismantle ) {
+      if ( false == a_destructor ) { // TODO: ???
         Dismantle(std::make_pair(producer_ptr_, consumer_ptr_));
+      }
         producer_ptr_ = nullptr;
         consumer_ptr_ = nullptr;
     }
