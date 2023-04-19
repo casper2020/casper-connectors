@@ -45,9 +45,10 @@ cc::postgresql::offloader::Consumer::Consumer (offloader::Queue& a_queue)
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     CC_IF_DEBUG_SET_VAR(thread_id_, ::cc::debug::Threading::k_invalid_thread_id_;)
-    thread_          = nullptr;
     aborted_         = false;
+    thread_          = nullptr;
     start_cv_        = nullptr;
+    stop_cv_         = nullptr;
     connection_      = nullptr;
     reuse_count_     = 0;
     max_reuse_count_ = -1;
@@ -66,6 +67,9 @@ cc::postgresql::offloader::Consumer::~Consumer ()
     }
     if ( nullptr != start_cv_ ) {
         delete start_cv_;
+    }
+    if ( nullptr != stop_cv_ ) {
+        delete stop_cv_;
     }
     if ( nullptr != connection_ ) {
         PQfinish(connection_);
@@ -87,11 +91,12 @@ void cc::postgresql::offloader::Consumer::Start (const std::string& a_name, offl
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... for debug purposes only ...
     CC_DEBUG_LOG_MSG("offloader::Consumer", "~> %s", __FUNCTION__);
-    CC_ASSERT(nullptr == start_cv_ && nullptr == thread_);
+    CC_ASSERT(nullptr == start_cv_ && nullptr == stop_cv_ && nullptr == thread_);
     
     aborted_    = false;
     listener_   = a_listener;
     start_cv_   = new osal::ConditionVariable();
+    stop_cv_    = new osal::ConditionVariable();
     thread_     = new std::thread(&cc::postgresql::offloader::Consumer::Loop, this, queue_.config().polling_timeout_ms_);
     thread_nm_  = a_name + "::pg::offloader::Consumer";
     thread_->detach();
@@ -113,6 +118,9 @@ void cc::postgresql::offloader::Consumer::Stop ()
     aborted_ = true;
     // ... consumer thread can now be release ...
     if ( nullptr != thread_ ) {
+        stop_cv_->Wait();
+        delete stop_cv_;
+        stop_cv_ = nullptr;
         delete thread_;
         thread_ = nullptr;
     }
@@ -206,42 +214,40 @@ void cc::postgresql::offloader::Consumer::Loop (const float& a_polling_timeout)
     // ... while not aborted ...
     while ( false == aborted_ ) {
         // ... check for pending orders ...
-        bool done = false;
-        while ( false == done ) {
-            // ... any order(s) remaining?
-            offloader::Pending pending;
-            if ( true == queue_.Peek(pending) ) {
-                // ... yes, process it ...
-                PGresult* result = nullptr;
-                try {
-                    // ... execute ...
-                    result = Execute(pending, acceptable, tmp_elapsed);
-                    if ( false == pending.cancelled_ ) {
-                        // ... deliver ...
-                        queue_.DequeueExecuted(pending, result, tmp_elapsed);
-                        // ... clean up ...
-                        PQclear(result);
-                    } else {
-                        // ... report ...
-                        queue_.DequeueCancelled(pending, tmp_elapsed);
-                        // ... sanity check ...
-                        CC_ASSERT(nullptr == result);
-                    }
-                } catch (const ::cc::Exception& a_exception) {
-                    // ... clean up ...
-                    if ( nullptr != result ) {
-                        PQclear(result);
-                    }
+        offloader::Pending pending;
+        if ( true == queue_.Peek(pending) ) {
+            // ... yes, process it ...
+            PGresult* result = nullptr;
+            try {
+                // ... execute ...
+                result = Execute(pending, acceptable, tmp_elapsed);
+                if ( false == pending.cancelled_ ) {
                     // ... deliver ...
-                    queue_.DequeueFailed(pending, a_exception, tmp_elapsed);
+                    queue_.DequeueExecuted(pending, result, tmp_elapsed);
+                    // ... clean up ...
+                    PQclear(result);
+                } else {
+                    // ... report ...
+                    queue_.DequeueCancelled(pending, tmp_elapsed);
+                    // ... sanity check ...
+                    CC_ASSERT(nullptr == result);
                 }
-            } else if ( queue_.config().idle_timeout_ms_ > 0 && nullptr != connection_ ) {
-                Disconnect(/* a_idle */ true, /* a_resaon */ nullptr);
+            } catch (const ::cc::Exception& a_exception) {
+                // ... clean up ...
+                if ( nullptr != result ) {
+                    PQclear(result);
+                }
+                // ... deliver ...
+                queue_.DequeueFailed(pending, a_exception, tmp_elapsed);
             }
-            // ... dont't be CPU greedy ...
-            std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(a_polling_timeout)));
+        } else if ( queue_.config().idle_timeout_ms_ > 0 && nullptr != connection_ ) {
+            Disconnect(/* a_idle */ true, /* a_resaon */ nullptr);
         }
+        // ... dont't be CPU greedy ...
+        std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(a_polling_timeout)));
     }
+    // ... signal done ...
+    stop_cv_->Wake();
     // ... for debug purposes only ...
     CC_DEBUG_LOG_MSG("offloader::Consumer", "<~ %s", __FUNCTION__);
 }

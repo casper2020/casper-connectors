@@ -76,7 +76,10 @@ namespace cc
             protected: // Inherited Virtual Method(s) / Function(s)
                 
                 virtual Pair Setup     (::cc::postgresql::offloader::Queue& a_queue);
-                virtual void Dismantle (const Pair& a_pair);
+                
+            private: // Method(s) / Function(s)
+                
+                void Dismantle (const Pair& a_pair);
                 
             }; // end of class 'Offloader'
 

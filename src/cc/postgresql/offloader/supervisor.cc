@@ -33,6 +33,7 @@ cc::postgresql::offloader::Supervisor::Supervisor ()
     // ... initialize ...
     producer_ptr_ = nullptr;
     consumer_ptr_ = nullptr;
+    dismantle_    = nullptr;
     shared_       = nullptr;
 }
 
@@ -43,8 +44,8 @@ cc::postgresql::offloader::Supervisor::~Supervisor ()
 {
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
-    // ... simulate a 'Stop' call ...
-    Stop(/* a_destructor*/ true);
+    // ... ensure that 'dismandle' was called ...
+    CC_DEBUG_ASSERT(nullptr == producer_ptr_ && nullptr == consumer_ptr_ && nullptr == dismantle_ && nullptr == shared_);
 }
 
 // MARK: -
@@ -66,27 +67,25 @@ void cc::postgresql::offloader::Supervisor::Start (const std::string& a_name, co
     shared_ = new offloader::Queue(a_config);
     // ... setup ...
     const auto pair = Setup(*shared_);
-    CC_ASSERT(nullptr != pair.first && nullptr != pair.second);
+    CC_ASSERT(nullptr != pair.first && nullptr != pair.second && nullptr != dismantle_);
     // ... start all helpers ...
     producer_ptr_ = pair.first;
     producer_ptr_->Start();
     consumer_ptr_ = pair.second;
     consumer_ptr_->Start(a_name,
                          /* a_listener */ {
-                            /* on_performed_ */ std::bind(&Supervisor::OnOrderFulfilled, this, std::placeholders::_1),
-                            /* on_failure_   */ std::bind(&Supervisor::OnOrderFailed   , this, std::placeholders::_1),
-                            /* on_cancelled_ */ std::bind(&Supervisor::OnOrderCancelled, this, std::placeholders::_1)
-                         });
+        /* on_performed_ */ std::bind(&Supervisor::OnOrderFulfilled, this, std::placeholders::_1),
+        /* on_failure_   */ std::bind(&Supervisor::OnOrderFailed   , this, std::placeholders::_1),
+        /* on_cancelled_ */ std::bind(&Supervisor::OnOrderCancelled, this, std::placeholders::_1)
+    });
     // ... for debug purposes only ...
     CC_DEBUG_LOG_MSG("offloader::Supervisor", "<~ %s", __FUNCTION__);
 }
 
 /**
  * @brief Stop supervisor.
- *
- * @param a_destructor True when it's called from destructor.
  */
-void cc::postgresql::offloader::Supervisor::Stop (const bool a_destructor)
+void cc::postgresql::offloader::Supervisor::Stop ()
 {
     // ... for debug purposes only ...
     CC_DEBUG_LOG_MSG("offloader::Supervisor", "~> %s()", __FUNCTION__);
@@ -94,21 +93,19 @@ void cc::postgresql::offloader::Supervisor::Stop (const bool a_destructor)
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
     // ... stop all helpers ...
     if ( nullptr != producer_ptr_ ) {
-        if ( false == a_destructor ) {
-	    producer_ptr_->Stop();
-	}
+        producer_ptr_->Stop();
     }
     if ( nullptr != consumer_ptr_ ) {
-        if ( false == a_destructor ) {
-            consumer_ptr_->Stop();
-        }
+        consumer_ptr_->Stop();
     }
     // ... clean up ...
-    const bool dismantle = ( nullptr != producer_ptr_ || nullptr != consumer_ptr_ );
+    const bool dismantle = ( nullptr != producer_ptr_ || nullptr != consumer_ptr_ || nullptr != dismantle_);
     if ( true == dismantle ) {
-      if ( false == a_destructor ) { // TODO: ???
-        Dismantle(std::make_pair(producer_ptr_, consumer_ptr_));
-      }
+        // ... let subclass clean up ...
+        dismantle_(std::make_pair(producer_ptr_, consumer_ptr_));
+        // ... ensure correct 'dismantle' function was called ( subclass must set it to null if so ) ...
+        CC_DEBUG_ASSERT(nullptr == dismantle_);
+        // ... managed by subclass ...
         producer_ptr_ = nullptr;
         consumer_ptr_ = nullptr;
     }
@@ -125,7 +122,7 @@ void cc::postgresql::offloader::Supervisor::Stop (const bool a_destructor)
 
 /**
  * @brief Asynchronously exceute a query.
- * 
+ *
  * @param a_query            PostgreSQL query to perform.
  * @param a_client           Client that wants to order a query load.
  * @param a_sucess_callback  Function to call on sucess.
@@ -143,7 +140,7 @@ cc::postgresql::offloader::Supervisor::Queue (cc::postgresql::offloader::Client*
     CC_DEBUG_LOG_MSG("offloader::Supervisor", "~> %s(%p,\"%s\")", __FUNCTION__, a_client, a_query.c_str());
     // ... issue an order an keep track of it's ticket ...
     const auto ticket = producer_ptr_->Enqueue(offloader::Order{
-       /* query_       */ a_query,
+        /* query_       */ a_query,
         /* client_ptr_ */ a_client,
         /* on_success_ */ a_success_callback,
         /* on_failure  */ a_failure_callback

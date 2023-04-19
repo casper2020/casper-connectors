@@ -49,13 +49,8 @@ cc::ngx::postgresql::Offloader::~Offloader ()
 {
     // ... sanity check ...
     CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD();
-    // ... clean up ...
-    if ( nullptr != ngx_consumer_ ) {
-        delete ngx_consumer_;
-    }
-    if ( nullptr != ngx_producer_ ) {
-        delete ngx_producer_;
-    }
+    // ... ensure base class called dismantle if setup was called ...
+    CC_DEBUG_ASSERT(nullptr == ngx_consumer_ && nullptr == ngx_producer_ && nullptr == dismantle_);
 }
 
 // MARK: -
@@ -117,9 +112,12 @@ cc::ngx::postgresql::Offloader::Setup (::cc::postgresql::offloader::Queue& a_que
     }
     ngx_producer_ = new ::cc::ngx::postgresql::Producer(a_queue);
     ngx_consumer_ = new ::cc::ngx::postgresql::Consumer(a_queue, consumer_socket_fn_, consumer_fe_callback_);
+    dismantle_    = std::bind(&Offloader::Dismantle, this, std::placeholders::_1);
     // ... done ...
     return std::make_pair(ngx_producer_, ngx_consumer_);
 }
+
+// MARK: -
 
 /**
  * @brief Dismantle this instance.
@@ -142,4 +140,6 @@ void cc::ngx::postgresql::Offloader::Dismantle (const cc::ngx::postgresql::Offlo
         ngx_producer_ = nullptr;
     }
     allow_start_call_ = false;
+    // ... signal base class that this was called ...
+    dismantle_ = nullptr;
 }

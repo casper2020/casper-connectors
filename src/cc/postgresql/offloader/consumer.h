@@ -64,10 +64,11 @@ namespace cc
             private: // Threading
                 
                 std::string              thread_nm_;
-                std::thread*             thread_;
                 std::atomic<bool>        aborted_;
+                std::thread*             thread_;
                 std::mutex               mutex_;
                 osal::ConditionVariable* start_cv_;
+                osal::ConditionVariable* stop_cv_;
                 
             private: // PG Data
                  

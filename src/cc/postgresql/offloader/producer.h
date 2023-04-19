@@ -55,7 +55,7 @@ namespace cc
             public: // Method(s) / Function(s) - One Shot Call Only!
                 
                 virtual void Start ();
-                virtual void Stop  () ;
+                virtual void Stop  ();
                 
             public: // Method(s) / Function(s)
                 

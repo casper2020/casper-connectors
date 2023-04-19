@@ -606,7 +606,10 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
         //
         ::ev::Signals::GetInstance().WarmUp(*loggable_data_);
         // ... tips ...
-        if ( true == process_->is_master_ && true == being_debugged_ ) {
+        if ( ( true == process_->is_master_ || ( false == process_->is_master_ && true == process_->standalone_ ) )
+                &&
+            true == being_debugged_
+        ) {
             const std::string kill_cmd_prefix = std::string(0 == getuid() ? "sudo " : "" );
             const std::string kill_cmd_suffix = std::to_string(process_->pid_);
             CC_GLOBAL_INITIALIZER_LOG("cc-status","\n\t⌥ %s\n", "SIGNALS");
@@ -709,9 +712,9 @@ void cc::global::Initializer::Shutdown (const int a_signo, bool a_for_cleanup_on
     const pid_t               c_pid   = getpid();
     const bool                forked  = ( c_pid != process.pid_ );
 
-    std::string log_line_prefix = process_->info_ + " -";
+    std::string log_line_prefix = process_->info_ + " - ";
     if ( true == forked ) {
-      log_line_prefix += " worker process w/pid " + std::to_string(c_pid) + " ( forked from " + std::to_string(process_->pid_)  + " )";
+      log_line_prefix += "worker process w/pid " + std::to_string(c_pid) + " ( forked from " + std::to_string(process_->pid_)  + " )";
     } else {
       log_line_prefix += std::string(( true == process_->is_master_ ? "master" : "worker" )) + " process w/pid " + std::to_string(process_->pid_);
     }

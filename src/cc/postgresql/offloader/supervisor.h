@@ -56,6 +56,10 @@ namespace cc
                 
                 typedef offloader::Config               Config;
                 
+            protected: // Data Type(s)
+                
+                typedef std::function<void(const Pair&)> Dismantle;
+                
             private: // Data Type(s)
                 
                 typedef std::vector<offloader::Ticket> Tickets;
@@ -65,6 +69,10 @@ namespace cc
                 
                 Producer* producer_ptr_;
                 Consumer* consumer_ptr_;
+                
+            protected: // Callbacks()
+                
+                Dismantle dismantle_;
                 
             private: // Data
                 
@@ -79,7 +87,7 @@ namespace cc
             public: // Method(s) / Function(s) - One Shot Call Only
                 
                 virtual void Start (const std::string& a_name, const Config& a_config);
-                virtual void Stop  (const bool a_destructor = false);
+                virtual void Stop  ();
                 
             public: // Method(s) / Function(s)
                 
@@ -89,8 +97,7 @@ namespace cc
                 
             protected: // PureInherited Virtual Method(s) / Function(s)
                 
-                virtual Pair Setup     (offloader::Queue& a_queue) = 0;
-                virtual void Dismantle (const Pair& a_pair)        = 0;
+                virtual Pair Setup (offloader::Queue& a_queue) = 0;
                 
             private: // Inline Method(s) / Function(s)
                 
