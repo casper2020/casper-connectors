@@ -22,6 +22,8 @@
 #ifndef NRS_CC_COMPILER_DEFS_H_
 #define NRS_CC_COMPILER_DEFS_H_
 
+#include "cc/config.h" // pulling CC_DEBUG_ON
+
 // COMPILER
 #if defined(__clang__)
     #define CC_USING_CLANG 1
@@ -60,12 +62,21 @@
 
 #define CC_WARN_UNUSED_RESULT __attribute__((warn_unused_result))
 
-#define CC_WARNING_UNUSED_VARIABLE(a_name) \
-  _Pragma(CC_MACRO_STRINGIFY_ARG(GCC warning("TODO 2.0: unused variable '" #a_name "'"))); \
-  (void)a_name;
+#ifdef CC_DEBUG_ON
 
-#define CC_WARNING_TODO(a_message) \
-    CC_DO_PRAGMA(message ("WARNING TODO: " #a_message))
+    #define CC_WARNING_UNUSED_VARIABLE(a_name) \
+        _Pragma(CC_MACRO_STRINGIFY_ARG(GCC warning("TODO 2.0: unused variable '" #a_name "'"))); \
+        (void)a_name;
+
+    #define CC_WARNING_TODO(a_message) \
+        CC_DO_PRAGMA(message ("WARNING TODO: " #a_message))
+
+#else
+
+    #define CC_WARNING_UNUSED_VARIABLE(a_name)
+    #define CC_WARNING_TODO(a_message)
+
+#endif
 
 #define CC_DEPRECATED \
     [[deprecated]]

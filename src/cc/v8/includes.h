@@ -29,6 +29,7 @@ CC_DIAGNOSTIC_PUSH()
 CC_DIAGNOSTIC_IGNORED("-Wunused-parameter")
 CC_DIAGNOSTIC_IGNORED("-Wsign-conversion")
 CC_DIAGNOSTIC_IGNORED("-Wshadow-all")
+CC_DIAGNOSTIC_IGNORED("-Wfloat-conversion")
 
 #include "libplatform/libplatform.h"
 #include "v8.h"

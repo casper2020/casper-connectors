@@ -172,7 +172,7 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
                                       const cc::global::Initializer::V8& a_v8,
                                       const cc::global::Initializer::WarmUpNextStep& a_next_step,
                                       const Presenter a_presenter,
-                                      const std::set<std::string>* a_debug_tokens,
+                                      const std::set<std::string>* CC_IF_DEBUG(a_debug_tokens),
                                       const bool a_use_local_dirs, const std::string a_log_fn_component)
 {
     // ... can't start if alread initialized ...

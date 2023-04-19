@@ -390,7 +390,7 @@ size_t ev::curl::Request::OnHeaderReceived (void* a_ptr, size_t a_size, size_t a
  * @param a_ul_total
  * @param a_ul_now
  */
-int ev::curl::Request::OnProgressChanged (curl_off_t a_dl_total, curl_off_t a_dl_now, curl_off_t a_ul_total, curl_off_t a_ul_now)
+int ev::curl::Request::OnProgressChanged (curl_off_t CC_IF_DEBUG(a_dl_total), curl_off_t CC_IF_DEBUG(a_dl_now), curl_off_t CC_IF_DEBUG(a_ul_total), curl_off_t CC_IF_DEBUG(a_ul_now))
 {
     OSALITE_DEBUG_TRACE("curl",
                         "%p : %s ...",

@@ -199,7 +199,7 @@ void cc::v8::Context::Compile (const std::string& a_name,
  * @param a_callble
  * @param a_functions
  */
-void cc::v8::Context::LoadFunctions (const cc::v8::Context::LoadedFunction::Callable& a_callable,  const cc::v8::Context::FunctionsVector& a_functions)
+void cc::v8::Context::LoadFunctions (const cc::v8::Context::LoadedFunction::Callable& /* a_callable */,  const cc::v8::Context::FunctionsVector& a_functions)
 {
     // set up an error handler to catch any exceptions the script might throw.
     ::v8::TryCatch try_catch(isolate_ptr_);
@@ -293,7 +293,7 @@ void cc::v8::Context::IsolatedCall (const cc::v8::Context::IsolatedCallback a_ca
  * @param a_functions
  * @param o_functions
  */
-void cc::v8::Context::LoadFunctions (::v8::Local<::v8::Context>& a_context, ::v8::Context::Scope& a_scope, ::v8::TryCatch& a_try_catch,
+void cc::v8::Context::LoadFunctions (::v8::Local<::v8::Context>& a_context, ::v8::Context::Scope& /* a_scope */, ::v8::TryCatch& /* a_try_catch */,
                                          const FunctionsVector& a_functions, std::map<std::string, LoadedFunction*>& o_functions)
 {
     // catch any exceptions the script might throw.
