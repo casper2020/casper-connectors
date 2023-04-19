@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <functional>
 
 namespace cc
 {
