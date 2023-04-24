@@ -158,6 +158,8 @@ namespace ev
             const DataT&       Data      () const;
             void               SetToken  (const std::string& a_token);
             
+            bool               IsValid   () const;
+            
         public:
             
             static std::string Random (uint8_t a_length);
@@ -209,6 +211,14 @@ namespace ev
             data_.verified_       = false;
             data_.exists_         = false;
             data_.maintenance_    = false;
+        }
+        
+        /**
+         * @return True if a valid session is set, false otherwise.
+         */
+        inline bool Session::IsValid () const
+        {
+            return ( true == data_.token_is_valid_ && true == data_.verified_ );
         }
         
     } // end of namespace 'redis'
