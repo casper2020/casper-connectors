@@ -39,7 +39,7 @@ CC_DIAGNOSTIC_PUSH()
 CC_DIAGNOSTIC_IGNORED("-Wdeprecated-declarations")
 CC_DIAGNOSTIC_IGNORED("-Wextra-semi")
 CC_DIAGNOSTIC_IGNORED("-Wsign-conversion")
-#include "lemon/topology_sort.h"
+#include "topology_sort.h"
 CC_DIAGNOSTIC_POP()
 
 #include "cc/exception.h"
