@@ -498,9 +498,11 @@ void cc::fs::posix::XAttr::Seal (const std::string& a_name, const unsigned char*
     
     const std::string tmp = md5.Finalize();
     
-    char seal[65] = { '\0' };
+    char seal [65] = { '\0' };
+    size_t r = ( sizeof(seal) / sizeof(seal[0]) );
     for ( size_t idx = 0; idx < tmp.length() ; idx++ ) {
-        sprintf(&(seal[idx*2]), "%02x", ( tmp[idx] ^ a_magic[idx % a_length] ));
+        snprintf(&(seal[idx*2]), r, "%02x", ( tmp[idx] ^ a_magic[idx % a_length] ));
+        r -= 2;
     }
     seal[64] = '\0';
 
@@ -527,9 +529,11 @@ void cc::fs::posix::XAttr::Seal (const std::string& a_name, const std::set<std::
     
     const std::string tmp = md5.Finalize();
     
-    char seal[65] = { '\0' };
+    char seal [65] = { '\0' };
+    size_t r = ( sizeof(seal) / sizeof(seal[0]) );
     for ( size_t idx = 0; idx < tmp.length() ; idx++ ) {
-        sprintf(&(seal[idx*2]), "%02x", ( tmp[idx] ^ a_magic[idx % a_length] ));
+        snprintf(&(seal[idx*2]), r, "%02x", ( tmp[idx] ^ a_magic[idx % a_length] ));
+        r -= 2;
     }
     seal[64] = '\0';
 
@@ -566,8 +570,10 @@ void cc::fs::posix::XAttr::Validate (const std::string& a_name, const unsigned c
     const std::string tmp = md5.Finalize();
     
     char seal [65] = { 0, 0 };
+    size_t r = ( sizeof(seal) / sizeof(seal[0]) );
     for ( size_t idx = 0; idx < tmp.length() ; idx++ ) {
-        sprintf(&(seal[idx*2]), "%02x", ( tmp[idx] ^ a_magic[idx % a_length] ));
+        snprintf(&(seal[idx*2]), r, "%02x", ( tmp[idx] ^ a_magic[idx % a_length] ));
+        r -= 2;
     }
     seal[64] = '\0';
 
@@ -603,8 +609,10 @@ void cc::fs::posix::XAttr::Validate (const std::string& a_name, const std::set<s
     const std::string tmp = md5.Finalize();
     
     char seal [65] = { 0, 0 };
+    size_t r = ( sizeof(seal) / sizeof(seal[0]) );
     for ( size_t idx = 0; idx < tmp.length() ; idx++ ) {
-        sprintf(&(seal[idx*2]), "%02x", ( tmp[idx] ^ a_magic[idx % a_length] ));
+        snprintf(&(seal[idx*2]), r, "%02x", ( tmp[idx] ^ a_magic[idx % a_length] ));
+        r -= 2;
     }
     seal[64] = '\0';
 
