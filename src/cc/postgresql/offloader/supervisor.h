@@ -169,7 +169,7 @@ namespace cc
                     const auto& ticket = it->second[idx];
                     if ( 0 == ticket.uuid_.compare(a_uuid) ) {
                         // ... forget ticket ...
-                        it->second.erase(it->second.begin() + idx);
+                        it->second.erase(it->second.begin() + static_cast<long>(idx));
                         // ... ticket found, done ...
                         return true;
                     }

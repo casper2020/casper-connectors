@@ -1001,7 +1001,7 @@ void ev::redis::subscriptions::Request::UnmapContext (const ev::redis::subscript
             for ( size_t idx = 1 ; idx < n ; ++idx ) {
                 if ( (*vector_ptr)[idx] == pending_context_ptr_ ) {
                     (*o_context) = (*vector_ptr)[idx];
-                    (*vector_ptr).erase((*vector_ptr).begin() + idx);
+                    (*vector_ptr).erase((*vector_ptr).begin() + static_cast<long>(idx));
                     o_release_it = true;
                     break;
                 }

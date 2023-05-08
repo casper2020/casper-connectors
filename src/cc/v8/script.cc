@@ -242,7 +242,7 @@ void cc::v8::Script::TranslateToV8Value (::v8::Isolate* a_isolate, const cc::v8:
             o_value = ::v8::Int32::New(a_isolate, (const int32_t)(a_value));
             break;
         case cc::v8::Value::Type::UInt32:
-            o_value = ::v8::Uint32::New(a_isolate, (const uint32_t)(a_value));
+            o_value = ::v8::Uint32::New(a_isolate, (const int32_t)(a_value));
             break;
         case cc::v8::Value::Type::Double:
             o_value = ::v8::Number::New(a_isolate, (const double)(a_value));

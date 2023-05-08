@@ -373,7 +373,7 @@ void ev::hub::OneShotHandler::Push ()
             continue;
         }
         // ... remove it ...
-        pending_requests_.erase(pending_requests_.begin() + idx);
+        pending_requests_.erase(pending_requests_.begin() + static_cast<long>(idx));
         ++idx;
         // ... connect device for request ...
         switch (current_request->target_) {

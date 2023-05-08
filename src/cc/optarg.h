@@ -364,7 +364,7 @@ namespace cc
     inline void OptArg::Insert (const std::initializer_list<OptArg::Opt*>& a_opts, const size_t a_index)
     {
         for ( auto opt : a_opts ) {
-            auto it = opts_.begin() + a_index;
+            auto it = opts_.begin() + static_cast<long>(a_index);
             opts_.insert(it++, std::move(opt));
         }
     }

@@ -393,7 +393,7 @@ void sys::Process::Sort (const std::vector<sys::Process::Info>& a_vector,
     
     const size_t formula_count = a_vector.size();
     for ( lemon::ListDigraph::NodeIt n(dep_graph); n != lemon::INVALID; ++n ) {
-        map[( ( formula_count - ordered[n] ) - 1 )] = &(*(a_vector.begin() + dep_graph.id(n)));
+        map[( ( formula_count - static_cast<size_t>(ordered[n]) ) - 1 )] = &(*(a_vector.begin() + dep_graph.id(n)));
     }
     
     for ( size_t idx = 0 ; idx < map.size(); ++idx ) {
