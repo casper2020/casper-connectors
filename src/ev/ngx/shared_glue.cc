@@ -21,9 +21,11 @@
 
 #include "ev/ngx/shared_glue.h"
 
-#include "osal/utf8_string.h"
 #include "osal/debug/trace.h"
+#include "osal/osal_dir.h"
+#include "osal/osal_file.h"
 
+#include "cc/utf8/string_helper.h"
 #include "cc/logs/basic.h"
 
 #include "ev/exception.h"
@@ -63,7 +65,7 @@ void ev::ngx::SharedGlue::PreConfigure (const ngx_core_conf_t* a_config, const b
     
     const std::string master_pid_file = std::string(reinterpret_cast<char const*>(a_config->pid.data), a_config->pid.len);
 
-    socket_files_dn_ = osal::UTF8StringHelper::ReplaceAll(master_pid_file, ".pid", "");
+    socket_files_dn_ = cc::utf8::StringHelper::ReplaceAll(master_pid_file, ".pid", "");
 
 	// ... ensure directory exists ...
     if ( osal::posix::Dir::EStatusOk != osal::Dir::Exists(socket_files_dn_.c_str()) ) {
