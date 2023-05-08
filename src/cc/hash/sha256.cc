@@ -98,8 +98,10 @@ std::string cc::hash::SHA256::FinalEncoded (const SHA256::OutputFormat a_format)
 {
     SHA256_Final(digest_, &context_);
     if ( SHA256::OutputFormat::HEX == a_format ) {
+        size_t r = sizeof(hex_) / sizeof(hex_[0]);
         for( size_t idx = 0; idx < SHA256_DIGEST_LENGTH; idx++ ) {
-            sprintf(&(hex_[idx*2]), "%02x", (unsigned int)digest_[idx]);
+            snprintf(&(hex_[idx*2]), r, "%02x", (unsigned int)digest_[idx]);
+            r -=2;
         }
         hex_[CC_HASH_SHA_256_SHA256_DIGEST_HEX_LENGTH - 1] = '\0';
         return std::string(hex_);
