@@ -68,8 +68,10 @@ std::string cc::hash::MD5::Finalize ()
 {    
     MD5_Final (digest_,&context_);
     
+    size_t r = ( sizeof(md5_hex_) / sizeof(md5_hex_[0]) );
     for( size_t idx = 0; idx < MD5_DIGEST_LENGTH; idx++ ) {
-        sprintf(&(md5_hex_[idx*2]), "%02x", (unsigned int)digest_[idx]);
+        snprintf(&(md5_hex_[idx*2]), r, "%02x", (unsigned int)digest_[idx]);
+        r -= 2;
     }
     md5_hex_[32] = '\0';
     
