@@ -50,7 +50,7 @@ cc::magic::MIMEType::~MIMEType ()
 }
 
 /**
- * @brief Initilizer magic library.
+ * @brief Initializer magic library.
  *
  * @param a_shared_directory Shared directory URI.
  * @param a_flags            Default MAGIC_MIME_TYPE.
@@ -79,6 +79,22 @@ void cc::magic::MIMEType::Initialize (const std::string& a_shared_directory, int
     magic_close(cookie_);
     cookie_ = nullptr;
     throw cc::Exception("Cannot load magic database from: %s - %s!", mgc_file_uri.c_str(), error.c_str());
+}
+
+/**
+ * @brief Reset magic library flags.
+ *
+ * @param a_flags Library flags
+ */
+void cc::magic::MIMEType::Reset (const int a_flags)
+{
+    if ( nullptr == cookie_ ) {
+        throw cc::Exception("Magic library is not initialized!");
+    }
+
+    if ( 0 != magic_setflags(cookie_, a_flags) ) {
+        throw cc::Exception("Unable to set magic library flags %0x8X!", a_flags);
+    }
 }
 
 /**
@@ -113,7 +129,7 @@ std::string cc::magic::MIMEType::MIMETypeOf (const std::string& a_uri) const
  *
  * @return File's MIME Type value ( / encode if previously requested ), "" if not found.
  *
- * @return True PDF data offset.
+ * @return File's MIME Type value ( / encode if previously requested ), "" if not found.
  */
 std::string cc::magic::MIMEType::MIMETypeOf (const std::string& a_uri, std::size_t& o_offset)
 {
@@ -140,4 +156,21 @@ std::string cc::magic::MIMEType::MIMETypeOf (const std::string& a_uri, std::size
     }
     // ... done ...
     return mime;
+}
+
+/**
+ * @brief Obtain a file's MIME Type without charset or it's description ( depends on flags ).
+ *
+ * @param a_uri Local file URI.
+ *
+ * @return File's MIME Type or Description value, "" if not found.
+ */
+std::string cc::magic::MIMEType::WithoutCharsetOf (const std::string& a_uri)
+{
+    std::string type = MIMETypeOf(a_uri);
+    const char* p = strcasestr(type.c_str(), "; charset=");
+    if ( nullptr != p ) {
+        type = std::string(type.c_str(), size_t(p - type.c_str()));
+    }
+    return type;
 }

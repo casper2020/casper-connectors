@@ -63,8 +63,11 @@ namespace cc
             public: // API Method(s) / Function(s)
 
                 void        Initialize (const std::string& a_shared_directory, int a_flags = MAGIC_MIME_TYPE);
+                void        Reset      (const int a_flags);
                 std::string MIMETypeOf (const std::string& a_uri) const;
                 std::string MIMETypeOf (const std::string& a_uri, std::size_t& o_offset);
+            
+                std::string WithoutCharsetOf(const std::string& a_uri);
             
         }; // end of class 'MIMEType'
         
