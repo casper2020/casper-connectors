@@ -25,7 +25,8 @@
 #define CC_UTF8_STRING_HELPER_H_
 #pragma once
 
-#include <string> // std::string
+#include <string>
+#include <vector>
 
 namespace cc
 {
