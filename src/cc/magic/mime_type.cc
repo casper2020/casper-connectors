@@ -143,7 +143,11 @@ std::string cc::magic::MIMEType::MIMETypeOf (const std::string& a_uri, std::size
             bool          eof  = false;
             reader.Open(a_uri, ::cc::fs::File::Mode::Read);
             if ( reader.Size() >= sk_pdf_.size() && ( read = reader.Read(buffer_, sizeof(buffer_) / sizeof(buffer_[0]), eof) ) >= sk_pdf_.size() && false == eof ) {
+#if defined(CC_CPP_VERSION) && CC_CPP_VERSION >= 17L
                 std::string_view sv(reinterpret_cast<const char*>(buffer_), read);
+#else
+		std::string sv(reinterpret_cast<const char*>(buffer_), read);
+#endif
                 if ( ( o_offset = sv.find(sk_pdf_) ) != sv.npos ) {
                     mime = "application/pdf";
                 }
