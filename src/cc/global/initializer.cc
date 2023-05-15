@@ -241,6 +241,7 @@ void cc::global::Initializer::WarmUp (const cc::global::Process& a_process,
                 
     try {
         
+        // ... basic log ...
         cc::logs::Basic::GetInstance().Startup();
         
         //
@@ -772,9 +773,15 @@ void cc::global::Initializer::Shutdown (const int a_signo, bool a_for_cleanup_on
                               log_line_prefix.c_str(), ( true == a_for_cleanup_only ?  "cleaned up" : "going down" )
     );
     if ( false == a_for_cleanup_only && false == forked ) {
-        CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s exit code %d...\n",
-                                  log_line_prefix.c_str(), a_signo
-        );
+        if ( a_signo > 0 ) {
+            CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s exiting due to signal %s...\n",
+                                      log_line_prefix.c_str(), strsignal(a_signo)
+            );
+        } else {
+            CC_GLOBAL_INITIALIZER_LOG("cc-status","* %s exiting with code %d ( %s )...\n",
+                                      log_line_prefix.c_str(), a_signo, "???"
+            );
+        }
     }
     
     // ... log final step ...
