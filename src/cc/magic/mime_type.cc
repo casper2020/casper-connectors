@@ -171,7 +171,8 @@ std::string cc::magic::MIMEType::MIMETypeOf (const std::string& a_uri, std::size
  */
 std::string cc::magic::MIMEType::WithoutCharsetOf (const std::string& a_uri)
 {
-    std::string type = MIMETypeOf(a_uri);
+    std::size_t offset;
+    std::string type = MIMETypeOf(a_uri, offset);
     const char* p = strcasestr(type.c_str(), "; charset=");
     if ( nullptr != p ) {
         type = std::string(type.c_str(), size_t(p - type.c_str()));
