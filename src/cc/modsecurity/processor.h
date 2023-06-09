@@ -88,6 +88,7 @@ namespace cc
             
             ::modsecurity::ModSecurity* mod_security_;
             ::modsecurity::RulesSet*    rules_set_;
+            std::string                 config_file_uri_;
             
         public: // Constructor(s) / Destructor
             
@@ -96,8 +97,13 @@ namespace cc
             
         public: // One-shot Call API Method(s) / Function(s)
             
-            void Startup (const std::string& a_path);
+            void Startup  (const std::string& a_path);
+            void Shutdown ();
         
+        public: // API Method(s) / Function(s)
+            
+            void Recycle ();
+            
         public: // API Method(s) / Function(s)
             
             int SimulateHTTPRequest (const POSTRequest& a_request, Rule& o_rule);

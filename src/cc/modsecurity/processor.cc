@@ -37,8 +37,12 @@ cc::modsecurity::ProcessorOneShotInitializer::ProcessorOneShotInitializer (cc::m
 
 cc::modsecurity::ProcessorOneShotInitializer::~ProcessorOneShotInitializer ()
 {
-    msc_rules_cleanup(instance_.rules_set_);
-    msc_cleanup(instance_.mod_security_);
+    if ( nullptr != instance_.rules_set_ ) {
+        delete instance_.rules_set_;
+    }
+    if ( nullptr != instance_.mod_security_ ) {
+        delete instance_.mod_security_;
+    }
 }
 
 // MARK: - Processor
@@ -78,14 +82,42 @@ void cc::modsecurity::Processor::Startup (const std::string& a_path)
     if ( nullptr != mod_security_ || nullptr != rules_set_ ) {
         throw ::cc::Exception("Logic error - %s already called!", __PRETTY_FUNCTION__);
     }
+    // ... keep track of config file URI ...
+    config_file_uri_ = a_path + "default-mod-security/modsec_includes.conf";
     // ... setup ...
+    Recycle();
+}
+
+/**
+ * @brief Shutdown processor, one-shot call or when recycling only!
+ */
+void cc::modsecurity::Processor::Shutdown ()
+{
+    if ( nullptr != rules_set_ ) {
+        delete rules_set_;
+        rules_set_ = nullptr;
+    }
+    if ( nullptr != mod_security_ ) {
+        delete mod_security_;
+        mod_security_ = nullptr;
+    }
+}
+
+/**
+ * @brief Recycle processor, by reloading rules.
+ */
+void cc::modsecurity::Processor::Recycle ()
+{
+    // ... clean up ...
+    Shutdown();
+    // ... new instances ...
     try {
-        // ... create modsecurity instance ...
+        // ... create new modsecurity instance ...
         mod_security_ = new ::modsecurity::ModSecurity();
         mod_security_->setConnectorInformation("casper-connectors");
-        // ... create and load rules ...
+        // ... create and load new rules ...
         rules_set_ = new ::modsecurity::RulesSet();
-        if ( rules_set_->loadFromUri(( a_path + "default-mod-security/modsec_includes.conf" ).c_str()) < 0 ) {
+        if ( rules_set_->loadFromUri(config_file_uri_.c_str()) < 0 ) {
             throw ::cc::Exception("%s", rules_set_->getParserError().c_str());
         }
     } catch (...) {
