@@ -42,37 +42,37 @@ namespace cc
 
     namespace magic
     {
-     
+        
         class MIMEType final : public cc::NonCopyable, public cc::NonMovable
         {
             
-            private: // Const Data
+        private: // Const Data
             
-                static const std::string sk_pdf_;
+            static const std::string sk_pdf_;
             
-            private: // Data
-                
-                magic_t       cookie_;
-                unsigned char buffer_[1024];
-                
-            public: // Constructor(s) / Destructor
-                
-                MIMEType ();
-                virtual ~MIMEType();
+        private: // Data
             
-            public: // API Method(s) / Function(s)
-
-                void        Initialize (const std::string& a_shared_directory, int a_flags = MAGIC_MIME_TYPE);
-                void        Reset      (const int a_flags);
-                std::string MIMETypeOf (const std::string& a_uri) const;
-                std::string MIMETypeOf (const std::string& a_uri, std::size_t& o_offset);
+            magic_t       cookie_;
+            unsigned char buffer_[1024];
             
-                std::string WithoutCharsetOf(const std::string& a_uri);
+        public: // Constructor(s) / Destructor
+            
+            MIMEType ();
+            virtual ~MIMEType();
+            
+        public: // API Method(s) / Function(s)
+            
+            void        Initialize (const std::string& a_shared_directory, int a_flags = MAGIC_MIME_TYPE);
+            void        Reset      (const int a_flags);
+            std::string MIMETypeOf (const std::string& a_uri) const;
+            std::string MIMETypeOf (const std::string& a_uri, std::size_t& o_offset);
+            
+            std::string WithoutCharsetOf(const std::string& a_uri);
             
         }; // end of class 'MIMEType'
         
-    }
+    } // end of namespace 'magic'
 
-} // end of namespace 'cloudware'
+} // end of namespace 'cc'
 
 #endif // CC_MAGIC_MIME_TYPE_H_
