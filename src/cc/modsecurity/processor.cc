@@ -28,6 +28,8 @@
 #include "cc/types.h"
 #include "cc/debug/types.h"
 
+#include <signal.h> // SIGTTIN
+
 // MARK: - ProcessorOneShotInitializer
 
 /**
