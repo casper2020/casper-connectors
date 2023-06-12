@@ -28,6 +28,11 @@
 
 // MARK: - ProcessorOneShotInitializer
 
+/**
+ * @brief Default constructor.
+ *
+ * @param a_instance A referece to the owner of this class.
+ */
 cc::modsecurity::ProcessorOneShotInitializer::ProcessorOneShotInitializer (cc::modsecurity::Processor& a_instance)
     : ::cc::Initializer<cc::modsecurity::Processor>(a_instance)
 {
@@ -35,14 +40,12 @@ cc::modsecurity::ProcessorOneShotInitializer::ProcessorOneShotInitializer (cc::m
     instance_.rules_set_    = nullptr;
 }
 
+/**
+ * @brief Destructor.
+ */
 cc::modsecurity::ProcessorOneShotInitializer::~ProcessorOneShotInitializer ()
 {
-    if ( nullptr != instance_.rules_set_ ) {
-        delete instance_.rules_set_;
-    }
-    if ( nullptr != instance_.mod_security_ ) {
-        delete instance_.mod_security_;
-    }
+    instance_.CleanUp();
 }
 
 // MARK: - Processor
@@ -84,23 +87,16 @@ void cc::modsecurity::Processor::Startup (const std::string& a_path)
     }
     // ... keep track of config file URI ...
     config_file_uri_ = a_path + "default-mod-security/modsec_includes.conf";
-    // ... setup ...
-    Recycle();
+    // ... new instance ...
+    Initialize();
 }
 
 /**
- * @brief Shutdown processor, one-shot call or when recycling only!
+ * @brief Shutdown processor, one-shot call only!
  */
 void cc::modsecurity::Processor::Shutdown ()
 {
-    if ( nullptr != rules_set_ ) {
-        delete rules_set_;
-        rules_set_ = nullptr;
-    }
-    if ( nullptr != mod_security_ ) {
-        delete mod_security_;
-        mod_security_ = nullptr;
-    }
+    CleanUp();
 }
 
 /**
@@ -109,30 +105,9 @@ void cc::modsecurity::Processor::Shutdown ()
 void cc::modsecurity::Processor::Recycle ()
 {
     // ... clean up ...
-    Shutdown();
-    // ... new instances ...
-    try {
-        // ... create new modsecurity instance ...
-        mod_security_ = new ::modsecurity::ModSecurity();
-        mod_security_->setConnectorInformation("casper-connectors");
-        // ... create and load new rules ...
-        rules_set_ = new ::modsecurity::RulesSet();
-        if ( rules_set_->loadFromUri(config_file_uri_.c_str()) < 0 ) {
-            throw ::cc::Exception("%s", rules_set_->getParserError().c_str());
-        }
-    } catch (...) {
-        // ... clean up ...
-        if ( nullptr != mod_security_ ) {
-            delete mod_security_;
-            mod_security_ = nullptr;
-        }
-        if ( nullptr != rules_set_ ) {
-            delete rules_set_;
-            rules_set_ = nullptr;
-        }
-        // ... notify ...
-        ::cc::Exception::Rethrow(/* a_unhandled */ false, __FILE__, __LINE__, __FUNCTION__);
-    }
+    CleanUp();
+    // ... and initialize ...
+    Initialize();
 }
 
 // MARK: -
@@ -210,6 +185,48 @@ int cc::modsecurity::Processor::SimulateHTTPRequest (const Processor::POSTReques
     }
     // ... done ...
     return o_rule.code_;
+}
+
+// MARK: -
+
+/**
+ * @brief Initialize processor.
+ */
+void cc::modsecurity::Processor::Initialize ()
+{
+    // ... sanity check ...
+    CC_ASSERT(nullptr == mod_security_ && nullptr == rules_set_ && 0 != config_file_uri_.length());
+    // ... new instances ...
+    try {
+        // ... create new modsecurity instance ...
+        mod_security_ = new ::modsecurity::ModSecurity();
+        mod_security_->setConnectorInformation("casper-connectors");
+        // ... create and load new rules ...
+        rules_set_ = new ::modsecurity::RulesSet();
+        if ( rules_set_->loadFromUri(config_file_uri_.c_str()) < 0 ) {
+            throw ::cc::Exception("%s", rules_set_->getParserError().c_str());
+        }
+    } catch (...) {
+        // ... clean up ...
+        CleanUp();
+        // ... notify ...
+        ::cc::Exception::Rethrow(/* a_unhandled */ false, __FILE__, __LINE__, __FUNCTION__);
+    }
+}
+
+/**
+ * @brief Release previously allocated memory.
+ */
+void cc::modsecurity::Processor::CleanUp ()
+{
+    if ( nullptr != rules_set_ ) {
+        delete rules_set_;
+        rules_set_ = nullptr;
+    }
+    if ( nullptr != mod_security_ ) {
+        delete mod_security_;
+        mod_security_ = nullptr;
+    }
 }
 
 // MARK: -

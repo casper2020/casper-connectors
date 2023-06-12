@@ -110,6 +110,11 @@ namespace cc
             
         private: // Method(s) / Function(s)
             
+            void Initialize ();
+            void CleanUp    ();
+            
+        private: // Method(s) / Function(s)
+            
             bool RequiredIntervention (const std::function<::modsecurity::Transaction*()>& a_callback,
                                        ::modsecurity::ModSecurityIntervention& o_intervention, Rule& o_rule);
             
