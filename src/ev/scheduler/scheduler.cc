@@ -220,6 +220,7 @@ void ev::scheduler::Scheduler::Stop (ev::scheduler::Scheduler::FinalizationCallb
     if ( nullptr != hub_ ) {
         hub_->Stop(a_sig_no);
         delete hub_;
+        hub_ = nullptr;
     }
 
     for ( auto vector : { &zombies_, &detached_ } ) {
