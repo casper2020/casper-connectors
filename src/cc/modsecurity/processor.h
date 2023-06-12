@@ -28,7 +28,9 @@
 #include "modsecurity/modsecurity.h"
 #include "modsecurity/rules_set.h"
 
-#include <regex>      // std::regex
+#include "ev/logger_v2.h"
+
+#include <regex> // std::regex
 
 namespace cc
 {
@@ -57,14 +59,20 @@ namespace cc
         public: // Data Type(s)
             
             typedef struct {
-                const std::string& content_type_;
-                const std::string& from_;
-                const std::string& to_;
-                const std::string& uri_;
-                const std::string& protocol_;
-                const std::string& version_;
-                const std::string& body_file_uri_;
-                const std::string& query_;
+                std::string ip_;
+                int         port_;
+            } Addr;
+            
+            typedef struct {
+                std::string id_;
+                std::string content_type_;
+                size_t      content_length_;
+                Addr        client_;
+                Addr        server_;
+                std::string uri_;
+                std::string version_;
+                std::string body_file_uri_;
+                std::string tag_;
             } POSTRequest;
             
             typedef struct {
@@ -90,6 +98,14 @@ namespace cc
             ::modsecurity::RulesSet*    rules_set_;
             std::string                 config_file_uri_;
             
+        private: // Data
+            
+            ::ev::Loggable::Data*       loggable_data_;
+            ::ev::LoggerV2::Client*     logger_client_;
+            size_t                      logger_padding_;
+            std::string                 logger_section_;
+            std::string                 logger_separator_;
+            
         public: // Constructor(s) / Destructor
             
             Processor ();
@@ -97,7 +113,8 @@ namespace cc
             
         public: // One-shot Call API Method(s) / Function(s)
             
-            void Startup  (const std::string& a_path);
+            void Startup  (const ::ev::Loggable::Data& a_data,
+                           const std::string& a_path, const std::string& a_file);
             void Shutdown ();
         
         public: // API Method(s) / Function(s)
@@ -106,12 +123,14 @@ namespace cc
             
         public: // API Method(s) / Function(s)
             
-            int SimulateHTTPRequest (const POSTRequest& a_request, Rule& o_rule);
+            int SimulateHTTPRequest (const POSTRequest& a_request, Rule& o_rule,
+                                     std::function<void(const std::string&)> a_logger = nullptr);
             
         private: // Method(s) / Function(s)
             
-            void Initialize ();
-            void CleanUp    ();
+            void Initialize (const ::ev::Loggable::Data* a_data);
+            void CleanUp    (const bool a_final = true);
+            void Log        (const int a_signo) const;
             
         private: // Method(s) / Function(s)
             

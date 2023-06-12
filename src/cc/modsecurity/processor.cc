@@ -22,6 +22,8 @@
 #include "cc/modsecurity/processor.h"
 
 #include "cc/exception.h"
+#include "cc/fs/dir.h"
+#include "cc/fs/file.h"
 
 #include "cc/types.h"
 #include "cc/debug/types.h"
@@ -36,8 +38,11 @@
 cc::modsecurity::ProcessorOneShotInitializer::ProcessorOneShotInitializer (cc::modsecurity::Processor& a_instance)
     : ::cc::Initializer<cc::modsecurity::Processor>(a_instance)
 {
-    instance_.mod_security_ = nullptr;
-    instance_.rules_set_    = nullptr;
+    instance_.mod_security_   = nullptr;
+    instance_.rules_set_      = nullptr;
+    instance_.loggable_data_  = nullptr;
+    instance_.logger_client_  = nullptr;
+    instance_.logger_padding_ = 0;
 }
 
 /**
@@ -77,18 +82,25 @@ cc::modsecurity::Processor::~Processor ()
 /**
  * @brief Initializer processor, one-shot call only!
  *
- * @param a_path Config directory path.
+ * @param a_data    Loggable data to copy.
+ * @param a_path    Config directory path.
+ * @param a_file    Main config file.
  */
-void cc::modsecurity::Processor::Startup (const std::string& a_path)
+void cc::modsecurity::Processor::Startup (const ::ev::Loggable::Data& a_data,
+                                          const std::string& a_path, const std::string& a_file)
 {
     // ... one-shot call only ...
     if ( nullptr != mod_security_ || nullptr != rules_set_ ) {
         throw ::cc::Exception("Logic error - %s already called!", __PRETTY_FUNCTION__);
     }
-    // ... keep track of config file URI ...
-    config_file_uri_ = a_path + "default-mod-security/modsec_includes.conf";
+    // ... keep track of config data ...
+    config_file_uri_  = cc::fs::Dir::Normalize(a_path) + a_file;
+    // ... load config ...
+    if ( false == cc::fs::File::Exists(config_file_uri_) ) {
+        throw ::cc::Exception("Configuration file %s not found!", config_file_uri_.c_str());
+    }
     // ... new instance ...
-    Initialize();
+    Initialize(&a_data);
 }
 
 /**
@@ -105,9 +117,9 @@ void cc::modsecurity::Processor::Shutdown ()
 void cc::modsecurity::Processor::Recycle ()
 {
     // ... clean up ...
-    CleanUp();
+    CleanUp(/* a_final */ false);
     // ... and initialize ...
-    Initialize();
+    Initialize(nullptr);
 }
 
 // MARK: -
@@ -117,36 +129,64 @@ void cc::modsecurity::Processor::Recycle ()
  *
  * @param a_request Request data.
  * @param o_rule    If denied, object will be filled with rule data.
+ * @param o_lines   If set, log line will be copied to this vector.
  */
-
 #define CC_MODSECURITY_PROCESSOR_RUN_AND_VALIDATE_INTERVENTION(...) \
 if ( true == RequiredIntervention([&] { __VA_ARGS__;  return transaction; }, it, o_rule) ) { \
-        delete transaction; \
-        return o_rule.code_; \
-    }
-
-int cc::modsecurity::Processor::SimulateHTTPRequest (const Processor::POSTRequest& a_request, Processor::Rule& o_rule)
+    delete transaction; \
+    const auto elapsed = static_cast<size_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - scan_start).count()); \
+    if ( 0 != o_rule.id_.length() ) { \
+        _logger("   rule: " + o_rule.file_ + ":" + std::to_string(o_rule.line_)); \
+        _logger("   " + o_rule.data_); \
+        _logger("DENIED by rule # " +  o_rule.id_ + ": " + o_rule.msg_ + " ( took " + std::to_string(elapsed) + "ms to scan data )"); \
+    } else { \
+         _logger("DENIED due to " + o_rule.data_ + " ( took " + std::to_string(elapsed) + "ms to scan data )"); \
+    } \
+    return o_rule.code_; \
+}
+int cc::modsecurity::Processor::SimulateHTTPRequest (const Processor::POSTRequest& a_request, Processor::Rule& o_rule,
+                                                     std::function<void(const std::string&)> a_logger)
 {
+    // ... reset ...
     o_rule = { /* id_ */ "" , /* msg */ "", /* file */ "", /* line_ */ 0, /* data_ */ "", /* code_ */ 200 };
-    
     // ... sanity check ...
-    if ( nullptr == mod_security_ || nullptr == rules_set_ ) {
+    if ( nullptr == mod_security_ || nullptr == rules_set_ || nullptr == loggable_data_ ) {
         // ... NOT initialized, report ...
         throw ::cc::Exception("modsecurity not - %s!", "initialized");
     }
 
-    ::modsecurity::ModSecurityIntervention it;
-    ::modsecurity::intervention::reset(&it);
+    // ... prepare log ...
+    auto _logger = [&] (const std::string& a_line) {
+        ::ev::LoggerV2::GetInstance().Log(logger_client_, "cc-modsecurity", "%s", a_line.c_str());
+        if ( nullptr != a_logger ) {
+            a_logger(a_line);
+        }
+    };
 
+    // ... update loggable data ( loggable_data_ is mutable and should be always updated  ) ...
+    loggable_data_->Update(loggable_data_->module(), a_request.client_.ip_, a_request.tag_);
+    
+    // ... log ...
+    _logger("scanning...");
+    _logger("   " + a_request.content_type_ + ", " + std::to_string(a_request.content_length_) + " byte(s)");
+    _logger("   file: " + a_request.body_file_uri_);
+    
+    // ... process ...
     ::modsecurity::Transaction* transaction = new ::modsecurity::Transaction(mod_security_, rules_set_, /* logCbData */ this);
     try {
-        // TODO: MODSECURITY FIX THIS - used param values
+        ::modsecurity::ModSecurityIntervention it;
+        ::modsecurity::intervention::reset(&it);
+        // ... keep track of tp ...
+        const auto scan_start = std::chrono::steady_clock::now();
+        // ... set connection info ...
         CC_MODSECURITY_PROCESSOR_RUN_AND_VALIDATE_INTERVENTION(
-                                                               transaction->processConnection("127.0.0.1", 12345, "127.0.0.1", 80);
+            transaction->processConnection(a_request.client_.ip_.c_str(), a_request.client_.port_,
+                                           a_request.server_.ip_.c_str(), a_request.server_.port_
+            );
         );
-        // TODO: MODSECURITY FIX THIS - comment
+        // ... set uri ...
         CC_MODSECURITY_PROCESSOR_RUN_AND_VALIDATE_INTERVENTION(
-            transaction->processURI(a_request.uri_.c_str(), a_request.protocol_.c_str(), a_request.version_.c_str());
+            transaction->processURI(a_request.uri_.c_str(), "POST", a_request.version_.c_str());
         );
         // ... headers ...
         CC_MODSECURITY_PROCESSOR_RUN_AND_VALIDATE_INTERVENTION(
@@ -170,18 +210,30 @@ int cc::modsecurity::Processor::SimulateHTTPRequest (const Processor::POSTReques
                 throw ::cc::Exception("modsecurity unable to process %s!", "request body");
             }
         );
+        const auto elapsed  = static_cast<size_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - scan_start).count());
+        // ... prepare log lines ...
+        _logger("PASS, no threats found ( took " + std::to_string(elapsed) + "ms to scan data )");
         // ... clean up ...
-        delete transaction;        
+        delete transaction;
     } catch (const cc::Exception& a_cc_exception) {
         // ... clean up ...
         delete transaction;
+        // ... log ...
+        _logger(a_cc_exception.what());
         // ... and notify ...
         throw a_cc_exception;
     } catch (...) {
         // ... clean up ...
         delete transaction;
-        // ... and notify ...
-        ::cc::Exception::Rethrow(/* a_unhandled */ false, __FILE__, __LINE__, __FUNCTION__);
+        // ... log and notify ...
+        try {
+            ::cc::Exception::Rethrow(/* a_unhandled */ false, __FILE__, __LINE__, __FUNCTION__);
+        } catch (const cc::Exception& a_cc_exception) {
+            // ... log ...
+            _logger(a_cc_exception.what());
+            // ... and notify ...
+            throw a_cc_exception;
+        }
     }
     // ... done ...
     return o_rule.code_;
@@ -192,12 +244,23 @@ int cc::modsecurity::Processor::SimulateHTTPRequest (const Processor::POSTReques
 /**
  * @brief Initialize processor.
  */
-void cc::modsecurity::Processor::Initialize ()
+void cc::modsecurity::Processor::Initialize (const ::ev::Loggable::Data* a_data)
 {
     // ... sanity check ...
     CC_ASSERT(nullptr == mod_security_ && nullptr == rules_set_ && 0 != config_file_uri_.length());
-    // ... new instances ...
+    // ...
     try {
+        logger_padding_   = std::max<size_t>(config_file_uri_.length(), 106);
+        logger_section_   = "--- " + std::string(logger_padding_, ' ') + " ---";
+        logger_separator_ = "--- " + std::string(logger_padding_, '-') + " ---";
+        // ... new instances ...
+        if ( nullptr == loggable_data_ && nullptr != a_data ) {
+            loggable_data_ = new ::ev::Loggable::Data(*a_data);
+        }
+        if ( nullptr == logger_client_ && nullptr != loggable_data_ ) {
+            logger_client_ = new ::ev::LoggerV2::Client(*loggable_data_);
+            ::ev::LoggerV2::GetInstance().Register(logger_client_, { "cc-modsecurity" });
+        }
         // ... create new modsecurity instance ...
         mod_security_ = new ::modsecurity::ModSecurity();
         mod_security_->setConnectorInformation("casper-connectors");
@@ -206,9 +269,11 @@ void cc::modsecurity::Processor::Initialize ()
         if ( rules_set_->loadFromUri(config_file_uri_.c_str()) < 0 ) {
             throw ::cc::Exception("%s", rules_set_->getParserError().c_str());
         }
+        // ... log ...
+        Log((nullptr == a_data ? SIGTTIN : 0));
     } catch (...) {
         // ... clean up ...
-        CleanUp();
+        CleanUp(/* a_final */ false);
         // ... notify ...
         ::cc::Exception::Rethrow(/* a_unhandled */ false, __FILE__, __LINE__, __FUNCTION__);
     }
@@ -216,8 +281,10 @@ void cc::modsecurity::Processor::Initialize ()
 
 /**
  * @brief Release previously allocated memory.
+ *
+ * @param a_final When false, loggging data will be preserved.
  */
-void cc::modsecurity::Processor::CleanUp ()
+void cc::modsecurity::Processor::CleanUp (const bool a_final)
 {
     if ( nullptr != rules_set_ ) {
         delete rules_set_;
@@ -227,6 +294,88 @@ void cc::modsecurity::Processor::CleanUp ()
         delete mod_security_;
         mod_security_ = nullptr;
     }
+    if ( true == a_final ) {
+        if ( nullptr != loggable_data_ ) {
+            delete loggable_data_;
+            loggable_data_ = nullptr;
+        }
+        if ( nullptr != logger_client_ ) {
+            ::ev::LoggerV2::GetInstance().Unregister(logger_client_);
+            delete logger_client_;
+            logger_client_ = nullptr;
+        }
+    }
+}
+
+/**
+ * @brief Load rules.
+ *
+ * @param a_signo Signal number, 0 if it's a startup log.
+ */
+void cc::modsecurity::Processor::Log (const int a_signo) const
+{
+    // ... update loggable data ( loggable_data_ is mutable and should be always updated  ) ...
+    loggable_data_->Update(/* a_module */ "cc-modsecurity", /* a_ip_addr */ "", /* a_tag */ ( 0 == a_signo ? "startup" : "signal"));
+        
+    auto& logger = ::ev::LoggerV2::GetInstance();
+    
+    // ... present ...
+    std::vector<std::string> log_lines;
+    log_lines.push_back(logger_separator_);
+    log_lines.push_back(logger_section_);
+    log_lines.push_back("--- " + cc::UTCTime::NowISO8601WithTZ());
+    log_lines.push_back("--- " + config_file_uri_);
+    log_lines.push_back(logger_section_);
+    logger.Log(logger_client_, "cc-modsecurity", log_lines);
+
+    // ... log minimalist rules data ...
+    size_t number_of_rules = 0;
+    for ( int phase_no = 0 ; phase_no < ::modsecurity::Phases::NUMBER_OF_PHASES; phase_no++ ) {
+        const auto rs = rules_set_->m_rulesSetPhases.at(phase_no);
+        // ...
+        const char* phase_cstr;
+        switch (static_cast<::modsecurity::Phases>(phase_no)) {
+            case ::modsecurity::Phases::ConnectionPhase:
+                phase_cstr = "connection";
+                break;
+            case ::modsecurity::Phases::UriPhase:
+                phase_cstr = "URI";
+                break;
+            case ::modsecurity::Phases::RequestHeadersPhase:
+                phase_cstr = "request headers";
+                break;
+            case ::modsecurity::Phases::RequestBodyPhase:
+                phase_cstr = "request body";
+                break;
+            case ::modsecurity::Phases::ResponseHeadersPhase:
+                phase_cstr = "response headers";
+                break;
+            case ::modsecurity::Phases::ResponseBodyPhase:
+                phase_cstr = "response body";
+                break;
+            case ::modsecurity::Phases::LoggingPhase:
+                phase_cstr = "logging";
+                break;
+            default:
+                phase_cstr = "???";
+                break;
+        }
+        // ... phase info ...
+        logger.Log(logger_client_, "cc-modsecurity",
+                   "[ %2d ] %s rule(s)",
+                   phase_no, phase_cstr
+        );
+        // ... rules ...
+        for ( int rule_no = 0; rule_no < static_cast<int>(rs->size()); rule_no++ ) {
+            logger.Log(logger_client_, "cc-modsecurity",
+                       "\t%s", rs->at(rule_no)->getReference().c_str()
+            );
+        }
+        number_of_rules += rs->size();
+    }
+    logger.Log(logger_client_, "cc-modsecurity", "%s", logger_section_.c_str());
+    logger.Log(logger_client_, "cc-modsecurity", SIZET_FMT " rule(s) loaded", number_of_rules);
+    logger.Log(logger_client_, "cc-modsecurity", "%s", logger_separator_.c_str());    
 }
 
 // MARK: -
@@ -255,6 +404,7 @@ bool cc::modsecurity::Processor::RequiredIntervention (const std::function<::mod
             const std::regex& exp_;
             std::string*      value_;
         } Entry;
+        size_t match_count = 0;
         const std::vector<Entry> all = {
             Entry {Processor::sk_details_id_regex_  , &o_rule.id_   },
             Entry {Processor::sk_details_msg_regex_ , &o_rule.msg_  },
@@ -264,10 +414,15 @@ bool cc::modsecurity::Processor::RequiredIntervention (const std::function<::mod
         for ( auto& it : all ) {
             if ( true == std::regex_match(data, match, it.exp_) && 2 == match.size() ) {
                 (*it.value_) = match[1].str();
+                match_count++;
             }
         }
         if ( true == std::regex_match(data, match, Processor::sk_details_line_regex_) && 2 == match.size() ) {
             o_rule.line_ = std::stoi(match[1].str());
+            match_count++;
+        }
+        if ( 0 == match_count ) {
+            o_rule.data_ = data;
         }
     }
     // ... save code ...
