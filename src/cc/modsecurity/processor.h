@@ -31,6 +31,8 @@
 #include "ev/logger_v2.h"
 
 #include <regex> // std::regex
+#include <map>
+#include <string>
 
 namespace cc
 {
@@ -64,16 +66,17 @@ namespace cc
             } Addr;
             
             typedef struct {
-                std::string id_;
-                std::string content_type_;
-                size_t      content_length_;
-                Addr        client_;
-                Addr        server_;
-                std::string uri_;
-                std::string version_;
-                std::string body_file_uri_;
-                std::string tag_;
-            } POSTRequest;
+                std::string                             id_;
+                std::string                             module_;
+                std::string                             content_type_;
+                size_t                                  content_length_;
+                Addr                                    client_;
+                Addr                                    server_;
+                std::string                             uri_;
+                std::string                             version_;
+                std::string                             body_file_uri_;
+                std::function<void(const std::string&)> logger_;
+            } HTTPPOSTRequest;
             
             typedef struct {
                 std::string id_;
@@ -83,7 +86,22 @@ namespace cc
                 std::string data_;
                 int         code_;
             } Rule;
+
+        private: // Data Type(s)
             
+            typedef struct {
+                size_t      padding_;
+                std::string section_;
+                std::string separator_;
+            } LogConfig;
+            
+            typedef struct {
+                ::modsecurity::ModSecurity* mod_security_;
+                ::modsecurity::RulesSet*    rules_set_;
+                std::string                 config_uri_;
+                LogConfig                   log_config_;
+            } Instance;
+
         private: // Static Const Data
             
             static const std::regex sk_details_id_regex_;
@@ -94,17 +112,12 @@ namespace cc
             
         private: // Data
             
-            ::modsecurity::ModSecurity* mod_security_;
-            ::modsecurity::RulesSet*    rules_set_;
-            std::string                 config_file_uri_;
+            std::map<std::string, Instance*> instances_;
             
         private: // Data
             
-            ::ev::Loggable::Data*       loggable_data_;
-            ::ev::LoggerV2::Client*     logger_client_;
-            size_t                      logger_padding_;
-            std::string                 logger_section_;
-            std::string                 logger_separator_;
+            ::ev::Loggable::Data*    loggable_data_;
+            ::ev::LoggerV2::Client*  logger_client_;
             
         public: // Constructor(s) / Destructor
             
@@ -113,24 +126,30 @@ namespace cc
             
         public: // One-shot Call API Method(s) / Function(s)
             
-            void Startup  (const ::ev::Loggable::Data& a_data,
-                           const std::string& a_path, const std::string& a_file);
+            void Startup  (const ::ev::Loggable::Data& a_data);
+            void Enable   (const std::string& a_module, const std::string& a_path, const std::string& a_file);
             void Shutdown ();
         
+        public: // API Method(s) / Function(s)
+            
+            inline bool IsEnabled (const std::string& a_module) const { return instances_.end() != instances_.find(a_module); }
+            
         public: // API Method(s) / Function(s)
             
             void Recycle ();
             
         public: // API Method(s) / Function(s)
             
-            int SimulateHTTPRequest (const POSTRequest& a_request, Rule& o_rule,
-                                     std::function<void(const std::string&)> a_logger = nullptr);
+            int Validate (const HTTPPOSTRequest& a_request, Rule& o_rule);
             
         private: // Method(s) / Function(s)
             
-            void Initialize (const ::ev::Loggable::Data* a_data);
-            void CleanUp    (const bool a_final = true);
-            void Log        (const int a_signo) const;
+            Instance* NewInstance (const std::string& a_module,
+                                    const std::string& a_uri, const bool a_first) const;
+            
+            void CleanUp    ();
+            void Log        (const std::string& a_module,
+                             const Processor::Instance& a_instance, const bool a_first) const;
             
         private: // Method(s) / Function(s)
             

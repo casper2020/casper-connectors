@@ -40,11 +40,8 @@
 cc::modsecurity::ProcessorOneShotInitializer::ProcessorOneShotInitializer (cc::modsecurity::Processor& a_instance)
     : ::cc::Initializer<cc::modsecurity::Processor>(a_instance)
 {
-    instance_.mod_security_   = nullptr;
-    instance_.rules_set_      = nullptr;
     instance_.loggable_data_  = nullptr;
     instance_.logger_client_  = nullptr;
-    instance_.logger_padding_ = 0;
 }
 
 /**
@@ -84,25 +81,48 @@ cc::modsecurity::Processor::~Processor ()
 /**
  * @brief Initializer processor, one-shot call only!
  *
- * @param a_data    Loggable data to copy.
- * @param a_path    Config directory path.
- * @param a_file    Main config file.
+ * @param a_data Loggable data to copy.
  */
-void cc::modsecurity::Processor::Startup (const ::ev::Loggable::Data& a_data,
-                                          const std::string& a_path, const std::string& a_file)
+void cc::modsecurity::Processor::Startup (const ::ev::Loggable::Data& a_data)
 {
     // ... one-shot call only ...
-    if ( nullptr != mod_security_ || nullptr != rules_set_ ) {
+    if ( nullptr != loggable_data_ || nullptr != logger_client_ ) {
         throw ::cc::Exception("Logic error - %s already called!", __PRETTY_FUNCTION__);
     }
-    // ... keep track of config data ...
-    config_file_uri_  = cc::fs::Dir::Normalize(a_path) + a_file;
-    // ... load config ...
-    if ( false == cc::fs::File::Exists(config_file_uri_) ) {
-        throw ::cc::Exception("Configuration file %s not found!", config_file_uri_.c_str());
+    // ... new instances ...
+    loggable_data_ = new ::ev::Loggable::Data(a_data);
+    logger_client_ = new ::ev::LoggerV2::Client(*loggable_data_);
+    // ... register token ...
+    ::ev::LoggerV2::GetInstance().Register(logger_client_, { "cc-modsecurity" });
+}
+
+/**
+ * @brief Enable a specific instance for a module.
+ *
+ * @param a_module   Module ID.
+ * @param a_path     Config directory path.
+ * @param a_file     Main config file.
+ */
+void cc::modsecurity::Processor::Enable (const std::string& a_module,
+                                         const std::string& a_path, const std::string& a_file)
+{
+    const std::string uri = cc::fs::Dir::Normalize(a_path) + a_file;
+    if ( false == cc::fs::File::Exists(uri) ) {
+        // ... config does not exist ...
+        throw ::cc::Exception("Configuration file '%s' for '%s' not found!", uri.c_str(), a_module.c_str());
+    }
+    // ... already present?
+    {
+        const auto it = instances_.find(a_module);
+        if ( instances_.end() != it ) {
+            delete it->second->rules_set_;
+            delete it->second->mod_security_;
+            delete it->second;
+            instances_.erase(it);
+        }
     }
     // ... new instance ...
-    Initialize(&a_data);
+    instances_[a_module] = Processor::NewInstance(a_module, uri, /* a_first */ true);
 }
 
 /**
@@ -114,14 +134,23 @@ void cc::modsecurity::Processor::Shutdown ()
 }
 
 /**
- * @brief Recycle processor, by reloading rules.
+ * @brief Recycle processor by reloading rules.
  */
 void cc::modsecurity::Processor::Recycle ()
 {
-    // ... clean up ...
-    CleanUp(/* a_final */ false);
-    // ... and initialize ...
-    Initialize(nullptr);
+    std::map<std::string, std::string> instances;
+    // ... map module -> config and release current instances ...
+    for ( const auto& it : instances_ ) {
+        instances[it.first] = it.second->config_uri_;
+        delete it.second->rules_set_;
+        delete it.second->mod_security_;
+        delete it.second;
+    }
+    instances_.clear();
+    // ... create new instances ...
+    for ( const auto& it : instances ) {
+        instances_[it.first] = Processor::NewInstance(it.first, it.second, /* a_first */ false);
+    }
 }
 
 // MARK: -
@@ -129,6 +158,7 @@ void cc::modsecurity::Processor::Recycle ()
 /**
  * @brief Simulate an HTTP request and validate it's content.
  *
+ * @param a_module  Module ID.
  * @param a_request Request data.
  * @param o_rule    If denied, object will be filled with rule data.
  * @param o_lines   If set, log line will be copied to this vector.
@@ -146,27 +176,30 @@ if ( true == RequiredIntervention([&] { __VA_ARGS__;  return transaction; }, it,
     } \
     return o_rule.code_; \
 }
-int cc::modsecurity::Processor::SimulateHTTPRequest (const Processor::POSTRequest& a_request, Processor::Rule& o_rule,
-                                                     std::function<void(const std::string&)> a_logger)
+int cc::modsecurity::Processor::Validate (const Processor::HTTPPOSTRequest& a_request, Processor::Rule& o_rule)
 {
     // ... reset ...
     o_rule = { /* id_ */ "" , /* msg */ "", /* file */ "", /* line_ */ 0, /* data_ */ "", /* code_ */ 200 };
-    // ... sanity check ...
-    if ( nullptr == mod_security_ || nullptr == rules_set_ || nullptr == loggable_data_ ) {
-        // ... NOT initialized, report ...
-        throw ::cc::Exception("modsecurity not - %s!", "initialized");
+    
+    // ... grab instance ...
+    Processor::Instance* instance;
+    {
+        const auto it = instances_.find(a_request.module_);
+        if ( instances_.end() == it ) {
+            throw ::cc::Exception("modsecurity not - %s!", "initialized");
+        }
+        instance = it->second;
     }
-
+    
     // ... prepare log ...
     auto _logger = [&] (const std::string& a_line) {
         ::ev::LoggerV2::GetInstance().Log(logger_client_, "cc-modsecurity", "%s", a_line.c_str());
-        if ( nullptr != a_logger ) {
-            a_logger(a_line);
+        if ( nullptr != a_request.logger_ ) {
+            a_request.logger_(a_line);
         }
     };
-
     // ... update loggable data ( loggable_data_ is mutable and should be always updated  ) ...
-    loggable_data_->Update(loggable_data_->module(), a_request.client_.ip_, a_request.tag_);
+    loggable_data_->Update(loggable_data_->module(), a_request.client_.ip_, a_request.module_);
     
     // ... log ...
     _logger("scanning...");
@@ -174,7 +207,7 @@ int cc::modsecurity::Processor::SimulateHTTPRequest (const Processor::POSTReques
     _logger("   file: " + a_request.body_file_uri_);
     
     // ... process ...
-    ::modsecurity::Transaction* transaction = new ::modsecurity::Transaction(mod_security_, rules_set_, /* logCbData */ this);
+    ::modsecurity::Transaction* transaction = new ::modsecurity::Transaction(instance->mod_security_, instance->rules_set_, /* logCbData */ this);
     try {
         ::modsecurity::ModSecurityIntervention it;
         ::modsecurity::intervention::reset(&it);
@@ -229,7 +262,7 @@ int cc::modsecurity::Processor::SimulateHTTPRequest (const Processor::POSTReques
         delete transaction;
         // ... log and notify ...
         try {
-            ::cc::Exception::Rethrow(/* a_unhandled */ false, __FILE__, __LINE__, __FUNCTION__);
+            CC_EXCEPTION_RETHROW(/* a_unhandled */ false);
         } catch (const cc::Exception& a_cc_exception) {
             // ... log ...
             _logger(a_cc_exception.what());
@@ -245,95 +278,98 @@ int cc::modsecurity::Processor::SimulateHTTPRequest (const Processor::POSTReques
 
 /**
  * @brief Initialize processor.
+ *
+ * @param a_module Module ID.
+ * @param a_uri    Configuration file local URI.
+ * @param a_first  True if it is the first instance created.
  */
-void cc::modsecurity::Processor::Initialize (const ::ev::Loggable::Data* a_data)
+cc::modsecurity::Processor::Instance*
+cc::modsecurity::Processor::NewInstance (const std::string& a_module,
+                                         const std::string& a_uri, const bool a_first) const
 {
-    // ... sanity check ...
-    CC_ASSERT(nullptr == mod_security_ && nullptr == rules_set_ && 0 != config_file_uri_.length());
+    const size_t logger_padding = std::max<size_t>(a_uri.length(), 106);
     // ...
+    Processor::Instance* instance;
     try {
-        logger_padding_   = std::max<size_t>(config_file_uri_.length(), 106);
-        logger_section_   = "--- " + std::string(logger_padding_, ' ') + " ---";
-        logger_separator_ = "--- " + std::string(logger_padding_, '-') + " ---";
-        // ... new instances ...
-        if ( nullptr == loggable_data_ && nullptr != a_data ) {
-            loggable_data_ = new ::ev::Loggable::Data(*a_data);
-        }
-        if ( nullptr == logger_client_ && nullptr != loggable_data_ ) {
-            logger_client_ = new ::ev::LoggerV2::Client(*loggable_data_);
-            ::ev::LoggerV2::GetInstance().Register(logger_client_, { "cc-modsecurity" });
-        }
-        // ... create new modsecurity instance ...
-        mod_security_ = new ::modsecurity::ModSecurity();
-        mod_security_->setConnectorInformation("casper-connectors");
-        // ... create and load new rules ...
-        rules_set_ = new ::modsecurity::RulesSet();
-        if ( rules_set_->loadFromUri(config_file_uri_.c_str()) < 0 ) {
-            throw ::cc::Exception("%s", rules_set_->getParserError().c_str());
+        // ... new instance ...
+        instance = new Processor::Instance {
+            /* mod_security_ */ new ::modsecurity::ModSecurity(),
+            /* rules_set_    */ new ::modsecurity::RulesSet(),
+            /* config_uri_   */ a_uri,
+            /* log_config_   */ {
+                /* padding_   */ logger_padding,
+                /* section_   */ "--- " + std::string(logger_padding, ' ') + " ---",
+                /* separator_ */ "--- " + std::string(logger_padding, '-') + " ---"
+            }
+        };
+        // ... setup modsecurity instance ...
+        instance->mod_security_->setConnectorInformation("casper-connectors");
+        // ... load new rules ...
+        if ( instance->rules_set_->loadFromUri(instance->config_uri_.c_str()) < 0 ) {
+            throw ::cc::Exception("%s", instance->rules_set_->getParserError().c_str());
         }
         // ... log ...
-        Log((nullptr == a_data ? SIGTTIN : 0));
+        Log(a_module, *instance, a_first);
     } catch (...) {
         // ... clean up ...
-        CleanUp(/* a_final */ false);
+        delete instance;
         // ... notify ...
-        ::cc::Exception::Rethrow(/* a_unhandled */ false, __FILE__, __LINE__, __FUNCTION__);
+        CC_EXCEPTION_RETHROW(/* a_unhandled */ false);
     }
+    // ... done ...
+    return instance;
 }
 
 /**
  * @brief Release previously allocated memory.
- *
- * @param a_final When false, loggging data will be preserved.
  */
-void cc::modsecurity::Processor::CleanUp (const bool a_final)
+void cc::modsecurity::Processor::CleanUp ()
 {
-    if ( nullptr != rules_set_ ) {
-        delete rules_set_;
-        rules_set_ = nullptr;
+    for ( const auto& it : instances_ ) {
+        delete it.second->rules_set_;
+        delete it.second->mod_security_;
+        delete it.second;
     }
-    if ( nullptr != mod_security_ ) {
-        delete mod_security_;
-        mod_security_ = nullptr;
+    instances_.clear();
+    if ( nullptr != loggable_data_ ) {
+        delete loggable_data_;
+        loggable_data_ = nullptr;
     }
-    if ( true == a_final ) {
-        if ( nullptr != loggable_data_ ) {
-            delete loggable_data_;
-            loggable_data_ = nullptr;
-        }
-        if ( nullptr != logger_client_ ) {
-            ::ev::LoggerV2::GetInstance().Unregister(logger_client_);
-            delete logger_client_;
-            logger_client_ = nullptr;
-        }
+    if ( nullptr != logger_client_ ) {
+        ::ev::LoggerV2::GetInstance().Unregister(logger_client_);
+        delete logger_client_;
+        logger_client_ = nullptr;
     }
 }
 
 /**
  * @brief Load rules.
  *
- * @param a_signo Signal number, 0 if it's a startup log.
+ * @param a_module   Module ID.
+ * @param a_instance Instance to log.
+ * @param a_first    True if it is the first instance created.
  */
-void cc::modsecurity::Processor::Log (const int a_signo) const
+void cc::modsecurity::Processor::Log (const std::string& a_module,
+                                      const Processor::Instance& a_instance, const bool a_first) const
 {
     // ... update loggable data ( loggable_data_ is mutable and should be always updated  ) ...
-    loggable_data_->Update(/* a_module */ "cc-modsecurity", /* a_ip_addr */ "", /* a_tag */ ( 0 == a_signo ? "startup" : "signal"));
+    loggable_data_->Update(/* a_module */ "cc-modsecurity", /* a_ip_addr */ "", /* a_tag */ "~ " + std::string( a_first ? "load" : "reload") + " ~ " + a_module );
         
     auto& logger = ::ev::LoggerV2::GetInstance();
     
     // ... present ...
     std::vector<std::string> log_lines;
-    log_lines.push_back(logger_separator_);
-    log_lines.push_back(logger_section_);
+    log_lines.push_back(a_instance.log_config_.separator_);
+    log_lines.push_back(a_instance.log_config_.section_);
     log_lines.push_back("--- " + cc::UTCTime::NowISO8601WithTZ());
-    log_lines.push_back("--- " + config_file_uri_);
-    log_lines.push_back(logger_section_);
+    log_lines.push_back("--- " + a_instance.config_uri_);
+    log_lines.push_back(a_instance.log_config_.section_);
     logger.Log(logger_client_, "cc-modsecurity", log_lines);
 
     // ... log minimalist rules data ...
     size_t number_of_rules = 0;
     for ( int phase_no = 0 ; phase_no < ::modsecurity::Phases::NUMBER_OF_PHASES; phase_no++ ) {
-        const auto rs = rules_set_->m_rulesSetPhases.at(phase_no);
+        const auto rs = a_instance.rules_set_->m_rulesSetPhases.at(phase_no);
         // ...
         const char* phase_cstr;
         switch (static_cast<::modsecurity::Phases>(phase_no)) {
@@ -375,9 +411,10 @@ void cc::modsecurity::Processor::Log (const int a_signo) const
         }
         number_of_rules += rs->size();
     }
-    logger.Log(logger_client_, "cc-modsecurity", "%s", logger_section_.c_str());
+    // ... finalize presentation ...
+    logger.Log(logger_client_, "cc-modsecurity", "%s", a_instance.log_config_.section_.c_str());
     logger.Log(logger_client_, "cc-modsecurity", SIZET_FMT " rule(s) loaded", number_of_rules);
-    logger.Log(logger_client_, "cc-modsecurity", "%s", logger_separator_.c_str());    
+    logger.Log(logger_client_, "cc-modsecurity", "%s", a_instance.log_config_.separator_.c_str());
 }
 
 // MARK: -
