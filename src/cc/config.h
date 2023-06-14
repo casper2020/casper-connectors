@@ -22,7 +22,7 @@
 #ifndef NRS_CC_CONFIG_H_
 #define NRS_CC_CONFIG_H_
 
-#if defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG)
+#if defined(CC_ENABLE_DEBUG) && ( defined(DEBUG) || defined(_DEBUG) || defined(ENABLE_DEBUG) )
     #define CC_DEBUG_ON 1
 #else
     #undef CC_DEBUG_ON

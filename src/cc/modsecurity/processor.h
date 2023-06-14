@@ -34,7 +34,6 @@
 #include <map>
 #include <string>
 
-#include "cc/types.h"
 #include "cc/debug/types.h"
 
 namespace cc

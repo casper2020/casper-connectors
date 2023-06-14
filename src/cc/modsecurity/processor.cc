@@ -26,6 +26,12 @@
 #include "cc/fs/file.h"
 
 #include <signal.h> // SIGTTIN
+#include "cc/types.h"
+
+#ifdef CC_DEBUG_ON
+    #include "cc/global/initializer.h"
+#endif
+
 
 // MARK: - ProcessorOneShotInitializer
 
@@ -90,7 +96,7 @@ void cc::modsecurity::Processor::Startup (const ::ev::Loggable::Data& a_data
     // ... new instances ...
     loggable_data_ = new ::ev::Loggable::Data(a_data);
     logger_client_ = new ::ev::LoggerV2::Client(*loggable_data_);
-    log_dir_       = a_log_dir;
+CC_IF_DEBUG(log_dir_ = a_log_dir;)
     // ... register token ...
     ::ev::LoggerV2::GetInstance().Register(logger_client_, { "cc-modsecurity" });
 }
@@ -293,17 +299,22 @@ cc::modsecurity::Processor::NewInstance (const std::string& a_module,
     Processor::Instance* instance;
     try {
         // ... debug ...
-    CC_IF_DEBUG(
-        std::string error;
-        ::modsecurity::DebugLog* debug_log = new ::modsecurity::DebugLog();
-        debug_log->setDebugLogLevel(9);
-        debug_log->setDebugLogFile(cc::fs::Dir::Normalize(log_dir_) + "cc-modsecurity-debug.log", &error);
-    );
+CC_IF_DEBUG(
+        ::modsecurity::DebugLog* debug_log;
+        if ( true == ::cc::global::Initializer::GetInstance().IsBeingDebugged() ) {
+            std::string error;
+            debug_log = new ::modsecurity::DebugLog();
+            debug_log->setDebugLogLevel(9);
+            debug_log->setDebugLogFile(cc::fs::Dir::Normalize(log_dir_) + "cc-modsecurity-debug.log", &error);
+        } else {
+            debug_log = nullptr;
+        }
+);
         // ... new instance ...
         instance = new Processor::Instance {
             /* mod_security_ */ new ::modsecurity::ModSecurity(),
             /* rules_set_    */ new ::modsecurity::RulesSet(CC_IF_DEBUG(debug_log)),
-            /* debug_log_    */ CC_IF_DEBUG(debug_log),
+            /* debug_log_    */ CC_IF_DEBUG(debug_log,)
             /* config_uri_   */ a_uri,
             /* log_config_   */ {
                 /* padding_   */ logger_padding,
