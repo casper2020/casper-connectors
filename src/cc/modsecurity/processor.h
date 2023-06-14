@@ -34,6 +34,9 @@
 #include <map>
 #include <string>
 
+#include "cc/types.h"
+#include "cc/debug/types.h"
+
 namespace cc
 {
 
@@ -98,6 +101,7 @@ namespace cc
             typedef struct {
                 ::modsecurity::ModSecurity* mod_security_;
                 ::modsecurity::RulesSet*    rules_set_;
+    CC_IF_DEBUG(::modsecurity::DebugLog*    debug_log_;)
                 std::string                 config_uri_;
                 LogConfig                   log_config_;
             } Instance;
@@ -118,6 +122,7 @@ namespace cc
             
             ::ev::Loggable::Data*    loggable_data_;
             ::ev::LoggerV2::Client*  logger_client_;
+            CC_IF_DEBUG(std::string  log_dir_);
             
         public: // Constructor(s) / Destructor
             
@@ -126,7 +131,7 @@ namespace cc
             
         public: // One-shot Call API Method(s) / Function(s)
             
-            void Startup  (const ::ev::Loggable::Data& a_data);
+            void Startup  (const ::ev::Loggable::Data& a_data CC_IF_DEBUG(, const std::string& a_log_dir));
             void Enable   (const std::string& a_module, const std::string& a_path, const std::string& a_file);
             void Shutdown ();
         

@@ -25,9 +25,6 @@
 #include "cc/fs/dir.h"
 #include "cc/fs/file.h"
 
-#include "cc/types.h"
-#include "cc/debug/types.h"
-
 #include <signal.h> // SIGTTIN
 
 // MARK: - ProcessorOneShotInitializer
@@ -83,7 +80,8 @@ cc::modsecurity::Processor::~Processor ()
  *
  * @param a_data Loggable data to copy.
  */
-void cc::modsecurity::Processor::Startup (const ::ev::Loggable::Data& a_data)
+void cc::modsecurity::Processor::Startup (const ::ev::Loggable::Data& a_data
+                                          CC_IF_DEBUG(,const std::string& a_log_dir))
 {
     // ... one-shot call only ...
     if ( nullptr != loggable_data_ || nullptr != logger_client_ ) {
@@ -92,6 +90,7 @@ void cc::modsecurity::Processor::Startup (const ::ev::Loggable::Data& a_data)
     // ... new instances ...
     loggable_data_ = new ::ev::Loggable::Data(a_data);
     logger_client_ = new ::ev::LoggerV2::Client(*loggable_data_);
+    log_dir_       = a_log_dir;
     // ... register token ...
     ::ev::LoggerV2::GetInstance().Register(logger_client_, { "cc-modsecurity" });
 }
@@ -117,6 +116,7 @@ void cc::modsecurity::Processor::Enable (const std::string& a_module,
         if ( instances_.end() != it ) {
             delete it->second->rules_set_;
             delete it->second->mod_security_;
+            CC_IF_DEBUG(delete it->second->debug_log_);
             delete it->second;
             instances_.erase(it);
         }
@@ -144,6 +144,7 @@ void cc::modsecurity::Processor::Recycle ()
         instances[it.first] = it.second->config_uri_;
         delete it.second->rules_set_;
         delete it.second->mod_security_;
+        CC_IF_DEBUG(delete it.second->debug_log_);
         delete it.second;
     }
     instances_.clear();
@@ -291,10 +292,18 @@ cc::modsecurity::Processor::NewInstance (const std::string& a_module,
     // ...
     Processor::Instance* instance;
     try {
+        // ... debug ...
+    CC_IF_DEBUG(
+        std::string error;
+        ::modsecurity::DebugLog* debug_log = new ::modsecurity::DebugLog();
+        debug_log->setDebugLogLevel(9);
+        debug_log->setDebugLogFile(cc::fs::Dir::Normalize(log_dir_) + "cc-modsecurity-debug.log", &error);
+    );
         // ... new instance ...
         instance = new Processor::Instance {
             /* mod_security_ */ new ::modsecurity::ModSecurity(),
-            /* rules_set_    */ new ::modsecurity::RulesSet(),
+            /* rules_set_    */ new ::modsecurity::RulesSet(CC_IF_DEBUG(debug_log)),
+            /* debug_log_    */ CC_IF_DEBUG(debug_log),
             /* config_uri_   */ a_uri,
             /* log_config_   */ {
                 /* padding_   */ logger_padding,
@@ -312,6 +321,9 @@ cc::modsecurity::Processor::NewInstance (const std::string& a_module,
         Log(a_module, *instance, a_first);
     } catch (...) {
         // ... clean up ...
+        delete instance->mod_security_;
+        delete instance->rules_set_;
+        CC_IF_DEBUG(delete instance->debug_log_);
         delete instance;
         // ... notify ...
         CC_EXCEPTION_RETHROW(/* a_unhandled */ false);
@@ -328,6 +340,7 @@ void cc::modsecurity::Processor::CleanUp ()
     for ( const auto& it : instances_ ) {
         delete it.second->rules_set_;
         delete it.second->mod_security_;
+        CC_IF_DEBUG(delete it.second->debug_log_);
         delete it.second;
     }
     instances_.clear();
