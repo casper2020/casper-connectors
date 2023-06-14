@@ -193,7 +193,7 @@ void cc::easy::Beanstalk::Push (const std::string& a_id, const std::string& a_pa
                                           static_cast<uint32_t>(a_ttr)
     );
     if ( status < 0 ) {
-        throw cc::Exception("Beanstalk producer returned with error code ( " + std::to_string(status) + " ) " + producer_->ErrorCodeToString(status) + ", while adding job '"
+        throw cc::Exception("Beanstalk producer returned with error code ( " + std::to_string(status) + " ) " + ev::beanstalk::Producer::ErrorCodeToString(status) + ", while adding job '"
                               +
                             payload["id"].asString() + "' to '" + payload["tube"].asString() + "' tube!"
         );

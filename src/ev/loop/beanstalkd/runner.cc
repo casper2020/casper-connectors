@@ -806,7 +806,7 @@ void ev::loop::beanstalkd::Runner::PushJob (const std::string& a_tube, const std
         const int64_t status = producer.Put(a_payload, /* a_priority = 0 */ 0, /* a_delay = 0 */ 0, a_ttr);
         if ( status < 0 ) {
             throw ::ev::Exception("Beanstalk producer returned with error code " INT64_FMT " - %s!",
-                                  status, producer.ErrorCodeToString(status)
+                                  status, ev::beanstalk::Producer::ErrorCodeToString(status)
             );
         }
     } catch (const ::Beanstalk::ConnectException& a_btc_exception) {

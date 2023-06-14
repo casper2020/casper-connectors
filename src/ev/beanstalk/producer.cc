@@ -70,3 +70,38 @@ ev::beanstalk::Producer::~Producer ()
 {
     delete client_;
 }
+
+// MARK: -
+
+/**
+ * @brief Translate a numeric error code to it's string.
+ *
+ * @param a_code Erro code to translate.
+ *
+ * @return Error code string representation.
+ */
+const char* const ev::beanstalk::Producer::ErrorCodeToString (const int64_t& a_code)
+{
+    switch (a_code) {
+        case BS_STATUS_FAIL:          // -1
+            return "BS_STATUS_FAIL";
+        case BS_STATUS_EXPECTED_CRLF: // -2
+            return "BS_STATUS_EXPECTED_CRLF";
+        case BS_STATUS_JOB_TOO_BIG:   // -3
+            return "BS_STATUS_JOB_TOO_BIG";
+        case BS_STATUS_DRAINING:      // -4
+            return "BS_STATUS_DRAINING";
+        case BS_STATUS_TIMED_OUT:     // -5
+            return "BS_STATUS_TIMED_OUT";
+        case BS_STATUS_NOT_FOUND:     // -6
+            return "BS_STATUS_NOT_FOUND";
+        case BS_STATUS_DEADLINE_SOON: // -7
+            return "BS_STATUS_DEADLINE_SOON";
+        case BS_STATUS_BURIED:        // -8
+            return "BS_STATUS_BURIED";
+        case BS_STATUS_NOT_IGNORED:   // -9
+            return "BS_STATUS_NOT_IGNORED";
+        default:
+            return "BS_STATUS_???";
+    }
+}

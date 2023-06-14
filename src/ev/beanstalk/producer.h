@@ -55,9 +55,11 @@ namespace ev
             int64_t Put (const char* const a_data, const size_t a_size,
                          const uint32_t a_priority = 0, const uint32_t a_delay = 0, const uint32_t a_ttr = 60);
             
-            const char* const ErrorCodeToString (const int64_t& a_code) const;
-            
             const std::string& tube () const;
+            
+        public: // Static Method(s) / Function(s)
+            
+            static const char* const ErrorCodeToString (const int64_t& a_code);
 
         }; // end of class 'Producer';
         
@@ -71,33 +73,7 @@ namespace ev
                                       const uint32_t a_priority, const uint32_t a_delay, const uint32_t a_ttr)
         {
             return client_->put(a_data, a_size, a_priority, a_delay, a_ttr);
-        }
-    
-        inline const char* const Producer::ErrorCodeToString (const int64_t& a_code) const
-        {
-            switch (a_code) {
-                case BS_STATUS_FAIL:          // -1
-                    return "BS_STATUS_FAIL";
-                case BS_STATUS_EXPECTED_CRLF: // -2
-                    return "BS_STATUS_EXPECTED_CRLF";
-                case BS_STATUS_JOB_TOO_BIG:   // -3
-                    return "BS_STATUS_JOB_TOO_BIG";
-                case BS_STATUS_DRAINING:      // -4
-                    return "BS_STATUS_DRAINING";
-                case BS_STATUS_TIMED_OUT:     // -5
-                    return "BS_STATUS_TIMED_OUT";
-                case BS_STATUS_NOT_FOUND:     // -6
-                    return "BS_STATUS_NOT_FOUND";
-                case BS_STATUS_DEADLINE_SOON: // -7
-                    return "BS_STATUS_DEADLINE_SOON";
-                case BS_STATUS_BURIED:        // -8
-                    return "BS_STATUS_BURIED";
-                case BS_STATUS_NOT_IGNORED:   // -9
-                    return "BS_STATUS_NOT_IGNORED";
-                default:
-                    return "BS_STATUS_???";
-            }
-        }
+        }            
     
         inline const std::string& Producer::tube () const
         {
