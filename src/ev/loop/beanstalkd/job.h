@@ -433,6 +433,7 @@ namespace ev
                 std::string                logs_directory_;
                 std::string                shared_directory_;
                 ResponseFlags              response_flags_;
+                ev::beanstalk::Config      beanstalk_config_;
 
             private: // Helpers
                 
@@ -568,9 +569,10 @@ namespace ev
 
             protected: // Other Settings
                 
-                const std::string& logs_directory    () const;
-                const std::string& shared_directory  () const;
-                const std::string& output_dir_prefix () const;
+                const std::string&           logs_directory    () const;
+                const std::string&           shared_directory  () const;
+                const std::string&           output_dir_prefix () const;
+                const ev::beanstalk::Config& beanstalk_config  () const;
             
             protected: // Response Options
                 
@@ -840,6 +842,14 @@ namespace ev
             inline const std::string& Job::output_dir_prefix () const
             {
                 return output_directory_prefix_;
+            }
+            
+            /**
+             * @return R/O access to outpur beanstalkd config,
+             */
+            inline const ev::beanstalk::Config& Job::beanstalk_config () const
+            {
+                return beanstalk_config_;
             }
         
             inline const char* const Job::JSONValueTypeAsCString (const Json::ValueType& a_type) const

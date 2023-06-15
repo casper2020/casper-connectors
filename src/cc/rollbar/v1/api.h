@@ -28,6 +28,8 @@
 
 #include "cc/easy/http/client.h"
 
+#include "cc/bitwise_enum.h"
+
 #include "ev/loggable.h"
 
 #include "json/json.h"
@@ -43,6 +45,14 @@ namespace cc
             
             class API final : public ::cc::NonMovable, public ::cc::NonCopyable
             {
+
+            public: // Enum(s)
+                
+                enum class Level : uint8_t {
+                    None     = 0x00,
+                    Warning  = 0x01,
+                    Error    = 0x02
+                };
                 
             public: // Data Type(s)
                 
@@ -58,6 +68,8 @@ namespace cc
             private: // Data
                 
                 Json::Value             config_;
+                Level                   enabled_;
+                std::string             project_;
                 
             private: // Helper(s)
                 
@@ -75,11 +87,33 @@ namespace cc
                 
             public: // Method(s)  / Function(s)
                 
-                void Create (const std::string& a_level, const std::string& a_title, const std::string& a_message,
+                bool Create (const Level a_level, const std::string& a_title, const std::string& a_message,
                              const Json::Value& a_custom = Json::Value::null);
                 
+            public: // Inline Method(s)  / Function(s)
+                
+                /**
+                 * @return R/O access to 'project' value.
+                 */
+                inline const std::string& project () const { return project_; }
+
+            public: // Inline Method(s)  / Function(s)
+                
+                bool IsEnabled (const Level a_level) const;
+
             }; // end of class 'API'
             
+            DEFINE_ENUM_WITH_BITWISE_OPERATORS(API::Level)
+            
+            /**
+             * @brief Check if a \link Level \link is enabled.
+             *
+             * @param a_level One of \link Level \link.
+             *
+             * @return True when when it is enabled.
+             */
+            inline bool API::IsEnabled (const API::Level a_level) const { return ( a_level == ( enabled_ & a_level ) ); }
+                       
         } // end of namespace 'v1'
         
     } // end of namespace 'rollbar'

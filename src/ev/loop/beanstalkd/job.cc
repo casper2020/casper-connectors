@@ -84,6 +84,16 @@ ev::loop::beanstalkd::Job::Job (const ev::Loggable::Data& a_loggable_data, const
     log_handler_              = { nullptr, nullptr };
     
     response_flags_           = a_response_flags;
+    beanstalk_config_         =  {
+        /* host_              */ "127.0.0.1",
+        /* port_              */ 11300,
+        /* timeout_           */ 0.0,
+        /* abort_polling_     */ 3,
+        /* max_attempts_      */ std::numeric_limits<uint64_t>::max(),
+        /* tubes_             */ {} ,
+        /* sessionless_tubes_ */ {},
+        /* action_tubes_      */ {}
+    };
     
     ev::LoggerV2::GetInstance().Register(logger_client_, { "queue" });
 }
@@ -118,6 +128,12 @@ void ev::loop::beanstalkd::Job::Setup (const Job::MessagePumpCallbacks* a_callba
     output_directory_        = "";
     logs_directory_          = a_shared_config.directories_.log_;
     shared_directory_        = a_shared_config.directories_.shared_;
+    
+    // ... partial copy only - for producer usage only ! ...
+    beanstalk_config_ = a_shared_config.beanstalk_;
+    beanstalk_config_.tubes_.clear();
+    beanstalk_config_.action_tubes_.clear();
+    beanstalk_config_.sessionless_tubes_.clear();
     
     finished_callback_       = a_finished;
 

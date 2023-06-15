@@ -31,7 +31,8 @@
 cc::rollbar::v1::API::API (const Notifier a_notifier)
 : notifier_(a_notifier)
 {
-    client_ = nullptr;
+    enabled_  = Level::Warning | Level::Error;
+    client_   = nullptr;
 }
 
 /**
@@ -46,6 +47,13 @@ cc::rollbar::v1::API::~API ()
 
 // MARK: -
 
+/**
+ * @brief One-shot call to setup this instance.
+ *
+ * param a_loggable_data
+ * 
+ * @param a_conf JSON object.
+ */
 void cc::rollbar::v1::API::Setup (const ev::Loggable::Data& a_loggable_data, const Json::Value& a_config)
 {
     // ... sanity check ...
@@ -54,16 +62,38 @@ void cc::rollbar::v1::API::Setup (const ev::Loggable::Data& a_loggable_data, con
     client_ = new cc::easy::http::Client(a_loggable_data);
     // ... save config ...
     config_ = a_config;
+    // ... read some flags ...
+    const cc::easy::JSON<cc::Exception> json;
+    const Json::Value& disable = json.Get(config_, "disable", Json::ValueType::objectValue, &Json::Value::null);
+    if ( false == disable.isNull() ) {
+        if ( true == disable.isMember("warnings") ) {
+            enabled_ &= ~(Level::Warning);
+        }
+        if ( true == disable.isMember("errors") ) {
+            enabled_ &= ~(Level::Error);
+        }
+    }
+    project_ = json.Get(config_, "project", Json::ValueType::stringValue, nullptr).asString();
 }
 
 // MARK: -
 
 /**
  * @brief Create a 'rollbar' item.
+ *
+ * @param a_level   One of \link a_level\ \link.
+ * @param a_title   Item title.
+ * @param a_message Item message.
+ * @param a_custom  Other data.
  */
-void cc::rollbar::v1::API::Create (const std::string& a_level, const std::string& a_title, const std::string& a_message,
+bool cc::rollbar::v1::API::Create (const API::Level a_level, const std::string& a_title, const std::string& a_message,
                                    const Json::Value& a_custom)
 {
+    // ... if not enabled ...
+    if ( false == IsEnabled(a_level) ) {
+        // ... it's not allowed ...
+        return false;
+    }
     const cc::easy::JSON<cc::Exception> json;
     // ... sanity check ...
     CC_ASSERT(nullptr != client_);
@@ -132,7 +162,17 @@ void cc::rollbar::v1::API::Create (const std::string& a_level, const std::string
     Json::Value body = Json::Value(Json::ValueType::objectValue);
     body["data"]["body"]["message"]["body"] = a_message;
     body["data"]["environment"] = json.Get(config_, "environment", Json::ValueType::stringValue, /* a_default */ nullptr);
-    body["data"]["level"]       = a_level;
+    switch (a_level) {
+        case API::Level::Warning:
+            body["data"]["level"] = "warning";
+            break;
+        case API::Level::Error:
+            body["data"]["level"] = "error";
+            break;
+        default:
+            body["data"]["level"] = "info";
+            break;
+    }
     body["data"]["timestamp"]   = std::to_string(time(nullptr));
     body["data"]["title"]       = a_title;
     // ... platform ...
@@ -161,4 +201,6 @@ void cc::rollbar::v1::API::Create (const std::string& a_level, const std::string
                         }
                   }
     );
+    // ... sent ...
+    return true;
 }
