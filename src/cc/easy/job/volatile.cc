@@ -160,7 +160,7 @@ void cc::easy::job::Volatile::ReserveAndPush (const Job& a_job, Result& o_result
                 // ... clone payload ...
                 payload = new Json::Value(a_job.payload_);
                 // ... and patch it ...
-                (*payload)["id"]       = o_result.id_;
+                (*payload)["id"]       = std::to_string(o_result.id_);
                 (*payload)["tube"]     = a_job.tube_;
                 (*payload)["validity"] = static_cast<Json::UInt64>(a_job.validity_);
                 
