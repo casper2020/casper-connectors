@@ -25,8 +25,19 @@
 
 #include "cc/singleton.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wshorten-64-to-32"
+#pragma GCC diagnostic ignored "-Wextra-semi"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wunused-function"
+#pragma GCC diagnostic ignored "-Wshadow-uncaptured-local"
+
 #include "modsecurity/modsecurity.h"
 #include "modsecurity/rules_set.h"
+
+#pragma GCC diagnostic pop
 
 #include "ev/logger_v2.h"
 
