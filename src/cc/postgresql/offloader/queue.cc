@@ -222,6 +222,7 @@ void cc::postgresql::offloader::Queue::Cancel (const cc::postgresql::offloader::
 bool cc::postgresql::offloader::Queue::Peek (offloader::Pending& o_pending)
 {
     // ... sanity check ...
+    CC_DEBUG_FAIL_IF_AT_MAIN_THREAD();
     CC_DEBUG_ASSERT(false == cc::debug::Threading::GetInstance().AtMainThread());
     // ... shared data safety insurance ...
     std::lock_guard<std::mutex> lock(mutex_);
