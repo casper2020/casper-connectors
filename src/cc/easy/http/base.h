@@ -82,6 +82,12 @@ namespace cc
                 typedef ::ev::curl::Request::Timeouts                  Timeouts;
                 typedef ::ev::curl::Request::HTTPRequestType           Method;
                 
+#ifdef CC_DEBUG_ON
+                            
+                typedef ::ev::curl::Request::Proxy                     Proxy;
+                typedef ::ev::curl::Request::CACert                    CACert;
+#endif
+
                 typedef struct {
                     std::function<void(const Request&, const std::string&)>                    log_request_;
                     std::function<void(const Value&, const std::string&)  >                    log_response_;
@@ -100,7 +106,11 @@ namespace cc
                 cURLedCallbacks        cURLed_callbacks_;
                 bool                   should_redact_;
                 bool                   follow_location_;
-    CC_IF_DEBUG(bool                   ssl_do_not_verify_peer_;)
+#ifdef CC_DEBUG_ON
+                bool                   ssl_do_not_verify_peer_;
+                Proxy                  proxy_;
+                CACert                 ca_cert_;
+#endif
                 ev::scheduler::Client* scheduler_client_ptr_;
 
             public: // Constructor / Destructor
@@ -190,6 +200,43 @@ namespace cc
                 inline void SetSSLDoNotVerifyPeer ()
                 {
                     ssl_do_not_verify_peer_ = true;
+                }
+                
+                /**
+                 * @brief Set proxy.
+                 *
+                 * @param a_proxy Proxy config.
+                 */
+                inline void SetProxy (const Proxy& a_proxy)
+                {
+                    proxy_ = a_proxy;
+                }
+                
+                /**
+                 * @return R/O access to proxy config.
+                 */
+                const Proxy& proxy () const
+                {
+                    return proxy_;
+                }
+                
+                /**
+                 * @brief Set CA cert..
+                 *
+                 * @param a_cert CA Cert info.
+                 */
+
+                inline void SetCACert (const CACert& a_cert)
+                {
+                    ca_cert_ = a_cert;
+                }
+                
+                /**
+                 * @return R/O access to CA Cert config.
+                 */
+                inline const CACert& ca_cert () const
+                {
+                    return ca_cert_;
                 }
 #endif
                 

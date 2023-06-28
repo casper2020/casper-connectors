@@ -73,6 +73,18 @@ namespace ev
                 std::string value_;
             } FormField;
             
+    CC_IF_DEBUG(
+            typedef struct {
+                std::string url_;
+                std::string cainfo_;   //<! path to proxy Certificate Authority (CA) bundle
+                std::string cert_;     //<! name of the file keeping your private SSL-certificate for proxy
+                bool        insecure_;
+            } Proxy;
+            typedef struct {
+                std::string uri_;
+            } CACert;
+    )
+
             typedef std::vector<FormField> FormFields;
             
         private: // Data Types
@@ -86,17 +98,17 @@ namespace ev
                 WritingBody
             }; // end of enum 'Step'
             
-            CC_IF_DEBUG(
-                typedef struct {
-                    std::string                                                    tmp_;
-                    std::vector<std::string>                                       data_;
-                    bool                                                           enabled_;
-                    std::function<void(const Request&, const std::string&)>        callback_;
-                    std::function<void(const Request&, const uint8_t, const bool)> progress_;
-                    uint8_t                                                        percentage_up_;
-                    uint8_t                                                        percentage_down_;
-                } Debug;
-            )
+        CC_IF_DEBUG(
+            typedef struct {
+                std::string                                                    tmp_;
+                std::vector<std::string>                                       data_;
+                bool                                                           enabled_;
+                std::function<void(const Request&, const std::string&)>        callback_;
+                std::function<void(const Request&, const uint8_t, const bool)> progress_;
+                uint8_t                                                        percentage_up_;
+                uint8_t                                                        percentage_down_;
+            } Debug;
+        )
             
             typedef std::function<void()> OneShotSetup;
 
@@ -107,6 +119,10 @@ namespace ev
         private: // Data
 
             std::string                        url_;                  //!< Request URL.
+        CC_IF_DEBUG(
+            Proxy                              proxy_;                //!<
+            CACert                             ca_cert_;              //!<
+        )
             Timeouts                           timeouts_;             //!< See \link Timeouts \link.
             long                               low_speed_limit_;      //!< Low speed limit in bytes per second, 0 disabled.
             long                               low_speed_time_;       //!< Low speed limit time period, 0 disabled.
@@ -196,16 +212,20 @@ namespace ev
             inline bool                FollowLocation         () const { return follow_location_; }
             void                       SetFollowLocation      ();
 #ifdef CC_DEBUG_ON
-                inline bool            SSLDoNotVerifyPeer     () const { return ssl_do_not_verify_peer_; }
-                void                   SetSSLDoNotVerifyPeer  ();
+            inline bool                SSLDoNotVerifyPeer    () const { return ssl_do_not_verify_peer_; }
+            void                       SetSSLDoNotVerifyPeer ();
+            inline void                SetProxy              (const Proxy& a_proxy);
+            const Proxy&               proxy                 () const               { return proxy_; }
+            inline void                SetCACert             (const CACert& a_cert);
+            inline const CACert&       ca_cert               () const               { return ca_cert_; }
 #endif
             void                       SetReadBodyFrom        (const std::string& a_uri);
             void                       SetWriteResponseBodyTo (const std::string& a_uri);
-            CC_IF_DEBUG(
-                void                   EnableDebug            (std::function<void(const Request&, const std::string&)> a_callback);
-                void                   EnableDebugProgress    (std::function<void(const Request&, const float,  const bool)> a_callback);
-                const Debug&           debug                  () const;
-            )
+        CC_IF_DEBUG(
+            void                       EnableDebug            (std::function<void(const Request&, const std::string&)> a_callback);
+            void                       EnableDebugProgress    (std::function<void(const Request&, const float,  const bool)> a_callback);
+            const Debug&               debug                  () const;
+        )
             void                       Close                  ();
             
             void                       SetStarted  ();
@@ -258,10 +278,11 @@ namespace ev
 
             static size_t WriteDataCallbackWrapper      (char* a_buffer, size_t a_size, size_t a_nm_elem, void* a_self);
             static size_t ReadDataCallbackWrapper       (char* o_buffer, size_t a_size, size_t a_nm_elem, void* a_self);
-            
+
             CC_IF_DEBUG(
-                static int DebugCallbackWrapper          (CURL* a_handle, curl_infotype a_type, char* a_data, size_t a_size, void* a_self);
-            )                    
+                static CURLcode SSLCTX_CallbackWrapper (CURL* a_handle, void* a_sslctx, void* a_self);
+                static int      DebugCallbackWrapper   (CURL* a_handle, curl_infotype a_type, char* a_data, size_t a_size, void* a_self);
+            )
             
         public: // Static Method(s) / Function(s)
             
@@ -335,6 +356,53 @@ namespace ev
                 ssl_do_not_verify_peer_ = true;
             }
         }
+        
+        /**
+         * @brief Set proxy config.
+         *
+         * @param a_proxy Proxy config.
+         */
+        inline void Request::SetProxy (const Request::Proxy& a_proxy)
+        {
+            if ( CURLE_FAILED_INIT == initialization_error_ || CURLE_OK == initialization_error_ ) {
+                auto handle = Setup();
+                initialization_error_ += curl_easy_setopt(handle, CURLOPT_PROXY, a_proxy.url_.c_str());
+                initialization_error_ += curl_easy_setopt(handle, CURLOPT_PROXY_SSL_VERIFYPEER, a_proxy.insecure_ ? 0L : 1L);
+                if ( 0 != a_proxy.cainfo_.length() ) {
+                     initialization_error_ += curl_easy_setopt(handle, CURLOPT_PROXY_CAINFO, a_proxy.cainfo_.c_str());
+                }
+                if ( 0 != a_proxy.cert_.length() ) {
+                    initialization_error_ += curl_easy_setopt(handle, CURLOPT_PROXY_SSLCERT, a_proxy.cert_.c_str());
+                }
+            }
+            if ( CURLE_FAILED_INIT == initialization_error_ || CURLE_OK == initialization_error_ ) {
+                proxy_ = a_proxy;
+            }
+        }
+        
+        /**
+         * @brief Set CA Cert config.
+         *
+         * @param a_cert CA cert config.
+         */
+        inline void Request::SetCACert (const Request::CACert& a_cert)
+        {
+            if ( 0 == a_cert.uri_.length() ) {
+                return;
+            }
+            if ( CURLE_FAILED_INIT == initialization_error_ || CURLE_OK == initialization_error_ ) {
+                auto handle = Setup();
+                initialization_error_ += curl_easy_setopt(handle, CURLOPT_SSLCERTTYPE     , "PEM");
+                initialization_error_ += curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER  , 1L);
+                initialization_error_ += curl_easy_setopt(handle, CURLOPT_CAINFO          , a_cert.uri_.c_str());
+//                initialization_error_ += curl_easy_setopt(handle, CURLOPT_SSL_CTX_FUNCTION, SSLCTX_CallbackWrapper);
+//                initialization_error_ += curl_easy_setopt(handle, CURLOPT_SSL_CTX_DATA    , this);
+            }
+            if ( CURLE_FAILED_INIT == initialization_error_ || CURLE_OK == initialization_error_ ) {
+                ca_cert_ = a_cert;
+            }
+        }
+
 #endif
         
         /**

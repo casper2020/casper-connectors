@@ -25,6 +25,9 @@
 
 #include "osal/osalite.h"
 
+#include <openssl/pem.h>
+#include <openssl/err.h>
+#include <openssl/ssl.h>
 
 /**
  * @brief Default constructor.
@@ -251,6 +254,10 @@ CURL* ev::curl::Request::Setup ()
 void ev::curl::Request::Initialize (const std::string& a_url, const EV_CURL_HEADERS_MAP* a_headers, const Request::Timeouts* a_timeouts, const std::function<void()> a_callback)
 {
     url_                  = a_url;
+#ifdef CC_DEBUG_ON
+    proxy_                = { /* url_ */ "", /* cainfo_ */ "", /* cert_ */ "", /* insecure_ */ false };
+    ca_cert_              = { /* uri_ */ "" };
+#endif
     timeouts_.connection_ = ( nullptr != a_timeouts && -1 != a_timeouts->connection_ ? std::max(1l, a_timeouts->connection_) :   30 );
     timeouts_.operation_  = ( nullptr != a_timeouts && -1 != a_timeouts->operation_  ? std::max(1l, a_timeouts->operation_)  : 3600 );
     low_speed_limit_      = 0; // 0 - disabled
@@ -600,8 +607,88 @@ size_t ev::curl::Request::ReadDataCallbackWrapper (char* o_buffer, size_t a_size
 }
 
 // MARK: -
+#ifdef CC_DEBUG_ON
+/**
+ * @brief This function will get called on all new connections made to a server, during the SSL negotiation.
+ *
+ *        https://curl.se/libcurl/c/CURLOPT_SSL_CTX_FUNCTION.html
+ *
+ *  @param a_handle
+ *  @param a_sslctx Pxoint to a newly initialized object each time, but note the pointer may be the same as from a prior call.
+ *  @param a_self
+ */
+CURLcode ev::curl::Request::SSLCTX_CallbackWrapper (CURL* a_handle, void* a_sslctx, void* a_self)
+{
+    // ... sanity check ...
+    CC_ASSERT(nullptr != a_self);
+    // ... silence warning ...
+    (void)a_handle;
+    // ...
+    ev::curl::Request* instance = static_cast<ev::curl::Request*>(a_self);
+    CURLcode           rv       = CURLE_ABORTED_BY_CALLBACK;
+    // .. load ...
+    STACK_OF(X509_INFO)* info   = nullptr;
+    {
+        FILE* crt_fp = nullptr;
+        try {
+            crt_fp = fopen(instance->ca_cert_.uri_.c_str(), "rb");
+            if ( nullptr == crt_fp ) {
+                throw ::ev::Exception("Unable to open '%s': %s !", instance->ca_cert_.uri_.c_str(), strerror(errno));
+            }
+            if ( nullptr == ( info = PEM_X509_INFO_read(crt_fp, nullptr, nullptr, nullptr) ) ) {
+                throw ::ev::Exception("Unable to load '%s': %s !", instance->ca_cert_.uri_.c_str(), strerror(errno));
+            }
+            if ( 0 != fclose(crt_fp) ) {
+                throw ::ev::Exception("Unable to close '%s': %s !", instance->ca_cert_.uri_.c_str(), strerror(errno));
+            }
+            crt_fp = nullptr;
+        } catch (const ::ev::Exception& a_ev_exception) {
+            if ( nullptr != crt_fp ) {
+                (void)fclose(crt_fp) ;
+            }
+            if ( nullptr != info ) {
+                sk_X509_INFO_pop_free(info, X509_INFO_free);
+            }
+            // TODO: log
+            return rv;
+        }
+        CC_ASSERT(nullptr == crt_fp);
+    }
+    // ... sanity check ...
+    CC_ASSERT(nullptr != info);
+     // .. get ...
+    X509_STORE* cts = SSL_CTX_get_cert_store((SSL_CTX *)a_sslctx);
+    if ( nullptr == cts ) {
+        // ... clean up ...
+        sk_X509_INFO_pop_free(info, X509_INFO_free);
+        // TODO: log
+        // ... failed ...
+        return rv;
+    }
+    // ... assume success ...
+    rv = CURLE_OK;
+    // ... add ...
+    for ( auto i = 0; i < sk_X509_INFO_num(info) ; i++ ) {
+        X509_INFO*itmp = sk_X509_INFO_value(info, i);
+        if ( nullptr != itmp->x509 ) {
+            if ( 0 == X509_STORE_add_cert(cts, itmp->x509) ) {
+                rv = CURLE_ABORTED_BY_CALLBACK;
+                break;
+            }
+        }
+        if( nullptr != itmp->crl ) {
+            if ( 0 == X509_STORE_add_crl(cts, itmp->crl) ) {
+                rv = CURLE_ABORTED_BY_CALLBACK;
+                break;
+            }
+        }
+    }
+    // ... clean up ...
+    sk_X509_INFO_pop_free(info, X509_INFO_free);
+    // ... done ...
+    return rv;
+}
 
-CC_IF_DEBUG(
 /**
  * @brief This function gets called by libcurl for debug purposes.
  *
@@ -662,7 +749,7 @@ int ev::curl::Request::DebugCallbackWrapper (CURL* a_handle, curl_infotype a_typ
     // ... done ..
     return 0;
 }
-)
+#endif
 
 // MARK: -
 

@@ -44,6 +44,8 @@ cc::easy::http::Base::Base (const ev::Loggable::Data& a_loggable_data, const cha
     follow_location_        = false;
 #ifdef CC_DEBUG_ON
     ssl_do_not_verify_peer_ = false;
+    proxy_                  = { /* url_ */ "", /* cainfo_ */ "", /* cert_ */ "", /* insecure_ */ false };
+    ca_cert_                = { /* uri_ */ "" };
 #endif
     scheduler_client_ptr_   = nullptr;
 }
@@ -207,6 +209,8 @@ void cc::easy::http::Base::Async (::ev::curl::Request* a_request, const std::vec
         if ( true == ssl_do_not_verify_peer_ ) {
             a_request->SetSSLDoNotVerifyPeer();
         }
+        a_request->SetProxy(proxy_);
+        a_request->SetCACert(ca_cert_);
 #endif
         if ( 0 != user_agent_.length() ) {
             a_request->SetUserAgent(user_agent_);

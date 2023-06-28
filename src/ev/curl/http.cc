@@ -595,10 +595,25 @@ std::string ev::curl::HTTP::cURLRequest (const std::string& a_id, const ::ev::cu
     if ( true == a_request->FollowLocation() ) {
         ss << "     --location" << "\\\n";
     }
-    // ... insecure?
 #ifdef CC_DEBUG_ON
+    // ... insecure?
     if ( true == a_request->SSLDoNotVerifyPeer() ) {
-        ss << "     --insecure" << "\\\n";
+        ss << "     --insecure" << " \\\n";
+    }
+    // ... proxy?
+    if ( 0 != a_request->proxy().url_.length() ) {
+        ss << "     --proxy " << a_request->proxy().url_ << " \\\n";
+    }
+    // TODO: correct option?
+    if ( 0 != a_request->proxy().cert_.length() ) {
+        ss << "     --proxy-cert " << a_request->proxy().cert_ << " \\\n";
+    }
+    if ( 1 == a_request->proxy().insecure_ ) {
+        ss << "     --proxy-insecure " << a_request->proxy().url_ << " \\\n";
+    }
+    // ... ca-cert?
+    if ( 0 != a_request->ca_cert().uri_.length() ) {
+        ss << "     --cacert " << a_request->ca_cert().uri_ << " \\\n";
     }
 #endif
     // ... url ...
