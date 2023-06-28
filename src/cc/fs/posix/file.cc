@@ -651,6 +651,103 @@ void cc::fs::posix::File::Copy (const std::string& a_from_uri, const std::string
 }
 
 /**
+ * @brief Copy a file.
+ *
+ * @param a_from_uri  Source file URI.
+ * @param a_to_uri    New file URI.
+ * @param a_offset    Source file offset.
+ * @param a_overwrite When true, overwrite destination file ( if any ).
+ * @param o_md5       MD5 calculation result of destination file.
+ */
+void cc::fs::posix::File::Copy (const std::string& a_from_uri, const std::string& a_to_uri,
+                                const bool a_overwrite, const size_t& a_offset,
+                                std::string& o_md5)
+{
+    // ... source file must exist ...
+    if ( false == cc::fs::posix::File::Exists(a_from_uri) ) {
+        throw cc::fs::Exception("Unable to copy file '%s' to '%s' - %s!",
+                                a_from_uri.c_str(), a_to_uri.c_str(), "source file does not exist!"
+        );
+    }
+    
+    // ... destination file  ...
+    if ( true == cc::fs::posix::File::Exists(a_to_uri) ) {
+        // ... exists and ...
+        if ( false == a_overwrite ) {
+            // ... can't be overriden ...
+            throw cc::fs::Exception("Unable to copy file '%s' to '%s' - %s!",
+                a_from_uri.c_str(), a_to_uri.c_str(), "destination file already exist!"
+            );
+        } else {
+            // ... can be overriden ...
+            cc::fs::posix::File::Erase(a_to_uri);
+        }
+    }
+    
+    // ... open source file ...
+    cc::fs::posix::File src_file;
+    src_file.Open(a_from_uri, cc::fs::posix::File::Mode::Read);
+    src_file.Seek(a_offset);
+    
+    cc::hash::MD5* md5 = nullptr;
+
+    // ... copy source file to destination file ...
+    unsigned char* buffer = new unsigned char [4096];
+    try {
+        md5 = new cc::hash::MD5();
+        md5->Initialize();
+        // ... open destination file ...
+        cc::fs::posix::File dst_file;
+        dst_file.Open(a_to_uri, cc::fs::posix::File::Mode::Write);
+        // ... copy loop ...
+        bool   eof        = false;
+        size_t bytes_read = 0;
+        do {
+            // ... read and write ( write function will test bytes written ) ...
+            bytes_read = dst_file.Write(buffer, src_file.Read(buffer, 4096, eof), /* a_flush */ true);
+            if ( nullptr != md5 ) {
+                md5->Update(buffer, bytes_read);
+            }
+        } while ( eof == false );
+        // ... close file ...
+        dst_file.Close();
+        // ... at least, ensure file size is within expected value ...
+        if ( not ( cc::fs::posix::File::Size(a_to_uri) <= cc::fs::posix::File::Size(a_from_uri) ) ) {
+            // ... notify ( file and buffer will be deleted in catch statement )  ...
+            throw cc::fs::Exception("Failed to copy file '%s' to '%s' - %s!",
+                                    a_from_uri.c_str(), a_to_uri.c_str(), "destination file size mismatch after copy!"
+            );
+        }
+        o_md5 = md5->Finalize();
+    } catch (const cc::fs::Exception& a_fs_exception) {
+        // ... release previously allocated memory ...
+        delete [] buffer;
+        delete md5;
+        // ... erase file ...
+        if ( cc::fs::posix::File::Exists(a_to_uri) ) {
+            cc::fs::posix::File::Erase(a_to_uri);
+        }
+        // ... rethrow exception ...
+        throw a_fs_exception;
+    } catch (...) {
+        // ... release previously allocated memory ...
+        delete [] buffer;
+        delete md5;
+        // ... erase file ...
+        if ( cc::fs::posix::File::Exists(a_to_uri) ) {
+            cc::fs::posix::File::Erase(a_to_uri);
+        }
+        // ... rethrow exception ...
+        CC_EXCEPTION_RETHROW(/* a_unhandled*/ true);
+    }
+
+    delete [] buffer;
+    delete md5;
+
+    src_file.Close();
+}
+
+/**
  * @brief Obtain a file size.
  *
  * @param a_uri File URI.
