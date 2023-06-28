@@ -125,9 +125,8 @@ std::string cc::magic::MIMEType::MIMETypeOf (const std::string& a_uri) const
 /**
  * @brief Obtain a file's MIME Type.
  *
- * @param a_uri Local file URI.
- *
- * @return File's MIME Type value ( / encode if previously requested ), "" if not found.
+ * @param a_uri    Local file URI.
+ * @param a_offset If PDF, offset where it starts - because of dirty or f#c%edup 'PDF'.
  *
  * @return File's MIME Type value ( / encode if previously requested ), "" if not found.
  */
@@ -146,7 +145,7 @@ std::string cc::magic::MIMEType::MIMETypeOf (const std::string& a_uri, std::size
 #if defined(CC_CPP_VERSION) && CC_CPP_VERSION >= 17L
                 std::string_view sv(reinterpret_cast<const char*>(buffer_), read);
 #else
-		std::string sv(reinterpret_cast<const char*>(buffer_), read);
+                std::string sv(reinterpret_cast<const char*>(buffer_), read);
 #endif
                 if ( ( o_offset = sv.find(sk_pdf_) ) != sv.npos ) {
                     mime = "application/pdf";
@@ -165,14 +164,14 @@ std::string cc::magic::MIMEType::MIMETypeOf (const std::string& a_uri, std::size
 /**
  * @brief Obtain a file's MIME Type without charset or it's description ( depends on flags ).
  *
- * @param a_uri Local file URI.
+ * @param a_uri    Local file URI.
+ * @param a_offset If PDF, offset where it starts - because of dirty or f#c%edup 'PDF'.
  *
  * @return File's MIME Type or Description value, "" if not found.
  */
-std::string cc::magic::MIMEType::WithoutCharsetOf (const std::string& a_uri)
+std::string cc::magic::MIMEType::WithoutCharsetOf (const std::string& a_uri, std::size_t& o_offset)
 {
-    std::size_t offset;
-    std::string type = MIMETypeOf(a_uri, offset);
+    std::string type = MIMETypeOf(a_uri, o_offset);
     const char* p = strcasestr(type.c_str(), "; charset=");
     if ( nullptr != p ) {
         type = std::string(type.c_str(), size_t(p - type.c_str()));

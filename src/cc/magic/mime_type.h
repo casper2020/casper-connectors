@@ -67,7 +67,7 @@ namespace cc
             std::string MIMETypeOf (const std::string& a_uri) const;
             std::string MIMETypeOf (const std::string& a_uri, std::size_t& o_offset);
             
-            std::string WithoutCharsetOf(const std::string& a_uri);
+            std::string WithoutCharsetOf(const std::string& a_uri, std::size_t& o_offset);
             
         }; // end of class 'MIMEType'
         
