@@ -60,6 +60,8 @@
 
     #define CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD() \
         CC_DEBUG_ASSERT(true == cc::debug::Threading::GetInstance().AtMainThread())
+    #define CC_DEBUG_FAIL_IF_AT_MAIN_THREAD() \
+        CC_DEBUG_ASSERT(false == cc::debug::Threading::GetInstance().AtMainThread())
 
     #define CC_DEBUG_FAIL_IF_NOT_AT_THREAD(a_id) \
         CC_DEBUG_ASSERT(cc::debug::Threading::GetInstance().CurrentThreadID() == a_id)
@@ -113,6 +115,7 @@
 
     #define CC_DEBUG_SET_MAIN_THREAD_ID()
     #define CC_DEBUG_FAIL_IF_NOT_AT_MAIN_THREAD()
+    #define CC_DEBUG_FAIL_IF_AT_MAIN_THREAD()
     #define CC_DEBUG_FAIL_IF_NOT_AT_THREAD(a_id)
 
     #define CC_IF_DEBUG(...)
