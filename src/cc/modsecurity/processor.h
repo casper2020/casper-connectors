@@ -132,7 +132,7 @@ namespace cc
             
             ::ev::Loggable::Data*    loggable_data_;
             ::ev::LoggerV2::Client*  logger_client_;
-            CC_IF_DEBUG(std::string  log_dir_);
+            CC_IF_DEBUG(std::string  log_dir_;)
             
         public: // Constructor(s) / Destructor
             
